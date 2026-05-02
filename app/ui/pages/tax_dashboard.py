@@ -36,7 +36,7 @@ def render() -> None:
     tax_year = _load_tax_year()
 
     if tax_year is None:
-        st.warning("No tax year data found — add a `tax_year` block to portfolio.json.")
+        st.warning("No tax year data found — add a `tax_year` block to transactions.json.")
         return
 
     with st.spinner("Fetching live prices…"):

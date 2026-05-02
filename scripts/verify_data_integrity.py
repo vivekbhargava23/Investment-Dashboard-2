@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 def main() -> int:
-    path = Path("data/portfolio.json")
+    path = Path("data/transactions.json")
     if not path.exists():
         print(f"FAIL: {path} does not exist")
         return 1

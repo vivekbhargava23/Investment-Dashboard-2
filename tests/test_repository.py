@@ -2,8 +2,8 @@
 tests/test_repository.py
 
 Integration tests for app/data/repository.py.
-Tests use the committed seed file (app/data/seeds/portfolio.json) so they
-work without a runtime data/portfolio.json present.
+Tests use the committed seed file (app/data/seeds/transactions.json) so they
+work without a runtime data/transactions.json present.
 """
 
 import json
@@ -69,7 +69,7 @@ class TestLoadPortfolio:
         self, tmp_path, monkeypatch
     ):
         data = _minimal_portfolio_json()
-        runtime = tmp_path / "portfolio.json"
+        runtime = tmp_path / "transactions.json"
         runtime.write_text(json.dumps(data), encoding="utf-8")
 
         monkeypatch.setattr(repo, "_RUNTIME_PATH", runtime)
@@ -86,7 +86,7 @@ class TestLoadPortfolio:
         self, tmp_path, monkeypatch
     ):
         data = _minimal_portfolio_json()
-        runtime = tmp_path / "portfolio.json"
+        runtime = tmp_path / "transactions.json"
         runtime.write_text(json.dumps(data), encoding="utf-8")
 
         monkeypatch.setattr(repo, "_RUNTIME_PATH", runtime)
@@ -119,7 +119,7 @@ class TestSavePortfolio:
         self, tmp_path, monkeypatch
     ):
         data = _minimal_portfolio_json()
-        runtime = tmp_path / "portfolio.json"
+        runtime = tmp_path / "transactions.json"
         runtime.write_text(json.dumps(data), encoding="utf-8")
 
         monkeypatch.setattr(repo, "_RUNTIME_PATH", runtime)
@@ -139,7 +139,7 @@ class TestSavePortfolio:
         self, tmp_path, monkeypatch
     ):
         data = _minimal_portfolio_json()
-        runtime = tmp_path / "portfolio.json"
+        runtime = tmp_path / "transactions.json"
         runtime.write_text(json.dumps(data), encoding="utf-8")
 
         monkeypatch.setattr(repo, "_RUNTIME_PATH", runtime)

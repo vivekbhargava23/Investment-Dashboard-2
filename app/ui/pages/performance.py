@@ -49,7 +49,7 @@ def render() -> None:
     period = st.radio(
         "Period",
         options=PERIODS,
-        index=PERIODS.index("1M"),
+        index=PERIODS.index("MAX"),
         horizontal=True,
         label_visibility="collapsed",
     )
