@@ -175,7 +175,7 @@ def render() -> None:
     # ── Refresh ───────────────────────────────────────────────────────────
     st.caption(f"Prices refresh automatically every {_settings.price_refresh_interval_seconds}s.")
     if st.button("↺ Refresh now"):
-        st.cache_data.clear()
+        clear_all()
         st.rerun()
 
 
@@ -278,7 +278,7 @@ def _render_add_position_section(portfolio: Portfolio) -> None:
             save_portfolio(new_portfolio)
             st.session_state.ll_show_add_position = False
             st.session_state.pop("add_pos_ticker", None)
-            st.cache_data.clear()
+            clear_all()
             logger.info("position_added", ticker=ticker, name=display_name)
             st.success(f"Position {ticker} — {display_name} added.")
             st.rerun()
@@ -357,7 +357,7 @@ def _render_add_lot_section(position: Position) -> None:
             ]
             save_portfolio(fresh.model_copy(update={"positions": new_positions}))
             st.session_state.ll_show_add_lot = False
-            st.cache_data.clear()
+            clear_all()
             logger.info("lot_added", ticker=position.ticker, date=str(purchase_date), shares=shares)
             st.success(
                 f"Buy recorded: {shares:g} × {position.ticker}"
@@ -428,7 +428,7 @@ def _render_add_lot_section(position: Position) -> None:
             save_portfolio(fresh.model_copy(update={"positions": new_positions}))
             _recompute_and_save_tax_year()
             st.session_state.ll_show_add_lot = False
-            st.cache_data.clear()
+            clear_all()
             sign = "+" if pv.gain_eur >= 0 else ""
             logger.info(
                 "sell_recorded", ticker=position.ticker,
@@ -685,7 +685,7 @@ def _execute_txn_edit(
     _recompute_and_save_tax_year()
     st.session_state.ll_editing_lot_id = None
     _clear_edit_keys(txn_id)
-    st.cache_data.clear()
+    clear_all()
     logger.info("transaction_edited", ticker=position.ticker, txn_id=txn_id, new_type=new_type)
     st.success("Transaction updated.")
     st.rerun()
@@ -715,7 +715,7 @@ def _execute_txn_delete(position: Position, txn_id: str) -> None:
     save_portfolio(new_portfolio)
     _recompute_and_save_tax_year()
     st.session_state.ll_pending_delete_lot_id = None
-    st.cache_data.clear()
+    clear_all()
     logger.info("transaction_deleted", ticker=position.ticker, txn_id=txn_id, position_removed=(not remaining))
     st.success(msg)
     st.rerun()
@@ -776,7 +776,7 @@ def _render_edit_position_form(position: Position) -> None:
         new_portfolio = fresh.model_copy(update={"positions": new_positions})
         save_portfolio(new_portfolio)
         st.session_state.ll_edit_ticker = None
-        st.cache_data.clear()
+        clear_all()
         logger.info("position_metadata_updated", ticker=position.ticker)
         st.success(f"{position.ticker} metadata saved.")
         st.rerun()
