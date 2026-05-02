@@ -163,7 +163,10 @@ def get_ticker_history(ticker: str, period: str, start: date | None = None) -> p
     Returns:
         pd.Series indexed by timezone-naive Timestamp, empty on failure.
     """
-    s = _fetch(ticker, period, start=start)
+    # EMERGENCY OVERRIDE: Force start date to Jan 2025 for individual tickers
+    start_override = "2025-01-01"
+    print(f"DEBUG_UI: Overriding {ticker} fetch start to {start_override}")
+    s = _fetch(ticker, period, start=start_override)
     return _normalise_index(s, intraday=(period == "1D")) if not s.empty else s
 
 
