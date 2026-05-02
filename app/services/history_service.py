@@ -8,6 +8,7 @@ Vectorised via pandas for performance.
 from __future__ import annotations
 
 from datetime import date
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -31,6 +32,59 @@ _YF_PARAMS: dict[str, tuple[str, str]] = {
 }
 
 
+def _fetch_batch(tickers: Sequence[str], period: str, start: date | None = None) -> pd.DataFrame:
+    """
+    Fetch Close prices for multiple tickers in a single batched call.
+    Returns a DataFrame with tickers as columns.
+    """
+    if not tickers:
+        return pd.DataFrame()
+
+    try:
+        if period == "MAX":
+            if start:
+                raw = yf.download(list(tickers), start=str(start), interval="1d", group_by="ticker", auto_adjust=True, threads=True, progress=False)
+            else:
+                raw = yf.download(list(tickers), period="max", interval="1d", group_by="ticker", auto_adjust=True, threads=True, progress=False)
+        else:
+            yf_period, interval = _YF_PARAMS.get(period, ("1mo", "1d"))
+            raw = yf.download(list(tickers), period=yf_period, interval=interval, group_by="ticker", auto_adjust=True, threads=True, progress=False)
+
+        if raw.empty:
+            logger.warning("batch_fetch_empty", tickers=tickers, period=period)
+            return pd.DataFrame()
+
+        # Extract 'Close' prices. yf.download with group_by='ticker' returns a MultiIndex (Ticker, PriceType)
+        # or a single level index if only one ticker is requested.
+        result_df = pd.DataFrame(index=raw.index)
+        
+        for ticker in tickers:
+            try:
+                if len(tickers) > 1:
+                    s = raw[ticker]["Close"]
+                else:
+                    s = raw["Close"]
+                result_df[ticker] = s
+            except KeyError:
+                logger.warning("ticker_missing_in_batch", ticker=ticker)
+                # Fallback: Fetch individually
+                s_fallback = _fetch(ticker, period, start)
+                if not s_fallback.empty:
+                    result_df[ticker] = s_fallback
+        
+        return result_df.dropna(how="all")
+
+    except Exception as exc:
+        logger.error("batch_fetch_error", error=str(exc))
+        # Final fallback: Fetch all individually if batch fails entirely
+        result_df = pd.DataFrame()
+        for ticker in tickers:
+            s = _fetch(ticker, period, start)
+            if not s.empty:
+                result_df[ticker] = s
+        return result_df
+
+
 def _fetch(ticker: str, period: str, start: date | None = None) -> pd.Series:
     """Fetch Close prices from yfinance. Returns empty Series on any failure."""
     try:
@@ -52,14 +106,17 @@ def _fetch(ticker: str, period: str, start: date | None = None) -> pd.Series:
         return pd.Series(dtype=float, name=ticker)
 
 
-def _normalise_index(s: pd.Series, intraday: bool) -> pd.Series:
+def _normalise_index(df_or_s: pd.DataFrame | pd.Series, intraday: bool) -> pd.DataFrame | pd.Series:
     """Strip timezone; for daily data also strip the time component."""
-    idx = pd.DatetimeIndex(s.index)
+    idx = pd.DatetimeIndex(df_or_s.index)
     if idx.tz is not None:
         idx = idx.tz_localize(None)
     if not intraday:
         idx = idx.normalize()          # → midnight timestamps, all dates comparable
-    return pd.Series(s.values, index=idx, name=s.name)
+    
+    if isinstance(df_or_s, pd.DataFrame):
+        return pd.DataFrame(df_or_s.values, index=idx, columns=df_or_s.columns)
+    return pd.Series(df_or_s.values, index=idx, name=df_or_s.name)
 
 
 def get_ticker_history(ticker: str, period: str, start: date | None = None) -> pd.Series:
@@ -88,7 +145,7 @@ def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
 
     intraday = period == "1D"
 
-    # 1. Determine date range
+    # 1. Determine date range and tickers
     all_txns = [t for pos in portfolio.positions for t in pos.transactions]
     if not all_txns:
         return pd.Series(dtype=float, name="Portfolio (€)")
@@ -96,36 +153,31 @@ def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
     earliest_txn = min(t.trade_date for t in all_txns)
     start_date = earliest_txn if period == "MAX" else None
 
-    # 2. Fetch price and FX histories
-    price_histories = {}
-    tickers = [pos.ticker for pos in portfolio.positions]
-    for ticker in tickers:
-        s = _fetch(ticker, period, start=start_date)
-        if not s.empty:
-            price_histories[ticker] = _normalise_index(s, intraday)
+    asset_tickers = [pos.ticker for pos in portfolio.positions]
+    currencies = {pos.ticker: get_currency(pos.ticker) for pos in portfolio.positions}
+    unique_ccys = set(currencies.values()) - {"EUR"}
+    fx_tickers = [_FX_TICKERS[ccy] for ccy in unique_ccys]
+
+    # 2. Batch fetch all Asset Prices and FX Rates
+    all_to_fetch = list(set(asset_tickers + fx_tickers))
+    combined_df = _fetch_batch(all_to_fetch, period, start=start_date)
     
-    if not price_histories:
+    if combined_df.empty:
         return pd.Series(dtype=float, name="Portfolio (€)")
 
-    # Unified index from all fetched prices
-    full_index = pd.DatetimeIndex(sorted(set().union(*[set(s.index) for s in price_histories.values()])))
+    combined_df = _normalise_index(combined_df, intraday)
+    full_index = combined_df.index
     
     # 3. Build Price Matrix (T x N)
-    price_df = pd.DataFrame(index=full_index)
-    for ticker, s in price_histories.items():
-        price_df[ticker] = s
-    price_df = price_df.ffill()
+    price_df = combined_df[asset_tickers].ffill()
 
     # 4. Build Shares Matrix (T x N)
-    shares_df = pd.DataFrame(0.0, index=full_index, columns=tickers)
+    shares_df = pd.DataFrame(0.0, index=full_index, columns=asset_tickers)
     for pos in portfolio.positions:
-        # Group transactions by date to handle multiple same-day trades
         txn_series = pd.Series(0.0, index=full_index)
         for t in pos.transactions:
             ts = pd.Timestamp(t.trade_date)
             impact = t.shares if t.trade_type == "buy" else -t.shares
-            # Find the first index >= trade_date
-            # For 1D, trade_date (date) might need alignment with intraday timestamps
             idx_after = full_index[full_index >= ts]
             if not idx_after.empty:
                 txn_series.loc[idx_after[0]] += impact
@@ -133,31 +185,24 @@ def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
         shares_df[pos.ticker] = txn_series.cumsum()
 
     # 5. Build FX Matrix (T x N)
-    currencies = {pos.ticker: get_currency(pos.ticker) for pos in portfolio.positions}
-    unique_ccys = set(currencies.values()) - {"EUR"}
+    fx_df = pd.DataFrame(1.0, index=full_index, columns=asset_tickers)
     
-    fx_histories = {}
-    for ccy in unique_ccys:
-        if intraday:
-            fx_histories[ccy] = pd.Series(get_fx_rate(ccy) or 1.0, index=full_index)
-        else:
-            s = _fetch(_FX_TICKERS[ccy], period, start=start_date)
-            if not s.empty:
-                fx_histories[ccy] = _normalise_index(s, intraday=False)
-            else:
-                fx_histories[ccy] = pd.Series(get_fx_rate(ccy) or 1.0, index=full_index)
-
-    fx_df = pd.DataFrame(1.0, index=full_index, columns=tickers)
-    for ticker, ccy in currencies.items():
-        if ccy != "EUR" and ccy in fx_histories:
-            s = fx_histories[ccy]
-            # Align FX series to full_index
-            fx_aligned = pd.Series(index=full_index, dtype=float)
-            fx_aligned.update(s)
-            fx_df[ticker] = fx_aligned.ffill().bfill()
+    if intraday:
+        # For 1D, use live FX rate for the whole series (matches Phase 6 behavior)
+        for ticker, ccy in currencies.items():
+            if ccy != "EUR":
+                fx_df[ticker] = get_fx_rate(ccy) or 1.0
+    else:
+        for ticker, ccy in currencies.items():
+            if ccy != "EUR":
+                fx_ticker = _FX_TICKERS[ccy]
+                if fx_ticker in combined_df.columns:
+                    fx_df[ticker] = combined_df[fx_ticker].ffill().bfill()
+                else:
+                    # Fallback to live rate if historical FX is totally missing
+                    fx_df[ticker] = get_fx_rate(ccy) or 1.0
 
     # 6. Final Calculation: (Price * Shares / FX).sum(axis=1)
-    # Ensure all shapes match
     portfolio_value = (price_df * shares_df / fx_df).sum(axis=1)
     
     return portfolio_value.rename("Portfolio (€)")
