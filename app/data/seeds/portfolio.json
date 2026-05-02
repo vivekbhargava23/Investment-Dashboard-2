@@ -1,0 +1,478 @@
+{
+  "name": "Viv — Scalable Capital",
+  "base_currency": "EUR",
+  "catalysts": [
+    {
+      "ticker": "HY9H.F",
+      "event_date": "2026-04-29",
+      "event_type": "earnings",
+      "description": "SK Hynix Q1 2026 earnings. Watch gross margin and HBM4 mass production update — not just EPS. Key thesis confirmation event."
+    },
+    {
+      "ticker": "NVDA",
+      "event_date": "2026-05-28",
+      "event_type": "earnings",
+      "description": "NVIDIA Q1 FY2027 earnings. Blackwell ramp pace, data centre revenue, and gross margin guidance."
+    },
+    {
+      "ticker": "MU",
+      "event_date": "2026-06-25",
+      "event_type": "earnings",
+      "description": "Micron Q3 FY2026 earnings. HBM3E shipment volumes and NAND pricing outlook."
+    },
+    {
+      "ticker": "MRVL",
+      "event_date": "2026-06-03",
+      "event_type": "earnings",
+      "description": "Marvell Q1 FY2027 earnings. Custom silicon design win pipeline and AI networking ramp."
+    },
+    {
+      "ticker": "AVGO",
+      "event_date": "2026-06-12",
+      "event_type": "earnings",
+      "description": "Broadcom Q2 FY2026 earnings. XPU hyperscaler revenue and VMware integration progress."
+    },
+    {
+      "ticker": "ANET",
+      "event_date": "2026-05-06",
+      "event_type": "earnings",
+      "description": "Arista Networks Q1 2026 earnings. Data centre order book and hyperscaler capex guidance."
+    },
+    {
+      "ticker": "ETN",
+      "event_date": "2026-05-02",
+      "event_type": "earnings",
+      "description": "Eaton Q1 2026 earnings. Power management order backlog and data centre electrical segment."
+    },
+    {
+      "ticker": "APD",
+      "event_date": "2026-05-01",
+      "event_type": "earnings",
+      "description": "Air Products Q2 FY2026 earnings. Hydrogen project update and CEO strategic review outcome."
+    },
+    {
+      "ticker": "RHM.DE",
+      "event_date": "2026-05-08",
+      "event_type": "earnings",
+      "description": "Rheinmetall Q1 2026 earnings. Order intake from EU rearmament and NATO spending commitments."
+    },
+    {
+      "ticker": "ASX",
+      "event_date": "2026-05-14",
+      "event_type": "earnings",
+      "description": "ASE Technology Q1 2026 earnings. Advanced packaging capacity and HBM assembly volume."
+    }
+  ],
+  "risk_flags": [
+    {
+      "ticker": "APD",
+      "severity": "medium",
+      "category": "macro",
+      "title": "APD: CEO Transition Risk",
+      "description": "New CEO strategy review underway. Potential portfolio restructuring and hydrogen project delays. Monitor Q2 earnings for direction.",
+      "auto_computed": false
+    },
+    {
+      "ticker": null,
+      "severity": "medium",
+      "category": "macro",
+      "title": "US Tariff Uncertainty",
+      "description": "Elevated tariff risk affecting US-listed semiconductor names (NVDA, MU, MRVL, AVGO). Watch for supply chain disruption guidance in Q1 earnings.",
+      "auto_computed": false
+    }
+  ],
+  "behavioural_ledger": [
+    {
+      "id": "engagement-bias",
+      "name": "Engagement Bias",
+      "status": "active",
+      "description": "Tendency to check positions and news far more frequently than the investment horizon warrants. H2/H3 positions do not need daily monitoring — repeated checking amplifies noise-driven anxiety and increases the risk of reacting to short-term volatility.",
+      "first_identified": "2026-01-15",
+      "notes": "Most pronounced during earnings weeks. Reviewing SK Hynix and NVDA multiple times per day even when no new catalyst is expected."
+    },
+    {
+      "id": "execution-paralysis",
+      "name": "Execution Paralysis",
+      "status": "active",
+      "description": "Hesitation to execute a planned trade even after the pre-trade checklist is complete and the thesis clearly supports the action. Manifests as waiting for 'one more data point' that never fully satisfies.",
+      "first_identified": "2026-02-03",
+      "notes": "Observed when adding to RHM.DE position in February — checklist passed, decision was sound, but execution delayed 4 days with no new information arriving in that window."
+    },
+    {
+      "id": "trim-discipline",
+      "name": "Trim Discipline",
+      "status": "monitoring",
+      "description": "Reluctance to trim positions that have grown beyond target weight, rationalised as 'the thesis is still intact'. Concentration risk accumulates when winners are never partially sold.",
+      "first_identified": "2026-03-10",
+      "notes": "RHM.DE reached 28% portfolio weight in March. No trim executed despite the position sizing guideline at 25% target. Monitoring whether this breaches the 35% hard limit."
+    }
+  ],
+  "session_log": [
+    {
+      "date": "2026-04-28",
+      "summary": "Monthly review. Reviewed all positions against thesis, checked catalyst calendar for May–June, noted SK Hynix Q1 earnings imminent.",
+      "key_decisions": [
+        "No new positions this month — cash is at 8%, below the 10% minimum buffer.",
+        "RHM.DE thesis remains intact despite broader defence sector correction.",
+        "Decided not to trim NVDA ahead of earnings — position weight at 22%, within guidelines."
+      ],
+      "action_items": [
+        "Review SK Hynix Q1 earnings result on 2026-04-29 against HBM4 thesis milestones.",
+        "Recalculate Sparerpauschbetrag headroom after Q1 dividend income is confirmed.",
+        "Set a reminder to review APD thesis after new CEO Q2 strategy statement."
+      ]
+    },
+    {
+      "date": "2026-03-31",
+      "summary": "Added fifth SK Hynix lot. Reviewed engagement bias pattern — reduced check-in frequency to once per week for H2/H3 positions.",
+      "key_decisions": [
+        "Bought 10 shares of HY9H.F at €121.40 — pre-trade checklist passed, thesis intact.",
+        "Committed to weekly-only review cadence for SK Hynix and MU outside earnings windows."
+      ],
+      "action_items": [
+        "Update lot ledger with new SK Hynix purchase.",
+        "Check FIFO lot ordering — fifth lot now oldest lot with lowest cost basis."
+      ]
+    },
+    {
+      "date": "2026-02-28",
+      "summary": "Q1 portfolio review. Identified execution paralysis pattern after RHM.DE delay. No disposals made.",
+      "key_decisions": [
+        "Acknowledged execution paralysis on RHM.DE add — documented here to track recurrence.",
+        "MTE.DE thesis intact — hydrogen infrastructure funding confirmed in EU budget.",
+        "No tax-loss harvesting opportunities — all positions in unrealised gain."
+      ],
+      "action_items": [
+        "Set a hard rule: if checklist passes and no new material information arrives within 48h, execute.",
+        "Review MRVL position sizing — currently 9%, below 10% minimum meaningful allocation."
+      ]
+    }
+  ],
+  "tax_year": {
+    "year": 2026,
+    "sparerpauschbetrag": 1000.0,
+    "allowance_used": 647.2,
+    "realised_gains": 647.2,
+    "realised_losses": 0.0,
+    "loss_pot_carried_in": 0.0
+  },
+  "positions": [
+    {
+      "ticker": "HY9H.F",
+      "name": "SK Hynix GDR",
+      "tags": [
+        "semiconductors",
+        "hbm",
+        "memory"
+      ],
+      "horizon": "H2",
+      "thesis_status": "intact",
+      "thesis_notes": "HBM4 mass production leader, 62% global HBM share, NVIDIA #1 supplier. Thesis confirmation: Q1 2026 earnings April 29 — watch gross margin, not just EPS.",
+      "transactions": [
+        {
+          "id": "lot-hy9h-3",
+          "ticker": "HY9H.F",
+          "trade_date": "2025-06-20",
+          "trade_type": "buy",
+          "shares": 3.0,
+          "price": 530.0,
+          "fees": 0.0,
+          "note": ""
+        },
+        {
+          "id": "lot-hy9h-4",
+          "ticker": "HY9H.F",
+          "trade_date": "2025-09-14",
+          "trade_type": "buy",
+          "shares": 1.0,
+          "price": 520.0,
+          "fees": 0.0,
+          "note": ""
+        },
+        {
+          "id": "lot-hy9h-5",
+          "ticker": "HY9H.F",
+          "trade_date": "2026-03-31",
+          "trade_type": "buy",
+          "shares": 1.0,
+          "price": 480.0,
+          "fees": 0.0,
+          "note": ""
+        },
+        {
+          "id": "lot-hy9h-sell-1",
+          "ticker": "HY9H.F",
+          "trade_date": "2026-01-15",
+          "trade_type": "sell",
+          "shares": 1.0,
+          "price": 700.0,
+          "fees": 0.0,
+          "note": ""
+        },
+        {
+          "id": "lot-hy9h-sell-2",
+          "ticker": "HY9H.F",
+          "trade_date": "2026-03-01",
+          "trade_type": "sell",
+          "shares": 1.0,
+          "price": 650.0,
+          "fees": 0.0,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "ticker": "VUSA.DE",
+      "name": "Vanguard S&P 500 UCITS ETF",
+      "tags": [
+        "etf",
+        "broad-market"
+      ],
+      "horizon": "H3",
+      "thesis_status": "intact",
+      "thesis_notes": "Core broad market ETF. Long term hold.",
+      "transactions": [
+        {
+          "id": "lot-vusa-1",
+          "ticker": "VUSA.DE",
+          "trade_date": "2024-08-01",
+          "trade_type": "buy",
+          "shares": 32.0,
+          "price": 97.5,
+          "fees": 0.0,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "ticker": "ETN",
+      "name": "Eaton",
+      "tags": [
+        "power-infrastructure",
+        "ai-infrastructure"
+      ],
+      "horizon": "H1",
+      "thesis_status": "intact",
+      "thesis_notes": "Switchgear and power management. Front-loaded exposure to AI deployment cycle.",
+      "transactions": [
+        {
+          "id": "lot-etn-1",
+          "ticker": "ETN",
+          "trade_date": "2025-01-15",
+          "trade_type": "buy",
+          "shares": 5.0,
+          "price": 320.0,
+          "fees": 0.0,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "ticker": "MU",
+      "name": "Micron Technology",
+      "tags": [
+        "semiconductors",
+        "memory",
+        "hbm"
+      ],
+      "horizon": "H2",
+      "thesis_status": "intact",
+      "thesis_notes": "HBM3E ramp, AI datacenter demand. Secondary HBM play alongside SK Hynix.",
+      "transactions": [
+        {
+          "id": "lot-mu-1",
+          "ticker": "MU",
+          "trade_date": "2025-03-10",
+          "trade_type": "buy",
+          "shares": 4.0,
+          "price": 340.0,
+          "fees": 0.0,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "ticker": "APD",
+      "name": "Air Products and Chemicals",
+      "tags": [
+        "power-infrastructure",
+        "hydrogen"
+      ],
+      "horizon": "H2",
+      "thesis_status": "watch",
+      "thesis_notes": "Industrial gases and hydrogen infrastructure. Under review.",
+      "transactions": [
+        {
+          "id": "lot-apd-1",
+          "ticker": "APD",
+          "trade_date": "2025-07-22",
+          "trade_type": "buy",
+          "shares": 4.0,
+          "price": 250.0,
+          "fees": 0.0,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "ticker": "ANET",
+      "name": "Arista Networks",
+      "tags": [
+        "ai-infrastructure",
+        "networking"
+      ],
+      "horizon": "H1",
+      "thesis_status": "intact",
+      "thesis_notes": "AI datacenter networking. Hyperscaler capex beneficiary.",
+      "transactions": [
+        {
+          "id": "lot-anet-1",
+          "ticker": "ANET",
+          "trade_date": "2025-04-05",
+          "trade_type": "buy",
+          "shares": 10.0,
+          "price": 105.0,
+          "fees": 0.0,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "ticker": "NVDA",
+      "name": "NVIDIA",
+      "tags": [
+        "semiconductors",
+        "ai-compute"
+      ],
+      "horizon": "H1",
+      "thesis_status": "intact",
+      "thesis_notes": "AI compute dominant platform. Blackwell ramp.",
+      "transactions": [
+        {
+          "id": "lot-nvda-1",
+          "ticker": "NVDA",
+          "trade_date": "2025-05-12",
+          "trade_type": "buy",
+          "shares": 9.0,
+          "price": 115.0,
+          "fees": 0.0,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "ticker": "ASX",
+      "name": "ASE Technology",
+      "tags": [
+        "semiconductors",
+        "packaging"
+      ],
+      "horizon": "H2",
+      "thesis_status": "intact",
+      "thesis_notes": "Advanced semiconductor packaging. HBM and AI chip assembly beneficiary.",
+      "transactions": [
+        {
+          "id": "lot-asx-1",
+          "ticker": "ASX",
+          "trade_date": "2025-02-28",
+          "trade_type": "buy",
+          "shares": 100.0,
+          "price": 9.5,
+          "fees": 0.0,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "ticker": "RHM.DE",
+      "name": "Rheinmetall",
+      "tags": [
+        "defence"
+      ],
+      "horizon": "H2",
+      "thesis_status": "intact",
+      "thesis_notes": "European defence rearmament. Entered at long-standing target ~€1,452.",
+      "transactions": [
+        {
+          "id": "lot-rhm-1",
+          "ticker": "RHM.DE",
+          "trade_date": "2026-03-27",
+          "trade_type": "buy",
+          "shares": 1.0,
+          "price": 1452.75,
+          "fees": 0.0,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "ticker": "5631.T",
+      "name": "Japan Steel Works",
+      "tags": [
+        "defence",
+        "nuclear"
+      ],
+      "horizon": "H3",
+      "thesis_status": "intact",
+      "thesis_notes": "Nuclear pressure vessel monopoly. Defence and energy infrastructure play.",
+      "transactions": [
+        {
+          "id": "lot-jsw-1",
+          "ticker": "5631.T",
+          "trade_date": "2025-11-10",
+          "trade_type": "buy",
+          "shares": 1.0,
+          "price": 4200.0,
+          "fees": 0.0,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "ticker": "MRVL",
+      "name": "Marvell Technology",
+      "tags": [
+        "semiconductors",
+        "custom-silicon"
+      ],
+      "horizon": "H2",
+      "thesis_status": "intact",
+      "thesis_notes": "Custom silicon and networking for AI datacenters. Nvidia $2B strategic partnership.",
+      "transactions": [
+        {
+          "id": "lot-mrvl-1",
+          "ticker": "MRVL",
+          "trade_date": "2025-06-15",
+          "trade_type": "buy",
+          "shares": 10.0,
+          "price": 58.0,
+          "fees": 0.0,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "ticker": "AVGO",
+      "name": "Broadcom",
+      "tags": [
+        "semiconductors",
+        "networking"
+      ],
+      "horizon": "H2",
+      "thesis_status": "intact",
+      "thesis_notes": "Custom AI accelerators and datacenter networking. Hyperscaler XPU supplier.",
+      "transactions": [
+        {
+          "id": "lot-avgo-1",
+          "ticker": "AVGO",
+          "trade_date": "2025-08-20",
+          "trade_type": "buy",
+          "shares": 4.0,
+          "price": 195.0,
+          "fees": 0.0,
+          "note": ""
+        }
+      ]
+    }
+  ]
+}
