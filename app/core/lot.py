@@ -116,6 +116,7 @@ def dispose_fifo(
         raise ValueError(f"sell_price must be positive, got {sell_price}")
 
     sorted_lots = sorted(open_lots, key=lambda lot: lot.purchase_date)
+    print(f"DEBUG_FIFO: Processing {len(sorted_lots)} lots for FIFO.")
     total_available = sum(lot.shares for lot in sorted_lots)
 
     if shares_to_sell > total_available + _FLOAT_EPSILON:
