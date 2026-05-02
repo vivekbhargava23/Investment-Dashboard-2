@@ -390,7 +390,7 @@ def _render_add_lot_section(position: Position) -> None:
             )
 
         # Live FIFO preview
-        _render_fifo_preview(position.open_lots, sale_shares, sale_price, position.ticker)
+        _render_fifo_preview(position, sale_shares, sale_price)
 
         btn_c1, btn_c2 = st.columns([1, 5])
         submitted = btn_c1.button("Record Sale", key="sl_submit", type="primary")
@@ -406,7 +406,7 @@ def _render_add_lot_section(position: Position) -> None:
                 st.error(f"Position {position.ticker} not found.")
                 return
             try:
-                pv = fifo_sell_preview(fresh_pos.open_lots, sale_shares, sale_price, position.ticker)
+                pv = fifo_sell_preview(fresh_pos, sale_shares, sale_price)
             except ValueError as exc:
                 st.error(str(exc))
                 return
@@ -444,16 +444,15 @@ def _render_add_lot_section(position: Position) -> None:
 # ─── shared FIFO preview renderer ────────────────────────────────────────────
 
 def _render_fifo_preview(
-    open_lots: list,
+    position: Position,
     shares: float,
     sell_price: float,
-    ticker: str,
 ) -> None:
     """Render a live FIFO impact preview. Shows nothing if shares <= 0 or no open lots."""
-    if shares <= 0 or not open_lots:
+    if shares <= 0 or not position.open_lots:
         return
     try:
-        pv = fifo_sell_preview(open_lots, shares, sell_price, ticker)
+        pv = fifo_sell_preview(position, shares, sell_price)
     except ValueError as exc:
         st.error(str(exc))
         return
