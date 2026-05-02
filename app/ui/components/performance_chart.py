@@ -147,8 +147,8 @@ def render_position(
     # Force the filter as requested (EMERGENCY OVERRIDE)
     df_trades = all_txns_df[all_txns_df['type'].str.upper().isin(['BUY', 'SELL'])].copy()
     
-    # Add literal debug line as requested
-    st.write(f"DEBUG: Found {len(df_trades)} total transactions for this chart")
+    # Add literal debug line as requested - ensure visibility
+    st.info(f"DEBUG: Found {len(df_trades)} transactions for {position.ticker} chart")
 
     # Buy markers — green ▲
     buy_trades = df_trades[df_trades['type'].str.upper() == 'BUY']

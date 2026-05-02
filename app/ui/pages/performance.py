@@ -37,7 +37,7 @@ def _portfolio_history(period: str) -> pd.Series:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _position_history(ticker: str, period: str, start: date | None = None) -> pd.Series:
+def _position_history_v2(ticker: str, period: str, start: date | None = None) -> pd.Series:
     return get_ticker_history(ticker, period, start=start)
 
 
@@ -82,8 +82,9 @@ def render() -> None:
         if period == "MAX" and position.transactions else None
     )
 
+    print(f"DEBUG_UI: Requesting {selected} from {pos_start}")
     with st.spinner(f"Loading {selected} history…"):
-        pos_history = _position_history(selected, period, start=pos_start)
+        pos_history = _position_history_v2(selected, period, start=pos_start)
 
     performance_chart.render_position(position, pos_history, period)
 
