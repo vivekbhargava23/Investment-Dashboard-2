@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 from app.core.lot import OpenLot, dispose_fifo
 from app.core.portfolio import Portfolio
+from app.core.position import Position
 from app.services import finnhub_client, yfinance_client
 from app.utils.logger import get_logger
 
@@ -211,10 +212,9 @@ class FifoPreview:
 
 
 def fifo_sell_preview(
-    open_lots: list[OpenLot],
+    position: Position,
     shares: float,
     sell_price: float,
-    ticker: str,
 ) -> FifoPreview:
     """
     Run a FIFO disposal and return EUR-converted preview numbers.
@@ -224,19 +224,18 @@ def fifo_sell_preview(
     exceed what is held, and returns None fields where FX is unavailable.
 
     Args:
-        open_lots:  Buy-only lots for the position (position.open_lots).
+        position:   The position to sell from.
         shares:     Shares to sell.
         sell_price: Sale price per share in the ticker's native currency.
-        ticker:     Ticker symbol — used to determine native currency.
 
     Returns:
         FifoPreview with EUR-converted totals.
 
     Raises:
-        ValueError: If shares_to_sell exceeds total open shares.
+        ValueError: If shares exceeds total open shares.
     """
-    result = dispose_fifo(open_lots, shares, sell_price)
-    ccy = get_currency(ticker)
+    result = dispose_fifo(position.open_lots, shares, sell_price)
+    ccy = get_currency(position.ticker)
     proceeds_eur = convert_to_eur(result.total_proceeds, ccy) or 0.0
     cost_eur = convert_to_eur(result.total_cost_basis, ccy) or 0.0
     gain_eur = convert_to_eur(result.total_gain, ccy) or 0.0
