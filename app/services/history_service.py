@@ -187,9 +187,9 @@ def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
     min_date = min(t.trade_date for t in all_txns)
     print(f"TERMINAL_DEBUG: Oldest transaction is {min_date}. Fetching from Yahoo.")
     
-    from datetime import timedelta
-    # Padding: 7 days before oldest transaction to ensure markers fit on chart
-    start_date = min_date - timedelta(days=7)
+    # EMERGENCY OVERRIDE: Force start date to Jan 2025
+    start_date = "2025-01-01"
+    print(f"DEBUG: EMERGENCY START DATE OVERRIDE: {start_date}")
 
     asset_tickers = [pos.ticker for pos in portfolio.positions]
     currencies = {pos.ticker: get_currency(pos.ticker) for pos in portfolio.positions}
