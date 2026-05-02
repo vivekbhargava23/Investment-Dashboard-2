@@ -132,6 +132,7 @@ def dispose_fifo(
             remaining_lots.append(lot)
             continue
 
+        print(f"DEBUG: FIFO Matching - Selling {shares_to_sell} against lot from {lot.purchase_date}")
         if lot.shares <= still_to_sell + _FLOAT_EPSILON:
             # Whole lot consumed
             disposed = lot.shares

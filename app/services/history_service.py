@@ -178,19 +178,21 @@ def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
     intraday = period == "1D"
 
     # 1. Determine date range and tickers
-    all_txns = [t for pos in portfolio.positions for t in pos.transactions]
+    from app.data import repository as repo
+    class Mock: pass
+    self = Mock()
+    self.repo = repo
+    print(f"DEBUG: All transactions found: {self.repo.get_all_transactions()}")
+    
+    all_txns = self.repo.get_all_transactions()
     if not all_txns:
         return pd.Series(dtype=float, name="Portfolio (€)")
     
     oldest_txn_date = min(t.trade_date for t in all_txns)
     from datetime import timedelta
     # Padding: 7 days before oldest transaction to ensure markers fit on chart
-    absolute_start = oldest_txn_date - timedelta(days=7)
-    
-    # For MAX, we use the absolute oldest. For others, yfinance period handles it,
-    # but we might still want to ensure it doesn't clip.
-    # Actually, the requirement says 'use that as the start date for Yahoo Finance'.
-    start_date = absolute_start if period == "MAX" else None
+    start_date = oldest_txn_date - timedelta(days=7)
+    print(f"DEBUG: Dynamic Start Date calculated as: {start_date}")
 
     asset_tickers = [pos.ticker for pos in portfolio.positions]
     currencies = {pos.ticker: get_currency(pos.ticker) for pos in portfolio.positions}
@@ -199,7 +201,10 @@ def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
 
     # 2. Batch fetch all Asset Prices and FX Rates
     all_to_fetch = list(set(asset_tickers + fx_tickers))
-    combined_df = _fetch_batch(all_to_fetch, period, start=start_date)
+    
+    # Force dynamic start date for all historical periods to ensure consistent indices
+    fetch_start = start_date if not intraday else None
+    combined_df = _fetch_batch(all_to_fetch, period, start=fetch_start)
     
     if combined_df.empty:
         return pd.Series(dtype=float, name="Portfolio (€)")

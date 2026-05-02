@@ -147,7 +147,7 @@ def render_position(
     if buy_x:
         fig.add_trace(go.Scatter(
             x=buy_x, y=buy_y, mode="markers", name="Bought", showlegend=False,
-            marker=dict(color="#4CAF50", size=14, symbol="triangle-up",
+            marker=dict(color="#4CAF50", size=18, symbol="triangle-up",
                         line=dict(color="white", width=1.5)),
             hovertemplate="<b>%{text}</b><extra></extra>",
             text=buy_text,
@@ -170,7 +170,7 @@ def render_position(
     if sell_x:
         fig.add_trace(go.Scatter(
             x=sell_x, y=sell_y, mode="markers", name="Sold", showlegend=False,
-            marker=dict(color="#F44336", size=14, symbol="triangle-down",
+            marker=dict(color="#F44336", size=18, symbol="triangle-down",
                         line=dict(color="white", width=1.5)),
             hovertemplate="<b>%{text}</b><extra></extra>",
             text=sell_text,
