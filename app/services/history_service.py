@@ -179,20 +179,17 @@ def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
 
     # 1. Determine date range and tickers
     from app.data import repository as repo
-    class Mock: pass
-    self = Mock()
-    self.repo = repo
-    print(f"DEBUG: All transactions found: {self.repo.get_all_transactions()}")
+    all_txns = repo.get_all_transactions()
     
-    all_txns = self.repo.get_all_transactions()
     if not all_txns:
         return pd.Series(dtype=float, name="Portfolio (€)")
     
-    oldest_txn_date = min(t.trade_date for t in all_txns)
+    min_date = min(t.trade_date for t in all_txns)
+    print(f"TERMINAL_DEBUG: Oldest transaction is {min_date}. Fetching from Yahoo.")
+    
     from datetime import timedelta
     # Padding: 7 days before oldest transaction to ensure markers fit on chart
-    start_date = oldest_txn_date - timedelta(days=7)
-    print(f"DEBUG: Dynamic Start Date calculated as: {start_date}")
+    start_date = min_date - timedelta(days=7)
 
     asset_tickers = [pos.ticker for pos in portfolio.positions]
     currencies = {pos.ticker: get_currency(pos.ticker) for pos in portfolio.positions}

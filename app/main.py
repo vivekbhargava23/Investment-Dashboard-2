@@ -29,10 +29,10 @@ from app.ui.pages.performance import render as performance_render               
 from app.ui.pages.tax_dashboard import render as tax_dashboard_render            # noqa: E402
 
 pg = st.navigation([
-    st.Page(overview_render,            title="Live Overview",       icon="📊", url_path="overview"),
-    st.Page(lot_ledger_render,          title="Lot Ledger",          icon="📋", url_path="lot-ledger"),
-    st.Page(tax_dashboard_render,       title="Tax Dashboard",       icon="🧾", url_path="tax"),
-    st.Page(performance_render,         title="Performance",         icon="📈", url_path="performance"),
-    st.Page(manage_portfolio_render,    title="Manage Portfolio",    icon="⚙️",  url_path="manage"),
+    st.Page(overview_render,            title="Live Overview_test",       icon="📊", url_path="overview"),
+    st.Page(lot_ledger_render,          title="Lot Ledger_test",          icon="📋", url_path="lot-ledger"),
+    st.Page(tax_dashboard_render,       title="Tax Dashboard_test",       icon="🧾", url_path="tax"),
+    st.Page(performance_render,         title="Performance_test",         icon="📈", url_path="performance"),
+    st.Page(manage_portfolio_render,    title="Manage Portfolio_test",    icon="⚙️",  url_path="manage"),
 ])
 pg.run()
