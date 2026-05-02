@@ -8,6 +8,7 @@ Vectorised via pandas for performance.
 from __future__ import annotations
 
 from datetime import date
+import time
 from typing import Sequence
 
 import numpy as np
@@ -31,6 +32,9 @@ _YF_PARAMS: dict[str, tuple[str, str]] = {
     "YTD": ("ytd", "1d"),
 }
 
+_BATCH_CACHE_TTL = 600.0  # 10 minutes
+_batch_cache: dict[str, tuple[pd.DataFrame, float]] = {}  # key → (df, fetched_at)
+
 
 def _fetch_batch(tickers: Sequence[str], period: str, start: date | None = None) -> pd.DataFrame:
     """
@@ -39,6 +43,15 @@ def _fetch_batch(tickers: Sequence[str], period: str, start: date | None = None)
     """
     if not tickers:
         return pd.DataFrame()
+
+    # 0. Check Cache
+    cache_key = f"{sorted(tickers)}|{period}|{start}"
+    now = time.monotonic()
+    if cache_key in _batch_cache:
+        df, fetched_at = _batch_cache[cache_key]
+        if now - fetched_at < _BATCH_CACHE_TTL:
+            logger.debug("batch_cache_hit", period=period)
+            return df
 
     try:
         if period == "MAX":
@@ -72,6 +85,7 @@ def _fetch_batch(tickers: Sequence[str], period: str, start: date | None = None)
                 if not s_fallback.empty:
                     result_df[ticker] = s_fallback
         
+        _batch_cache[cache_key] = (result_df, now)
         return result_df.dropna(how="all")
 
     except Exception as exc:
@@ -82,6 +96,8 @@ def _fetch_batch(tickers: Sequence[str], period: str, start: date | None = None)
             s = _fetch(ticker, period, start)
             if not s.empty:
                 result_df[ticker] = s
+        
+        _batch_cache[cache_key] = (result_df, now)
         return result_df
 
 
@@ -206,3 +222,8 @@ def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
     portfolio_value = (price_df * shares_df / fx_df).sum(axis=1)
     
     return portfolio_value.rename("Portfolio (€)")
+
+
+def clear_cache() -> None:
+    """Evict all cached price history."""
+    _batch_cache.clear()
