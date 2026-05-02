@@ -54,6 +54,15 @@ def load_portfolio() -> Portfolio:
     return Portfolio(name=raw["name"], positions=positions)
 
 
+def get_all_transactions() -> list[Transaction]:
+    """Helper to get a flat list of all transactions in the portfolio."""
+    portfolio = load_portfolio()
+    all_txns = []
+    for pos in portfolio.positions:
+        all_txns.extend(pos.transactions)
+    return all_txns
+
+
 def load_tax_year() -> TaxYear | None:
     """
     Load the current tax year state from JSON storage if present.

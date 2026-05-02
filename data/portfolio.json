@@ -71,6 +71,16 @@
           "price": 100.0,
           "fees": 0.0,
           "note": ""
+        },
+        {
+          "id": "10578bd4-f955-4d06-a9cf-82206ab8e51c",
+          "ticker": "HY9H.F",
+          "trade_date": "2026-03-12",
+          "trade_type": "buy",
+          "shares": 1.0,
+          "price": 100.0,
+          "fees": 0.0,
+          "note": ""
         }
       ]
     },
