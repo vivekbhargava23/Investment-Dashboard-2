@@ -53,5 +53,6 @@ def render() -> None:
     # ── Refresh ───────────────────────────────────────────────────────────
     st.caption(f"Prices refresh automatically every {_settings.price_refresh_interval_seconds}s.")
     if st.button("↺ Refresh now"):
-        st.cache_data.clear()
+        from app.utils.cache import clear_all
+        clear_all()
         st.rerun()

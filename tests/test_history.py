@@ -5,7 +5,13 @@ from unittest.mock import MagicMock, patch
 from app.core.portfolio import Portfolio
 from app.core.position import Position
 from app.core.transaction import Transaction
-from app.services.history_service import get_portfolio_value_history
+from app.services.history_service import get_portfolio_value_history, clear_cache
+
+@pytest.fixture(autouse=True)
+def cleanup():
+    clear_cache()
+    yield
+    clear_cache()
 
 @pytest.fixture
 def mock_portfolio():

@@ -18,6 +18,7 @@ from app.data.repository import load_portfolio, load_tax_year, save_portfolio, s
 from app.services.price_service import (
     FifoPreview, convert_to_eur, fifo_sell_preview, get_currency,
 )
+from app.utils.cache import clear_all
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -144,7 +145,7 @@ def _add_transaction(portfolio) -> None:
                 updated_pos if p.ticker == selected else p for p in fresh.positions
             ]
             save_portfolio(fresh.model_copy(update={"positions": new_positions}))
-            st.cache_data.clear()
+            clear_all()
             logger.info("buy_added", ticker=selected, date=str(trade_date), shares=shares)
             st.success(
                 f"Buy recorded for {selected}: {shares:g} shares @ {price:,.2f}"
@@ -215,7 +216,7 @@ def _add_transaction(portfolio) -> None:
             ]
             save_portfolio(fresh.model_copy(update={"positions": new_positions}))
             _recompute_and_save_tax_year()
-            st.cache_data.clear()
+            clear_all()
             logger.info("sell_recorded", ticker=selected, date=str(trade_date), shares=shares)
             st.success(
                 f"Sale recorded for {selected}: {shares:g} shares @ {price:,.2f}."
@@ -285,7 +286,7 @@ def _new_position(portfolio) -> None:
                 update={"positions": portfolio.positions + [new_pos]}
             )
             save_portfolio(new_portfolio)
-            st.cache_data.clear()
+            clear_all()
             logger.info("position_added", ticker=ticker)
             st.success(f"Position {ticker} — {name} added.")
             st.rerun()
@@ -362,7 +363,7 @@ def _delete_transaction(portfolio) -> None:
         new_portfolio = fresh.model_copy(update={"positions": new_positions})
         save_portfolio(new_portfolio)
         _recompute_and_save_tax_year()
-        st.cache_data.clear()
+        clear_all()
         logger.info(
             "transaction_deleted", ticker=selected_ticker, txn_id=selected_txn_id,
             position_removed=(not remaining),
@@ -430,7 +431,7 @@ def _edit_metadata(portfolio) -> None:
         ]
         new_portfolio = fresh.model_copy(update={"positions": new_positions})
         save_portfolio(new_portfolio)
-        st.cache_data.clear()
+        clear_all()
         logger.info("position_metadata_updated", ticker=selected)
         st.success(f"{selected} metadata saved.")
         st.rerun()
