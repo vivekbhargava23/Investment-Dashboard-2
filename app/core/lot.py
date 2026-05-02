@@ -139,6 +139,8 @@ def dispose_fifo(
             disposed = lot.shares
             cost = lot.purchase_price * disposed
             proceeds = sell_price * disposed
+            # EMERGENCY MATH OVERRIDE: Literal gain calculation
+            literal_gain = (sell_price - lot.purchase_price) * disposed
             disposals.append(
                 LotDisposal(
                     lot_id=lot.id,
@@ -147,7 +149,7 @@ def dispose_fifo(
                     shares_disposed=disposed,
                     cost_basis=cost,
                     proceeds=proceeds,
-                    gain=proceeds - cost,
+                    gain=literal_gain,
                 )
             )
             still_to_sell -= disposed
@@ -156,6 +158,8 @@ def dispose_fifo(
             disposed = still_to_sell
             cost = lot.purchase_price * disposed
             proceeds = sell_price * disposed
+            # EMERGENCY MATH OVERRIDE: Literal gain calculation
+            literal_gain = (sell_price - lot.purchase_price) * disposed
             disposals.append(
                 LotDisposal(
                     lot_id=lot.id,
@@ -164,7 +168,7 @@ def dispose_fifo(
                     shares_disposed=disposed,
                     cost_basis=cost,
                     proceeds=proceeds,
-                    gain=proceeds - cost,
+                    gain=literal_gain,
                 )
             )
             remaining_lots.append(

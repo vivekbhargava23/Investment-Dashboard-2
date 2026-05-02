@@ -130,47 +130,65 @@ def render_position(
             return None
         return available.index[-1], float(available.iloc[-1])
 
+    # ── Markers ───────────────────────────────────────────────────────────
+    # Create DataFrame for all transactions to handle case-insensitive filtering
+    all_txns_data = [
+        {
+            "id": t.id,
+            "date": t.trade_date,
+            "type": t.trade_type,
+            "shares": t.shares,
+            "price": t.price
+        }
+        for t in position.transactions
+    ]
+    all_txns_df = pd.DataFrame(all_txns_data)
+    
+    # Force the filter as requested (EMERGENCY OVERRIDE)
+    df_trades = all_txns_df[all_txns_df['type'].str.upper().isin(['BUY', 'SELL'])].copy()
+    
+    # Add literal debug line as requested
+    st.write(f"DEBUG: Found {len(df_trades)} total transactions for this chart")
+
     # Buy markers — green ▲
+    buy_trades = df_trades[df_trades['type'].str.upper() == 'BUY']
     buy_x, buy_y, buy_text = [], [], []
-    for txn in sorted(position.transactions, key=lambda t: t.trade_date):
-        if txn.trade_type.upper() != "BUY":
-            continue
-        snapped = _snap(txn.trade_date)
+    for _, txn in buy_trades.iterrows():
+        snapped = _snap(txn['date'])
         if snapped:
             buy_x.append(snapped[0])
             buy_y.append(snapped[1])
             buy_text.append(
-                f"BUY {txn.shares:g} × {sym}{txn.price:,.2f}"
-                f"<br>{txn.trade_date.strftime('%d %b %Y')}"
+                f"BUY {txn['shares']:g} × {sym}{txn['price']:,.2f}"
+                f"<br>{txn['date'].strftime('%d %b %Y')}"
             )
 
     if buy_x:
         fig.add_trace(go.Scatter(
             x=buy_x, y=buy_y, mode="markers", name="Bought", showlegend=False,
-            marker=dict(color="#4CAF50", size=20, symbol="triangle-up",
+            marker=dict(color="#4CAF50", size=30, symbol="triangle-up",
                         line=dict(color="white", width=1.5)),
             hovertemplate="<b>%{text}</b><extra></extra>",
             text=buy_text,
         ))
 
     # Sell markers — red ▼
+    sell_trades = df_trades[df_trades['type'].str.upper() == 'SELL']
     sell_x, sell_y, sell_text = [], [], []
-    for txn in sorted(position.transactions, key=lambda t: t.trade_date):
-        if txn.trade_type.upper() != "SELL":
-            continue
-        snapped = _snap(txn.trade_date)
+    for _, txn in sell_trades.iterrows():
+        snapped = _snap(txn['date'])
         if snapped:
             sell_x.append(snapped[0])
             sell_y.append(snapped[1])
             sell_text.append(
-                f"SELL {txn.shares:g} × {sym}{txn.price:,.2f}"
-                f"<br>{txn.trade_date.strftime('%d %b %Y')}"
+                f"SELL {txn['shares']:g} × {sym}{txn['price']:,.2f}"
+                f"<br>{txn['date'].strftime('%d %b %Y')}"
             )
 
     if sell_x:
         fig.add_trace(go.Scatter(
             x=sell_x, y=sell_y, mode="markers", name="Sold", showlegend=False,
-            marker=dict(color="#F44336", size=20, symbol="triangle-down",
+            marker=dict(color="#F44336", size=30, symbol="triangle-down",
                         line=dict(color="white", width=1.5)),
             hovertemplate="<b>%{text}</b><extra></extra>",
             text=sell_text,
