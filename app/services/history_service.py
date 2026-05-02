@@ -56,14 +56,28 @@ def _fetch_batch(tickers: Sequence[str], period: str, start: date | None = None)
             return df
 
     try:
-        if period == "MAX":
-            if start:
-                raw = yf.download(list(tickers), start=str(start), interval="1d", group_by="ticker", auto_adjust=True, threads=True, progress=False)
-            else:
-                raw = yf.download(list(tickers), period="max", interval="1d", group_by="ticker", auto_adjust=True, threads=True, progress=False)
+        # Use absolute start date if provided (e.g. for MAX or for padding chart markers)
+        if start:
+            raw = yf.download(
+                list(tickers), 
+                start=str(start), 
+                interval="1d", 
+                group_by="ticker", 
+                auto_adjust=True, 
+                threads=True, 
+                progress=False
+            )
         else:
             yf_period, interval = _YF_PARAMS.get(period, ("1mo", "1d"))
-            raw = yf.download(list(tickers), period=yf_period, interval=interval, group_by="ticker", auto_adjust=True, threads=True, progress=False)
+            raw = yf.download(
+                list(tickers), 
+                period=yf_period, 
+                interval=interval, 
+                group_by="ticker", 
+                auto_adjust=True, 
+                threads=True, 
+                progress=False
+            )
 
         if raw.empty:
             logger.warning("batch_fetch_empty", tickers=tickers, period=period)
@@ -168,8 +182,15 @@ def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
     if not all_txns:
         return pd.Series(dtype=float, name="Portfolio (€)")
     
-    earliest_txn = min(t.trade_date for t in all_txns)
-    start_date = earliest_txn if period == "MAX" else None
+    oldest_txn_date = min(t.trade_date for t in all_txns)
+    from datetime import timedelta
+    # Padding: 7 days before oldest transaction to ensure markers fit on chart
+    absolute_start = oldest_txn_date - timedelta(days=7)
+    
+    # For MAX, we use the absolute oldest. For others, yfinance period handles it,
+    # but we might still want to ensure it doesn't clip.
+    # Actually, the requirement says 'use that as the start date for Yahoo Finance'.
+    start_date = absolute_start if period == "MAX" else None
 
     asset_tickers = [pos.ticker for pos in portfolio.positions]
     currencies = {pos.ticker: get_currency(pos.ticker) for pos in portfolio.positions}

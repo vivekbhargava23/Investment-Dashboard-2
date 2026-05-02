@@ -76,8 +76,9 @@ def render() -> None:
     if position is None:
         return
 
+    from datetime import timedelta
     pos_start = (
-        min(t.trade_date for t in position.transactions)
+        min(t.trade_date for t in position.transactions) - timedelta(days=7)
         if period == "MAX" and position.transactions else None
     )
 

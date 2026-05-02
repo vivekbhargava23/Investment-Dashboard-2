@@ -392,14 +392,18 @@ def _render_txn_row(
         proceeds_eur = convert_to_eur(txn.price * txn.shares, ccy)
         row[6].write("—")
         row[7].write(f"{proceeds_eur:,.2f}" if proceeds_eur is not None else "—")
+        
+        # Gain is derived from the FIFO engine result
         gain_native = gain_map.get(txn.id)
         if gain_native is not None:
             gain_eur = convert_to_eur(gain_native, ccy)
-            row[8].write(fmt_gain(
-                gain_eur if gain_eur is not None else gain_native,
-                None,
-                symbol="€" if gain_eur is not None else ccy,
-            ))
+            # Use gain_eur if available, else gain_native with native currency symbol
+            display_gain = fmt_gain(
+                absolute=gain_eur if gain_eur is not None else gain_native,
+                percent=None,
+                symbol="€" if gain_eur is not None else ccy
+            )
+            row[8].write(display_gain)
         else:
             row[8].write("—")
 
