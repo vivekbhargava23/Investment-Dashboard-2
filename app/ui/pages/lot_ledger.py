@@ -20,7 +20,8 @@ from app.data.repository import load_portfolio, load_tax_year, save_portfolio, s
 from app.services.price_service import (
     convert_to_eur, fifo_sell_preview, get_currency, inject_prices, lookup_name,
 )
-from app.ui.components import disposal_simulator
+from app.ui.components import disposal_simulator, transaction_form
+from app.utils.cache import clear_all
 from app.utils.formatting import fmt_gain
 from app.utils.logger import get_logger
 
@@ -298,172 +299,11 @@ def _render_add_lot_section(position: Position) -> None:
             st.rerun()
         return
 
-    st.markdown(f"#### Add Transaction — {position.ticker}")
-
-    # Type selector outside the form so SELL can show a live FIFO preview
-    lot_type: str = st.radio(
-        "Transaction type",
-        options=["BUY", "SELL"],
-        horizontal=True,
-        key="add_lot_type",
-    )
-
-    ccy = get_currency(position.ticker)
-
-    if lot_type == "BUY":
-        with st.form("form_add_lot_buy"):
-            lot_c1, lot_c2, lot_c3 = st.columns(3)
-            with lot_c1:
-                purchase_date = st.date_input(
-                    "Purchase date", value=date.today(), max_value=date.today(), key="al_date"
-                )
-            with lot_c2:
-                purchase_price = st.number_input(
-                    "Price per share", min_value=0.01, value=100.00,
-                    step=0.01, format="%.2f", key="al_price",
-                )
-            with lot_c3:
-                shares = st.number_input(
-                    "Shares", min_value=0.001, value=1.000,
-                    step=0.001, format="%.3f", key="al_shares",
-                )
-
-            btn_c1, btn_c2 = st.columns([1, 5])
-            submitted = btn_c1.form_submit_button("Add Buy", type="primary")
-            cancelled = btn_c2.form_submit_button("Cancel")
-
-        if cancelled:
-            st.session_state.ll_show_add_lot = False
-            st.rerun()
-        elif submitted:
-            new_txn = Transaction(
-                ticker=position.ticker,
-                trade_date=purchase_date,
-                trade_type="buy",
-                shares=shares,
-                price=purchase_price,
-            )
-            fresh = load_portfolio()
-            fresh_pos = fresh.get_position(position.ticker)
-            if fresh_pos is None:
-                st.error(f"Position {position.ticker} not found.")
-                return
-            updated_pos = fresh_pos.model_copy(
-                update={"transactions": fresh_pos.transactions + [new_txn]}
-            )
-            new_positions = [
-                updated_pos if p.ticker == position.ticker else p
-                for p in fresh.positions
-            ]
-            save_portfolio(fresh.model_copy(update={"positions": new_positions}))
-            st.session_state.ll_show_add_lot = False
-            clear_all()
-            logger.info("lot_added", ticker=position.ticker, date=str(purchase_date), shares=shares)
-            st.success(
-                f"Buy recorded: {shares:g} × {position.ticker}"
-                f" @ {purchase_price:,.2f} on {purchase_date.strftime('%-d %b %Y')}."
-            )
-            st.rerun()
-
-    else:  # SELL
-        # All inputs outside the form so the live FIFO preview updates on every change
-        sell_c1, sell_c2, sell_c3 = st.columns(3)
-        with sell_c1:
-            sale_date = st.date_input(
-                "Sale date", value=date.today(), max_value=date.today(), key="sl_date"
-            )
-        with sell_c2:
-            sale_price = st.number_input(
-                "Sale price per share", min_value=0.01, value=100.00,
-                step=0.01, format="%.2f", key="sl_price",
-            )
-        with sell_c3:
-            max_shares = position.total_shares
-            sale_shares = st.number_input(
-                f"Shares (max {max_shares:g})",
-                min_value=0.001,
-                max_value=float(max_shares) if max_shares > 0 else 1.0,
-                value=min(1.000, float(max_shares)) if max_shares > 0 else 1.0,
-                step=0.001,
-                format="%.3f",
-                key="sl_shares",
-            )
-
-        # Live FIFO preview
-        _render_fifo_preview(position, sale_shares, sale_price)
-
-        btn_c1, btn_c2 = st.columns([1, 5])
-        submitted = btn_c1.button("Record Sale", key="sl_submit", type="primary")
-        cancelled = btn_c2.button("Cancel", key="sl_cancel")
-
-        if cancelled:
-            st.session_state.ll_show_add_lot = False
-            st.rerun()
-        elif submitted:
-            fresh = load_portfolio()
-            fresh_pos = fresh.get_position(position.ticker)
-            if fresh_pos is None:
-                st.error(f"Position {position.ticker} not found.")
-                return
-            try:
-                pv = fifo_sell_preview(fresh_pos, sale_shares, sale_price)
-            except ValueError as exc:
-                st.error(str(exc))
-                return
-
-            sell_txn = Transaction(
-                ticker=position.ticker,
-                trade_date=sale_date,
-                trade_type="sell",
-                shares=sale_shares,
-                price=sale_price,
-            )
-            updated_pos = fresh_pos.model_copy(
-                update={"transactions": fresh_pos.transactions + [sell_txn]}
-            )
-            new_positions = [
-                updated_pos if p.ticker == position.ticker else p
-                for p in fresh.positions
-            ]
-            save_portfolio(fresh.model_copy(update={"positions": new_positions}))
-            _recompute_and_save_tax_year()
-            st.session_state.ll_show_add_lot = False
-            clear_all()
-            sign = "+" if pv.gain_eur >= 0 else ""
-            logger.info(
-                "sell_recorded", ticker=position.ticker,
-                date=str(sale_date), shares=sale_shares, gain_eur=pv.gain_eur,
-            )
-            st.success(
-                f"Sale recorded: {sale_shares:g} × {position.ticker}"
-                f" @ {sale_price:,.2f} · Gain {sign}€{pv.gain_eur:,.2f}."
-            )
-            st.rerun()
-
-
-# ─── shared FIFO preview renderer ────────────────────────────────────────────
-
-def _render_fifo_preview(
-    position: Position,
-    shares: float,
-    sell_price: float,
-) -> None:
-    """Render a live FIFO impact preview. Shows nothing if shares <= 0 or no open lots."""
-    if shares <= 0 or not position.open_lots:
-        return
-    try:
-        pv = fifo_sell_preview(position, shares, sell_price)
-    except ValueError as exc:
-        st.error(str(exc))
-        return
-    sign = "+" if pv.gain_eur >= 0 else ""
-    color = "#4CAF50" if pv.gain_eur >= 0 else "#F44336"
-    st.markdown(
-        f"**FIFO preview** — {pv.lots_consumed} lot(s) consumed · "
-        f"Proceeds **€{pv.proceeds_eur:,.2f}** · Cost **€{pv.cost_eur:,.2f}** · "
-        f"<span style='color:{color};font-weight:bold;'>"
-        f"Gain {sign}€{pv.gain_eur:,.2f}</span>",
-        unsafe_allow_html=True,
+    transaction_form.render(
+        position=position,
+        on_success=lambda: st.session_state.update({"ll_show_add_lot": False}),
+        on_cancel=lambda: st.session_state.update({"ll_show_add_lot": False}),
+        key_prefix="add_lot",
     )
 
 
@@ -480,6 +320,18 @@ def _render_lot_table(position: Position) -> None:
     }
 
     sorted_txns = sorted(position.transactions, key=lambda t: t.trade_date)
+
+    if st.session_state.ll_editing_lot_id:
+        editing_txn = next((t for t in position.transactions if t.id == st.session_state.ll_editing_lot_id), None)
+        if editing_txn:
+            transaction_form.render(
+                position=position,
+                existing_txn=editing_txn,
+                key_prefix=f"edit_{editing_txn.id}",
+                on_success=lambda: st.session_state.update({"ll_editing_lot_id": None}),
+                on_cancel=lambda: st.session_state.update({"ll_editing_lot_id": None}),
+            )
+            st.divider()
 
     h = st.columns(_LOT_COLS)
     for col, label in zip(h, ["**#**", "**Type**", "**Date**", "**Price**", "**Ccy**",
@@ -498,14 +350,6 @@ def _render_lot_table(position: Position) -> None:
         st.caption("⚠ No live price — Value and Gain unavailable for open lots.")
 
 
-def _clear_edit_keys(txn_id: str) -> None:
-    for k in (
-        f"edit_date_{txn_id}", f"edit_price_{txn_id}",
-        f"edit_shares_{txn_id}", f"edit_type_{txn_id}",
-    ):
-        st.session_state.pop(k, None)
-
-
 def _render_txn_row(
     seq_num: int,
     txn: Transaction,
@@ -513,7 +357,7 @@ def _render_txn_row(
     ccy: str,
     gain_map: dict[str, float],
 ) -> None:
-    """One transaction row: buy or sell, with edit-in-place and delete."""
+    """One transaction row: buy or sell, with edit and delete."""
     is_pending_delete = st.session_state.ll_pending_delete_lot_id == txn.id
     is_editing = st.session_state.ll_editing_lot_id == txn.id
     is_buy = txn.trade_type == "buy"
@@ -522,173 +366,68 @@ def _render_txn_row(
     row[0].write(str(seq_num))
     row[1].markdown(_BUY_BADGE if is_buy else _SELL_BADGE, unsafe_allow_html=True)
 
-    if is_editing:
-        date_key = f"edit_date_{txn.id}"
-        price_key = f"edit_price_{txn.id}"
-        shares_key = f"edit_shares_{txn.id}"
-        type_key = f"edit_type_{txn.id}"
+    # Normal display mode
+    row[2].write(txn.trade_date.strftime("%-d %b %Y"))
+    row[3].write(f"{txn.price:,.2f}")
+    row[4].write(ccy)
+    row[5].write(f"{txn.shares:g}")
 
-        if date_key not in st.session_state:
-            st.session_state[date_key] = txn.trade_date
-        if price_key not in st.session_state:
-            st.session_state[price_key] = txn.price
-        if shares_key not in st.session_state:
-            st.session_state[shares_key] = txn.shares
-        if type_key not in st.session_state:
-            st.session_state[type_key] = txn.trade_type
+    cost_eur = convert_to_eur(txn.price * txn.shares, ccy)
 
-        with row[1]:
-            edited_type = st.selectbox(
-                "", options=["buy", "sell"],
-                index=0 if st.session_state[type_key] == "buy" else 1,
-                key=type_key, label_visibility="collapsed",
-            )
-        with row[2]:
-            edited_date = st.date_input(
-                "", value=st.session_state[date_key], max_value=date.today(),
-                key=date_key, label_visibility="collapsed",
-            )
-        with row[3]:
-            edited_price = st.number_input(
-                "", value=st.session_state[price_key],
-                min_value=0.01, step=0.01, format="%.2f",
-                key=price_key, label_visibility="collapsed",
-            )
-        row[4].write(ccy)
-        with row[5]:
-            edited_shares = st.number_input(
-                "", value=st.session_state[shares_key],
-                min_value=0.001, step=0.001, format="%.3f",
-                key=shares_key, label_visibility="collapsed",
-            )
-
-        edit_cost_eur = convert_to_eur(edited_price * edited_shares, ccy)
-        row[6].write(f"{edit_cost_eur:,.2f}" if edit_cost_eur is not None else "—")
-
-        if edited_type == "buy" and position.has_live_price:
-            edit_value_eur = convert_to_eur(position.live_price * edited_shares, ccy)  # type: ignore[operator]
-            row[7].write(f"{edit_value_eur:,.2f}" if edit_value_eur is not None else "—")
-            if edit_value_eur is not None and edit_cost_eur is not None:
-                g = edit_value_eur - edit_cost_eur
-                row[8].write(fmt_gain(g, g / edit_cost_eur if edit_cost_eur else None, symbol="€"))
+    if is_buy:
+        row[6].write(f"{cost_eur:,.2f}" if cost_eur is not None else "—")
+        if position.has_live_price:
+            value_eur = convert_to_eur(position.live_price * txn.shares, ccy)  # type: ignore[operator]
+            row[7].write(f"{value_eur:,.2f}" if value_eur is not None else "—")
+            if value_eur is not None and cost_eur is not None:
+                g = value_eur - cost_eur
+                row[8].write(fmt_gain(g, g / cost_eur if cost_eur else None, symbol="€"))
             else:
                 row[8].write("—")
         else:
             row[7].write("—")
             row[8].write("—")
+    else:
+        # Sell row: show proceeds and realised gain from FIFO replay
+        proceeds_eur = convert_to_eur(txn.price * txn.shares, ccy)
+        row[6].write("—")
+        row[7].write(f"{proceeds_eur:,.2f}" if proceeds_eur is not None else "—")
+        gain_native = gain_map.get(txn.id)
+        if gain_native is not None:
+            gain_eur = convert_to_eur(gain_native, ccy)
+            row[8].write(fmt_gain(
+                gain_eur if gain_eur is not None else gain_native,
+                None,
+                symbol="€" if gain_eur is not None else ccy,
+            ))
+        else:
+            row[8].write("—")
 
-        row[9].write(str((date.today() - edited_date).days))
+    row[9].write(str((date.today() - txn.trade_date).days))
 
-        if row[10].button("✓", key=f"save_edit_{txn.id}", help="Save", type="primary"):
-            _execute_txn_edit(position, txn.id, edited_date, edited_price, edited_shares, edited_type)
-        if row[11].button("✗", key=f"cancel_edit_{txn.id}", help="Cancel"):
-            st.session_state.ll_editing_lot_id = None
-            _clear_edit_keys(txn.id)
+    if not is_pending_delete:
+        if row[10].button("✏", key=f"edit_btn_{txn.id}", help="Edit"):
+            st.session_state.ll_editing_lot_id = txn.id
             st.rerun()
 
+    if is_pending_delete:
+        if row[11].button("✕", key=f"cancel_del_{txn.id}", help="Cancel"):
+            st.session_state.ll_pending_delete_lot_id = None
+            st.rerun()
+        conf_c, btn_c, _ = st.columns([3, 1.2, 3])
+        confirmed = conf_c.checkbox(
+            f"Confirm delete — {txn.trade_date.strftime('%-d %b %Y')}"
+            f", {txn.shares:g} shares",
+            key=f"confirm_{txn.id}",
+        )
+        if btn_c.button(
+            "Delete", key=f"do_del_{txn.id}", disabled=not confirmed, type="primary"
+        ):
+            _execute_txn_delete(position, txn.id)
     else:
-        # Normal display mode
-        row[2].write(txn.trade_date.strftime("%-d %b %Y"))
-        row[3].write(f"{txn.price:,.2f}")
-        row[4].write(ccy)
-        row[5].write(f"{txn.shares:g}")
-
-        cost_eur = convert_to_eur(txn.price * txn.shares, ccy)
-
-        if is_buy:
-            row[6].write(f"{cost_eur:,.2f}" if cost_eur is not None else "—")
-            if position.has_live_price:
-                value_eur = convert_to_eur(position.live_price * txn.shares, ccy)  # type: ignore[operator]
-                row[7].write(f"{value_eur:,.2f}" if value_eur is not None else "—")
-                if value_eur is not None and cost_eur is not None:
-                    g = value_eur - cost_eur
-                    row[8].write(fmt_gain(g, g / cost_eur if cost_eur else None, symbol="€"))
-                else:
-                    row[8].write("—")
-            else:
-                row[7].write("—")
-                row[8].write("—")
-        else:
-            # Sell row: show proceeds and realised gain from FIFO replay
-            proceeds_eur = convert_to_eur(txn.price * txn.shares, ccy)
-            row[6].write("—")
-            row[7].write(f"{proceeds_eur:,.2f}" if proceeds_eur is not None else "—")
-            gain_native = gain_map.get(txn.id)
-            if gain_native is not None:
-                gain_eur = convert_to_eur(gain_native, ccy)
-                row[8].write(fmt_gain(
-                    gain_eur if gain_eur is not None else gain_native,
-                    None,
-                    symbol="€" if gain_eur is not None else ccy,
-                ))
-            else:
-                row[8].write("—")
-
-        row[9].write(str((date.today() - txn.trade_date).days))
-
-        if not is_pending_delete:
-            if row[10].button("✏", key=f"edit_btn_{txn.id}", help="Edit"):
-                _clear_edit_keys(txn.id)
-                st.session_state.ll_editing_lot_id = txn.id
-                st.rerun()
-
-        if is_pending_delete:
-            if row[11].button("✕", key=f"cancel_del_{txn.id}", help="Cancel"):
-                st.session_state.ll_pending_delete_lot_id = None
-                st.rerun()
-            conf_c, btn_c, _ = st.columns([3, 1.2, 3])
-            confirmed = conf_c.checkbox(
-                f"Confirm delete — {txn.trade_date.strftime('%-d %b %Y')}"
-                f", {txn.shares:g} shares",
-                key=f"confirm_{txn.id}",
-            )
-            if btn_c.button(
-                "Delete", key=f"do_del_{txn.id}", disabled=not confirmed, type="primary"
-            ):
-                _execute_txn_delete(position, txn.id)
-        else:
-            if row[11].button("🗑", key=f"del_btn_{txn.id}", help="Delete"):
-                st.session_state.ll_pending_delete_lot_id = txn.id
-                st.rerun()
-
-
-def _execute_txn_edit(
-    position: Position,
-    txn_id: str,
-    new_date: date,
-    new_price: float,
-    new_shares: float,
-    new_type: str,
-) -> None:
-    """Save edited transaction fields and rerun."""
-    fresh = load_portfolio()
-    fresh_pos = fresh.get_position(position.ticker)
-    if fresh_pos is None:
-        st.error(f"Position {position.ticker} not found.")
-        return
-
-    updated_txns = [
-        txn.model_copy(update={
-            "trade_date": new_date,
-            "price": new_price,
-            "shares": new_shares,
-            "trade_type": new_type,
-        }) if txn.id == txn_id else txn
-        for txn in fresh_pos.transactions
-    ]
-    updated_pos = fresh_pos.model_copy(update={"transactions": updated_txns})
-    new_positions = [
-        updated_pos if p.ticker == position.ticker else p
-        for p in fresh.positions
-    ]
-    save_portfolio(fresh.model_copy(update={"positions": new_positions}))
-    _recompute_and_save_tax_year()
-    st.session_state.ll_editing_lot_id = None
-    _clear_edit_keys(txn_id)
-    clear_all()
-    logger.info("transaction_edited", ticker=position.ticker, txn_id=txn_id, new_type=new_type)
-    st.success("Transaction updated.")
-    st.rerun()
+        if row[11].button("🗑", key=f"del_btn_{txn.id}", help="Delete"):
+            st.session_state.ll_pending_delete_lot_id = txn.id
+            st.rerun()
 
 
 def _execute_txn_delete(position: Position, txn_id: str) -> None:
