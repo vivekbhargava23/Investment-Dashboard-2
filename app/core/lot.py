@@ -223,6 +223,8 @@ def replay_transactions(
         elif t.trade_type == "sell":
             result = dispose_fifo(open_lots, t.shares, t.price)
             open_lots = result.remaining_lots
+            gain = result.total_gain
+            print(f"TERMINAL_DEBUG: Realized Gain Calculated: {gain} EUR")
             realised.append(RealisedDisposal(
                 sell_transaction_id=t.id,
                 trade_date=t.trade_date,
@@ -230,7 +232,7 @@ def replay_transactions(
                 disposals=result.disposals,
                 total_proceeds=result.total_proceeds,
                 total_cost_basis=result.total_cost_basis,
-                total_gain=result.total_gain,
+                total_gain=gain,
             ))
         else:
             raise ValueError(f"Unknown trade_type: {t.trade_type}")
