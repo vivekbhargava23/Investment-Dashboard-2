@@ -133,7 +133,7 @@ def render_position(
     # Buy markers — green ▲
     buy_x, buy_y, buy_text = [], [], []
     for txn in sorted(position.transactions, key=lambda t: t.trade_date):
-        if txn.trade_type != "buy":
+        if txn.trade_type.upper() != "BUY":
             continue
         snapped = _snap(txn.trade_date)
         if snapped:
@@ -156,7 +156,7 @@ def render_position(
     # Sell markers — red ▼
     sell_x, sell_y, sell_text = [], [], []
     for txn in sorted(position.transactions, key=lambda t: t.trade_date):
-        if txn.trade_type != "sell":
+        if txn.trade_type.upper() != "SELL":
             continue
         snapped = _snap(txn.trade_date)
         if snapped:
@@ -186,6 +186,8 @@ def render_position(
         yaxis_tickprefix=sym,
         yaxis_tickformat=",.2f",
     )
+    # Force X-axis to the full data range
+    fig.update_xaxes(range=[chart_start, chart_end])
 
     st.plotly_chart(fig, use_container_width=True)
 

@@ -247,6 +247,7 @@ def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
     # 6. Final Calculation: (Price * Shares / FX).sum(axis=1)
     portfolio_value = (price_df * shares_df / fx_df).sum(axis=1)
     
+    print(f"DEBUG_CSV_CHECK: History rows returned: {len(portfolio_value)}")
     return portfolio_value.rename("Portfolio (€)")
 
 
