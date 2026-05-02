@@ -13,6 +13,7 @@ from typing import Sequence
 
 import numpy as np
 import pandas as pd
+import streamlit as st
 import yfinance as yf
 
 from app.core.portfolio import Portfolio
@@ -36,6 +37,7 @@ _BATCH_CACHE_TTL = 600.0  # 10 minutes
 _batch_cache: dict[str, tuple[pd.DataFrame, float]] = {}  # key → (df, fetched_at)
 
 
+@st.cache_data(ttl=600)
 def _fetch_batch(tickers: Sequence[str], period: str, start: date | None = None) -> pd.DataFrame:
     """
     Fetch Close prices for multiple tickers in a single batched call.
@@ -44,7 +46,7 @@ def _fetch_batch(tickers: Sequence[str], period: str, start: date | None = None)
     if not tickers:
         return pd.DataFrame()
 
-    # 0. Check Cache
+    # 0. Check Cache (redundant but kept for robustness alongside st.cache_data)
     cache_key = f"{sorted(tickers)}|{period}|{start}"
     now = time.monotonic()
     if cache_key in _batch_cache:
@@ -213,6 +215,7 @@ def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
             if ccy != "EUR":
                 fx_ticker = _FX_TICKERS[ccy]
                 if fx_ticker in combined_df.columns:
+                    # Forward-fill FX to bridge holiday gaps
                     fx_df[ticker] = combined_df[fx_ticker].ffill().bfill()
                 else:
                     # Fallback to live rate if historical FX is totally missing
@@ -227,3 +230,4 @@ def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
 def clear_cache() -> None:
     """Evict all cached price history."""
     _batch_cache.clear()
+    st.cache_data.clear()
