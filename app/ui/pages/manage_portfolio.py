@@ -180,7 +180,7 @@ def _add_transaction(portfolio) -> None:
         pv: FifoPreview | None = None
         if shares > 0 and pos and pos.open_lots:
             try:
-                pv = fifo_sell_preview(pos.open_lots, shares, price, selected)
+                pv = fifo_sell_preview(pos, shares, price)
                 sign = "+" if pv.gain_eur >= 0 else ""
                 color = "#4CAF50" if pv.gain_eur >= 0 else "#F44336"
                 st.markdown(
