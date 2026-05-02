@@ -89,7 +89,7 @@ def fmt_percent(
 
 def fmt_gain(
     absolute: float | None,
-    percent: float | None,
+    percent: float | None = None,
     symbol: str = "€",
 ) -> str:
     """
@@ -101,17 +101,21 @@ def fmt_gain(
         symbol:     Currency symbol (default €)
 
     Returns:
-        Combined string e.g. "+€266.21 (+1.54%)"
+        Combined string e.g. "+€266.21 (+1.54%)" or "+€266.21"
 
     Examples:
         fmt_gain(266.21, 0.0154)    → "+€266.21 (+1.54%)"
+        fmt_gain(266.21)            → "+€266.21"
         fmt_gain(-500.00, -0.0567)  → "-€500.00 (-5.67%)"
-        fmt_gain(None, None)        → "—"
+        fmt_gain(None)              → "—"
     """
-    if absolute is None or percent is None:
+    if absolute is None:
         return "—"
 
     currency = fmt_currency(absolute, symbol=symbol, show_sign=True)
+    if percent is None:
+        return currency
+
     pct = fmt_percent(percent, show_sign=True)
     return f"{currency} ({pct})"
 
