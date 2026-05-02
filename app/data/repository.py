@@ -69,34 +69,6 @@ def load_tax_year() -> TaxYear | None:
     return TaxYear(**block)
 
 
-def load_catalysts() -> list[dict]:
-    """Load raw catalyst event dicts from storage."""
-    path = _resolve_path()
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    return raw.get("catalysts", [])
-
-
-def load_manual_risk_flags() -> list[dict]:
-    """Load manually authored risk flag dicts from storage."""
-    path = _resolve_path()
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    return raw.get("risk_flags", [])
-
-
-def load_behavioural_ledger() -> list[dict]:
-    """Load behavioural pattern dicts from storage."""
-    path = _resolve_path()
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    return raw.get("behavioural_ledger", [])
-
-
-def load_session_log() -> list[dict]:
-    """Load session log entry dicts from storage."""
-    path = _resolve_path()
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    return raw.get("session_log", [])
-
-
 def save_tax_year(tax_year: TaxYear) -> None:
     """
     Persist tax_year block to data/portfolio.json without touching positions.
@@ -117,9 +89,9 @@ def save_portfolio(portfolio: Portfolio) -> None:
     Persist portfolio positions to data/portfolio.json.
 
     Reads the current full JSON (runtime if present, otherwise seed) to
-    preserve non-position sections (catalysts, risk_flags, behavioural_ledger,
-    session_log, tax_year), replaces the positions array, and writes to the
-    runtime path. Auto-creates the data/ directory if it does not exist.
+    preserve non-position sections (tax_year), replaces the positions array,
+    and writes to the runtime path. Auto-creates the data/ directory if it
+    does not exist.
     """
     _RUNTIME_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -151,6 +123,10 @@ def save_portfolio(portfolio: Portfolio) -> None:
         }
         for p in portfolio.positions
     ]
+
+    # Clean up pruned sections if they exist in the raw JSON
+    for key in ["catalysts", "risk_flags", "behavioural_ledger", "session_log"]:
+        raw.pop(key, None)
 
     _RUNTIME_PATH.write_text(
         json.dumps(raw, indent=2, ensure_ascii=False),
