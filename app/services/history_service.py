@@ -2,23 +2,14 @@
 app/services/history_service.py
 
 Historical price fetching and portfolio value reconstruction over time.
-
-yfinance is used for all history regardless of ticker exchange — Finnhub's
-free tier has no OHLCV history endpoint. FX rates are fetched from yfinance
-(EURUSD=X, EURJPY=X) for non-EUR positions.
-
-Period → yfinance mapping
-  1D   → period="1d",  interval="1h"   (intraday, current lot composition)
-  1W   → period="5d",  interval="1d"
-  1M   → period="1mo", interval="1d"
-  YTD  → period="ytd", interval="1d"
-  MAX  → start=earliest_purchase_date, interval="1d"
+Vectorised via pandas for performance.
 """
 
 from __future__ import annotations
 
 from datetime import date
 
+import numpy as np
 import pandas as pd
 import yfinance as yf
 
@@ -90,94 +81,83 @@ def get_ticker_history(ticker: str, period: str, start: date | None = None) -> p
 def get_portfolio_value_history(portfolio: Portfolio, period: str) -> pd.Series:
     """
     Reconstruct total portfolio value in EUR over time.
-
-    For each timestamp t in the shared price index:
-      value(t) = Σ_pos  active_shares(pos, t) × price(pos, t) / fx_rate(ccy, t)
-
-    active_shares(pos, t) = lots whose purchase_date ≤ t.date()
-
-    For 1D (intraday): uses the full current lot composition and live FX rates.
-    For daily periods: uses historical lot composition and historical FX rates,
-    falling back to the live rate if history is unavailable.
-
-    Returns:
-        pd.Series named "Portfolio (€)", indexed by Timestamp. Empty on failure.
+    Vectorised reconstruction: Total(t) = Σ [Shares(ticker, t) * Price(ticker, t) / FX(ticker, t)]
     """
     if not portfolio.positions:
         return pd.Series(dtype=float, name="Portfolio (€)")
 
     intraday = period == "1D"
 
-    # Earliest purchase date (used for MAX trimming)
-    earliest: date | None = None
-    if period == "MAX":
-        all_dates = [t.trade_date for pos in portfolio.positions for t in pos.transactions]
-        earliest = min(all_dates) if all_dates else None
+    # 1. Determine date range
+    all_txns = [t for pos in portfolio.positions for t in pos.transactions]
+    if not all_txns:
+        return pd.Series(dtype=float, name="Portfolio (€)")
+    
+    earliest_txn = min(t.trade_date for t in all_txns)
+    start_date = earliest_txn if period == "MAX" else None
 
-    # Fetch and normalise price histories
-    price_map: dict[str, pd.Series] = {}
-    for pos in portfolio.positions:
-        s = _fetch(pos.ticker, period, start=earliest)
+    # 2. Fetch price and FX histories
+    price_histories = {}
+    tickers = [pos.ticker for pos in portfolio.positions]
+    for ticker in tickers:
+        s = _fetch(ticker, period, start=start_date)
         if not s.empty:
-            price_map[pos.ticker] = _normalise_index(s, intraday)
-
-    if not price_map:
+            price_histories[ticker] = _normalise_index(s, intraday)
+    
+    if not price_histories:
         return pd.Series(dtype=float, name="Portfolio (€)")
 
-    # Fetch FX history (or fall back to live rate for 1D)
-    currencies_needed = {
-        get_currency(pos.ticker)
-        for pos in portfolio.positions
-        if get_currency(pos.ticker) != "EUR"
-    }
-    fx_map: dict[str, pd.Series | float] = {}
-    for ccy in currencies_needed:
+    # Unified index from all fetched prices
+    full_index = pd.DatetimeIndex(sorted(set().union(*[set(s.index) for s in price_histories.values()])))
+    
+    # 3. Build Price Matrix (T x N)
+    price_df = pd.DataFrame(index=full_index)
+    for ticker, s in price_histories.items():
+        price_df[ticker] = s
+    price_df = price_df.ffill()
+
+    # 4. Build Shares Matrix (T x N)
+    shares_df = pd.DataFrame(0.0, index=full_index, columns=tickers)
+    for pos in portfolio.positions:
+        # Group transactions by date to handle multiple same-day trades
+        txn_series = pd.Series(0.0, index=full_index)
+        for t in pos.transactions:
+            ts = pd.Timestamp(t.trade_date)
+            impact = t.shares if t.trade_type == "buy" else -t.shares
+            # Find the first index >= trade_date
+            # For 1D, trade_date (date) might need alignment with intraday timestamps
+            idx_after = full_index[full_index >= ts]
+            if not idx_after.empty:
+                txn_series.loc[idx_after[0]] += impact
+        
+        shares_df[pos.ticker] = txn_series.cumsum()
+
+    # 5. Build FX Matrix (T x N)
+    currencies = {pos.ticker: get_currency(pos.ticker) for pos in portfolio.positions}
+    unique_ccys = set(currencies.values()) - {"EUR"}
+    
+    fx_histories = {}
+    for ccy in unique_ccys:
         if intraday:
-            fx_map[ccy] = get_fx_rate(ccy) or 1.0
+            fx_histories[ccy] = pd.Series(get_fx_rate(ccy) or 1.0, index=full_index)
         else:
-            s = _fetch(_FX_TICKERS[ccy], period, start=earliest)
+            s = _fetch(_FX_TICKERS[ccy], period, start=start_date)
             if not s.empty:
-                fx_map[ccy] = _normalise_index(s, intraday=False)
+                fx_histories[ccy] = _normalise_index(s, intraday=False)
             else:
-                fx_map[ccy] = get_fx_rate(ccy) or 1.0
+                fx_histories[ccy] = pd.Series(get_fx_rate(ccy) or 1.0, index=full_index)
 
-    # Build unified timestamp index from all price series
-    all_idx = sorted(set().union(*[set(s.index) for s in price_map.values()]))
+    fx_df = pd.DataFrame(1.0, index=full_index, columns=tickers)
+    for ticker, ccy in currencies.items():
+        if ccy != "EUR" and ccy in fx_histories:
+            s = fx_histories[ccy]
+            # Align FX series to full_index
+            fx_aligned = pd.Series(index=full_index, dtype=float)
+            fx_aligned.update(s)
+            fx_df[ticker] = fx_aligned.ffill().bfill()
 
-    totals: dict = {}
-    for ts in all_idx:
-        ts_date = ts.date() if hasattr(ts, "date") else pd.Timestamp(ts).date()
-        total = 0.0
-        for pos in portfolio.positions:
-            active = sum(
-                t.shares if t.trade_type == "buy" else -t.shares
-                for t in pos.transactions if t.trade_date <= ts_date
-            )
-            if active <= 0:
-                continue
-
-            ps = price_map.get(pos.ticker)
-            if ps is None:
-                continue
-            available = ps[ps.index <= ts]
-            if available.empty:
-                continue
-            price = float(available.iloc[-1])
-
-            ccy = get_currency(pos.ticker)
-            if ccy == "EUR":
-                fx = 1.0
-            else:
-                fx_src = fx_map.get(ccy, 1.0)
-                if isinstance(fx_src, (int, float)):
-                    fx = float(fx_src)
-                else:
-                    avail_fx = fx_src[fx_src.index <= ts]
-                    fx = float(avail_fx.iloc[-1]) if not avail_fx.empty else 1.0
-
-            if fx > 0:
-                total += active * price / fx
-
-        totals[ts] = total
-
-    return pd.Series(totals, name="Portfolio (€)").sort_index()
+    # 6. Final Calculation: (Price * Shares / FX).sum(axis=1)
+    # Ensure all shapes match
+    portfolio_value = (price_df * shares_df / fx_df).sum(axis=1)
+    
+    return portfolio_value.rename("Portfolio (€)")
