@@ -20,8 +20,8 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-_RUNTIME_PATH = Path("data/portfolio.json")
-_SEED_PATH = Path("app/data/seeds/portfolio.json")
+_RUNTIME_PATH = Path("data/transactions.json")
+_SEED_PATH = Path("app/data/seeds/transactions.json")
 
 
 def _resolve_path() -> Path:
