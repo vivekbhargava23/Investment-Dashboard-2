@@ -65,6 +65,24 @@ body {
 .gain-positive { color: var(--green); }
 .gain-negative { color: var(--red); }
 .gain-neutral { color: var(--text2); }
+.gain-amber { color: var(--amber); }
+
+/* Positions table */
+.positions-table tbody tr {
+    border-bottom: 1px solid var(--border2);
+}
+.positions-table tbody tr:last-child {
+    border-bottom: none;
+}
+.positions-table tbody tr td {
+    padding: 10px 4px;
+    vertical-align: middle;
+}
+.positions-table tbody tr.stale {
+    opacity: 0.5;
+}
+.text-right { text-align: right; }
+.text-center { text-align: center; }
 
 /* ── Custom layout container (used in app.py) ── */
 .root-container {

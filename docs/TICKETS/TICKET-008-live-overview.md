@@ -1,6 +1,6 @@
 # TICKET-008 — Live Overview page wiring + portfolio seed bootstrap
 
-**Status:** READY
+**Status:** IN_PROGRESS
 **Priority:** P1
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-03)
