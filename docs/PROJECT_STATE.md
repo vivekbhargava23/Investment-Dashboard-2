@@ -82,15 +82,12 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-001 — Domain models (Lot, Transaction, Position, Money, Currency)
-2. TICKET-002 — FIFO engine with replay-on-edit
-3. TICKET-003 — JSON repository adapter
-4. TICKET-004 — ECB FX adapter with on-disk cache
-5. TICKET-005 — yfinance + Finnhub price adapters with fallback
-6. TICKET-006 — Valuation service (lots × prices × FX → positions)
-7. TICKET-007 — Streamlit shell + dark CSS theme
-8. TICKET-008 — Live Overview page (KPI tiles + positions table)
-9. TICKET-009 — Manage Portfolio page (add/edit/delete lots)
+1. TICKET-003 — JSON Transaction Repository (port + adapter)
+2. TICKET-004-005 — yfinance adapter (prices + FX)
+3. TICKET-006 — Valuation service (lots × prices × FX → positions)
+4. TICKET-007 — Streamlit shell + dark CSS theme
+5. TICKET-008 — Live Overview page (KPI tiles + positions table)
+6. TICKET-009 — Manage Portfolio page (add/edit/delete lots)
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 

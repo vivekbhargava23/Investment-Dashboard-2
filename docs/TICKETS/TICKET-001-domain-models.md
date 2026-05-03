@@ -1,10 +1,10 @@
 # TICKET-001 — Domain models (Money, Transaction, Position, OpenLot)
 
-**Status:** MERGED
+**Status:** READY
 **Priority:** P0
 **Estimated session length:** 1 – 1.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-03)
-**Implemented by:** Claude Code (session 2026-05-03)
+**Implemented by:** _pending_
 
 ## Problem
 
