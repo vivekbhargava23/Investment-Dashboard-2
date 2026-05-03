@@ -135,7 +135,8 @@ cython_debug/
 .DS_Store
 
 # Local application data
-data/transactions.json
+data/*
+!data/.gitkeep
 data/*.json.pre-tx-migration
 data/*.backup-*
 .env

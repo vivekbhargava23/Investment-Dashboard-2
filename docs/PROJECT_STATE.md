@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-03 by Gemini CLI (TICKET-007 session)
+**Last updated:** 2026-05-04 by Claude Code (TICKET-008b session)
 
 ---
 
@@ -80,14 +80,14 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-007 — Streamlit shell refactor + light theme
 
 ### In review 👀
-- (none)
+- TICKET-008 — Live Overview page (KPI tiles + positions table)
+- TICKET-008b — Positions table HTML leak fix + render_html helper
 
 ### In progress 🚧
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-008 — Live Overview page (KPI tiles + positions table)
-2. TICKET-009 — Manage Portfolio page (add/edit/delete lots)
+1. TICKET-009 — Manage Portfolio page (add/edit/delete lots)
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
