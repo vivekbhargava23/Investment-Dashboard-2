@@ -71,10 +71,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 **Sprint:** Sprint 0 — Repo setup and architecture scaffolding
 
 ### Done ✓
-- (nothing yet — repo just created)
+- TICKET-000 — Repo scaffolding and CI setup
 
 ### In review 👀
-- TICKET-000 — Repo scaffolding and CI setup (PR open, awaiting Vivek's review)
+- TICKET-001 — Domain models (Lot, Transaction, Position, Money, Currency)
 
 ### In progress 🚧
 - (none)
