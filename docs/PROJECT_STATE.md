@@ -77,14 +77,13 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-003 — JSON Transaction Repository (port + adapter)
 
 ### In review 👀
-- (none)
+- TICKET-004-005 — yfinance adapter (prices + FX)
 
 ### In progress 🚧
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-004-005 — yfinance adapter (prices + FX)
-2. TICKET-006 — Valuation service (lots × prices × FX → positions)
+1. TICKET-006 — Valuation service (lots × prices × FX → positions)
 4. TICKET-007 — Streamlit shell + dark CSS theme
 5. TICKET-008 — Live Overview page (KPI tiles + positions table)
 6. TICKET-009 — Manage Portfolio page (add/edit/delete lots)
