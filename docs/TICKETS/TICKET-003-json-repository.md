@@ -1,10 +1,10 @@
 # TICKET-003 — JSON Transaction Repository (port + adapter)
 
-**Status:** READY
+**Status:** IN_REVIEW
 **Priority:** P0
 **Estimated session length:** 1 – 1.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-03)
-**Implemented by:** _pending_
+**Implemented by:** Gemini CLI
 **Depends on:** TICKET-001 (domain models must exist)
 
 ## Problem
