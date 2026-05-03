@@ -29,7 +29,7 @@ The `.env` file is git-ignored and never committed. See `.env.example` for the r
 ## Run
 
 ```bash
-streamlit run app/ui/app.py
+streamlit run app/ui/main.py
 ```
 
 ## Tests

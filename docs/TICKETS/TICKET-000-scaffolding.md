@@ -14,7 +14,7 @@ The empty repo has `docs/`, `CLAUDE.md`, and the PR template already committed b
 - Test scaffold under `tests/`
 - GitHub Actions CI running pytest + ruff + mypy + lint-imports on every push
 - Conda environment file for reproducibility
-- A working `streamlit run app/ui/app.py` showing a placeholder page
+- A working `streamlit run app/ui/main.py` showing a placeholder page
 - Architecture rule enforcement via `import-linter`
 - **Secrets management infrastructure** (`.env` + `.env.example` + `pydantic-settings`-based config)
 
@@ -93,7 +93,7 @@ session-start ritual → implementation → session-end ritual → PR opened.
 - [ ] `tests/unit/test_config.py` confirming Settings loads cleanly with no `.env` present (uses defaults)
 
 ### Streamlit placeholder
-- [ ] `app/ui/app.py` runs with `streamlit run app/ui/app.py` and shows:
+- [ ] `app/ui/main.py` runs with `streamlit run app/ui/main.py` and shows:
   ```python
   import streamlit as st
   st.set_page_config(page_title="Investment Dashboard", layout="wide")
@@ -109,7 +109,7 @@ session-start ritual → implementation → session-end ritual → PR opened.
     2. `conda activate investment-dashboard`
     3. `pip install -e ".[dev]"`
     4. `cp .env.example .env` and edit `.env` with your API keys
-  - Run instructions: `streamlit run app/ui/app.py`
+  - Run instructions: `streamlit run app/ui/main.py`
   - Test instructions: `pytest`
   - Link to `docs/PROJECT_STATE.md` and `docs/ARCHITECTURE.md`
 
@@ -142,7 +142,7 @@ app/services/__init__.py
 app/ports/__init__.py
 app/adapters/__init__.py
 app/ui/__init__.py
-app/ui/app.py
+app/ui/main.py
 tests/__init__.py
 tests/unit/__init__.py
 tests/unit/test_smoke.py
