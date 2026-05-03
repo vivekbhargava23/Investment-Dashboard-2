@@ -142,3 +142,47 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Out-of-scope items noticed
 - (none)
+
+---
+
+## 2026-05-03 14:30 — TICKET-007
+
+**Surface:** Gemini CLI
+**Model:** Gemini 2.0 Pro
+**Duration:** ~45 min
+**Branch:** ticket-007-streamlit-shell
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created Streamlit shell with custom dark theme (oklch colors).
+- Implemented custom sidebar with query-param routing.
+- Implemented topbar with page titles and placeholder FX/time.
+- Created 8 placeholder page modules for routing verification.
+- Implemented pure formatting helpers for EUR, percentages, shares, and dates.
+- Created reusable UI components: MetricCard, ThesisBadge, SeverityBadge.
+- Added unit tests for formatting and components (100% coverage for formatters).
+- Fixed a pre-existing test failure in `test_valuation.py` (pre-flight chore).
+
+### Files touched
+- `app/ui/app.py` — main entry and routing
+- `app/ui/styles/dark.css` — custom styling
+- `app/ui/format.py` — formatting helpers
+- `app/ui/components/*.py` — UI components
+- `app/ui/pages/*.py` — page placeholders
+- `tests/unit/ui/*.py` — UI tests
+- `docs/reference/Investment_Dashboard.html` — design reference
+- `docs/PROJECT_STATE.md`, `docs/SESSION_LOG.md`, `docs/TICKETS/BACKLOG.md`
+
+### Tests
+74 passing → 91 passing (17 new)
+
+### Decisions made during the session
+- Chose `st.columns` with `unsafe_allow_html` for sidebar to allow Streamlit buttons and state management while maintaining layout fidelity.
+- Chose query-param routing to allow cleaner "active" state styling in the sidebar.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~15k
