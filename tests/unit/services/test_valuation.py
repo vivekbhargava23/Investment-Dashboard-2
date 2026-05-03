@@ -207,6 +207,7 @@ def test_service_no_module_state() -> None:
         "Sequence",
         "datetime",
         "Decimal",
+        "Literal",
         "compute_positions",
         "Transaction",
         "Currency",
@@ -218,7 +219,6 @@ def test_service_no_module_state() -> None:
         "PriceProvider",
         "PriceUnavailableError",
     ]
-
     for name, obj in inspect.getmembers(valuation):
         if name.startswith("__"):
             continue
