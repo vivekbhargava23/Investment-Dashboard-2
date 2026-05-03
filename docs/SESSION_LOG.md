@@ -253,3 +253,33 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tests
 91 passing → 97 passing (6 new)
+
+---
+
+## 2026-05-04 — TICKET-008b
+
+**Surface:** Claude Code
+**Model:** claude-sonnet-4-6
+**Duration:** ~40 min
+**Branch:** ticket-008b-html-leak-fix (based on ticket-008-live-overview)
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created `app/ui/html.py`: `render_html(html)` helper that applies `textwrap.dedent` + `.strip()` before calling `st.markdown(..., unsafe_allow_html=True)`. This is now the only place in the codebase where `unsafe_allow_html=True` is set.
+- Created `app/ui/CLAUDE.md`: documents the HTML rendering rule so future pages cannot accidentally introduce the same bug.
+- Refactored `app/ui/pages/overview.py`: replaced all 5 direct `st.markdown(..., unsafe_allow_html=True)` calls with `render_html()`; extracted `_build_positions_table_html(positions, summary) -> str` as a pure helper that builds the table using single-line string concatenation (no leading whitespace, no markdown code-block trigger).
+- Wrote regression tests first (confirmed failing), then implemented the fix:
+  - `tests/unit/ui/test_html_helper.py`: 4 tests for `render_html`
+  - `tests/unit/ui/test_overview_render.py`: extended with 6 regression tests that assert `_build_positions_table_html` returns a string starting with `<`, with no 4+-space prefix, one `<table` tag, and no double-escaping.
+
+### Files touched
+- `app/ui/html.py` (new)
+- `app/ui/CLAUDE.md` (new)
+- `app/ui/pages/overview.py` (refactored)
+- `docs/TICKETS/TICKET-008b-html-leak-fix.md` (status: IN_REVIEW)
+- `tests/unit/ui/test_html_helper.py` (new)
+- `tests/unit/ui/test_overview_render.py` (extended)
+
+### Tests
+97 passing → 107 passing (10 new)

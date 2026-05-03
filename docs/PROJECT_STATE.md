@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-03 by Gemini CLI (TICKET-008 session)
+**Last updated:** 2026-05-04 by Claude Code (TICKET-008b session)
 
 ---
 
@@ -81,6 +81,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### In review 👀
 - TICKET-008 — Live Overview page (KPI tiles + positions table)
+- TICKET-008b — Positions table HTML leak fix + render_html helper
 
 ### In progress 🚧
 - (none)
