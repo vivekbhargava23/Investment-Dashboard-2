@@ -88,3 +88,48 @@ All files under `docs/`, `.github/PULL_REQUEST_TEMPLATE.md`, root `CLAUDE.md`. S
 ~40k
 
 ---
+
+---
+
+## 2026-05-03 — TICKET-001
+
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~45 min
+**Branch:** ticket-001-domain-models
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Implemented `Money` value object with normalized Decimal precision and arithmetic/comparison operators.
+- Implemented `Transaction` model with validation for EUR FX rates, ticker case, and share quantities.
+- Implemented `OpenLot` and `Position` models with consistency checks between positions and underlying lots.
+- Created exhaustive unit tests for all domain models, including property-based tests for `Money`.
+- Restored `.importlinter` configuration to enforce clean architecture layers.
+- Exported all models via `app.domain.__init__.py`.
+- All tests and lints (ruff, mypy strict, import-linter) pass.
+
+### Files touched
+- `app/domain/money.py` — new
+- `app/domain/models.py` — new
+- `app/domain/positions.py` — new
+- `app/domain/__init__.py` — updated
+- `tests/unit/domain/test_money.py` — new
+- `tests/unit/domain/test_transaction.py` — new
+- `tests/unit/domain/test_positions.py` — new
+- `.importlinter` — new (restored)
+- `app/domain/CLAUDE.md` — updated
+- `docs/PROJECT_STATE.md` — updated
+- `docs/SESSION_LOG.md` — updated
+
+### Tests
+5 passing → 32 passing (27 new tests)
+
+### Decisions made during the session
+- Used `StrEnum` (Python 3.11+) for `Currency` and `TransactionType` as suggested by `ruff`.
+- Used `from __future__ import annotations` to support modern type hint syntax with forward references.
+- Return types for `Money` arithmetic operators were adjusted to `Money` instead of `Self` to satisfy `mypy`'s strictness with Pydantic models.
+
+### Out-of-scope items noticed
+- `.importlinter` was missing from the repo despite being mentioned in TICKET-000 and ARCHITECTURE.md. Restored it.
+

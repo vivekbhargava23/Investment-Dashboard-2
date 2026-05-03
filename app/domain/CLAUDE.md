@@ -11,7 +11,9 @@ Pure Python domain layer. Zero I/O imports.
 - All money amounts: `Decimal`, never `float`
 
 ## Files (added as tickets land)
-- `models.py` — TICKET-001: Lot, Transaction, Position, Money, Currency
+- `money.py` — TICKET-001: Money value object, Currency enum
+- `models.py` — TICKET-001: Transaction model
+- `positions.py` — TICKET-001: OpenLot and Position models
 - `fifo.py` — TICKET-002: FIFO engine with replay-on-edit
 - `tax.py` — TICKET-002+: Sparerpauschbetrag, Verlustverrechnungstopf
 - `thesis.py` — TICKET-009+: Thesis state, decision gates
