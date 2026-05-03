@@ -21,13 +21,13 @@ A previous attempt (commit `04578af`, "fix: reconcile TICKET-007 and TICKET-008 
 
 ## Architectural decision implemented by this ticket
 
-**All HTML emitted to Streamlit must route through a single helper, `app/ui/html.py:render_html()`.** This helper applies `textwrap.dedent` and `.strip()` before passing to `st.markdown(..., unsafe_allow_html=True)`. The helper is the *only* place in the codebase where `unsafe_allow_html=True` is set.
+**All HTML emitted to Streamlit must route through a single helper, `app/ui/render.py:render_html()`.** This helper applies `textwrap.dedent` and `.strip()` before passing to `st.markdown(..., unsafe_allow_html=True)`. The helper is the *only* place in the codebase where `unsafe_allow_html=True` is set.
 
 This makes the leading-whitespace bug structurally impossible: even if a future page passes deeply-indented HTML, the helper strips it before rendering.
 
 ## Acceptance criteria
 
-### `app/ui/html.py` — new file
+### `app/ui/render.py` — new file
 
 - [ ] Module docstring explaining the markdown leading-whitespace bug and why this helper exists.
 - [ ] Single function `render_html(html: str) -> None` that calls `st.markdown(dedent(html).strip(), unsafe_allow_html=True)`.
@@ -37,12 +37,12 @@ This makes the leading-whitespace bug structurally impossible: even if a future 
 ### `app/ui/CLAUDE.md` — new file (or update existing)
 
 - [ ] Add a "HTML rendering rule" section:
-  > Any helper or page that emits HTML for `st.markdown` must use `render_html()` from `app/ui/html.py`. This is the *only* place in the codebase where `unsafe_allow_html=True` is set. Never call `st.markdown(..., unsafe_allow_html=True)` directly. The helper handles dedent + strip so leading-whitespace markdown-as-code-block bugs are impossible by construction.
+  > Any helper or page that emits HTML for `st.markdown` must use `render_html()` from `app/ui/render.py`. This is the *only* place in the codebase where `unsafe_allow_html=True` is set. Never call `st.markdown(..., unsafe_allow_html=True)` directly. The helper handles dedent + strip so leading-whitespace markdown-as-code-block bugs are impossible by construction.
 
 ### `app/ui/pages/overview.py` — refactor
 
 - [ ] Replace **every** `st.markdown(..., unsafe_allow_html=True)` call with `render_html(...)`.
-- [ ] Add `from app.ui.html import render_html` to imports.
+- [ ] Add `from app.ui.render import render_html` to imports.
 - [ ] When building `tbody_rows`, ensure each row string is constructed without leading-whitespace indentation. Either:
   - Build rows as single-line strings (no `f"""..."""` blocks for rows), OR
   - Apply `dedent()` to each row when appending.
@@ -71,7 +71,7 @@ This makes the leading-whitespace bug structurally impossible: even if a future 
 - [ ] `pytest` — all tests pass (existing 97 + new 4–6 = 101–103 total)
 - [ ] `ruff check .` — passes
 - [ ] `mypy app/` — passes
-- [ ] `lint-imports` — passes; `app.ui.html` is allowed to import streamlit (UI layer)
+- [ ] `lint-imports` — passes; `app.ui.render` is allowed to import streamlit (UI layer)
 
 ### Manual verification (in PR description)
 - [ ] Run `streamlit run app/ui/main.py` (with `pip install -e .` done, no PYTHONPATH workaround needed).

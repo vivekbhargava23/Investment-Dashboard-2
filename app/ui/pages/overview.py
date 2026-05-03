@@ -10,7 +10,7 @@ from app.domain.positions import LivePosition, PortfolioSummary
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
 from app.ui.components.badges import render_thesis_badge
 from app.ui.format import format_eur, format_pct
-from app.ui.html import render_html
+from app.ui.render import render_html
 from app.ui.wiring import get_fx_provider, get_price_provider, get_repository
 
 _PLACEHOLDER_THESIS_STATUS: dict[str, Literal["intact", "watch", "broken"]] = {

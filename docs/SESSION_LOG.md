@@ -266,7 +266,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 **Status at session end:** IN_REVIEW
 
 ### What got done
-- Created `app/ui/html.py`: `render_html(html)` helper that applies `textwrap.dedent` + `.strip()` before calling `st.markdown(..., unsafe_allow_html=True)`. This is now the only place in the codebase where `unsafe_allow_html=True` is set.
+- Created `app/ui/render.py`: `render_html(html)` helper that applies `textwrap.dedent` + `.strip()` before calling `st.markdown(..., unsafe_allow_html=True)`. This is now the only place in the codebase where `unsafe_allow_html=True` is set.
 - Created `app/ui/CLAUDE.md`: documents the HTML rendering rule so future pages cannot accidentally introduce the same bug.
 - Refactored `app/ui/pages/overview.py`: replaced all 5 direct `st.markdown(..., unsafe_allow_html=True)` calls with `render_html()`; extracted `_build_positions_table_html(positions, summary) -> str` as a pure helper that builds the table using single-line string concatenation (no leading whitespace, no markdown code-block trigger).
 - Wrote regression tests first (confirmed failing), then implemented the fix:
@@ -274,7 +274,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
   - `tests/unit/ui/test_overview_render.py`: extended with 6 regression tests that assert `_build_positions_table_html` returns a string starting with `<`, with no 4+-space prefix, one `<table` tag, and no double-escaping.
 
 ### Files touched
-- `app/ui/html.py` (new)
+- `app/ui/render.py` (new)
 - `app/ui/CLAUDE.md` (new)
 - `app/ui/pages/overview.py` (refactored)
 - `docs/TICKETS/TICKET-008b-html-leak-fix.md` (status: IN_REVIEW)
