@@ -75,9 +75,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-001 — Domain models (Lot, Transaction, Position, Money, Currency)
 - TICKET-002 — FIFO engine with replay-on-edit
 - TICKET-003 — JSON Transaction Repository (port + adapter)
+- TICKET-004-005 — yfinance adapter (prices + FX)
 
 ### In review 👀
-- TICKET-004-005 — yfinance adapter (prices + FX)
+- (none)
 
 ### In progress 🚧
 - (none)
