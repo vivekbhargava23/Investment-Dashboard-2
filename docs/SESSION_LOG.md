@@ -186,3 +186,37 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tokens used (rough)
 ~15k
+
+---
+
+## 2026-05-03 — TICKET-007 Refactor & UI Polish
+
+**Surface:** Gemini CLI
+**Model:** Gemini 2.0 Pro
+**Duration:** ~30 min
+**Branch:** feature/ui-shell-refactor
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/11
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Fixed Streamlit shell crash by refactoring entry point to use dynamic imports and placeholders.
+- Resolved 'app is not a package' error by renaming `app/ui/app.py` to `app/ui/main.py`.
+- Fixed sidebar and topbar HTML rendering issues caused by Markdown whitespace sensitivity.
+- Improved CSS loading reliability using relative paths.
+- Implemented Light Theme as requested, adjusting OKLCH variables for high contrast.
+- Updated all documentation and references to point to `main.py`.
+
+### Files touched
+- `app/ui/main.py` (renamed from app.py, refactored)
+- `app/ui/styles/dark.css` (converted to light theme)
+- `app/ui/components/sidebar.py`
+- `app/ui/components/topbar.py`
+- `app/ui/components/metric_card.py`
+- `README.md`
+- `docs/TICKETS/TICKET-000-scaffolding.md`
+- `docs/TICKETS/TICKET-007-streamlit-shell.md`
+- `docs/TICKETS/TICKET-008-live-overview.md`
+
+### Tests
+- All UI unit tests pass (pytest tests/unit/ui/)
+- Verified manually that shell starts and routes correctly in light mode.
