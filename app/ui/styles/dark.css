@@ -28,23 +28,23 @@ footer { display: none; } /* "Made with Streamlit" footer */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        oklch(0.13 0.012 250);
-  --surface:   oklch(0.17 0.010 250);
-  --surface2:  oklch(0.20 0.010 250);
-  --border:    oklch(0.26 0.010 250);
-  --border2:   oklch(0.30 0.010 250);
-  --text:      oklch(0.93 0.008 250);
-  --text2:     oklch(0.62 0.010 250);
-  --text3:     oklch(0.42 0.010 250);
-  --green:     oklch(0.72 0.18 145);
-  --green-bg:  oklch(0.20 0.05 145);
-  --red:       oklch(0.62 0.20 25);
-  --red-bg:    oklch(0.20 0.06 25);
-  --amber:     oklch(0.78 0.16 80);
-  --amber-bg:  oklch(0.20 0.05 80);
-  --blue:      oklch(0.72 0.14 230);
-  --blue-bg:   oklch(0.19 0.05 230);
-  --accent:    oklch(0.72 0.18 145);
+  --bg:        oklch(0.98 0.005 250); /* Near white background */
+  --surface:   oklch(1.0 0 0);        /* Pure white surface */
+  --surface2:  oklch(0.95 0.005 250); /* Light gray surface */
+  --border:    oklch(0.88 0.010 250); /* Subtle light border */
+  --border2:   oklch(0.80 0.015 250);
+  --text:      oklch(0.25 0.010 250); /* Dark gray for primary text */
+  --text2:     oklch(0.45 0.015 250); /* Medium gray for secondary text */
+  --text3:     oklch(0.60 0.020 250); /* Light gray for labels/meta */
+  --green:     oklch(0.55 0.15 145);  /* Slightly darker green for contrast */
+  --green-bg:  oklch(0.96 0.04 145);  /* Very light green background */
+  --red:       oklch(0.55 0.18 25);   /* Slightly darker red for contrast */
+  --red-bg:    oklch(0.96 0.04 25);   /* Very light red background */
+  --amber:     oklch(0.60 0.14 80);
+  --amber-bg:  oklch(0.96 0.04 80);
+  --blue:      oklch(0.55 0.12 230);
+  --blue-bg:   oklch(0.96 0.04 230);
+  --accent:    oklch(0.55 0.15 145);
   --nav-w:     220px;
 }
 

@@ -7,7 +7,7 @@
 **Implemented by:** _pending_
 **Depends on:** TICKETs 001 (domain), 002 (FIFO), 003 (repo), 004-005 (yfinance), 006 (valuation service), 007 (UI shell)
 
-> **This is the first ticket that produces a working prototype.** After this ticket lands, `streamlit run app/ui/app.py` shows real portfolio data with live prices, the Refresh button works end-to-end, and the user can see their holdings in the dark-themed dashboard. Manage Portfolio (TICKET-009) is the next step for editing data through the UI; until then, edits happen via the seed script or hand-editing JSON.
+> **This is the first ticket that produces a working prototype.** After this ticket lands, `streamlit run app/ui/main.py` shows real portfolio data with live prices, the Refresh button works end-to-end, and the user can see their holdings in the dark-themed dashboard. Manage Portfolio (TICKET-009) is the next step for editing data through the UI; until then, edits happen via the seed script or hand-editing JSON.
 
 ---
 
@@ -346,7 +346,7 @@ README.md                       ← add a "First-time portfolio setup" section p
 Foundation tickets (000–006) are invisible to the user — backend code, no UI. TICKET-007 is the visual shell with no data. **TICKET-008 is the first time the user opens the app and sees their actual portfolio.** It's the milestone we've been building toward.
 
 After this ticket merges:
-- `streamlit run app/ui/app.py` shows a real, dark-themed dashboard
+- `streamlit run app/ui/main.py` shows a real, dark-themed dashboard
 - KPI tiles show live numbers
 - Positions table shows live prices and gains
 - Refresh button refetches everything
@@ -408,7 +408,7 @@ These need raw HTML. `st.markdown(unsafe_allow_html=True)` with a hand-built `<t
 
 `app/scripts/` is for one-off operational tools that ship with the package but aren't part of the running app. The seed script is the first; future scripts may include broker import, data migration, etc.
 
-It is **not** a service or an adapter. It composes the existing pieces (`Transaction` from domain, `JsonTransactionRepository` from adapters) to do a one-time setup task. It can import from any layer because it's the wiring point — the same as `app/ui/app.py` is the wiring point for the running app.
+It is **not** a service or an adapter. It composes the existing pieces (`Transaction` from domain, `JsonTransactionRepository` from adapters) to do a one-time setup task. It can import from any layer because it's the wiring point — the same as `app/ui/main.py` is the wiring point for the running app.
 
 ### Why module-level singletons in `wiring.py`
 

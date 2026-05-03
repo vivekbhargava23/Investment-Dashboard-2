@@ -16,7 +16,7 @@ We have a backend (domain, FIFO, repository, valuation service) but no UI. Befor
 
 This ticket builds the shell to the visual fidelity of the user's HTML mockup, with all 8 nav items present (one of them, Analytics & Risk, is reserved for future implementation in TICKET-019). Every page is a placeholder for now; later tickets replace placeholders with real content.
 
-After this ticket lands, you can run `streamlit run app/ui/app.py`, click between pages, see the sidebar highlight the active page, and the page changes — all with the dark theme of the reference mockup. No real data anywhere.
+After this ticket lands, you can run `streamlit run app/ui/main.py`, click between pages, see the sidebar highlight the active page, and the page changes — all with the dark theme of the reference mockup. No real data anywhere.
 
 ---
 
@@ -73,7 +73,7 @@ These were decided in the chat session 2026-05-03:
   - `DM Mono` weights 400, 500
 - [ ] Body uses `'DM Sans', sans-serif`; numeric/code uses `'DM Mono', monospace`. Defined as utility classes in CSS (`.font-mono`).
 
-### `app/ui/app.py` — single-page entry
+### `app/ui/main.py` — single-page entry
 
 - [ ] Imports: `streamlit`, the sidebar/topbar components, the page modules.
 - [ ] At the top: `st.set_page_config(page_title="Investment Panel", page_icon="📈", layout="wide", initial_sidebar_state="collapsed")`. Wide layout is required to match the mockup's two-column body.
@@ -90,7 +90,7 @@ These were decided in the chat session 2026-05-03:
   - Use `st.columns([0.18, 0.82])` for sidebar and main, OR use `unsafe_allow_html` to render a custom `<div class="root">` flex container that wraps both. **Prefer the flex container approach** — it matches the mockup exactly. Streamlit columns have padding/borders we can't fully control.
   - Render sidebar via `render_sidebar()` (component imported from `app.ui.components.sidebar`).
   - Render main pane: topbar via `render_topbar()`, then `PAGE_REGISTRY[st.session_state.current_page]()`.
-- [ ] Run with: `streamlit run app/ui/app.py`. Confirms manually during the session that all 8 pages route correctly.
+- [ ] Run with: `streamlit run app/ui/main.py`. Confirms manually during the session that all 8 pages route correctly.
 
 ### `app/ui/components/sidebar.py`
 
@@ -244,7 +244,7 @@ These are not pytest tests — they're a checklist Vivek runs manually because S
 ## Files created
 
 ```
-app/ui/app.py
+app/ui/main.py
 app/ui/styles/dark.css
 app/ui/format.py
 app/ui/components/__init__.py
