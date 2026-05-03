@@ -1,6 +1,6 @@
 # TICKET-004-005 — yfinance adapter for prices and FX (consolidated)
 
-**Status:** IN_REVIEW
+**Status:** MERGED
 **Priority:** P0
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-03)
