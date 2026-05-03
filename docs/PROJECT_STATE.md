@@ -74,9 +74,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-000 — Repo scaffolding and CI setup
 - TICKET-001 — Domain models (Lot, Transaction, Position, Money, Currency)
 - TICKET-002 — FIFO engine with replay-on-edit
+- TICKET-003 — JSON Transaction Repository (port + adapter)
 
 ### In review 👀
-- TICKET-003 — JSON Transaction Repository (port + adapter)
+- (none)
 
 ### In progress 🚧
 - (none)
