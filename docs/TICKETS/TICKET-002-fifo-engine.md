@@ -1,6 +1,6 @@
 # TICKET-002 — FIFO engine (compute_positions, compute_realised_gains, RealisedGain)
 
-**Status:** READY
+**Status:** IN_REVIEW
 **Priority:** P0
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-03)

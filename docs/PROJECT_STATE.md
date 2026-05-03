@@ -75,7 +75,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-001 — Domain models (Lot, Transaction, Position, Money, Currency)
 
 ### In review 👀
-- (none)
+- TICKET-002 — FIFO engine with replay-on-edit
 
 ### In progress 🚧
 - (none)
