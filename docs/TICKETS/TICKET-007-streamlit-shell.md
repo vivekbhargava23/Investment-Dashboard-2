@@ -1,6 +1,6 @@
 # TICKET-007 — Streamlit shell + dark CSS theme + sidebar/topbar/page placeholders
 
-**Status:** IN_PROGRESS
+**Status:** MERGED
 **Priority:** P1
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-03)
