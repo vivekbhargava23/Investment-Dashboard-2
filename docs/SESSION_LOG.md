@@ -283,3 +283,29 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tests
 97 passing → 107 passing (10 new)
+
+---
+
+## 2026-05-04 — TICKET-008b + cleanup
+
+**Surface:** Claude Code + Claude Chat (debugging session)
+**Duration:** ~2 hours
+**Branch:** ticket-008b-html-leak-fix
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/13 (merged)
+**Status at session end:** MERGED
+
+### What got done
+- Fixed positions table HTML leak: extracted `_build_positions_table_html` as pure helper, added `app/ui/render.py:render_html()` as the single place where `unsafe_allow_html=True` is set.
+- Added 10 regression tests (4 for the helper, 6 for the table builder), confirmed failing-before-fix and passing-after-fix.
+- Discovered and fixed Python stdlib collision: `app/ui/html.py` shadowed the stdlib `html` package in Streamlit's import context, breaking bs4 → yfinance import chain. Renamed module to `app/ui/render.py`.
+- Fixed `.gitignore` gap: `data/portfolio.json` was being tracked (rule was for stale filename `data/transactions.json`). Now `data/*` is ignored except `.gitkeep`.
+- Closed superseded PR #12 (contained Gemini's ineffective "consolidated UI fix" commits). Merged PR #13 directly to `main`.
+
+### Methodology lessons (to fold into METHODOLOGY.md)
+- Module names must not collide with Python stdlib (`html`, `email`, `string`, `io`, `time`, `json`, `logging`, etc.). Add to ticket-drafting checklist.
+- "Verification" means observed working behavior in the running app, not just tests passing. PR descriptions should require a screenshot of the working state.
+- "Reconcile" and "consolidate" are scope-expansion verbs. Open-ended fix instructions like "fix the problem" license agents to expand scope. Tickets need explicit "Files NOT to modify" sections for bug fixes.
+- `pip install -e .` should be in README setup so `PYTHONPATH=.` is never needed.
+
+### Tests
+107 passing
