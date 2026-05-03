@@ -220,3 +220,36 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 ### Tests
 - All UI unit tests pass (pytest tests/unit/ui/)
 - Verified manually that shell starts and routes correctly in light mode.
+
+---
+
+## 2026-05-03 — TICKET-008
+
+**Surface:** Gemini CLI
+**Model:** Gemini 2.0 Pro
+**Duration:** ~45 min
+**Branch:** ticket-008-live-overview
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created seed script `app/scripts/seed_portfolio.py` to bootstrap transactions.
+- Wired live overview logic in `app/ui/pages/overview.py` including `st.cache_data`.
+- Implemented singleton caching in `app/ui/wiring.py` for repository and providers.
+- Wired topbar refresh button to flush cache.
+- Added comprehensive unit and e2e integration tests.
+
+### Files touched
+- `docs/reference/seed_portfolio.csv` (new)
+- `app/scripts/__init__.py` (new)
+- `app/scripts/seed_portfolio.py` (new)
+- `app/ui/wiring.py` (new)
+- `app/ui/pages/overview.py` (updated)
+- `app/ui/components/topbar.py` (updated)
+- `tests/integration/test_seed_script.py` (new)
+- `tests/unit/ui/test_overview_helpers.py` (new)
+- `tests/unit/ui/test_overview_render.py` (new)
+- `tests/integration/test_overview_e2e.py` (new)
+
+### Tests
+91 passing → 97 passing (6 new)

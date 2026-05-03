@@ -23,7 +23,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | ID | Title | Status | Priority | Est |
 |---|---|---|---|---|
 | TICKET-007 | Streamlit shell refactor + light theme | MERGED | P1 | 2 – 2.5 hr |
-| TICKET-008 | Live Overview page wiring + portfolio seed bootstrap | READY | P1 | 2 – 2.5 hr |
+| TICKET-008 | Live Overview page wiring + portfolio seed bootstrap | IN_REVIEW | P1 | 2 – 2.5 hr |
 | TICKET-009 | Manage Portfolio page — add/edit/delete lots | DRAFT | P1 | 2 hr |
 
 ## Phase 2 — Tax & decisions
