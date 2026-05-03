@@ -1,0 +1,19 @@
+ticker,type,trade_date,shares,price_native,currency,fx_rate_eur,notes
+VUSA.DE,buy,2024-08-01,32.0000,97.5000,EUR,1.0,Core S&P 500 ETF entry
+ETN,buy,2025-01-15,5.0000,320.0000,USD,0.9300,Eaton — power infra entry
+ASX,buy,2025-02-28,100.0000,9.5000,USD,0.9150,ASE Tech — packaging
+MU,buy,2025-03-10,4.0000,85.0000,USD,0.9200,Micron HBM3E entry
+ANET,buy,2025-04-05,10.0000,105.0000,USD,0.9250,Arista Networks entry
+NVDA,buy,2025-05-12,9.0000,115.0000,USD,0.9100,NVIDIA — AI compute
+HY9H.F,buy,2025-05-22,1.0000,178.5000,EUR,1.0,SK Hynix GDR — first lot
+HY9H.F,buy,2025-05-23,1.0000,179.2000,EUR,1.0,SK Hynix GDR — second lot
+MRVL,buy,2025-06-15,10.0000,58.0000,USD,0.8950,Marvell — custom silicon
+APD,buy,2025-07-22,4.0000,250.0000,USD,0.9050,Air Products — under review
+AVGO,buy,2025-08-20,4.0000,195.0000,USD,0.8950,Broadcom — XPU
+5631.T,buy,2025-11-10,1.0000,4200.0000,USD,0.9300,Japan Steel Works (use USD as approximation; KRW/JPY not supported in v1)
+RHM.DE,buy,2026-03-27,1.0000,1452.7500,EUR,1.0,Rheinmetall — long-standing target
+HY9H.F,buy,2026-03-31,10.0000,121.4000,EUR,1.0,SK Hynix — fifth lot
+ETN,sell,2026-03-12,1.0000,340.0000,USD,0.9180,Trim — partial sell
+ETN,sell,2026-05-01,1.0000,355.0000,USD,0.9200,Trim — second partial
+HY9H.F,buy,2026-05-02,1.0000,135.0000,EUR,1.0,SK Hynix — recent add
+HY9H.F,sell,2026-01-02,1.0000,165.0000,EUR,1.0,Tax-loss harvest from first lot
