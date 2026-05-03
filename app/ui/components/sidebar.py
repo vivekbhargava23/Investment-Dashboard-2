@@ -1,8 +1,7 @@
 from datetime import date
+from typing import Any
 
 import streamlit as st
-
-from typing import Any
 
 NAV_ITEMS: list[dict[str, Any]] = [
     {"id": "overview",    "label": "Live Overview",      "icon": "◉", "badge": None},
