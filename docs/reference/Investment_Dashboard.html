@@ -1,0 +1,3462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Investment Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<!-- Recharts loaded dynamically below -->
+
+<script src="components/data.js"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        oklch(0.13 0.012 250);
+    --surface:   oklch(0.17 0.010 250);
+    --surface2:  oklch(0.20 0.010 250);
+    --border:    oklch(0.26 0.010 250);
+    --border2:   oklch(0.30 0.010 250);
+    --text:      oklch(0.93 0.008 250);
+    --text2:     oklch(0.62 0.010 250);
+    --text3:     oklch(0.42 0.010 250);
+    --green:     oklch(0.72 0.18 145);
+    --green-bg:  oklch(0.20 0.05 145);
+    --red:       oklch(0.62 0.20 25);
+    --red-bg:    oklch(0.20 0.06 25);
+    --amber:     oklch(0.78 0.16 80);
+    --amber-bg:  oklch(0.20 0.05 80);
+    --blue:      oklch(0.72 0.14 230);
+    --blue-bg:   oklch(0.19 0.05 230);
+    --accent:    oklch(0.72 0.18 145);
+    --nav-w:     220px;
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; line-height: 1.5; }
+
+  #root { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: var(--nav-w);
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-logo {
+    padding: 20px 18px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-logo .mark {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .sidebar-logo .icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 7px;
+    display: grid; place-items: center;
+    font-size: 14px;
+  }
+  .sidebar-logo .name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.01em;
+  }
+  .sidebar-logo .sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 1px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.03em;
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 8px;
+  }
+
+  .nav-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 10px 10px 4px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 13px;
+    font-weight: 450;
+    transition: background 0.12s, color 0.12s;
+    user-select: none;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: var(--green-bg); color: var(--green); font-weight: 550; }
+  .nav-item .nav-icon { font-size: 15px; flex-shrink: 0; width: 18px; text-align: center; }
+  .nav-badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    background: var(--red-bg);
+    color: var(--red);
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .nav-badge.amber { background: var(--amber-bg); color: var(--amber); }
+
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .sidebar-footer .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    display: inline-block;
+    margin-right: 5px;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── Main content ── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .topbar {
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+    flex-shrink: 0;
+    background: var(--surface);
+  }
+  .topbar h1 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+  .topbar-meta {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+  }
+  .refresh-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    border-radius: 6px;
+    padding: 5px 11px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: background 0.12s, color 0.12s;
+  }
+  .refresh-btn:hover { background: var(--border); color: var(--text); }
+
+  .page-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  /* ── Cards & metrics ── */
+  .metric-row {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .metric-row.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .metric-row.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .metric-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .metric-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+  .metric-value {
+    font-size: 24px;
+    font-weight: 600;
+    font-family: 'DM Mono', monospace;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .metric-value.sm { font-size: 18px; }
+  .metric-delta {
+    font-size: 12px;
+    margin-top: 4px;
+    font-family: 'DM Mono', monospace;
+  }
+  .metric-delta.up   { color: var(--green); }
+  .metric-delta.down { color: var(--red); }
+  .metric-delta.off  { color: var(--text3); }
+  .metric-delta.amber { color: var(--amber); }
+
+  /* ── Section headers ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    margin-top: 24px;
+  }
+  .section-header:first-child { margin-top: 0; }
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.01em;
+  }
+  .section-sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 2px;
+  }
+
+  /* ── Tables ── */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .data-table thead th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .data-table thead th.right { text-align: right; }
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--surface2); }
+  .data-table tbody td {
+    padding: 10px 12px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .data-table tbody td.right { text-align: right; }
+  .data-table tbody td.mono { font-family: 'DM Mono', monospace; font-size: 12px; }
+  .data-table tbody td.dim { color: var(--text2); }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.6;
+  }
+  .badge.green  { background: var(--green-bg);  color: var(--green); }
+  .badge.red    { background: var(--red-bg);    color: var(--red); }
+  .badge.amber  { background: var(--amber-bg);  color: var(--amber); }
+  .badge.blue   { background: var(--blue-bg);   color: var(--blue); }
+  .badge.dim    { background: var(--surface2);  color: var(--text2); }
+  .badge .dot   { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  /* ── Progress bar ── */
+  .progress-wrap {
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+
+  /* ── Flag cards ── */
+  .flag-card {
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    border-left: 3px solid;
+  }
+  .flag-card.critical { background: var(--red-bg);   border-color: var(--red);   }
+  .flag-card.high     { background: oklch(0.20 0.04 50); border-color: var(--amber); }
+  .flag-card.medium   { background: var(--amber-bg); border-color: var(--amber); }
+  .flag-card.low      { background: var(--green-bg); border-color: var(--green); }
+  .flag-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .flag-desc  { font-size: 12px; color: var(--text2); line-height: 1.5; }
+  .flag-meta  { font-size: 11px; color: var(--text3); margin-top: 4px; font-family: 'DM Mono', monospace; }
+
+  /* ── Checklist ── */
+  .checklist-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 0.1s;
+    user-select: none;
+  }
+  .checklist-item:hover { background: var(--surface2); }
+  .checklist-item.checked { opacity: 0.6; }
+  .check-box {
+    width: 16px; height: 16px;
+    border-radius: 4px;
+    border: 1.5px solid var(--border2);
+    flex-shrink: 0;
+    margin-top: 1px;
+    display: grid; place-items: center;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .check-box.checked { background: var(--green); border-color: var(--green); }
+  .check-text { font-size: 13px; color: var(--text2); line-height: 1.45; }
+  .check-text.checked { text-decoration: line-through; color: var(--text3); }
+  .check-category {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text3);
+    margin-top: 12px;
+    margin-bottom: 4px;
+    padding: 0 12px;
+  }
+
+  /* ── Charts ── */
+  .chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 18px 10px;
+  }
+
+  /* ── Tabs (within page) ── */
+  .tab-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+  .tab-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .tab-btn:hover { background: var(--surface2); color: var(--text); }
+  .tab-btn.active { background: var(--surface2); color: var(--text); font-weight: 550; }
+
+  /* ── Period selector ── */
+  .period-row {
+    display: flex;
+    gap: 3px;
+    background: var(--surface2);
+    border-radius: 7px;
+    padding: 3px;
+    width: fit-content;
+    margin-bottom: 16px;
+  }
+  .period-btn {
+    padding: 4px 10px;
+    border-radius: 5px;
+    border: none;
+    background: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .period-btn.active { background: var(--surface); color: var(--text); }
+
+  /* ── Misc ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .caption { font-size: 11px; color: var(--text3); margin-top: 8px; }
+  .info-box {
+    background: var(--blue-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .select-field {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+  }
+  .select-field:focus { border-color: var(--accent); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* ── Lot row expand ── */
+  .lot-row { background: var(--bg); }
+  .lot-row td { padding: 6px 12px 6px 36px; font-size: 12px; color: var(--text3); }
+
+  /* ── Weight bar inline ── */
+  .weight-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .weight-bar { height: 4px; border-radius: 2px; background: var(--green); flex-shrink: 0; }
+
+  /* ── Session expander ── */
+  .expander {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .expander-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 14px;
+    cursor: pointer;
+    background: var(--surface);
+    transition: background 0.1s;
+    user-select: none;
+  }
+  .expander-header:hover { background: var(--surface2); }
+  .expander-body {
+    padding: 12px 14px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text2);
+  }
+
+  /* ── Tweaks button ── */
+  .top-badge-row { display: flex; align-items: center; gap: 8px; }
+
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo } = React;
+// ─────────────────────────────────────────────────────────────────────────
+// Pure-SVG chart primitives (no external deps)
+// ─────────────────────────────────────────────────────────────────────────
+function MiniAreaChart({ data, color, valueKey, width=500, height=200 }) {
+  const [tooltip, setTooltip] = useState(null);
+  if (!data || data.length < 2) return null;
+  const vals = data.map(d => d[valueKey]);
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const pad = { t:10, r:10, b:28, l:56 };
+  const W = width - pad.l - pad.r, H = height - pad.t - pad.b;
+  const x = i => (i / (data.length - 1)) * W;
+  const y = v => H - ((v - minV) / (maxV - minV || 1)) * H;
+  const pts = data.map((d,i) => [x(i), y(d[valueKey])]);
+  const linePath = pts.map((p,i) => `${i===0?"M":"L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const areaPath = linePath + ` L${pts[pts.length-1][0].toFixed(1)},${H} L0,${H} Z`;
+  // Y axis ticks
+  const yTicks = 4;
+  const tickStep = (maxV - minV) / yTicks;
+  // X ticks — show ~5 labels
+  const xStep = Math.max(1, Math.floor(data.length / 5));
+  const fmtDate = s => { const d = new Date(s); return `${d.getDate()} ${d.toLocaleString("en",{month:"short"})}`; };
+
+  return (
+    <div style={{position:"relative",width:"100%",height}}>
+      <svg viewBox={`0 0 ${width} ${height}`} style={{width:"100%",height:"100%"}}
+        onMouseLeave={() => setTooltip(null)}>
+        <defs>
+          <linearGradient id={`ag-${color.replace(/[^a-z]/gi,"")}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.22"/>
+            <stop offset="100%" stopColor={color} stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        <g transform={`translate(${pad.l},${pad.t})`}>
+          {/* Grid lines */}
+          {Array.from({length:yTicks+1},(_,i)=>{
+            const v = minV + tickStep * i;
+            const yp = y(v);
+            return <line key={i} x1={0} y1={yp.toFixed(1)} x2={W} y2={yp.toFixed(1)}
+              stroke="var(--border)" strokeWidth="1" strokeDasharray="3,3"/>;
+          })}
+          {/* Area fill */}
+          <path d={areaPath} fill={`url(#ag-${color.replace(/[^a-z]/gi,"")})`}/>
+          {/* Line */}
+          <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* Tooltip dot */}
+          {tooltip != null && (
+            <circle cx={pts[tooltip][0]} cy={pts[tooltip][1]} r={4} fill={color} stroke="var(--surface)" strokeWidth={2}/>
+          )}
+          {/* Invisible hover targets */}
+          {data.map((_,i) => (
+            <rect key={i} x={i===0?0:x(i-1)+W/(data.length-1)/2} y={0}
+              width={W/(data.length-1)} height={H} fill="transparent"
+              onMouseEnter={() => setTooltip(i)}/>
+          ))}
+          {/* Y axis labels */}
+          {Array.from({length:yTicks+1},(_,i)=>{
+            const v = minV + tickStep * i;
+            const yp = y(v);
+            const label = v >= 10000 ? `€${(v/1000).toFixed(0)}k` : v >= 100 ? `${v.toFixed(0)}` : v.toFixed(1);
+            return <text key={i} x={-6} y={yp+4} textAnchor="end"
+              fontSize="10" fill="var(--text3)" fontFamily="DM Mono,monospace">{label}</text>;
+          })}
+          {/* X axis labels */}
+          {data.filter((_,i) => i % xStep === 0 || i === data.length-1).map((d,_,arr) => {
+            const origIdx = data.indexOf(d);
+            return <text key={origIdx} x={x(origIdx)} y={H+18} textAnchor="middle"
+              fontSize="10" fill="var(--text3)" fontFamily="DM Mono,monospace">
+              {fmtDate(d.date)}
+            </text>;
+          })}
+        </g>
+      </svg>
+      {/* Tooltip box */}
+      {tooltip != null && (() => {
+        const d = data[tooltip];
+        const xPct = (tooltip / (data.length-1)) * 100;
+        const v = d[valueKey];
+        const label = v >= 1000 ? `€${v.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})}` : v.toFixed(2);
+        return (
+          <div style={{position:"absolute",top:8,left:xPct > 60 ? "auto":"auto",
+            background:"var(--surface2)",border:"1px solid var(--border)",
+            borderRadius:6,padding:"5px 10px",fontSize:12,pointerEvents:"none",
+            transform:`translateX(calc(${xPct}% - 50%))`,left:`calc(${pad.l}px + ${xPct}% * (${(width-pad.l-pad.r)}/100) / ${width} * 100%)`,
+            whiteSpace:"nowrap",zIndex:10}}>
+            <span style={{color:"var(--text3)",marginRight:6}}>{d.date}</span>
+            <span style={{color,fontFamily:"DM Mono,monospace",fontWeight:600}}>{label}</span>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+function MiniBarChart({ data, nameKey, valueKey, width=500, height=200 }) {
+  const [hovered, setHovered] = useState(null);
+  if (!data || data.length === 0) return null;
+  const vals = data.map(d => d[valueKey]);
+  const minV = Math.min(0, ...vals), maxV = Math.max(0, ...vals);
+  const pad = { t:10, r:10, b:28, l:64 };
+  const W = width - pad.l - pad.r, H = height - pad.t - pad.b;
+  const barW = (W / data.length) * 0.6;
+  const barGap = W / data.length;
+  const yZero = H * maxV / (maxV - minV || 1);
+  const yScale = v => H * (maxV - v) / (maxV - minV || 1);
+  const barH = v => Math.abs(v) / (maxV - minV || 1) * H;
+
+  return (
+    <div style={{position:"relative",width:"100%",height}}>
+      <svg viewBox={`0 0 ${width} ${height}`} style={{width:"100%",height:"100%"}}>
+        <g transform={`translate(${pad.l},${pad.t})`}>
+          {/* Zero line */}
+          <line x1={0} y1={yZero.toFixed(1)} x2={W} y2={yZero.toFixed(1)}
+            stroke="var(--border2)" strokeWidth="1"/>
+          {/* Grid */}
+          {[-1,0,1].map(i => {
+            const v = i * maxV * 0.6;
+            const yp = yScale(v);
+            if (yp < 0 || yp > H) return null;
+            const label = Math.abs(v) >= 1000 ? `€${(v/1000).toFixed(0)}k` : `€${v.toFixed(0)}`;
+            return <g key={i}>
+              <line x1={0} y1={yp.toFixed(1)} x2={W} y2={yp.toFixed(1)}
+                stroke="var(--border)" strokeWidth="1" strokeDasharray="3,3"/>
+              <text x={-6} y={yp+4} textAnchor="end" fontSize="10" fill="var(--text3)" fontFamily="DM Mono,monospace">{label}</text>
+            </g>;
+          })}
+          {/* Bars */}
+          {data.map((d,i) => {
+            const v = d[valueKey];
+            const bx = i * barGap + (barGap - barW) / 2;
+            const by = v >= 0 ? yScale(v) : yZero;
+            const bh = barH(v);
+            const col = v >= 0 ? "var(--green)" : "var(--red)";
+            const isHov = hovered === i;
+            return (
+              <g key={i}>
+                <rect x={bx.toFixed(1)} y={by.toFixed(1)} width={barW.toFixed(1)} height={Math.max(2,bh).toFixed(1)}
+                  rx="3" fill={col} fillOpacity={isHov ? 1 : 0.8}
+                  onMouseEnter={()=>setHovered(i)} onMouseLeave={()=>setHovered(null)}
+                  style={{cursor:"default"}}/>
+                <text x={(bx + barW/2).toFixed(1)} y={H+18} textAnchor="middle"
+                  fontSize="10" fill={isHov?"var(--text)":"var(--text3)"} fontFamily="DM Mono,monospace">
+                  {d[nameKey]}
+                </text>
+                {isHov && (
+                  <text x={(bx + barW/2).toFixed(1)} y={(v>=0?by-4:by+bh+12).toFixed(1)}
+                    textAnchor="middle" fontSize="10" fill={col} fontFamily="DM Mono,monospace" fontWeight="600">
+                    {v>=0?"+":""}€{Math.abs(v).toFixed(0)}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+function MiniPieChart({ data, width=260, height=200 }) {
+  const [hovered, setHovered] = useState(null);
+  const total = data.reduce((s,d)=>s+d.value,0);
+  const cx = width/2, cy = height*0.52, r=Math.min(cx,cy)*0.72, ri=r*0.55;
+  let angle = -Math.PI/2;
+  const slices = data.map((d,i) => {
+    const sweep = (d.value/total) * Math.PI * 2;
+    const a1 = angle, a2 = angle + sweep;
+    angle = a2;
+    const x1=cx+Math.cos(a1)*r, y1=cy+Math.sin(a1)*r;
+    const x2=cx+Math.cos(a2)*r, y2=cy+Math.sin(a2)*r;
+    const xi1=cx+Math.cos(a1)*ri, yi1=cy+Math.sin(a1)*ri;
+    const xi2=cx+Math.cos(a2)*ri, yi2=cy+Math.sin(a2)*ri;
+    const large = sweep > Math.PI ? 1 : 0;
+    const path = `M${xi1.toFixed(2)},${yi1.toFixed(2)} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} L${xi2.toFixed(2)},${yi2.toFixed(2)} A${ri},${ri} 0 ${large},0 ${xi1.toFixed(2)},${yi1.toFixed(2)} Z`;
+    const midA = a1 + sweep/2;
+    return { ...d, path, midA, i };
+  });
+
+  const hov = hovered !== null ? slices[hovered] : null;
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{width:"100%",height}}>
+      {slices.map((s,i) => {
+        const isHov = hovered===i;
+        const scale = isHov ? 1.04 : 1;
+        const tx = isHov ? (cx + Math.cos(s.midA)*r*0.04) : 0;
+        const ty = isHov ? (cy + Math.sin(s.midA)*r*0.04) : 0;
+        return (
+          <path key={i} d={s.path} fill={s.color} fillOpacity={isHov?1:0.85}
+            stroke="var(--surface)" strokeWidth={1.5}
+            transform={isHov ? `translate(${(tx-cx*(scale-1)).toFixed(2)},${(ty-cy*(scale-1)).toFixed(2)}) scale(${scale})` : ""}
+            style={{transformOrigin:`${cx}px ${cy}px`,cursor:"pointer"}}
+            onMouseEnter={()=>setHovered(i)} onMouseLeave={()=>setHovered(null)}/>
+        );
+      })}
+      {hov ? (
+        <>
+          <text x={cx} y={cy-8} textAnchor="middle" fontSize="13" fill="var(--text)" fontFamily="DM Mono,monospace" fontWeight="600">{hov.name}</text>
+          <text x={cx} y={cy+10} textAnchor="middle" fontSize="12" fill={hov.color} fontFamily="DM Mono,monospace">{hov.value}%</text>
+        </>
+      ) : (
+        <>
+          <text x={cx} y={cy-4} textAnchor="middle" fontSize="11" fill="var(--text3)" fontFamily="DM Sans,sans-serif">Portfolio</text>
+          <text x={cx} y={cy+12} textAnchor="middle" fontSize="11" fill="var(--text3)" fontFamily="DM Sans,sans-serif">Allocation</text>
+        </>
+      )}
+    </svg>
+  );
+}
+
+// Global tweaks ref — App writes, pages read
+let _activeTweaks = {
+  accentColor: "green",
+  density: "comfortable",
+  showFxRates: true,
+  currencySymbol: "€",
+  overviewLayout: "chart-first",
+  chartHeight: 160,
+  showAllocation: true,
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// Formatters
+// ─────────────────────────────────────────────────────────────────────────
+const fmtEur  = (v, sign=false) => v == null ? "—" : `${sign && v>0?"+":""}€${Math.abs(v).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const fmtPct  = (v, sign=false) => v == null ? "—" : `${sign && v>0?"+":""}${(v*100).toFixed(1)}%`;
+const fmtNum  = (v, dp=2) => v == null ? "—" : v.toLocaleString("de-DE",{minimumFractionDigits:dp,maximumFractionDigits:dp});
+const gainClass = v => v >= 0 ? "up" : "down";
+const severityLabel = s => ({ critical:"Critical", high:"High", medium:"Medium", low:"Low" }[s] || s);
+const severityBadge = s => ({ critical:"red", high:"amber", medium:"amber", low:"green" }[s] || "dim");
+
+// ─────────────────────────────────────────────────────────────────────────
+// Mini components
+// ─────────────────────────────────────────────────────────────────────────
+function MetricCard({ label, value, delta, deltaClass, small }) {
+  return (
+    <div className="metric-card">
+      <div className="metric-label">{label}</div>
+      <div className={`metric-value${small?" sm":""}`}>{value}</div>
+      {delta && <div className={`metric-delta ${deltaClass||"off"}`}>{delta}</div>}
+    </div>
+  );
+}
+
+function Badge({ children, color }) {
+  return <span className={`badge ${color||"dim"}`}>{children}</span>;
+}
+
+function ThesisBadge({ status }) {
+  const map = { intact:["green","●  intact"], watch:["amber","◐  watch"], broken:["red","○  broken"] };
+  const [color, label] = map[status] || ["dim", status];
+  return <Badge color={color}>{label}</Badge>;
+}
+
+function SeverityBadge({ severity }) {
+  return <Badge color={severityBadge(severity)}>{severityLabel(severity)}</Badge>;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PAGE: Live Overview
+// ─────────────────────────────────────────────────────────────────────────
+function OverviewPage() {
+  const { portfolio, tax_year, computeTotals } = MOCK_DATA;
+  const { totalValue, totalCost, totalGain } = computeTotals();
+  const gainPct = totalGain / totalCost;
+  const tw = _activeTweaks;
+
+  // Tax bar
+  const taxAllowUsed = tax_year.allowance_used;
+  const taxAllowTotal = tax_year.sparerpauschbetrag;
+  const taxAllowPct = (taxAllowUsed / taxAllowTotal) * 100;
+  const taxHeadroom = (taxAllowTotal - taxAllowUsed) + tax_year.loss_pot_carried_in;
+
+  const [expandedTicker, setExpandedTicker] = useState(null);
+
+  const chartFirst = tw.overviewLayout !== "positions-first";
+
+  return (
+    <div>
+      {/* Summary bar — 2 big metrics */}
+      <div className="metric-row cols-2">
+        <MetricCard
+          label="Total Portfolio Value"
+          value={fmtEur(totalValue)}
+          delta={`${fmtEur(totalCost)} cost basis`}
+          deltaClass="off"
+        />
+        <MetricCard
+          label="Total Unrealised Gain"
+          value={fmtEur(totalGain, true)}
+          delta={fmtPct(gainPct, true)}
+          deltaClass={gainClass(totalGain)}
+        />
+      </div>
+
+      {/* 4 secondary metrics — enriched with inline visuals */}
+      <div className="metric-row cols-4">
+        {/* Positions */}
+        <div className="metric-card">
+          <div className="metric-label">Positions</div>
+          <div className="metric-value sm">{portfolio.positions.length}</div>
+          <div className="metric-delta off" style={{marginTop:4}}>
+            {portfolio.positions.filter(p=>p.thesis_status==="intact").length} intact
+          </div>
+          <div style={{display:"flex",gap:4,marginTop:10,flexWrap:"wrap"}}>
+            {portfolio.positions.map(p => (
+              <div key={p.ticker} style={{
+                fontFamily:"DM Mono,monospace",fontSize:10,padding:"2px 6px",borderRadius:4,
+                background: p.thesis_status==="intact"?"var(--green-bg)":p.thesis_status==="watch"?"var(--amber-bg)":"var(--red-bg)",
+                color: p.thesis_status==="intact"?"var(--green)":p.thesis_status==="watch"?"var(--amber)":"var(--red)",
+                fontWeight:500,
+              }}>{p.ticker}</div>
+            ))}
+          </div>
+        </div>
+
+        {/* Thesis Status */}
+        <div className="metric-card">
+          <div className="metric-label">Thesis Status</div>
+          <div className="metric-value sm">{portfolio.positions.filter(p=>p.thesis_status==="intact").length} intact</div>
+          <div className={`metric-delta ${portfolio.positions.some(p=>p.thesis_status==="broken") ? "down" : "amber"}`} style={{marginTop:4}}>
+            {portfolio.positions.filter(p=>p.thesis_status==="watch").length} watch · {portfolio.positions.filter(p=>p.thesis_status==="broken").length} broken
+          </div>
+          {/* Stacked bar */}
+          <div style={{display:"flex",height:6,borderRadius:3,overflow:"hidden",marginTop:10,gap:1}}>
+            {(() => {
+              const intact = portfolio.positions.filter(p=>p.thesis_status==="intact").length;
+              const watch  = portfolio.positions.filter(p=>p.thesis_status==="watch").length;
+              const broken = portfolio.positions.filter(p=>p.thesis_status==="broken").length;
+              const total  = portfolio.positions.length;
+              return <>
+                <div style={{flex:intact/total,background:"var(--green)",borderRadius:"3px 0 0 3px"}}></div>
+                <div style={{flex:watch/total,background:"var(--amber)"}}></div>
+                <div style={{flex:broken/total,background:"var(--red)",borderRadius:"0 3px 3px 0"}}></div>
+              </>;
+            })()}
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:4,fontSize:10,color:"var(--text3)",fontFamily:"DM Mono,monospace"}}>
+            <span style={{color:"var(--green)"}}>intact</span>
+            <span style={{color:"var(--amber)"}}>watch</span>
+            <span style={{color:"var(--red)"}}>broken</span>
+          </div>
+        </div>
+
+        {/* Sparerpauschbetrag */}
+        <div className="metric-card">
+          <div className="metric-label">Sparerpauschbetrag</div>
+          <div className="metric-value sm">{fmtEur(taxAllowTotal - taxAllowUsed)}</div>
+          <div className="metric-delta off" style={{marginTop:4}}>{fmtEur(taxAllowUsed)} used of {fmtEur(taxAllowTotal)}</div>
+          <div className="progress-wrap" style={{marginTop:10,height:6}}>
+            <div className="progress-fill" style={{
+              width:`${taxAllowPct}%`,
+              background: taxAllowPct > 80 ? "var(--amber)" : taxAllowPct > 50 ? "var(--green)" : "var(--green)"
+            }}></div>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:4,fontSize:10,color:"var(--text3)",fontFamily:"DM Mono,monospace"}}>
+            <span>{taxAllowPct.toFixed(0)}% used</span>
+            <span>{(100-taxAllowPct).toFixed(0)}% free</span>
+          </div>
+        </div>
+
+        {/* Tax Headroom */}
+        <div className="metric-card">
+          <div className="metric-label">Tax Headroom</div>
+          <div className="metric-value sm">{fmtEur(taxHeadroom)}</div>
+          <div className="metric-delta off" style={{marginTop:4}}>gain still realisable tax-free</div>
+          <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:4}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:11}}>
+              <span style={{color:"var(--text3)"}}>Allowance</span>
+              <span style={{fontFamily:"DM Mono,monospace",color:"var(--green)",fontSize:11}}>{fmtEur(taxAllowTotal - taxAllowUsed)}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:11}}>
+              <span style={{color:"var(--text3)"}}>Loss Pot</span>
+              <span style={{fontFamily:"DM Mono,monospace",color:"var(--blue)",fontSize:11}}>{fmtEur(tax_year.loss_pot_carried_in)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Allowance progress */}
+      <div style={{marginBottom: 20}}>
+        <div className="progress-wrap">
+          <div className="progress-fill" style={{width: `${taxAllowPct}%`, background: taxAllowPct > 80 ? "var(--amber)" : "var(--green)"}}></div>
+        </div>
+        <div className="caption">Sparerpauschbetrag {taxAllowPct.toFixed(0)}% consumed — {fmtEur(taxAllowTotal - taxAllowUsed)} remaining for 2026</div>
+      </div>
+
+      {/* Portfolio performance chart — always shown, position controlled by tweak */}
+      <OverviewPerformanceCharts portfolioOnly chartHeight={tw.chartHeight} />
+
+      {/* Allocation + per-position charts */}
+      {tw.showAllocation && (
+        <>
+          <div className="section-header" style={{marginTop:28}}>
+            <div className="section-title">Portfolio Allocation</div>
+          </div>
+          <AllocationChart />
+        </>
+      )}
+
+      {/* Per-position performance */}
+      <OverviewPerformanceCharts positionOnly chartHeight={tw.chartHeight} />
+
+      {/* Position table — always at the bottom */}
+      <div className="section-header" style={{marginTop:28}}>
+        <div>
+          <div className="section-title">Positions</div>
+          <div className="section-sub">All monetary values converted to EUR at live FX rates</div>
+        </div>
+        <div style={{fontSize:11,color:"var(--text3)",fontFamily:"DM Mono,monospace"}}>
+          <span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:"var(--green)",marginRight:4,animation:"pulse 2s infinite"}}></span>
+          LIVE · refreshed now
+        </div>
+      </div>
+
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Name</th>
+              <th>Ccy</th>
+              <th className="right">Price</th>
+              <th className="right">Shares</th>
+              <th className="right">Cost (€)</th>
+              <th className="right">Value (€)</th>
+              <th className="right">Gain (€)</th>
+              <th className="right">Weight</th>
+              <th>Horizon</th>
+              <th>Thesis</th>
+              <th className="right">Lots</th>
+            </tr>
+          </thead>
+          <tbody>
+            {portfolio.positions.map(pos => {
+              const gainEur = pos.currency === "USD" ? pos.unrealised_gain / pos.fx_rate : pos.unrealised_gain;
+              const valueEur = pos.currency === "USD" ? pos.current_value / pos.fx_rate : pos.current_value;
+              const costEur = pos.currency === "USD" ? pos.total_cost_basis / pos.fx_rate : pos.total_cost_basis;
+              const isExp = expandedTicker === pos.ticker;
+              return (
+                <React.Fragment key={pos.ticker}>
+                  <tr style={{cursor:"pointer"}} onClick={() => setExpandedTicker(isExp ? null : pos.ticker)}>
+                    <td className="mono" style={{fontWeight:600, color:"var(--text)"}}>{pos.ticker}</td>
+                    <td className="dim">{pos.name}</td>
+                    <td><Badge color="dim">{pos.currency}</Badge></td>
+                    <td className="right mono">{fmtNum(pos.live_price)}</td>
+                    <td className="right mono dim">{fmtNum(pos.total_shares, 4)}</td>
+                    <td className="right mono">{fmtEur(costEur)}</td>
+                    <td className="right mono">{fmtEur(valueEur)}</td>
+                    <td className={`right mono metric-delta ${gainClass(gainEur)}`} style={{padding:"10px 12px"}}>
+                      {fmtEur(gainEur, true)} <span style={{fontSize:11}}>{fmtPct(pos.unrealised_gain_pct, true)}</span>
+                    </td>
+                    <td className="right">
+                      <div className="weight-bar-wrap" style={{justifyContent:"flex-end"}}>
+                        <span className="mono dim" style={{fontSize:11}}>{(pos.weight*100).toFixed(1)}%</span>
+                        <div className="weight-bar" style={{width: pos.weight * 80}}></div>
+                      </div>
+                    </td>
+                    <td><Badge color="dim">{pos.horizon}</Badge></td>
+                    <td><ThesisBadge status={pos.thesis_status} /></td>
+                    <td className="right mono dim">{pos.lot_count}</td>
+                  </tr>
+                  {isExp && (
+                    <tr className="lot-row">
+                      <td colSpan={12}>
+                        <div style={{padding:"8px 0 4px"}}>
+                          <div style={{fontSize:11,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",color:"var(--text3)",marginBottom:6}}>Thesis</div>
+                          <div style={{fontSize:12,color:"var(--text2)",maxWidth:600,lineHeight:1.5}}>{pos.thesis_notes}</div>
+                          <div style={{marginTop:8,fontSize:11,color:"var(--text3)"}}>Tags: {pos.tags.map(t => <Badge key={t} color="dim" style={{marginRight:4}}>{t}</Badge>)}</div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="caption" style={{marginTop:8}}>Click any row to expand thesis notes · Prices refresh every 60s</div>
+    </div>
+  );
+}
+
+function OverviewPerformanceCharts({ portfolioOnly, positionOnly, chartHeight=160 }) {
+  const [period, setPeriod] = useState("3M");
+  const [selectedTicker, setSelectedTicker] = useState("NVDA");
+
+  const generatePortfolioHistory = useCallback((p) => {
+    const points = {"1W":7,"1M":30,"3M":90,"6M":180,"1Y":365,"MAX":730}[p]||90;
+    const data = [];
+    const today = new Date("2026-05-02");
+    let val = 35000;
+    for (let i = points; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate()-i);
+      val *= (1+(Math.random()-0.42)*0.012);
+      data.push({date:d.toISOString().slice(0,10),value:parseFloat(val.toFixed(2))});
+    }
+    data[data.length-1].value = 26291.63;
+    return data;
+  }, []);
+
+  const generatePositionHistory = useCallback((ticker, p) => {
+    const points = {"1W":7,"1M":30,"3M":90,"6M":180,"1Y":365,"MAX":730}[p]||90;
+    const pos = MOCK_DATA.portfolio.positions.find(x=>x.ticker===ticker);
+    const data = [];
+    const today = new Date("2026-05-02");
+    let price = pos.live_price * 0.72;
+    for (let i = points; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate()-i);
+      price *= (1+(Math.random()-0.44)*0.018);
+      data.push({date:d.toISOString().slice(0,10),price:parseFloat(price.toFixed(2))});
+    }
+    data[data.length-1].price = pos.live_price;
+    return data;
+  }, []);
+
+  const portfolioData = useMemo(()=>generatePortfolioHistory(period),[period,generatePortfolioHistory]);
+  const posData       = useMemo(()=>generatePositionHistory(selectedTicker,period),[selectedTicker,period,generatePositionHistory]);
+
+  const portStart = portfolioData[0]?.value, portEnd = portfolioData[portfolioData.length-1]?.value;
+  const portChg   = portEnd - portStart, portChgPct = portChg/portStart;
+
+  const posStart = posData[0]?.price, posEnd = posData[posData.length-1]?.price;
+  const posChg   = posEnd - posStart, posChgPct = posChg/posStart;
+  const selPos   = MOCK_DATA.portfolio.positions.find(p=>p.ticker===selectedTicker);
+
+  return (
+    <div style={{marginTop: portfolioOnly ? 0 : 28}}>
+      {/* Header — only show when showing both or portfolio-only */}
+      {!positionOnly && (
+        <div className="section-header" style={{marginTop: portfolioOnly ? 20 : 0}}>
+          <div>
+            <div className="section-title">Portfolio Performance</div>
+            <div className="section-sub">Portfolio value over time</div>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <div className="period-row" style={{marginBottom:0}}>
+              {["1W","1M","3M","6M","1Y","MAX"].map(p=>(
+                <button key={p} className={`period-btn${period===p?" active":""}`} onClick={()=>setPeriod(p)}>{p}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Portfolio value chart — only when portfolioOnly or full */}
+      {!positionOnly && (
+        <div className="chart-wrap" style={{marginBottom:14}}>
+          <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:10}}>
+            <span style={{fontSize:12,fontWeight:600,color:"var(--text2)"}}>Portfolio Value</span>
+            <span className={`metric-delta ${gainClass(portChg)}`} style={{fontSize:13,fontFamily:"DM Mono,monospace"}}>
+              {fmtEur(portChg,true)} {fmtPct(portChgPct,true)}
+            </span>
+            <span style={{fontSize:11,color:"var(--text3)"}}>· {period}</span>
+          </div>
+          <MiniAreaChart data={portfolioData} color="var(--green)" valueKey="value" width={900} height={chartHeight}/>
+        </div>
+      )}
+
+      {/* Per-position chart — only when positionOnly or full */}
+      {!portfolioOnly && (
+        <>
+          <div className="section-header" style={{marginTop:28}}>
+            <div>
+              <div className="section-title">Position Performance</div>
+              <div className="section-sub">Per-position price chart with thesis context</div>
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <div className="period-row" style={{marginBottom:0}}>
+                {["1W","1M","3M","6M","1Y","MAX"].map(p=>(
+                  <button key={p} className={`period-btn${period===p?" active":""}`} onClick={()=>setPeriod(p)}>{p}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="two-col">
+            <div className="chart-wrap">
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{display:"flex",alignItems:"baseline",gap:10}}>
+                  <span style={{fontSize:12,fontWeight:600,color:"var(--text2)"}}>{selectedTicker}</span>
+                  <span className={`metric-delta ${gainClass(posChg)}`} style={{fontSize:12,fontFamily:"DM Mono,monospace"}}>
+                    {fmtNum(posChg,2)} {fmtPct(posChgPct,true)}
+                  </span>
+                </div>
+                <select className="select-field" style={{fontSize:12,padding:"4px 8px"}} value={selectedTicker} onChange={e=>setSelectedTicker(e.target.value)}>
+                  {MOCK_DATA.portfolio.positions.map(p=>(
+                    <option key={p.ticker} value={p.ticker}>{p.ticker} — {p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <MiniAreaChart data={posData} color={posChg>=0?"var(--green)":"var(--red)"} valueKey="price" width={460} height={Math.max(120, chartHeight - 20)}/>
+            </div>
+
+            {/* Position stats panel */}
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              <div className="metric-card" style={{flex:"none"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div>
+                    <div className="metric-label">Unrealised Gain</div>
+                    <div className={`metric-value sm metric-delta ${gainClass(selPos?.unrealised_gain)}`} style={{marginTop:4}}>
+                      {fmtEur(selPos?.currency==="USD"?selPos.unrealised_gain/selPos.fx_rate:selPos?.unrealised_gain,true)}
+                    </div>
+                    <div className={`metric-delta ${gainClass(selPos?.unrealised_gain_pct)}`} style={{marginTop:3}}>
+                      {fmtPct(selPos?.unrealised_gain_pct,true)} · {selPos?.lot_count} lot{selPos?.lot_count!==1?"s":""}
+                    </div>
+                  </div>
+                  <ThesisBadge status={selPos?.thesis_status}/>
+                </div>
+              </div>
+              <div className="metric-card" style={{flex:"none"}}>
+                <div className="metric-label">Cost Basis → Current Value</div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:6}}>
+                  <span style={{fontFamily:"DM Mono,monospace",fontSize:13,color:"var(--text2)"}}>
+                    {fmtEur(selPos?.currency==="USD"?selPos.total_cost_basis/selPos.fx_rate:selPos?.total_cost_basis)}
+                  </span>
+                  <span style={{color:"var(--text3)",fontSize:12}}>→</span>
+                  <span style={{fontFamily:"DM Mono,monospace",fontSize:13,color:selPos?.unrealised_gain>=0?"var(--green)":"var(--red)",fontWeight:600}}>
+                    {fmtEur(selPos?.currency==="USD"?selPos.current_value/selPos.fx_rate:selPos?.current_value)}
+                  </span>
+                </div>
+                <div style={{marginTop:8,height:4,borderRadius:2,background:"var(--surface2)",overflow:"hidden"}}>
+                  <div style={{height:"100%",borderRadius:2,
+                    background:selPos?.unrealised_gain>=0?"var(--green)":"var(--red)",
+                    width:`${Math.min(100,Math.max(0,(selPos?.current_value/selPos?.total_cost_basis)*50))}%`,
+                  }}></div>
+                </div>
+              </div>
+              <div className="metric-card" style={{flex:1}}>
+                <div className="metric-label">Thesis</div>
+                <div style={{fontSize:12,color:"var(--text2)",lineHeight:1.55,marginTop:4}}>{selPos?.thesis_notes}</div>
+                <div style={{marginTop:8,display:"flex",gap:4,flexWrap:"wrap"}}>
+                  {selPos?.tags.map(t=><Badge key={t} color="dim">{t}</Badge>)}
+                  <Badge color="dim">{selPos?.horizon}</Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AllocationChart() {
+  const COLORS = ["oklch(0.72 0.18 145)","oklch(0.72 0.14 230)","oklch(0.78 0.16 80)","oklch(0.72 0.18 195)","oklch(0.62 0.20 25)","oklch(0.72 0.14 310)"];
+  const data = MOCK_DATA.portfolio.positions.map((p,i) => ({
+    name: p.ticker,
+    value: parseFloat((p.weight*100).toFixed(1)),
+    color: COLORS[i % COLORS.length],
+  }));
+  const barData = MOCK_DATA.portfolio.positions.map(p => ({
+    name: p.ticker,
+    gain: parseFloat(((p.currency==="USD" ? p.unrealised_gain/p.fx_rate : p.unrealised_gain)).toFixed(0))
+  }));
+
+  return (
+    <div className="two-col">
+      <div className="chart-wrap">
+        <div style={{fontSize:12,fontWeight:600,marginBottom:4,color:"var(--text2)"}}>By Position (% of portfolio)</div>
+        <div style={{display:"flex",alignItems:"center",gap:16}}>
+          <div style={{flexShrink:0,width:180}}>
+            <MiniPieChart data={data} width={180} height={180}/>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:6,flex:1}}>
+            {data.map((d,i) => (
+              <div key={i} style={{display:"flex",alignItems:"center",gap:7,fontSize:12}}>
+                <div style={{width:8,height:8,borderRadius:2,background:d.color,flexShrink:0}}></div>
+                <span style={{color:"var(--text2)",fontFamily:"DM Mono,monospace",fontSize:12,minWidth:60}}>{d.name}</span>
+                <div style={{flex:1,height:4,background:"var(--surface2)",borderRadius:2,overflow:"hidden"}}>
+                  <div style={{width:`${d.value/Math.max(...data.map(x=>x.value))*100}%`,height:"100%",background:d.color,borderRadius:2}}></div>
+                </div>
+                <span style={{color:"var(--text3)",fontFamily:"DM Mono,monospace",fontSize:11,minWidth:32,textAlign:"right"}}>{d.value}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="chart-wrap">
+        <div style={{fontSize:12,fontWeight:600,marginBottom:8,color:"var(--text2)"}}>Unrealised Gain / Loss by Position (€)</div>
+        <MiniBarChart data={barData} nameKey="name" valueKey="gain" width={460} height={180}/>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PAGE: Tax Dashboard
+// ─────────────────────────────────────────────────────────────────────────
+function TaxPage() {
+  const { tax_year, portfolio, computeTotals } = MOCK_DATA;
+  const RATE = MOCK_DATA.ABGELTUNGSTEUER;
+
+  const allowRem = Math.max(0, tax_year.sparerpauschbetrag - tax_year.allowance_used);
+  const lossPotRem = tax_year.loss_pot_carried_in; // simplified — no gains absorbed yet
+  const headroom = allowRem + lossPotRem;
+
+  // Compute net unrealised gains in EUR for each position
+  const priced = portfolio.positions.map(p => {
+    const gainEur = p.currency === "USD" ? p.unrealised_gain / p.fx_rate : p.unrealised_gain;
+    return { ...p, gainEur };
+  });
+  const netEur = priced.reduce((s,p) => s + p.gainEur, 0);
+
+  // Estimate total tax exposure
+  let remaining = netEur;
+  const lossPotConsumed = Math.min(lossPotRem, Math.max(0, remaining));
+  remaining -= lossPotConsumed;
+  const allowConsumed = Math.min(allowRem, Math.max(0, remaining));
+  remaining -= allowConsumed;
+  const taxableGain = Math.max(0, remaining);
+  const taxOwed = taxableGain * RATE;
+
+  const gains = priced.filter(p => p.gainEur > 0).sort((a,b) => b.gainEur - a.gainEur);
+  const losses = priced.filter(p => p.gainEur < 0).sort((a,b) => a.gainEur - b.gainEur);
+
+  return (
+    <div>
+      {/* YTD Summary */}
+      <div className="metric-row cols-4">
+        <MetricCard label="Sparerpauschbetrag" value={fmtEur(tax_year.sparerpauschbetrag)} delta={`${fmtEur(tax_year.allowance_used)} used · ${fmtEur(allowRem)} remaining`} deltaClass="off" small/>
+        <MetricCard label="Realised Gains YTD" value={fmtEur(tax_year.realised_gains)} delta={`${fmtEur(tax_year.realised_losses)} losses · net ${fmtEur(tax_year.realised_gains - tax_year.realised_losses)}`} deltaClass={gainClass(tax_year.realised_gains - tax_year.realised_losses)} small/>
+        <MetricCard label="Loss Pot (carried in)" value={fmtEur(tax_year.loss_pot_carried_in)} delta="from prior years · offsets future gains" deltaClass="off" small/>
+        <MetricCard label="Tax Headroom" value={fmtEur(headroom)} delta={`${fmtEur(allowRem)} allowance + ${fmtEur(lossPotRem)} loss pot`} deltaClass="green" small/>
+      </div>
+
+      {/* Allowance bar */}
+      <div style={{marginBottom:24}}>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--text3)",marginBottom:4}}>
+          <span>Sparerpauschbetrag consumed</span>
+          <span style={{fontFamily:"DM Mono,monospace"}}>{(tax_year.allowance_used / tax_year.sparerpauschbetrag * 100).toFixed(0)}% · {fmtEur(tax_year.allowance_used)} / {fmtEur(tax_year.sparerpauschbetrag)}</span>
+        </div>
+        <div className="progress-wrap" style={{height:8}}>
+          <div className="progress-fill" style={{width:`${(tax_year.allowance_used/tax_year.sparerpauschbetrag*100).toFixed(0)}%`,background:"var(--green)"}}></div>
+        </div>
+      </div>
+
+      <hr className="divider"/>
+
+      {/* Total tax exposure */}
+      <div className="section-header">
+        <div>
+          <div className="section-title">Total Tax Exposure</div>
+          <div className="section-sub">Estimated Abgeltungsteuer if every position were closed at today's prices</div>
+        </div>
+      </div>
+
+      <div className="metric-row cols-4">
+        <MetricCard label="Net Unrealised Gain" value={fmtEur(netEur, true)} delta={fmtPct(netEur / priced.reduce((s,p)=>{const c=p.currency==="USD"?p.total_cost_basis/p.fx_rate:p.total_cost_basis;return s+c;},0), true)} deltaClass={gainClass(netEur)} small/>
+        <MetricCard label="Sheltered (Allowance + Loss Pot)" value={fmtEur(lossPotConsumed + allowConsumed)} delta="absorbed before tax" deltaClass="off" small/>
+        <MetricCard label="Taxable Gain" value={fmtEur(taxableGain)} delta={taxableGain === 0 ? "fully sheltered ✓" : "subject to Abgeltungsteuer"} deltaClass={taxableGain === 0 ? "up" : "amber"} small/>
+        <MetricCard label="Tax Owed (if closed today)" value={fmtEur(taxOwed)} delta={taxOwed === 0 ? "€0 — tax-free" : `${(RATE*100).toFixed(3)}% Abgeltungsteuer`} deltaClass={taxOwed === 0 ? "up" : "down"} small/>
+      </div>
+
+      <hr className="divider"/>
+
+      {/* Harvest opportunity */}
+      <div className="section-header">
+        <div>
+          <div className="section-title">Harvest Opportunity</div>
+          <div className="section-sub">Positions with unrealised gains — largest first. 'Tax if Realised' assumes this is the only trade from today.</div>
+        </div>
+        <MetricCard label="Tax-free headroom" value={fmtEur(headroom)} small />
+      </div>
+
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Name</th>
+              <th className="right">Gain (€)</th>
+              <th className="right">Gain %</th>
+              <th className="right">Tax if Realised</th>
+              <th className="right">Headroom Left</th>
+              <th>Horizon</th>
+              <th>Thesis</th>
+            </tr>
+          </thead>
+          <tbody>
+            {gains.map(pos => {
+              let r = pos.gainEur;
+              const lpc = Math.min(lossPotRem, Math.max(0,r)); r -= lpc;
+              const ac = Math.min(allowRem, Math.max(0,r)); r -= ac;
+              const tg = Math.max(0,r);
+              const tw = tg * RATE;
+              const costEur = pos.currency==="USD" ? pos.total_cost_basis/pos.fx_rate : pos.total_cost_basis;
+              return (
+                <tr key={pos.ticker}>
+                  <td className="mono" style={{fontWeight:600}}>{pos.ticker}</td>
+                  <td className="dim">{pos.name}</td>
+                  <td className="right mono metric-delta up" style={{padding:"10px 12px"}}>{fmtEur(pos.gainEur, true)}</td>
+                  <td className="right mono" style={{color:"var(--green)"}}>{fmtPct(pos.gainEur/costEur, true)}</td>
+                  <td className="right mono">{tw === 0 ? <Badge color="green">Tax-free</Badge> : <span style={{color:"var(--red)"}}>{fmtEur(tw)}</span>}</td>
+                  <td className="right mono dim">{fmtEur(Math.max(0, headroom - pos.gainEur))}</td>
+                  <td><Badge color="dim">{pos.horizon}</Badge></td>
+                  <td><ThesisBadge status={pos.thesis_status}/></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {losses.length > 0 && (
+        <div className="info-box" style={{marginTop:12}}>
+          <strong style={{color:"var(--text)"}}>Loss positions — realising these adds to the loss pot:</strong><br/>
+          <span style={{marginTop:4,display:"block"}}>
+            {losses.map(p => <span key={p.ticker} style={{marginRight:12, fontFamily:"DM Mono,monospace",fontSize:11}}>{p.ticker} <span style={{color:"var(--red)"}}>{fmtEur(p.gainEur,true)}</span></span>)}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PAGE: Performance
+// ─────────────────────────────────────────────────────────────────────────
+function PerformancePage() {
+  const [period, setPeriod] = useState("3M");
+  const [selectedTicker, setSelectedTicker] = useState("NVDA");
+  const periods = ["1W","1M","3M","6M","1Y","MAX"];
+
+  // Generate mock historical data
+  const generatePortfolioHistory = useCallback((p) => {
+    const points = { "1W":7, "1M":30, "3M":90, "6M":180, "1Y":365, "MAX":730 }[p] || 90;
+    const data = [];
+    const today = new Date("2026-05-02");
+    let val = 35000;
+    for (let i = points; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      val *= (1 + (Math.random() - 0.42) * 0.012);
+      data.push({
+        date: d.toISOString().slice(0,10),
+        value: parseFloat(val.toFixed(2)),
+      });
+    }
+    // End near our actual total
+    data[data.length-1].value = 26291.63;
+    return data;
+  }, []);
+
+  const generatePositionHistory = useCallback((ticker, p) => {
+    const points = { "1W":7, "1M":30, "3M":90, "6M":180, "1Y":365, "MAX":730 }[p] || 90;
+    const pos = MOCK_DATA.portfolio.positions.find(x=>x.ticker===ticker);
+    const data = [];
+    const today = new Date("2026-05-02");
+    let price = pos.live_price * 0.72;
+    for (let i = points; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      price *= (1 + (Math.random() - 0.44) * 0.018);
+      data.push({ date: d.toISOString().slice(0,10), price: parseFloat(price.toFixed(2)) });
+    }
+    data[data.length-1].price = pos.live_price;
+    return data;
+  }, []);
+
+  const portfolioData = useMemo(() => generatePortfolioHistory(period), [period]);
+  const posData = useMemo(() => generatePositionHistory(selectedTicker, period), [selectedTicker, period]);
+
+  const portStart = portfolioData[0]?.value;
+  const portEnd   = portfolioData[portfolioData.length-1]?.value;
+  const portChg   = portEnd - portStart;
+  const portChgPct= portChg / portStart;
+
+  const posStart  = posData[0]?.price;
+  const posEnd    = posData[posData.length-1]?.price;
+  const posChg    = posEnd - posStart;
+  const posChgPct = posChg / posStart;
+  const selPos    = MOCK_DATA.portfolio.positions.find(p=>p.ticker===selectedTicker);
+
+  return (
+    <div>
+      <div className="period-row">
+        {["1W","1M","3M","6M","1Y","MAX"].map(p => (
+          <button key={p} className={`period-btn${period===p?" active":""}`} onClick={()=>setPeriod(p)}>{p}</button>
+        ))}
+      </div>
+
+      {/* Portfolio chart */}
+      <div className="section-header">
+        <div>
+          <div className="section-title">Portfolio Value</div>
+          <div className={`metric-delta ${gainClass(portChg)}`} style={{fontSize:13,marginTop:2}}>
+            {fmtEur(portChg,true)} {fmtPct(portChgPct,true)} · {period}
+          </div>
+        </div>
+      </div>
+
+      <div className="chart-wrap" style={{marginBottom:24}}>
+        <MiniAreaChart data={portfolioData} color="var(--green)" valueKey="value" width={900} height={220}/>
+      </div>
+
+      <hr className="divider"/>
+
+      {/* Position chart */}
+      <div className="section-header">
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div>
+            <div className="section-title">Position: {selectedTicker}</div>
+            <div className={`metric-delta ${gainClass(posChg)}`} style={{fontSize:13,marginTop:2}}>
+              {fmtNum(posChg,2,true)} {fmtPct(posChgPct,true)} · {period}
+            </div>
+          </div>
+        </div>
+        <select className="select-field" value={selectedTicker} onChange={e=>setSelectedTicker(e.target.value)}>
+          {MOCK_DATA.portfolio.positions.map(p => (
+            <option key={p.ticker} value={p.ticker}>{p.ticker} — {p.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="two-col">
+        <div className="chart-wrap">
+          <div style={{fontSize:12,color:"var(--text3)",marginBottom:10}}>Price ({selPos?.currency})</div>
+          <MiniAreaChart data={posData} color={posChg>=0?"var(--green)":"var(--red)"} valueKey="price" width={460} height={180}/>
+        </div>
+
+        {/* Position summary */}
+        {selPos && (
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div className="metric-card">
+              <div className="metric-label">Unrealised Gain</div>
+              <div className={`metric-value sm metric-delta ${gainClass(selPos.unrealised_gain)}`}>
+                {fmtEur(selPos.currency==="USD"?selPos.unrealised_gain/selPos.fx_rate:selPos.unrealised_gain,true)}
+              </div>
+              <div className={`metric-delta ${gainClass(selPos.unrealised_gain_pct)}`}>{fmtPct(selPos.unrealised_gain_pct,true)}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Cost Basis → Current Value</div>
+              <div className="metric-value sm">{fmtEur(selPos.currency==="USD"?selPos.total_cost_basis/selPos.fx_rate:selPos.total_cost_basis)} → {fmtEur(selPos.currency==="USD"?selPos.current_value/selPos.fx_rate:selPos.current_value)}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Thesis</div>
+              <div style={{marginTop:6}}><ThesisBadge status={selPos.thesis_status}/></div>
+              <div style={{fontSize:12,color:"var(--text2)",marginTop:6,lineHeight:1.45}}>{selPos.thesis_notes}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PAGE: Decision Gates
+// ─────────────────────────────────────────────────────────────────────────
+function DecisionGatesPage() {
+  const { catalysts, risk_flags, portfolio, getDaysUntil, getUrgency } = MOCK_DATA;
+  const [selectedTicker, setSelectedTicker] = useState(portfolio.positions[0].ticker);
+  const [action, setAction] = useState("BUY");
+  const [checkedItems, setCheckedItems] = useState({});
+
+  const today = "2026-05-02";
+  const catalystsWithDays = catalysts.map(c => ({
+    ...c,
+    days: getDaysUntil(c.event_date),
+    urgency: getUrgency(getDaysUntil(c.event_date)),
+    posName: portfolio.positions.find(p=>p.ticker===c.ticker)?.name || c.ticker,
+  })).sort((a,b) => a.days - b.days);
+
+  const upcoming = catalystsWithDays.filter(c => c.days >= 0);
+  const passed   = catalystsWithDays.filter(c => c.days < 0);
+
+  const urgencyColors = { critical:"red", high:"amber", medium:"amber", low:"green" };
+  const urgencyLabels = { critical:"CRITICAL ≤3d", high:"HIGH ≤7d", medium:"MEDIUM ≤30d", low:"LOW >30d" };
+
+  // Checklist items
+  const BOTH = [
+    { id:"thesis-check",       cat:"Thesis",          q:"Is the investment thesis intact — not broken or currently under review?" },
+    { id:"no-catalyst-near",   cat:"Catalyst",        q:"No earnings or major catalyst within the next 7 days for this ticker?" },
+    { id:"size-review",        cat:"Position Sizing", q:"Reviewed current position weight and portfolio concentration impact?" },
+    { id:"thesis-not-momentum",cat:"Discipline",      q:"Decision is based on thesis logic — not short-term price action or emotion?" },
+    { id:"horizon-fit",        cat:"Discipline",      q:"Trade is consistent with the position's investment horizon (H1/H2/H3)?" },
+  ];
+  const BUY_ONLY = [
+    { id:"buy-concentration",  cat:"Position Sizing", q:"Adding to this position will not push it above 35% portfolio weight?" },
+    { id:"buy-tag-overlap",    cat:"Diversification", q:"Checked for tag/sector overlap — not doubling exposure to the same theme?" },
+    { id:"buy-sparerpausch",   cat:"Tax",             q:"Sparerpauschbetrag headroom reviewed (€1,000 annual limit for 2026)?" },
+  ];
+  const SELL_ONLY = [
+    { id:"sell-thesis-broken", cat:"Thesis", q:"Thesis is actually broken — not just reacting to short-term volatility?" },
+    { id:"sell-fifo-lot",      cat:"Tax",    q:"Reviewed which FIFO lot disposes first under German law (oldest lot first)?" },
+    { id:"sell-gain-loss",     cat:"Tax",    q:"Capital gain/loss impact on Sparerpauschbetrag calculated?" },
+    { id:"sell-loss-harvest",  cat:"Tax",    q:"Loss pot optimisation considered — harvest before year-end if applicable?" },
+  ];
+  const items = action === "BUY" ? [...BOTH, ...BUY_ONLY] : [...BOTH, ...SELL_ONLY];
+  const categories = [...new Set(items.map(i=>i.cat))];
+  const checkedCount = items.filter(i => checkedItems[`${selectedTicker}-${action}-${i.id}`]).length;
+
+  const nearCatalysts = catalystsWithDays.filter(c => c.ticker===selectedTicker && c.days>=0 && c.days<=7);
+
+  return (
+    <div>
+      {/* Catalyst calendar */}
+      <div className="section-header">
+        <div>
+          <div className="section-title">Upcoming Catalyst Dates</div>
+          <div className="section-sub">Events that may materially affect one or more positions</div>
+        </div>
+      </div>
+
+      <div className="table-wrap" style={{marginBottom:16}}>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Urgency</th>
+              <th>Date</th>
+              <th className="right">Days</th>
+              <th>Ticker</th>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Event</th>
+            </tr>
+          </thead>
+          <tbody>
+            {upcoming.map((c,i) => (
+              <tr key={i}>
+                <td><Badge color={urgencyColors[c.urgency]}>{urgencyLabels[c.urgency]}</Badge></td>
+                <td className="mono dim">{c.event_date}</td>
+                <td className="right mono">{c.days}</td>
+                <td className="mono" style={{fontWeight:600}}>{c.ticker}</td>
+                <td className="dim">{c.posName}</td>
+                <td><Badge color="dim">{c.event_type}</Badge></td>
+                <td className="dim" style={{maxWidth:280,whiteSpace:"normal",fontSize:12}}>{c.description}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {passed.length > 0 && (
+        <div className="caption">{passed.length} passed gate(s): {passed.map(c=>`${c.ticker} (${c.event_date})`).join(" · ")}</div>
+      )}
+
+      <hr className="divider"/>
+
+      {/* Risk flags */}
+      <div className="section-header">
+        <div>
+          <div className="section-title">Active Risk Flags</div>
+          <div className="section-sub">Auto-computed and manual flags sorted by severity</div>
+        </div>
+        <Badge color="red">{risk_flags.filter(f=>f.severity==="critical"||f.severity==="high").length} critical/high</Badge>
+      </div>
+
+      {risk_flags.map((flag,i) => (
+        <div key={i} className={`flag-card ${flag.severity}`}>
+          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
+            <div className="flag-title">{flag.title}</div>
+            <SeverityBadge severity={flag.severity}/>
+          </div>
+          <div className="flag-desc">{flag.description}</div>
+          <div className="flag-meta">{flag.ticker || "Portfolio"} · {flag.category}</div>
+        </div>
+      ))}
+
+      <hr className="divider"/>
+
+      {/* Pre-trade checklist */}
+      <div className="section-header">
+        <div>
+          <div className="section-title">Pre-Trade Checklist</div>
+          <div className="section-sub">Complete every item before executing a trade</div>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:12,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+        <select className="select-field" value={selectedTicker} onChange={e=>setSelectedTicker(e.target.value)}>
+          {portfolio.positions.map(p => (
+            <option key={p.ticker} value={p.ticker}>{p.ticker} — {p.name}</option>
+          ))}
+        </select>
+        <div style={{display:"flex",gap:3,background:"var(--surface2)",borderRadius:7,padding:3}}>
+          {["BUY","SELL"].map(a => (
+            <button key={a} className={`period-btn${action===a?" active":""}`} onClick={()=>setAction(a)}>{a}</button>
+          ))}
+        </div>
+        <div style={{marginLeft:"auto",fontSize:12,color:"var(--text3)",fontFamily:"DM Mono,monospace"}}>
+          {checkedCount} / {items.length} checked
+        </div>
+      </div>
+
+      {nearCatalysts.length > 0 && (
+        <div className="flag-card high" style={{marginBottom:12}}>
+          <div className="flag-title">⚠ Catalyst within {nearCatalysts[0].days} day(s): {nearCatalysts[0].description}</div>
+          <div className="flag-desc">{nearCatalysts[0].event_date} — exercise extra caution</div>
+        </div>
+      )}
+
+      <div className="table-wrap" style={{padding:"8px 0"}}>
+        {categories.map(cat => (
+          <div key={cat}>
+            <div className="check-category">{cat}</div>
+            {items.filter(i=>i.cat===cat).map(item => {
+              const key = `${selectedTicker}-${action}-${item.id}`;
+              const checked = !!checkedItems[key];
+              return (
+                <div key={item.id} className={`checklist-item${checked?" checked":""}`}
+                  onClick={() => setCheckedItems(prev => ({...prev, [key]: !prev[key]}))}>
+                  <div className={`check-box${checked?" checked":""}`}>
+                    {checked && <svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                  <div className={`check-text${checked?" checked":""}`}>{item.q}</div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      <div style={{marginTop:12}}>
+        {checkedCount === items.length
+          ? <div className="flag-card low"><div className="flag-title">✓ All {items.length} items confirmed — you may proceed.</div></div>
+          : <div className="flag-card critical"><div className="flag-title">{items.length - checkedCount} of {items.length} items unchecked — do not trade yet.</div></div>
+        }
+      </div>
+
+      <div style={{marginTop:8,display:"flex",justifyContent:"flex-end"}}>
+        <button className="refresh-btn" onClick={()=>setCheckedItems({})}>Reset checklist</button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PAGE: Behavioural Ledger
+// ─────────────────────────────────────────────────────────────────────────
+function BehaviouralPage() {
+  const { behavioural_patterns, session_log } = MOCK_DATA;
+  const [openSession, setOpenSession] = useState(null);
+
+  const patternStatus = { active:"red", monitoring:"amber", resolved:"green" };
+  const statusLabel   = { active:"Active", monitoring:"Monitoring", resolved:"Resolved" };
+
+  return (
+    <div>
+      <div className="section-header">
+        <div>
+          <div className="section-title">Active Behavioural Patterns</div>
+          <div className="section-sub">Recurring tendencies observed in trading decisions</div>
+        </div>
+      </div>
+
+      {behavioural_patterns.map((p,i) => (
+        <div key={i} className={`flag-card ${p.status}`}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:4}}>
+            <div className="flag-title">{p.name}</div>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <Badge color={patternStatus[p.status]}>{statusLabel[p.status]}</Badge>
+              <span style={{fontSize:11,color:"var(--text3)",fontFamily:"DM Mono,monospace"}}>since {p.first_identified}</span>
+            </div>
+          </div>
+          <div className="flag-desc">{p.description}</div>
+          {p.notes && <div className="flag-meta" style={{marginTop:6,fontStyle:"italic",fontFamily:"DM Sans,sans-serif",color:"var(--text3)"}}>{p.notes}</div>}
+        </div>
+      ))}
+
+      <hr className="divider"/>
+
+      <div className="section-header">
+        <div>
+          <div className="section-title">Session Log</div>
+          <div className="section-sub">Chronological record of portfolio review sessions — most recent first</div>
+        </div>
+      </div>
+
+      {session_log.map((s,i) => (
+        <div key={i} className="expander">
+          <div className="expander-header" onClick={()=>setOpenSession(openSession===i?null:i)}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontFamily:"DM Mono,monospace",fontSize:12,color:"var(--text3)"}}>{s.date}</span>
+              <span style={{fontSize:13,fontWeight:500,color:"var(--text)"}}>{s.summary}</span>
+            </div>
+            <span style={{color:"var(--text3)",fontSize:14}}>{openSession===i?"↑":"↓"}</span>
+          </div>
+          {openSession === i && (
+            <div className="expander-body">
+              {s.key_decisions.length > 0 && (
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",color:"var(--text3)",marginBottom:5}}>Key Decisions</div>
+                  {s.key_decisions.map((d,j) => <div key={j} style={{fontSize:13,color:"var(--text2)",marginBottom:3}}>· {d}</div>)}
+                </div>
+              )}
+              {s.action_items.length > 0 && (
+                <div>
+                  <div style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",color:"var(--text3)",marginBottom:5}}>Action Items</div>
+                  {s.action_items.map((a,j) => <div key={j} style={{fontSize:13,color:"var(--text2)",marginBottom:3}}>→ {a}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PAGE: Lot Ledger
+// ─────────────────────────────────────────────────────────────────────────
+function LotLedgerPage() {
+  const [selectedTicker, setSelectedTicker] = useState("ALL");
+  const [filter, setFilter] = useState("ALL"); // ALL | BUY | SELL
+  const { lots, portfolio } = MOCK_DATA;
+
+  const byTicker = selectedTicker === "ALL" ? lots : lots.filter(l => l.ticker === selectedTicker);
+  const groupedByTicker = {};
+  byTicker.forEach(l => { (groupedByTicker[l.ticker] = groupedByTicker[l.ticker] || []).push(l); });
+
+  // Summary stats
+  const totalBuys  = lots.filter(l => l.type === "buy").length;
+  const totalSells = lots.filter(l => l.type === "sell").length;
+  const realisedGain = lots.filter(l => l.type === "sell").reduce((s,l) => s + (l.realised_gain || 0), 0);
+
+  // Per-lot unrealised gain across all open buy lots
+  const totalUnrealisedEur = lots.filter(l => l.type === "buy").reduce((s, lot) => {
+    const pos = portfolio.positions.find(p => p.ticker === lot.ticker);
+    if (!pos?.live_price) return s;
+    const lotVal  = pos.live_price * lot.shares;
+    const lotGain = lotVal - lot.amount;
+    const gainEur = pos.currency === "USD" ? lotGain / pos.fx_rate : lotGain;
+    return s + gainEur;
+  }, 0);
+
+  return (
+    <div>
+      {/* Summary strip */}
+      <div className="metric-row cols-4" style={{marginBottom:4}}>
+        <MetricCard label="Open Buy Lots" value={totalBuys} delta="currently held" deltaClass="off" small/>
+        <MetricCard label="Closed Sell Lots" value={totalSells} delta="fully or partially disposed" deltaClass="off" small/>
+        <MetricCard label="Total Realised Gain" value={fmtEur(realisedGain, true)} delta="across all disposals" deltaClass={gainClass(realisedGain)} small/>
+        <div className="metric-card" style={{border:"1px solid var(--green)",background:"oklch(0.17 0.04 145)"}}>
+          <div className="metric-label" style={{color:"var(--green)"}}>Total Unrealised Gain (€)</div>
+          <div className={`metric-value sm metric-delta ${gainClass(totalUnrealisedEur)}`}>{fmtEur(totalUnrealisedEur, true)}</div>
+          <div className="metric-delta off" style={{marginTop:4}}>across all open lots · live prices</div>
+        </div>
+      </div>
+
+      {/* Feature callout */}
+      <div style={{
+        background:"oklch(0.19 0.04 250)",
+        border:"1px solid oklch(0.72 0.14 230)",
+        borderRadius:8,
+        padding:"10px 14px",
+        marginBottom:20,
+        display:"flex",
+        alignItems:"center",
+        gap:10,
+        fontSize:12,
+        color:"var(--text2)"
+      }}>
+        <span style={{color:"oklch(0.72 0.14 230)",fontSize:14,flexShrink:0}}>💡</span>
+        <span>
+          <strong style={{color:"var(--text)"}}>Currently missing from your Streamlit app:</strong>{" "}
+          Per-lot unrealised P&L and the total unrealised gain strip above. 
+          Add <code style={{background:"var(--surface2)",padding:"1px 5px",borderRadius:3,fontFamily:"DM Mono,monospace",fontSize:11}}>lot.unrealised_gain_eur</code> as a computed property in <code style={{background:"var(--surface2)",padding:"1px 5px",borderRadius:3,fontFamily:"DM Mono,monospace",fontSize:11}}>position.py</code> and surface it in <code style={{background:"var(--surface2)",padding:"1px 5px",borderRadius:3,fontFamily:"DM Mono,monospace",fontSize:11}}>lot_table.py</code>.
+        </span>
+      </div>
+
+      <div className="section-header">
+        <div>
+          <div className="section-title">Transaction Ledger</div>
+          <div className="section-sub">All buy and sell transactions — FIFO disposal order under §20 EStG</div>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {/* Type filter */}
+          <div style={{display:"flex",gap:3,background:"var(--surface2)",borderRadius:7,padding:3}}>
+            {["ALL","BUY","SELL"].map(f => (
+              <button key={f} className={`period-btn${filter===f?" active":""}`} onClick={()=>setFilter(f)}>{f}</button>
+            ))}
+          </div>
+          <select className="select-field" value={selectedTicker} onChange={e=>setSelectedTicker(e.target.value)}>
+            <option value="ALL">All Positions</option>
+            {portfolio.positions.map(p => <option key={p.ticker} value={p.ticker}>{p.ticker}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {Object.entries(groupedByTicker).map(([ticker, tickerLots]) => {
+        const pos = portfolio.positions.find(p => p.ticker === ticker);
+        const gainEur = pos ? (pos.currency === "USD" ? pos.unrealised_gain / pos.fx_rate : pos.unrealised_gain) : null;
+        const sorted = [...tickerLots].sort((a,b) => new Date(a.date) - new Date(b.date));
+        const visible = filter === "ALL" ? sorted : sorted.filter(l => l.type === filter.toLowerCase());
+        if (visible.length === 0) return null;
+
+        // FIFO counter: only buy lots get a FIFO number
+        let fifoCounter = 0;
+        const fifoMap = {};
+        sorted.forEach(l => { if (l.type === "buy") { fifoCounter++; fifoMap[l.lot_id] = fifoCounter; } });
+
+        return (
+          <div key={ticker} style={{marginBottom:24}}>
+            {/* Ticker header */}
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+              <span style={{fontFamily:"DM Mono,monospace",fontWeight:700,fontSize:14,color:"var(--text)"}}>{ticker}</span>
+              {pos && <span style={{fontSize:12,color:"var(--text3)"}}>{pos.name}</span>}
+              {pos && <ThesisBadge status={pos.thesis_status}/>}
+              <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+                <span style={{fontSize:11,color:"var(--text3)",fontFamily:"DM Mono,monospace"}}>
+                  {sorted.filter(l=>l.type==="buy").length} buys · {sorted.filter(l=>l.type==="sell").length} sells
+                </span>
+                {gainEur != null && (
+                  <span style={{
+                    display:"inline-flex", alignItems:"center", gap:5,
+                    background: gainEur >= 0 ? "var(--green-bg)" : "var(--red-bg)",
+                    color: gainEur >= 0 ? "var(--green)" : "var(--red)",
+                    borderRadius:6, padding:"3px 10px",
+                    fontFamily:"DM Mono,monospace", fontSize:12, fontWeight:600,
+                  }}>
+                    {fmtEur(gainEur, true)}
+                    <span style={{fontSize:10, fontWeight:400, opacity:0.7}}>total unrealised</span>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Lot ID</th>
+                    <th>Date</th>
+                    <th>FIFO</th>
+                    <th className="right">Shares</th>
+                    <th className="right">Price/Share</th>
+                    <th className="right">Amount</th>
+                    <th>Ccy</th>
+                    <th className="right">Unrealised / Realised P&amp;L (€)</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map(lot => {
+                    const isBuy  = lot.type === "buy";
+                    const isSell = lot.type === "sell";
+                    const fifoNo = fifoMap[lot.lot_id];
+                    const fifoSrc = lot.fifo_lot ? fifoMap[lot.fifo_lot] : null;
+
+                    // For open buy lots: compute live unrealised P&L
+                    let pnlEur = null;
+                    if (isBuy && pos?.live_price) {
+                      const lotVal = pos.live_price * lot.shares;
+                      const lotGain = lotVal - lot.amount;
+                      pnlEur = pos.currency === "USD" ? lotGain / pos.fx_rate : lotGain;
+                    }
+                    // For sell lots: use recorded realised gain
+                    if (isSell && lot.realised_gain != null) {
+                      pnlEur = pos?.currency === "USD" ? lot.realised_gain / pos.fx_rate : lot.realised_gain;
+                    }
+
+                    return (
+                      <tr key={lot.lot_id} style={{
+                        background: isSell ? "oklch(0.155 0.01 250)" : "transparent",
+                        opacity: isSell ? 0.92 : 1,
+                      }}>
+                        {/* Type badge */}
+                        <td>
+                          {isBuy
+                            ? <Badge color="green">↓ BUY</Badge>
+                            : <Badge color="red">↑ SELL</Badge>
+                          }
+                        </td>
+                        <td className="mono dim" style={{fontSize:11}}>{lot.lot_id}</td>
+                        <td className="mono dim">{lot.date}</td>
+                        {/* FIFO column */}
+                        <td>
+                          {isBuy && fifoNo != null && (
+                            <Badge color="blue">#{fifoNo} — first out</Badge>
+                          )}
+                          {isSell && fifoSrc != null && (
+                            <span style={{fontSize:11,color:"var(--text3)",fontFamily:"DM Mono,monospace"}}>
+                              disposes #{fifoSrc}
+                            </span>
+                          )}
+                          {isSell && fifoSrc == null && (
+                            <span style={{fontSize:11,color:"var(--text3)"}}>—</span>
+                          )}
+                        </td>
+                        <td className="right mono">{fmtNum(lot.shares, lot.shares % 1 === 0 ? 0 : 4)}</td>
+                        <td className="right mono">{fmtNum(lot.price_per_share)}</td>
+                        <td className="right mono" style={{color: isSell ? "var(--text2)" : "var(--text)"}}>
+                          {isBuy ? fmtEur(pos?.currency==="USD" ? lot.amount/pos.fx_rate : lot.amount) : `(${fmtEur(pos?.currency==="USD" ? lot.amount/pos.fx_rate : lot.amount)})`}
+                        </td>
+                        <td><Badge color="dim">{lot.currency}</Badge></td>
+                        <td className="right" style={{padding:"10px 12px"}}>
+                          {pnlEur != null ? (
+                            isBuy ? (
+                              <span style={{
+                                display:"inline-flex",alignItems:"center",gap:5,
+                                background: pnlEur >= 0 ? "var(--green-bg)" : "var(--red-bg)",
+                                color: pnlEur >= 0 ? "var(--green)" : "var(--red)",
+                                borderRadius:6, padding:"3px 8px",
+                                fontFamily:"DM Mono,monospace", fontSize:12, fontWeight:600,
+                              }}>
+                                {fmtEur(pnlEur, true)}
+                                <span style={{fontSize:10,opacity:0.65,fontWeight:400}}>unreal.</span>
+                              </span>
+                            ) : (
+                              <span style={{
+                                display:"inline-flex",alignItems:"center",gap:5,
+                                color: pnlEur >= 0 ? "var(--green)" : "var(--red)",
+                                fontFamily:"DM Mono,monospace", fontSize:12,
+                                opacity:0.8,
+                              }}>
+                                {fmtEur(pnlEur, true)}
+                                <span style={{fontSize:10,opacity:0.65}}>realised</span>
+                              </span>
+                            )
+                          ) : <span style={{color:"var(--text3)"}}>—</span>}
+                        </td>
+                        <td style={{fontSize:11,color:"var(--text3)",maxWidth:220,whiteSpace:"normal",lineHeight:1.4}}>
+                          {lot.notes}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="info-box" style={{marginTop:4}}>
+        <strong style={{color:"var(--text)"}}>German FIFO Rule (§20 EStG):</strong>{" "}
+        The oldest buy lot is disposed first on any sell. Cost basis is always per-lot — average cost is display-only and never used for tax calculations.
+        Realised gains from sell rows feed directly into the Tax Dashboard.
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PAGE: Manage Portfolio
+// ─────────────────────────────────────────────────────────────────────────
+function ManagePortfolioPage() {
+  const { portfolio, lots } = MOCK_DATA;
+  const [activeTab, setActiveTab] = useState("trade");   // trade | position | overview
+  const [tradeType, setTradeType] = useState("BUY");
+  const [submitted, setSubmitted] = useState(null);       // last submitted form result
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // ticker pending delete
+
+  // Trade form state
+  const [trade, setTrade] = useState({
+    ticker: portfolio.positions[0].ticker,
+    date: "2026-05-02",
+    shares: "",
+    price: "",
+    notes: "",
+  });
+
+  // New position form state
+  const [newPos, setNewPos] = useState({
+    ticker: "",
+    name: "",
+    currency: "EUR",
+    horizon: "H2",
+    thesis_status: "intact",
+    thesis_notes: "",
+    tags: "",
+    shares: "",
+    price: "",
+    date: "2026-05-02",
+  });
+
+  const handleTradeSubmit = (e) => {
+    e.preventDefault();
+    const pos = portfolio.positions.find(p => p.ticker === trade.ticker);
+    const amount = parseFloat(trade.shares) * parseFloat(trade.price);
+    const amountEur = pos?.currency === "USD" ? amount / (pos?.fx_rate || 1) : amount;
+    setSubmitted({
+      type: tradeType,
+      ticker: trade.ticker,
+      shares: trade.shares,
+      price: trade.price,
+      amount: amountEur,
+      date: trade.date,
+      notes: trade.notes,
+      lotId: `${trade.ticker}-${tradeType === "BUY" ? "B" : "S"}${String(Date.now()).slice(-4)}`,
+    });
+  };
+
+  const handleNewPosSubmit = (e) => {
+    e.preventDefault();
+    setSubmitted({
+      type: "NEW_POSITION",
+      ticker: newPos.ticker.toUpperCase(),
+      name: newPos.name,
+      currency: newPos.currency,
+      horizon: newPos.horizon,
+      thesis_status: newPos.thesis_status,
+      shares: newPos.shares,
+      price: newPos.price,
+      date: newPos.date,
+    });
+  };
+
+  const inputStyle = {
+    background: "var(--surface2)",
+    border: "1px solid var(--border2)",
+    color: "var(--text)",
+    borderRadius: 6,
+    padding: "8px 11px",
+    fontFamily: "DM Sans, sans-serif",
+    fontSize: 13,
+    outline: "none",
+    width: "100%",
+    transition: "border-color 0.15s",
+  };
+  const labelStyle = {
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    color: "var(--text3)",
+    marginBottom: 4,
+    display: "block",
+  };
+  const fieldWrap = { display: "flex", flexDirection: "column", gap: 0 };
+
+  const submitBtn = (color, label) => ({
+    background: color === "green" ? "var(--green)" : color === "red" ? "var(--red)" : "var(--blue)",
+    color: "#000",
+    border: "none",
+    borderRadius: 7,
+    padding: "10px 24px",
+    fontFamily: "DM Sans, sans-serif",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    letterSpacing: "0.01em",
+  });
+
+  return (
+    <div>
+      {/* Tab row */}
+      <div className="tab-row" style={{marginBottom:20}}>
+        {[["trade","Log a Trade"],["position","Add New Position"],["overview","Manage Positions"]].map(([id,label]) => (
+          <button key={id} className={`tab-btn${activeTab===id?" active":""}`} onClick={()=>{setActiveTab(id);setSubmitted(null);}}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── TAB: Log a Trade ─────────────────────────────────────────────── */}
+      {activeTab === "trade" && (
+        <div style={{maxWidth:640}}>
+          <div className="section-header" style={{marginTop:0}}>
+            <div>
+              <div className="section-title">Log a Trade</div>
+              <div className="section-sub">Record a buy or sell against an existing position</div>
+            </div>
+            <div style={{display:"flex",gap:3,background:"var(--surface2)",borderRadius:7,padding:3}}>
+              {["BUY","SELL"].map(t => (
+                <button key={t} className={`period-btn${tradeType===t?" active":""}`}
+                  style={tradeType===t ? {background:"var(--surface)",color:t==="BUY"?"var(--green)":"var(--red)",fontWeight:600} : {}}
+                  onClick={()=>setTradeType(t)}>{t}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* FIFO warning for sells */}
+          {tradeType === "SELL" && (
+            <div className="flag-card medium" style={{marginBottom:16}}>
+              <div className="flag-title">⚠ FIFO Disposal Order</div>
+              <div className="flag-desc">Under §20 EStG, the oldest lot is disposed first. Check the Lot Ledger to confirm which lot will be partially or fully closed.</div>
+            </div>
+          )}
+
+          <form onSubmit={handleTradeSubmit}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+              {/* Ticker */}
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Position</label>
+                <select style={inputStyle} value={trade.ticker} onChange={e=>setTrade(t=>({...t,ticker:e.target.value}))}>
+                  {portfolio.positions.map(p => (
+                    <option key={p.ticker} value={p.ticker}>{p.ticker} — {p.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Date */}
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Trade Date</label>
+                <input style={inputStyle} type="date" value={trade.date} onChange={e=>setTrade(t=>({...t,date:e.target.value}))} required/>
+              </div>
+              {/* Shares */}
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Number of Shares</label>
+                <input style={inputStyle} type="number" min="0.0001" step="0.0001" placeholder="e.g. 5.0" value={trade.shares} onChange={e=>setTrade(t=>({...t,shares:e.target.value}))} required/>
+              </div>
+              {/* Price */}
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Price per Share ({portfolio.positions.find(p=>p.ticker===trade.ticker)?.currency})</label>
+                <input style={inputStyle} type="number" min="0.01" step="0.01" placeholder="e.g. 142.50" value={trade.price} onChange={e=>setTrade(t=>({...t,price:e.target.value}))} required/>
+              </div>
+            </div>
+
+            {/* Live amount preview */}
+            {trade.shares && trade.price && (() => {
+              const pos = portfolio.positions.find(p=>p.ticker===trade.ticker);
+              const amount = parseFloat(trade.shares) * parseFloat(trade.price);
+              const amountEur = pos?.currency === "USD" ? amount / (pos?.fx_rate||1) : amount;
+              return (
+                <div style={{
+                  background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,
+                  padding:"10px 14px",marginBottom:14,display:"flex",gap:16,alignItems:"center"
+                }}>
+                  <div>
+                    <div style={{fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:2}}>Total Amount</div>
+                    <div style={{fontFamily:"DM Mono,monospace",fontSize:16,fontWeight:600,
+                      color:tradeType==="BUY"?"var(--green)":"var(--red)"}}>
+                      {tradeType==="BUY"?"-":"+"}€{amountEur.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})}
+                    </div>
+                  </div>
+                  {pos?.currency==="USD" && (
+                    <div style={{fontSize:11,color:"var(--text3)"}}>
+                      {pos.currency} {(parseFloat(trade.shares)*parseFloat(trade.price)).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} → EUR at {pos.fx_rate}
+                    </div>
+                  )}
+                  <div style={{marginLeft:"auto"}}>
+                    <div style={{fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:2}}>New Lot ID</div>
+                    <div style={{fontFamily:"DM Mono,monospace",fontSize:12,color:"var(--text2)"}}>
+                      {trade.ticker}-{tradeType==="BUY"?"B":"S"}XXXX
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Notes */}
+            <div style={{...fieldWrap,marginBottom:18}}>
+              <label style={labelStyle}>Trade Notes / Rationale</label>
+              <textarea style={{...inputStyle,resize:"vertical",minHeight:72,lineHeight:1.5}}
+                placeholder="e.g. Adding on Blackwell ramp confirmation; thesis intact"
+                value={trade.notes} onChange={e=>setTrade(t=>({...t,notes:e.target.value}))}/>
+            </div>
+
+            <div style={{display:"flex",gap:10,alignItems:"center"}}>
+              <button type="submit" style={submitBtn(tradeType==="BUY"?"green":"red")}>
+                {tradeType === "BUY" ? "↓ Log Buy" : "↑ Log Sell"}
+              </button>
+              <button type="button" style={{...submitBtn("dim"),background:"var(--surface2)",color:"var(--text2)",border:"1px solid var(--border2)"}}
+                onClick={()=>setTrade({ticker:portfolio.positions[0].ticker,date:"2026-05-02",shares:"",price:"",notes:""})}>
+                Clear
+              </button>
+            </div>
+          </form>
+
+          {/* Success confirmation */}
+          {submitted && submitted.type !== "NEW_POSITION" && (
+            <div className={`flag-card ${submitted.type==="BUY"?"low":"medium"}`} style={{marginTop:16}}>
+              <div className="flag-title">{submitted.type==="BUY"?"✓ Buy logged":"✓ Sell logged"} — {submitted.ticker}</div>
+              <div className="flag-desc" style={{fontFamily:"DM Mono,monospace",fontSize:12}}>
+                {fmtNum(submitted.shares,4)} shares @ {fmtNum(submitted.price)} · {fmtEur(submitted.amount)} · {submitted.date}<br/>
+                <span style={{opacity:0.7}}>Lot ID: {submitted.lotId}</span>
+                {submitted.notes && <><br/><span style={{fontFamily:"DM Sans,sans-serif",fontStyle:"italic"}}>{submitted.notes}</span></>}
+              </div>
+              <div className="flag-meta" style={{marginTop:6}}>
+                In your real app: write this to <code style={{fontFamily:"DM Mono,monospace"}}>data/portfolio.json</code> via the repository layer, then re-run price injection.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: Add New Position ─────────────────────────────────────────── */}
+      {activeTab === "position" && (
+        <div style={{maxWidth:640}}>
+          <div className="section-header" style={{marginTop:0}}>
+            <div>
+              <div className="section-title">Add New Position</div>
+              <div className="section-sub">Create a new ticker with an opening lot</div>
+            </div>
+          </div>
+
+          <form onSubmit={handleNewPosSubmit}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Ticker Symbol</label>
+                <input style={inputStyle} type="text" placeholder="e.g. ASML.AS or TSM" value={newPos.ticker}
+                  onChange={e=>setNewPos(p=>({...p,ticker:e.target.value.toUpperCase()}))} required/>
+              </div>
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Company Name</label>
+                <input style={inputStyle} type="text" placeholder="e.g. ASML Holding NV" value={newPos.name}
+                  onChange={e=>setNewPos(p=>({...p,name:e.target.value}))} required/>
+              </div>
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Currency</label>
+                <select style={inputStyle} value={newPos.currency} onChange={e=>setNewPos(p=>({...p,currency:e.target.value}))}>
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
+                </select>
+              </div>
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Investment Horizon</label>
+                <select style={inputStyle} value={newPos.horizon} onChange={e=>setNewPos(p=>({...p,horizon:e.target.value}))}>
+                  <option value="H1">H1 — 0–6 months</option>
+                  <option value="H2">H2 — 6–18 months</option>
+                  <option value="H3">H3 — 18–36 months</option>
+                </select>
+              </div>
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Opening Shares</label>
+                <input style={inputStyle} type="number" min="0.0001" step="0.0001" placeholder="e.g. 10.0" value={newPos.shares}
+                  onChange={e=>setNewPos(p=>({...p,shares:e.target.value}))} required/>
+              </div>
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Purchase Price ({newPos.currency})</label>
+                <input style={inputStyle} type="number" min="0.01" step="0.01" placeholder="e.g. 780.50" value={newPos.price}
+                  onChange={e=>setNewPos(p=>({...p,price:e.target.value}))} required/>
+              </div>
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Purchase Date</label>
+                <input style={inputStyle} type="date" value={newPos.date} onChange={e=>setNewPos(p=>({...p,date:e.target.value}))} required/>
+              </div>
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Thesis Status</label>
+                <select style={inputStyle} value={newPos.thesis_status} onChange={e=>setNewPos(p=>({...p,thesis_status:e.target.value}))}>
+                  <option value="intact">Intact</option>
+                  <option value="watch">Watch</option>
+                  <option value="broken">Broken</option>
+                </select>
+              </div>
+            </div>
+            <div style={{...fieldWrap,marginBottom:14}}>
+              <label style={labelStyle}>Tags (comma-separated)</label>
+              <input style={inputStyle} type="text" placeholder="e.g. ai, semiconductors, europe" value={newPos.tags}
+                onChange={e=>setNewPos(p=>({...p,tags:e.target.value}))}/>
+            </div>
+            <div style={{...fieldWrap,marginBottom:18}}>
+              <label style={labelStyle}>Thesis Notes</label>
+              <textarea style={{...inputStyle,resize:"vertical",minHeight:80,lineHeight:1.5}}
+                placeholder="Why are you buying this? What would break the thesis?"
+                value={newPos.thesis_notes} onChange={e=>setNewPos(p=>({...p,thesis_notes:e.target.value}))}/>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button type="submit" style={submitBtn("blue")}>+ Add Position</button>
+              <button type="button" style={{...submitBtn("dim"),background:"var(--surface2)",color:"var(--text2)",border:"1px solid var(--border2)"}}
+                onClick={()=>setNewPos({ticker:"",name:"",currency:"EUR",horizon:"H2",thesis_status:"intact",thesis_notes:"",tags:"",shares:"",price:"",date:"2026-05-02"})}>
+                Clear
+              </button>
+            </div>
+          </form>
+
+          {submitted && submitted.type === "NEW_POSITION" && (
+            <div className="flag-card low" style={{marginTop:16}}>
+              <div className="flag-title">✓ Position created — {submitted.ticker}</div>
+              <div className="flag-desc" style={{fontFamily:"DM Mono,monospace",fontSize:12}}>
+                {submitted.name} · {submitted.shares} shares @ {submitted.currency} {submitted.price} · {submitted.date}
+              </div>
+              <div className="flag-meta" style={{marginTop:6}}>
+                In your real app: write a new position block + opening lot to <code style={{fontFamily:"DM Mono,monospace"}}>data/portfolio.json</code>. 
+                Ticker will be picked up by yfinance / Finnhub on next price refresh.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: Manage Positions ─────────────────────────────────────────── */}
+      {activeTab === "overview" && (
+        <div>
+          <div className="section-header" style={{marginTop:0}}>
+            <div>
+              <div className="section-title">Current Positions</div>
+              <div className="section-sub">Edit thesis, horizon, tags — or remove a position</div>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Name</th>
+                  <th>Horizon</th>
+                  <th>Thesis</th>
+                  <th className="right">Cost Basis (€)</th>
+                  <th className="right">Lots</th>
+                  <th>Tags</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {portfolio.positions.map(pos => {
+                  const costEur = pos.currency === "USD" ? pos.total_cost_basis / pos.fx_rate : pos.total_cost_basis;
+                  const isDeleting = deleteConfirm === pos.ticker;
+                  return (
+                    <tr key={pos.ticker} style={{background: isDeleting ? "var(--red-bg)" : "transparent"}}>
+                      <td className="mono" style={{fontWeight:700}}>{pos.ticker}</td>
+                      <td className="dim">{pos.name}</td>
+                      <td>
+                        <select style={{...inputStyle,width:"auto",padding:"4px 8px",fontSize:12}}
+                          defaultValue={pos.horizon}>
+                          <option value="H1">H1</option>
+                          <option value="H2">H2</option>
+                          <option value="H3">H3</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select style={{...inputStyle,width:"auto",padding:"4px 8px",fontSize:12,
+                          color: pos.thesis_status==="intact"?"var(--green)":pos.thesis_status==="watch"?"var(--amber)":"var(--red)"}}
+                          defaultValue={pos.thesis_status}>
+                          <option value="intact">● intact</option>
+                          <option value="watch">◐ watch</option>
+                          <option value="broken">○ broken</option>
+                        </select>
+                      </td>
+                      <td className="right mono">{fmtEur(costEur)}</td>
+                      <td className="right mono dim">{pos.lot_count}</td>
+                      <td>
+                        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                          {pos.tags.map(t => <Badge key={t} color="dim">{t}</Badge>)}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                          {!isDeleting ? (
+                            <>
+                              <button onClick={()=>{setActiveTab("trade");setTrade(t=>({...t,ticker:pos.ticker}));setTradeType("BUY");}}
+                                style={{background:"var(--green-bg)",color:"var(--green)",border:"1px solid var(--green)",
+                                  borderRadius:5,padding:"3px 9px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
+                                ↓ Buy
+                              </button>
+                              <button onClick={()=>{setActiveTab("trade");setTrade(t=>({...t,ticker:pos.ticker}));setTradeType("SELL");}}
+                                style={{background:"var(--red-bg)",color:"var(--red)",border:"1px solid var(--red)",
+                                  borderRadius:5,padding:"3px 9px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
+                                ↑ Sell
+                              </button>
+                              <button onClick={()=>setDeleteConfirm(pos.ticker)}
+                                style={{background:"var(--surface2)",color:"var(--text3)",border:"1px solid var(--border2)",
+                                  borderRadius:5,padding:"3px 9px",fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
+                                ✕ Remove
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span style={{fontSize:11,color:"var(--red)",marginRight:4}}>Remove {pos.ticker}?</span>
+                              <button onClick={()=>setDeleteConfirm(null)}
+                                style={{background:"var(--surface2)",color:"var(--text2)",border:"1px solid var(--border2)",
+                                  borderRadius:5,padding:"3px 9px",fontSize:11,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
+                                Cancel
+                              </button>
+                              <button onClick={()=>{ alert(`In real app: remove ${pos.ticker} from portfolio.json`); setDeleteConfirm(null); }}
+                                style={{background:"var(--red)",color:"#000",border:"none",
+                                  borderRadius:5,padding:"3px 9px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>
+                                Confirm Remove
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="info-box" style={{marginTop:12}}>
+            <strong style={{color:"var(--text)"}}>In your real app:</strong> These controls map to the <code style={{fontFamily:"DM Mono,monospace",fontSize:11,padding:"1px 4px",background:"var(--surface)"}}>Manage Portfolio</code> page in <code style={{fontFamily:"DM Mono,monospace",fontSize:11,padding:"1px 4px",background:"var(--surface)"}}>manage_portfolio.py</code> — 
+            already built in Phase 4. Edits write directly to <code style={{fontFamily:"DM Mono,monospace",fontSize:11,padding:"1px 4px",background:"var(--surface)"}}>data/portfolio.json</code> via the repository layer.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PAGE: Analytics & Risk
+// ─────────────────────────────────────────────────────────────────────────
+function AnalyticsPage() {
+  const { portfolio } = MOCK_DATA;
+  const [activeTab, setActiveTab] = useState("overview");
+
+  return (
+    <div>
+      <div className="tab-row" style={{marginBottom:20}}>
+        {[
+          ["overview",    "Benchmark + Drawdown"],
+          ["correlation", "Correlation Matrix"],
+          ["technicals",  "Technical Levels"],
+          ["sizing",      "Position Sizer"],
+          ["targets",     "Price Targets"],
+        ].map(([id,label]) => (
+          <button key={id} className={`tab-btn${activeTab===id?" active":""}`} onClick={()=>setActiveTab(id)}>{label}</button>
+        ))}
+      </div>
+      {activeTab === "overview"    && <BenchmarkDrawdownTab />}
+      {activeTab === "correlation" && <CorrelationTab />}
+      {activeTab === "technicals"  && <TechnicalsTab />}
+      {activeTab === "sizing"      && <PositionSizerTab />}
+      {activeTab === "targets"     && <PriceTargetsTab />}
+    </div>
+  );
+}
+
+// ── Tab 1: Benchmark + Drawdown ───────────────────────────────────────────────
+function BenchmarkDrawdownTab() {
+  const [period, setPeriod] = useState("3M");
+
+  // Generate portfolio + SPX benchmark history
+  const genHistory = useCallback((p, isBenchmark=false) => {
+    const points = {"1W":7,"1M":30,"3M":90,"6M":180,"1Y":365}[p]||90;
+    const today = new Date("2026-05-02");
+    const data = [];
+    let val = 100; // normalised to 100
+    const drift = isBenchmark ? 0.40 : 0.44; // benchmark slightly weaker
+    for (let i = points; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate()-i);
+      val *= (1+(Math.random()-drift)*0.013);
+      data.push({ date: d.toISOString().slice(0,10), value: parseFloat(val.toFixed(2)) });
+    }
+    return data;
+  }, []);
+
+  const portData = useMemo(()=>genHistory(period,false),[period]);
+  const spxData  = useMemo(()=>genHistory(period,true),[period]);
+
+  // Drawdown calculation from peak
+  const calcDrawdown = (data) => {
+    let peak = -Infinity, maxDD = 0, currDD = 0;
+    return data.map(d => {
+      if (d.value > peak) peak = d.value;
+      currDD = (d.value - peak) / peak * 100;
+      if (currDD < maxDD) maxDD = currDD;
+      return { ...d, dd: parseFloat(currDD.toFixed(2)) };
+    });
+  };
+  const portDD = useMemo(()=>calcDrawdown(portData),[portData]);
+  const maxDD  = Math.min(...portDD.map(d=>d.dd));
+  const currDD = portDD[portDD.length-1]?.dd || 0;
+
+  // Performance delta
+  const portChg = ((portData[portData.length-1]?.value||100) - 100);
+  const spxChg  = ((spxData[spxData.length-1]?.value||100) - 100);
+  const alpha   = portChg - spxChg;
+
+  // Volatility (std dev of daily returns)
+  const calcVol = (data) => {
+    const returns = data.slice(1).map((d,i) => (d.value - data[i].value)/data[i].value);
+    const mean = returns.reduce((s,r)=>s+r,0)/returns.length;
+    const variance = returns.reduce((s,r)=>s+(r-mean)**2,0)/returns.length;
+    return Math.sqrt(variance * 252) * 100; // annualised
+  };
+  const portVol = useMemo(()=>calcVol(portData),[portData]);
+  const spxVol  = useMemo(()=>calcVol(spxData),[spxData]);
+  const sharpe  = portChg > 0 ? (portChg / portVol).toFixed(2) : "—";
+
+  // Dual-line SVG chart
+  function DualLineChart({ data1, data2, label1, label2, color1, color2, height=200, valueKey="value" }) {
+    const all = [...data1.map(d=>d[valueKey]), ...data2.map(d=>d[valueKey])];
+    const minV = Math.min(...all), maxV = Math.max(...all);
+    const pad = { t:10, r:10, b:28, l:44 };
+    const W = 880 - pad.l - pad.r, H = height - pad.t - pad.b;
+    const x = i => (i/(data1.length-1))*W;
+    const y = v => H - ((v-minV)/(maxV-minV||1))*H;
+    const line = (data) => data.map((d,i)=>`${i===0?"M":"L"}${x(i).toFixed(1)},${y(d[valueKey]).toFixed(1)}`).join(" ");
+    const xStep = Math.max(1,Math.floor(data1.length/5));
+    const fmtDate = s => { const d=new Date(s); return `${d.getDate()} ${d.toLocaleString("en",{month:"short"})}`; };
+    return (
+      <svg viewBox={`0 0 880 ${height}`} style={{width:"100%",height}}>
+        <defs>
+          <linearGradient id="dg1" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color1} stopOpacity="0.15"/>
+            <stop offset="100%" stopColor={color1} stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        <g transform={`translate(${pad.l},${pad.t})`}>
+          {[0,0.25,0.5,0.75,1].map((f,i) => {
+            const v = minV + (maxV-minV)*f;
+            const yp = y(v);
+            return <line key={i} x1={0} y1={yp.toFixed(1)} x2={W} y2={yp.toFixed(1)} stroke="var(--border)" strokeWidth="1" strokeDasharray="3,3"/>;
+          })}
+          <path d={`${line(data1)} L${x(data1.length-1)},${H} L0,${H} Z`} fill="url(#dg1)"/>
+          <path d={line(data1)} fill="none" stroke={color1} strokeWidth="2" strokeLinecap="round"/>
+          <path d={line(data2)} fill="none" stroke={color2} strokeWidth="1.5" strokeLinecap="round" strokeDasharray="5,3"/>
+          {[0,0.25,0.5,0.75,1].map((f,i) => {
+            const v = minV + (maxV-minV)*f;
+            return <text key={i} x={-6} y={(y(v)+4).toFixed(1)} textAnchor="end" fontSize="10" fill="var(--text3)" fontFamily="DM Mono,monospace">{v.toFixed(0)}</text>;
+          })}
+          {data1.filter((_,i)=>i%xStep===0||i===data1.length-1).map((d,_,arr)=>{
+            const origIdx=data1.indexOf(d);
+            return <text key={origIdx} x={x(origIdx).toFixed(1)} y={H+18} textAnchor="middle" fontSize="10" fill="var(--text3)" fontFamily="DM Mono,monospace">{fmtDate(d.date)}</text>;
+          })}
+          <text x={W-4} y={y(data1[data1.length-1][valueKey])-6} fontSize="10" fill={color1} fontFamily="DM Mono,monospace" textAnchor="end">{label1}</text>
+          <text x={W-4} y={y(data2[data2.length-1][valueKey])+14} fontSize="10" fill={color2} fontFamily="DM Mono,monospace" textAnchor="end">{label2}</text>
+        </g>
+      </svg>
+    );
+  }
+
+  return (
+    <div>
+      {/* Key metrics */}
+      <div className="metric-row cols-4" style={{marginBottom:20}}>
+        <div className="metric-card">
+          <div className="metric-label">Alpha vs SPX</div>
+          <div className={`metric-value sm metric-delta ${alpha>=0?"up":"down"}`}>{alpha>=0?"+":""}{alpha.toFixed(1)}%</div>
+          <div className="metric-delta off" style={{marginTop:4}}>Portfolio {portChg>=0?"+":""}{portChg.toFixed(1)}% · SPX {spxChg>=0?"+":""}{spxChg.toFixed(1)}%</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">Max Drawdown</div>
+          <div className="metric-value sm" style={{color:"var(--red)"}}>{maxDD.toFixed(1)}%</div>
+          <div className="metric-delta down" style={{marginTop:4}}>Current: {currDD.toFixed(1)}% from peak</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">Annualised Volatility</div>
+          <div className="metric-value sm">{portVol.toFixed(1)}%</div>
+          <div className="metric-delta off" style={{marginTop:4}}>SPX: {spxVol.toFixed(1)}% · Rel: {(portVol/spxVol).toFixed(2)}x</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">Sharpe Ratio ({period})</div>
+          <div className={`metric-value sm ${parseFloat(sharpe)>1?"metric-delta up":parseFloat(sharpe)>0?"metric-delta amber":"metric-delta down"}`}>{sharpe}</div>
+          <div className="metric-delta off" style={{marginTop:4}}>{parseFloat(sharpe)>1?"Good risk-adjusted return":parseFloat(sharpe)>0?"Acceptable":"Below risk-free rate"}</div>
+        </div>
+      </div>
+
+      {/* Period selector */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div className="section-title">Portfolio vs S&P 500 (indexed to 100)</div>
+        <div className="period-row" style={{marginBottom:0}}>
+          {["1W","1M","3M","6M","1Y"].map(p=>(
+            <button key={p} className={`period-btn${period===p?" active":""}`} onClick={()=>setPeriod(p)}>{p}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Dual chart */}
+      <div className="chart-wrap" style={{marginBottom:16}}>
+        <DualLineChart data1={portData} data2={spxData} label1="Portfolio" label2="SPX" color1="var(--green)" color2="var(--text3)" height={200}/>
+        <div style={{display:"flex",gap:16,marginTop:8,fontSize:11}}>
+          <span><span style={{display:"inline-block",width:16,height:2,background:"var(--green)",verticalAlign:"middle",marginRight:5,borderRadius:1}}></span>Portfolio</span>
+          <span><span style={{display:"inline-block",width:16,height:2,background:"var(--text3)",verticalAlign:"middle",marginRight:5,borderRadius:1,opacity:0.6}}></span>S&P 500</span>
+        </div>
+      </div>
+
+      {/* Drawdown chart */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div className="section-title">Drawdown from Peak (%)</div>
+      </div>
+      <div className="chart-wrap">
+        {(() => {
+          const data = portDD;
+          const minV = Math.min(...data.map(d=>d.dd));
+          const pad = {t:8,r:10,b:28,l:44};
+          const W = 880-pad.l-pad.r, H = 120-pad.t-pad.b;
+          const x = i => (i/(data.length-1))*W;
+          const y = v => H - (v/minV)*H;
+          const areaPath = data.map((d,i)=>`${i===0?"M":"L"}${x(i).toFixed(1)},${y(d.dd).toFixed(1)}`).join(" ") + ` L${x(data.length-1)},${H} L0,${H} Z`;
+          const xStep = Math.max(1,Math.floor(data.length/5));
+          const fmtDate = s => { const d=new Date(s); return `${d.getDate()} ${d.toLocaleString("en",{month:"short"})}`; };
+          return (
+            <svg viewBox={`0 0 880 120`} style={{width:"100%",height:120}}>
+              <defs>
+                <linearGradient id="ddGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--red)" stopOpacity="0.4"/>
+                  <stop offset="100%" stopColor="var(--red)" stopOpacity="0.05"/>
+                </linearGradient>
+              </defs>
+              <g transform={`translate(${pad.l},${pad.t})`}>
+                <line x1={0} y1={0} x2={W} y2={0} stroke="var(--border)" strokeWidth="1" strokeDasharray="3,3"/>
+                <path d={areaPath} fill="url(#ddGrad)"/>
+                <path d={data.map((d,i)=>`${i===0?"M":"L"}${x(i).toFixed(1)},${y(d.dd).toFixed(1)}`).join(" ")} fill="none" stroke="var(--red)" strokeWidth="1.5"/>
+                {[-5,-10,-15,-20].filter(v=>v>=minV).map(v=>(
+                  <g key={v}>
+                    <line x1={0} y1={y(v).toFixed(1)} x2={W} y2={y(v).toFixed(1)} stroke="var(--border)" strokeWidth="1" strokeDasharray="2,4"/>
+                    <text x={-6} y={(y(v)+4).toFixed(1)} textAnchor="end" fontSize="9" fill="var(--text3)" fontFamily="DM Mono,monospace">{v}%</text>
+                  </g>
+                ))}
+                {data.filter((_,i)=>i%xStep===0||i===data.length-1).map((d,_,arr)=>{
+                  const origIdx=data.indexOf(d);
+                  return <text key={origIdx} x={x(origIdx).toFixed(1)} y={H+18} textAnchor="middle" fontSize="10" fill="var(--text3)" fontFamily="DM Mono,monospace">{fmtDate(d.date)}</text>;
+                })}
+              </g>
+            </svg>
+          );
+        })()}
+        <div style={{fontSize:11,color:"var(--text3)",marginTop:4}}>Max drawdown this period: <span style={{color:"var(--red)",fontFamily:"DM Mono,monospace"}}>{maxDD.toFixed(1)}%</span> · Current: <span style={{color:"var(--amber)",fontFamily:"DM Mono,monospace"}}>{currDD.toFixed(1)}%</span></div>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab 2: Correlation Matrix ──────────────────────────────────────────────────
+function CorrelationTab() {
+  const { portfolio } = MOCK_DATA;
+  const tickers = portfolio.positions.map(p=>p.ticker);
+
+  // Generate mock correlation matrix (realistic for AI/semis heavy portfolio)
+  const corrData = {
+    "NVDA":   { "NVDA":1.00, "RHM.DE":0.18, "MU":0.72, "HY9H.F":0.68, "MRVL":0.75, "MTE.DE":0.12 },
+    "RHM.DE": { "NVDA":0.18, "RHM.DE":1.00, "MU":0.14, "HY9H.F":0.11, "MRVL":0.16, "MTE.DE":0.38 },
+    "MU":     { "NVDA":0.72, "RHM.DE":0.14, "MU":1.00, "HY9H.F":0.81, "MRVL":0.64, "MTE.DE":0.09 },
+    "HY9H.F": { "NVDA":0.68, "RHM.DE":0.11, "MU":0.81, "HY9H.F":1.00, "MRVL":0.60, "MTE.DE":0.07 },
+    "MRVL":   { "NVDA":0.75, "RHM.DE":0.16, "MU":0.64, "HY9H.F":0.60, "MRVL":1.00, "MTE.DE":0.14 },
+    "MTE.DE": { "NVDA":0.12, "RHM.DE":0.38, "MU":0.09, "HY9H.F":0.07, "MRVL":0.14, "MTE.DE":1.00 },
+  };
+
+  const getColor = (v) => {
+    if (v === 1) return "oklch(0.30 0.01 250)";
+    if (v >= 0.7) return "oklch(0.22 0.12 25)";
+    if (v >= 0.5) return "oklch(0.22 0.08 50)";
+    if (v >= 0.3) return "oklch(0.22 0.04 80)";
+    if (v >= 0.1) return "oklch(0.20 0.02 145)";
+    return "oklch(0.22 0.06 145)";
+  };
+  const getTextColor = (v) => {
+    if (v === 1) return "var(--text3)";
+    if (v >= 0.7) return "var(--red)";
+    if (v >= 0.5) return "var(--amber)";
+    if (v >= 0.3) return "oklch(0.78 0.10 80)";
+    return "var(--green)";
+  };
+
+  // Average correlation per ticker
+  const avgCorr = tickers.map(t => {
+    const others = tickers.filter(t2=>t2!==t);
+    return { ticker:t, avg: others.reduce((s,t2)=>s+corrData[t][t2],0)/others.length };
+  }).sort((a,b)=>b.avg-a.avg);
+
+  return (
+    <div>
+      <div className="section-header" style={{marginTop:0}}>
+        <div>
+          <div className="section-title">Correlation Matrix</div>
+          <div className="section-sub">30-day rolling pairwise correlation of daily returns · red = high correlation = less diversification</div>
+        </div>
+      </div>
+
+      {/* Warning if high correlation */}
+      <div className="flag-card high" style={{marginBottom:16}}>
+        <div className="flag-title">⚠ High AI/Semiconductor Correlation</div>
+        <div className="flag-desc">NVDA, MU, HY9H.F and MRVL show correlations of 0.60–0.81. These positions move together — your effective diversification is lower than 4 separate bets suggest.</div>
+      </div>
+
+      {/* Matrix */}
+      <div className="table-wrap" style={{overflowX:"auto",marginBottom:20}}>
+        <table style={{borderCollapse:"collapse",width:"100%",fontFamily:"DM Mono,monospace",fontSize:12}}>
+          <thead>
+            <tr>
+              <th style={{padding:"8px 14px",textAlign:"left",fontSize:10,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",color:"var(--text3)",borderBottom:"1px solid var(--border)"}}></th>
+              {tickers.map(t=>(
+                <th key={t} style={{padding:"8px 10px",textAlign:"center",fontSize:11,fontWeight:600,color:"var(--text2)",borderBottom:"1px solid var(--border)",minWidth:72}}>{t}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tickers.map(row=>(
+              <tr key={row}>
+                <td style={{padding:"8px 14px",fontWeight:600,color:"var(--text)",borderBottom:"1px solid var(--border)",whiteSpace:"nowrap"}}>{row}</td>
+                {tickers.map(col=>{
+                  const v = corrData[row][col];
+                  return (
+                    <td key={col} style={{
+                      padding:"10px",textAlign:"center",
+                      background: getColor(v),
+                      color: getTextColor(v),
+                      fontWeight: v >= 0.5 ? 600 : 400,
+                      borderBottom:"1px solid var(--border)",
+                      fontSize:12,
+                    }}>
+                      {v === 1 ? "—" : v.toFixed(2)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Average correlation per position */}
+      <div className="section-header">
+        <div className="section-title">Average Correlation to Portfolio</div>
+      </div>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Name</th>
+              <th className="right">Avg Correlation</th>
+              <th>Diversification Value</th>
+              <th>Tags</th>
+            </tr>
+          </thead>
+          <tbody>
+            {avgCorr.map(({ticker,avg})=>{
+              const pos = MOCK_DATA.portfolio.positions.find(p=>p.ticker===ticker);
+              const divValue = avg < 0.2 ? "high" : avg < 0.4 ? "medium" : avg < 0.6 ? "low" : "very-low";
+              const divLabel = {high:"High diversifier",medium:"Moderate",low:"Low — correlated",["very-low"]:"Very low — moves with portfolio"}[divValue];
+              const divColor = {high:"green",medium:"amber",low:"amber",["very-low"]:"red"}[divValue];
+              return (
+                <tr key={ticker}>
+                  <td className="mono" style={{fontWeight:600}}>{ticker}</td>
+                  <td className="dim">{pos?.name}</td>
+                  <td className="right">
+                    <span style={{
+                      fontFamily:"DM Mono,monospace",fontSize:13,fontWeight:600,
+                      color: avg>=0.6?"var(--red)":avg>=0.4?"var(--amber)":"var(--green)"
+                    }}>{avg.toFixed(2)}</span>
+                  </td>
+                  <td><Badge color={divColor}>{divLabel}</Badge></td>
+                  <td><div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{pos?.tags.map(t=><Badge key={t} color="dim">{t}</Badge>)}</div></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="caption" style={{marginTop:8}}>Lower avg correlation = more diversification benefit. RHM.DE and MTE.DE are your true diversifiers.</div>
+    </div>
+  );
+}
+
+// ── Tab 3: Technical Levels (Bloomberg-style) ─────────────────────────────────
+function TechnicalsTab() {
+  const { portfolio } = MOCK_DATA;
+  const [selectedTicker, setSelectedTicker] = useState("NVDA");
+  const selPos = portfolio.positions.find(p=>p.ticker===selectedTicker);
+
+  // Generate price history with 200 points for MA calculation
+  const priceData = useMemo(()=>{
+    const today = new Date("2026-05-02");
+    const data = [];
+    let price = selPos.live_price * 0.55;
+    let vol = 0;
+    for (let i = 200; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate()-i);
+      price *= (1+(Math.random()-0.46)*0.022);
+      vol = Math.abs(price * (Math.random()*0.03+0.005) * selPos.total_shares * 1000);
+      data.push({ date:d.toISOString().slice(0,10), price:parseFloat(price.toFixed(2)), vol:parseFloat(vol.toFixed(0)) });
+    }
+    data[data.length-1].price = selPos.live_price;
+    return data;
+  },[selectedTicker]);
+
+  // Moving averages
+  const ma = (data, period) => data.map((d,i)=>{
+    if (i < period-1) return { ...d, ma: null };
+    const avg = data.slice(i-period+1,i+1).reduce((s,x)=>s+x.price,0)/period;
+    return { ...d, ma: parseFloat(avg.toFixed(2)) };
+  });
+  const ma50Data  = useMemo(()=>ma(priceData,50),[priceData]);
+  const ma200Data = useMemo(()=>ma(priceData,200),[priceData]);
+
+  const last50  = ma50Data[ma50Data.length-1]?.ma;
+  const last200 = ma200Data[ma200Data.length-1]?.ma;
+  const above50  = selPos.live_price > last50;
+  const above200 = selPos.live_price > last200;
+  const goldenCross = last50 > last200;
+
+  // RSI
+  const rsi = useMemo(()=>{
+    const gains=[], losses=[], period=14;
+    for (let i=1;i<priceData.length;i++){
+      const diff=priceData[i].price-priceData[i-1].price;
+      gains.push(Math.max(0,diff)); losses.push(Math.max(0,-diff));
+    }
+    let avgGain=gains.slice(0,period).reduce((s,v)=>s+v,0)/period;
+    let avgLoss=losses.slice(0,period).reduce((s,v)=>s+v,0)/period;
+    const rsiData=[...priceData.slice(0,period+1).map(d=>({...d,rsi:50}))];
+    for (let i=period;i<gains.length;i++){
+      avgGain=(avgGain*13+gains[i])/14;
+      avgLoss=(avgLoss*13+losses[i])/14;
+      const rs=avgLoss===0?100:avgGain/avgLoss;
+      rsiData.push({...priceData[i+1],rsi:parseFloat((100-100/(1+rs)).toFixed(1))});
+    }
+    return rsiData;
+  },[priceData]);
+  const currentRSI = rsi[rsi.length-1]?.rsi || 50;
+
+  // Bloomberg-style price+MA+volume+RSI chart
+  const last90Price = priceData.slice(-90);
+  const last90MA50  = ma50Data.slice(-90);
+  const last90MA200 = ma200Data.slice(-90);
+  const last90RSI   = rsi.slice(-90);
+
+  const allPrices = last90Price.map(d=>d.price);
+  const minP = Math.min(...allPrices)*0.995, maxP = Math.max(...allPrices)*1.005;
+  const W = 860, pH = 200, vH = 50, rH = 60;
+  const pad = {l:54,r:12,t:8,b:20};
+  const cW = W - pad.l - pad.r;
+  const xP = i => (i/(last90Price.length-1))*cW;
+  const yP = v => pH - ((v-minP)/(maxP-minP))*pH;
+  const yR = v => rH - ((v-0)/(100-0))*rH;
+  const maxVol = Math.max(...last90Price.map(d=>d.vol));
+  const linePath = (data, key) => data.filter(d=>d[key]!=null).map((d,i,arr)=>{
+    const origI = last90Price.indexOf(last90Price.find(x=>x.date===d.date));
+    return `${i===0?"M":"L"}${xP(origI).toFixed(1)},${yP(d[key]).toFixed(1)}`;
+  }).join(" ");
+  const xStep = Math.floor(last90Price.length/5);
+  const fmtDate = s => { const d=new Date(s); return `${d.getDate()} ${d.toLocaleString("en",{month:"short"})}`; };
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div className="section-title">Technical Levels — Bloomberg Style</div>
+        <select className="select-field" value={selectedTicker} onChange={e=>setSelectedTicker(e.target.value)}>
+          {portfolio.positions.map(p=><option key={p.ticker} value={p.ticker}>{p.ticker} — {p.name}</option>)}
+        </select>
+      </div>
+
+      {/* Signal badges */}
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        <Badge color={above50?"green":"red"}>{above50?"▲ Above 50 DMA":"▼ Below 50 DMA"} ({last50?.toFixed(2)})</Badge>
+        <Badge color={above200?"green":"red"}>{above200?"▲ Above 200 DMA":"▼ Below 200 DMA"} ({last200?.toFixed(2)})</Badge>
+        <Badge color={goldenCross?"green":"red"}>{goldenCross?"✦ Golden Cross (50>200)":"✦ Death Cross (50<200)"}</Badge>
+        <Badge color={currentRSI>70?"red":currentRSI<30?"green":"dim"}>RSI {currentRSI} {currentRSI>70?"— Overbought":currentRSI<30?"— Oversold":"— Neutral"}</Badge>
+        <Badge color={selPos.unrealised_gain>=0?"green":"red"}>{selPos.currency} {selPos.live_price?.toFixed(2)} · {selPos.unrealised_gain>=0?"▲":"▼"} {(selPos.unrealised_gain_pct*100).toFixed(1)}%</Badge>
+      </div>
+
+      {/* Main Bloomberg chart */}
+      <div className="chart-wrap" style={{padding:"16px 16px 8px"}}>
+        <svg viewBox={`0 0 ${W} ${pH+vH+rH+pad.t+pad.b+24}`} style={{width:"100%",height:pH+vH+rH+pad.t+pad.b+24}}>
+          <defs>
+            <linearGradient id="blmGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--green)" stopOpacity="0.1"/>
+              <stop offset="100%" stopColor="var(--green)" stopOpacity="0"/>
+            </linearGradient>
+            <clipPath id="priceClip"><rect x="0" y="0" width={cW} height={pH}/></clipPath>
+          </defs>
+
+          {/* ── Price panel ── */}
+          <g transform={`translate(${pad.l},${pad.t})`}>
+            {/* Grid */}
+            {[0,0.25,0.5,0.75,1].map((f,i)=>{
+              const v = minP+(maxP-minP)*f;
+              const yp = yP(v);
+              return <g key={i}>
+                <line x1={0} y1={yp.toFixed(1)} x2={cW} y2={yp.toFixed(1)} stroke="var(--border)" strokeWidth="1" strokeDasharray="3,3"/>
+                <text x={-6} y={(yp+4).toFixed(1)} textAnchor="end" fontSize="10" fill="var(--text3)" fontFamily="DM Mono,monospace">{v.toFixed(0)}</text>
+              </g>;
+            })}
+            {/* Area fill */}
+            <path d={`${linePath(last90Price,"price")} L${xP(last90Price.length-1)},${pH} L0,${pH} Z`} fill="url(#blmGrad)" clipPath="url(#priceClip)"/>
+            {/* Price line */}
+            <path d={linePath(last90Price,"price")} fill="none" stroke={selPos.unrealised_gain>=0?"var(--green)":"var(--red)"} strokeWidth="2" clipPath="url(#priceClip)"/>
+            {/* 50 DMA */}
+            <path d={linePath(last90MA50,"ma")} fill="none" stroke="var(--amber)" strokeWidth="1.5" strokeDasharray="4,2" clipPath="url(#priceClip)"/>
+            {/* 200 DMA */}
+            <path d={linePath(last90MA200,"ma")} fill="none" stroke="var(--blue)" strokeWidth="1.5" strokeDasharray="6,3" clipPath="url(#priceClip)"/>
+            {/* Current price line */}
+            <line x1={0} y1={yP(selPos.live_price).toFixed(1)} x2={cW} y2={yP(selPos.live_price).toFixed(1)} stroke="var(--text3)" strokeWidth="0.5" strokeDasharray="2,4"/>
+            {/* Labels */}
+            <text x={cW+3} y={(yP(selPos.live_price)+4).toFixed(1)} fontSize="9" fill="var(--text2)" fontFamily="DM Mono,monospace">{selPos.live_price?.toFixed(0)}</text>
+            {last50 && <text x={cW+3} y={(yP(last50)+4).toFixed(1)} fontSize="9" fill="var(--amber)" fontFamily="DM Mono,monospace">50d</text>}
+            {last200 && <text x={cW+3} y={(yP(last200)+4).toFixed(1)} fontSize="9" fill="var(--blue)" fontFamily="DM Mono,monospace">200d</text>}
+            {/* Panel label */}
+            <text x={6} y={16} fontSize="10" fill="var(--text2)" fontFamily="DM Mono,monospace" fontWeight="600">{selectedTicker} · Price + MAs · 90d</text>
+          </g>
+
+          {/* ── Volume panel ── */}
+          <g transform={`translate(${pad.l},${pad.t+pH+8})`}>
+            <line x1={0} y1={0} x2={cW} y2={0} stroke="var(--border)" strokeWidth="1"/>
+            <text x={6} y={12} fontSize="9" fill="var(--text3)" fontFamily="DM Mono,monospace">VOLUME</text>
+            {last90Price.map((d,i)=>{
+              const bH = Math.max(2,(d.vol/maxVol)*vH*0.85);
+              const bW = Math.max(1,(cW/last90Price.length)*0.7);
+              const bX = xP(i)-bW/2;
+              const isUp = i===0||d.price>=last90Price[i-1].price;
+              return <rect key={i} x={bX.toFixed(1)} y={(vH-bH).toFixed(1)} width={bW.toFixed(1)} height={bH.toFixed(1)} fill={isUp?"var(--green)":"var(--red)"} fillOpacity="0.6"/>;
+            })}
+          </g>
+
+          {/* ── RSI panel ── */}
+          <g transform={`translate(${pad.l},${pad.t+pH+vH+16})`}>
+            <line x1={0} y1={0} x2={cW} y2={0} stroke="var(--border)" strokeWidth="1"/>
+            <text x={6} y={12} fontSize="9" fill="var(--text3)" fontFamily="DM Mono,monospace">RSI(14)</text>
+            {/* Overbought / oversold bands */}
+            <rect x={0} y={yR(70).toFixed(1)} width={cW} height={(yR(30)-yR(70)).toFixed(1)} fill="var(--surface2)" opacity="0.5"/>
+            <line x1={0} y1={yR(70).toFixed(1)} x2={cW} y2={yR(70).toFixed(1)} stroke="var(--red)" strokeWidth="0.5" strokeDasharray="3,3"/>
+            <line x1={0} y1={yR(30).toFixed(1)} x2={cW} y2={yR(30).toFixed(1)} stroke="var(--green)" strokeWidth="0.5" strokeDasharray="3,3"/>
+            <line x1={0} y1={yR(50).toFixed(1)} x2={cW} y2={yR(50).toFixed(1)} stroke="var(--border)" strokeWidth="0.5"/>
+            <text x={-4} y={(yR(70)+4).toFixed(1)} textAnchor="end" fontSize="8" fill="var(--red)" fontFamily="DM Mono">70</text>
+            <text x={-4} y={(yR(30)+4).toFixed(1)} textAnchor="end" fontSize="8" fill="var(--green)" fontFamily="DM Mono">30</text>
+            <path
+              d={last90RSI.filter(d=>d.rsi!=null).map((d,i,arr)=>{
+                const origI=last90Price.findIndex(x=>x.date===d.date);
+                if(origI<0)return null;
+                return `${i===0?"M":"L"}${xP(origI).toFixed(1)},${yR(d.rsi).toFixed(1)}`;
+              }).filter(Boolean).join(" ")}
+              fill="none" stroke="var(--amber)" strokeWidth="1.5"/>
+            {/* X axis labels — shared */}
+            {last90Price.filter((_,i)=>i%xStep===0||i===last90Price.length-1).map((d,_,arr)=>{
+              const origIdx=last90Price.indexOf(d);
+              return <text key={origIdx} x={xP(origIdx).toFixed(1)} y={rH+16} textAnchor="middle" fontSize="10" fill="var(--text3)" fontFamily="DM Mono,monospace">{fmtDate(d.date)}</text>;
+            })}
+          </g>
+        </svg>
+
+        {/* Legend */}
+        <div style={{display:"flex",gap:16,marginTop:4,fontSize:11,flexWrap:"wrap"}}>
+          <span><span style={{display:"inline-block",width:16,height:2,background:selPos.unrealised_gain>=0?"var(--green)":"var(--red)",verticalAlign:"middle",marginRight:5,borderRadius:1}}></span>Price</span>
+          <span><span style={{display:"inline-block",width:16,height:2,background:"var(--amber)",verticalAlign:"middle",marginRight:5,borderRadius:1}}></span>50 DMA</span>
+          <span><span style={{display:"inline-block",width:16,height:2,background:"var(--blue)",verticalAlign:"middle",marginRight:5,borderRadius:1}}></span>200 DMA</span>
+          <span><span style={{display:"inline-block",width:8,height:8,background:"var(--green)",verticalAlign:"middle",marginRight:5,borderRadius:1,opacity:0.6}}></span>Vol Up</span>
+          <span><span style={{display:"inline-block",width:8,height:8,background:"var(--red)",verticalAlign:"middle",marginRight:5,borderRadius:1,opacity:0.6}}></span>Vol Down</span>
+          <span style={{marginLeft:"auto",fontFamily:"DM Mono,monospace",color:"var(--amber)"}}>RSI: {currentRSI}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab 4: Position Sizer ─────────────────────────────────────────────────────
+function PositionSizerTab() {
+  const { portfolio, computeTotals } = MOCK_DATA;
+  const { totalValue } = computeTotals();
+  const [ticker, setTicker]         = useState("NVDA");
+  const [riskPct, setRiskPct]       = useState(1.0);
+  const [stopPct, setStopPct]       = useState(8.0);
+  const [targetWeight, setTargetWeight] = useState(15.0);
+  const [action, setAction]         = useState("BUY");
+
+  const pos = portfolio.positions.find(p=>p.ticker===ticker);
+  const price = pos?.live_price || 0;
+  const riskAmount = totalValue * riskPct / 100;
+  const sharesFromRisk = stopPct > 0 ? riskAmount / (price * stopPct/100) : 0;
+  const costFromRisk = sharesFromRisk * price;
+  const costEur = pos?.currency==="USD" ? costFromRisk/(pos?.fx_rate||1) : costFromRisk;
+
+  const targetEur = totalValue * targetWeight / 100;
+  const currentEur = pos?.currency==="USD" ? (pos?.current_value||0)/(pos?.fx_rate||1) : (pos?.current_value||0);
+  const deltaEur = targetEur - currentEur;
+  const sharesFromWeight = Math.abs(deltaEur) / (pos?.currency==="USD" ? price/(pos?.fx_rate||1) : price);
+
+  const currentWeight = pos?.weight*100 || 0;
+
+  const inputStyle = {
+    background:"var(--surface2)",border:"1px solid var(--border2)",color:"var(--text)",
+    borderRadius:6,padding:"8px 11px",fontFamily:"DM Mono,monospace",fontSize:13,
+    outline:"none",width:"100%",
+  };
+  const labelStyle = {
+    fontSize:11,fontWeight:600,letterSpacing:"0.04em",textTransform:"uppercase",
+    color:"var(--text3)",marginBottom:4,display:"block",
+  };
+
+  return (
+    <div>
+      <div className="section-header" style={{marginTop:0}}>
+        <div>
+          <div className="section-title">Position Sizing Calculator</div>
+          <div className="section-sub">Two methods: risk-based (% of portfolio to risk) and weight-based (target allocation %)</div>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+        {/* Inputs */}
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div>
+              <label style={labelStyle}>Position</label>
+              <select style={inputStyle} value={ticker} onChange={e=>setTicker(e.target.value)}>
+                {portfolio.positions.map(p=><option key={p.ticker} value={p.ticker}>{p.ticker}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Action</label>
+              <div style={{display:"flex",gap:3,background:"var(--surface2)",borderRadius:7,padding:3}}>
+                {["BUY","SELL"].map(a=>(
+                  <button key={a} className={`period-btn${action===a?" active":""}`}
+                    style={action===a?{background:"var(--surface)",color:a==="BUY"?"var(--green)":"var(--red)",fontWeight:600}:{}}
+                    onClick={()=>setAction(a)}>{a}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="metric-label">Current Position</div>
+            <div style={{display:"flex",gap:16,marginTop:6}}>
+              <div><div style={{fontSize:10,color:"var(--text3)"}}>Weight</div><div style={{fontFamily:"DM Mono,monospace",fontWeight:600,color:currentWeight>35?"var(--red)":currentWeight>25?"var(--amber)":"var(--green)"}}>{currentWeight.toFixed(1)}%</div></div>
+              <div><div style={{fontSize:10,color:"var(--text3)"}}>Value (€)</div><div style={{fontFamily:"DM Mono,monospace",fontWeight:600}}>{fmtEur(currentEur)}</div></div>
+              <div><div style={{fontSize:10,color:"var(--text3)"}}>Price</div><div style={{fontFamily:"DM Mono,monospace",fontWeight:600}}>{pos?.currency} {price.toFixed(2)}</div></div>
+              <div><div style={{fontSize:10,color:"var(--text3)"}}>Lots</div><div style={{fontFamily:"DM Mono,monospace",fontWeight:600}}>{pos?.lot_count}</div></div>
+            </div>
+          </div>
+
+          <hr className="divider" style={{margin:"4px 0"}}/>
+
+          <div>
+            <div style={{fontSize:12,fontWeight:600,color:"var(--text2)",marginBottom:10}}>Method 1 — Risk-Based</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>
+                <label style={labelStyle}>Risk % of Portfolio</label>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <input style={{...inputStyle,width:80}} type="number" min={0.1} max={5} step={0.1} value={riskPct} onChange={e=>setRiskPct(parseFloat(e.target.value)||1)}/>
+                  <span style={{fontSize:12,color:"var(--text3)"}}>= {fmtEur(totalValue*riskPct/100)}</span>
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Stop Loss %</label>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <input style={{...inputStyle,width:80}} type="number" min={1} max={30} step={0.5} value={stopPct} onChange={e=>setStopPct(parseFloat(e.target.value)||8)}/>
+                  <span style={{fontSize:12,color:"var(--text3)"}}>below entry</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div style={{fontSize:12,fontWeight:600,color:"var(--text2)",marginBottom:10}}>Method 2 — Weight-Based</div>
+            <div>
+              <label style={labelStyle}>Target Portfolio Weight %</label>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <input style={{...inputStyle,width:80}} type="number" min={1} max={40} step={0.5} value={targetWeight} onChange={e=>setTargetWeight(parseFloat(e.target.value)||15)}/>
+                <span style={{fontSize:12,color:"var(--text3)"}}>of {fmtEur(totalValue)} portfolio</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Results */}
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div className="metric-card" style={{border:"1px solid var(--green)",background:"oklch(0.17 0.04 145)"}}>
+            <div className="metric-label" style={{color:"var(--green)"}}>Method 1 — Risk-Based Size</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:8}}>
+              <div>
+                <div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>Shares to trade</div>
+                <div style={{fontFamily:"DM Mono,monospace",fontSize:18,fontWeight:700,color:"var(--green)"}}>{sharesFromRisk.toFixed(2)}</div>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>Trade amount (€)</div>
+                <div style={{fontFamily:"DM Mono,monospace",fontSize:18,fontWeight:700,color:"var(--green)"}}>{fmtEur(costEur)}</div>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>Risk amount</div>
+                <div style={{fontFamily:"DM Mono,monospace",fontSize:13,color:"var(--red)"}}>{fmtEur(riskAmount)} ({riskPct}%)</div>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>Stop price</div>
+                <div style={{fontFamily:"DM Mono,monospace",fontSize:13,color:"var(--amber)"}}>{pos?.currency} {(price*(1-stopPct/100)).toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="metric-card" style={{border:"1px solid var(--blue)",background:"var(--blue-bg)"}}>
+            <div className="metric-label" style={{color:"var(--blue)"}}>Method 2 — Weight-Based Size</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:8}}>
+              <div>
+                <div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>Shares to {deltaEur>0?"buy":"sell"}</div>
+                <div style={{fontFamily:"DM Mono,monospace",fontSize:18,fontWeight:700,color:deltaEur>0?"var(--green)":"var(--red)"}}>{sharesFromWeight.toFixed(2)}</div>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>Delta (€)</div>
+                <div style={{fontFamily:"DM Mono,monospace",fontSize:18,fontWeight:700,color:deltaEur>0?"var(--green)":"var(--red)"}}>{fmtEur(deltaEur,true)}</div>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>Current weight</div>
+                <div style={{fontFamily:"DM Mono,monospace",fontSize:13,color:"var(--text2)"}}>{currentWeight.toFixed(1)}%</div>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>Target weight</div>
+                <div style={{fontFamily:"DM Mono,monospace",fontSize:13,color:"var(--blue)"}}>{targetWeight.toFixed(1)}%</div>
+              </div>
+            </div>
+          </div>
+
+          {/* New weight after trade */}
+          <div className="metric-card">
+            <div className="metric-label">New Weight After Method 1 Trade</div>
+            {(() => {
+              const newVal = currentEur + costEur;
+              const newTotalVal = totalValue + costEur;
+              const newWeight = newVal/newTotalVal*100;
+              return (
+                <>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginTop:6}}>
+                    <span style={{fontFamily:"DM Mono,monospace",fontSize:16,fontWeight:600,color:newWeight>35?"var(--red)":newWeight>25?"var(--amber)":"var(--green)"}}>{newWeight.toFixed(1)}%</span>
+                    <span style={{color:"var(--text3)",fontSize:12}}>of portfolio</span>
+                    {newWeight>35&&<Badge color="red">Exceeds 35% limit</Badge>}
+                    {newWeight>25&&newWeight<=35&&<Badge color="amber">Approaching limit</Badge>}
+                  </div>
+                  <div style={{marginTop:8,height:6,borderRadius:3,background:"var(--surface2)",overflow:"hidden",position:"relative"}}>
+                    <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${currentWeight/40*100}%`,background:"var(--text3)",borderRadius:3,opacity:0.4}}></div>
+                    <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${Math.min(100,newWeight/40*100)}%`,background:newWeight>35?"var(--red)":newWeight>25?"var(--amber)":"var(--green)",borderRadius:3}}></div>
+                    <div style={{position:"absolute",left:`${35/40*100}%`,top:0,height:"100%",width:2,background:"var(--red)"}}></div>
+                  </div>
+                  <div style={{fontSize:10,color:"var(--text3)",marginTop:3}}>35% max limit marker shown</div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab 5: Price Targets & Stop-Losses ────────────────────────────────────────
+function PriceTargetsTab() {
+  const { portfolio } = MOCK_DATA;
+
+  // Default target data — editable inline
+  const [targets, setTargets] = useState(portfolio.positions.map(pos => ({
+    ticker: pos.ticker,
+    name: pos.name,
+    entry: (pos.total_cost_basis / pos.total_shares),
+    current: pos.live_price,
+    target: pos.live_price * (pos.thesis_status==="intact" ? 1.35 : pos.thesis_status==="watch" ? 1.12 : 0.95),
+    stop: pos.live_price * (pos.thesis_status==="broken" ? 1.05 : 0.88),
+    currency: pos.currency,
+    fx_rate: pos.fx_rate,
+    thesis_status: pos.thesis_status,
+  })));
+
+  const setField = (ticker, field, value) => {
+    setTargets(prev => prev.map(t => t.ticker===ticker ? {...t, [field]:parseFloat(value)||0} : t));
+  };
+
+  const inputStyle = {
+    background:"var(--surface2)",border:"1px solid var(--border2)",color:"var(--text)",
+    borderRadius:5,padding:"4px 8px",fontFamily:"DM Mono,monospace",fontSize:12,
+    outline:"none",width:90,textAlign:"right",
+  };
+
+  return (
+    <div>
+      <div className="section-header" style={{marginTop:0}}>
+        <div>
+          <div className="section-title">Price Targets & Stop-Losses</div>
+          <div className="section-sub">Per-position targets, stops, and risk/reward ratios — edit inline</div>
+        </div>
+      </div>
+
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th className="right">Entry</th>
+              <th className="right">Current</th>
+              <th className="right">Target</th>
+              <th className="right">Stop Loss</th>
+              <th className="right">Upside</th>
+              <th className="right">Downside</th>
+              <th className="right">R/R Ratio</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {targets.map(t => {
+              const upside   = (t.target - t.current) / t.current * 100;
+              const downside = (t.current - t.stop) / t.current * 100;
+              const rr       = downside > 0 ? (upside / downside) : 0;
+              const atStop   = t.current <= t.stop * 1.02;
+              const atTarget = t.current >= t.target * 0.98;
+              return (
+                <tr key={t.ticker} style={{background: atStop?"var(--red-bg)":atTarget?"var(--green-bg)":"transparent"}}>
+                  <td className="mono" style={{fontWeight:700}}>{t.ticker}</td>
+                  <td className="right">
+                    <input style={inputStyle} type="number" step="0.01" value={t.entry.toFixed(2)}
+                      onChange={e=>setField(t.ticker,"entry",e.target.value)}/>
+                  </td>
+                  <td className="right mono" style={{fontWeight:600,color:t.current>=t.entry?"var(--green)":"var(--red)"}}>{t.current?.toFixed(2)}</td>
+                  <td className="right">
+                    <input style={{...inputStyle,color:"var(--green)"}} type="number" step="0.01" value={t.target.toFixed(2)}
+                      onChange={e=>setField(t.ticker,"target",e.target.value)}/>
+                  </td>
+                  <td className="right">
+                    <input style={{...inputStyle,color:"var(--red)"}} type="number" step="0.01" value={t.stop.toFixed(2)}
+                      onChange={e=>setField(t.ticker,"stop",e.target.value)}/>
+                  </td>
+                  <td className="right mono" style={{color:"var(--green)"}}>{upside>=0?"+":""}{upside.toFixed(1)}%</td>
+                  <td className="right mono" style={{color:"var(--red)"}}>-{downside.toFixed(1)}%</td>
+                  <td className="right">
+                    <span style={{
+                      fontFamily:"DM Mono,monospace",fontSize:13,fontWeight:700,
+                      color: rr>=2?"var(--green)":rr>=1.5?"var(--amber)":"var(--red)"
+                    }}>{rr.toFixed(1)}x</span>
+                  </td>
+                  <td>
+                    {atStop   && <Badge color="red">⚠ Near Stop</Badge>}
+                    {atTarget && <Badge color="green">✓ Near Target</Badge>}
+                    {!atStop && !atTarget && <ThesisBadge status={t.thesis_status}/>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="info-box" style={{marginTop:12}}>
+        <strong style={{color:"var(--text)"}}>R/R Ratio guide:</strong> ≥2x = good trade setup · ≥1.5x = acceptable · &lt;1x = avoid unless conviction is very high.
+        Edit Target and Stop fields inline — changes update R/R in real time.
+      </div>
+
+      {/* Visual R/R bars */}
+      <div className="section-header" style={{marginTop:24}}>
+        <div className="section-title">Risk/Reward Visualisation</div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {targets.map(t => {
+          const upside   = Math.max(0,(t.target - t.current) / t.current * 100);
+          const downside = Math.max(0,(t.current - t.stop) / t.current * 100);
+          const rr       = downside > 0 ? upside/downside : 0;
+          const maxBar   = 50; // max % for bar width scale
+          return (
+            <div key={t.ticker} className="metric-card" style={{padding:"12px 14px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <span style={{fontFamily:"DM Mono,monospace",fontWeight:700,fontSize:13,minWidth:72}}>{t.ticker}</span>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                    {/* Current price marker */}
+                    <div style={{position:"relative",flex:1,height:18}}>
+                      {/* Downside bar (red, left of center) */}
+                      <div style={{position:"absolute",right:`${50}%`,top:5,height:8,width:`${Math.min(downside/maxBar*50,50)}%`,background:"var(--red)",borderRadius:"3px 0 0 3px",opacity:0.7}}></div>
+                      {/* Upside bar (green, right of center) */}
+                      <div style={{position:"absolute",left:`${50}%`,top:5,height:8,width:`${Math.min(upside/maxBar*50,50)}%`,background:"var(--green)",borderRadius:"0 3px 3px 0",opacity:0.7}}></div>
+                      {/* Center marker */}
+                      <div style={{position:"absolute",left:"50%",top:2,width:2,height:14,background:"var(--text)",borderRadius:1,transform:"translateX(-50%)"}}></div>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--text3)",fontFamily:"DM Mono,monospace"}}>
+                    <span style={{color:"var(--red)"}}>Stop: {t.currency} {t.stop.toFixed(2)} (-{downside.toFixed(1)}%)</span>
+                    <span style={{color:"var(--text2)"}}>Now: {t.current?.toFixed(2)}</span>
+                    <span style={{color:"var(--green)"}}>Target: {t.currency} {t.target.toFixed(2)} (+{upside.toFixed(1)}%)</span>
+                  </div>
+                </div>
+                <span style={{
+                  fontFamily:"DM Mono,monospace",fontSize:14,fontWeight:700,minWidth:48,textAlign:"right",
+                  color: rr>=2?"var(--green)":rr>=1.5?"var(--amber)":"var(--red)"
+                }}>{rr.toFixed(1)}x</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// TWEAKS PANEL
+// ─────────────────────────────────────────────────────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "green",
+  "density": "comfortable",
+  "showFxRates": true,
+  "currencySymbol": "€",
+  "overviewLayout": "chart-first",
+  "chartHeight": 160,
+  "showAllocation": true
+}/*EDITMODE-END*/;
+
+function TweaksContent({ tweaks, setTweak }) {
+  return (
+    <>
+      <TweakSection title="Appearance">
+        <TweakRadio
+          label="Accent Color"
+          value={tweaks.accentColor}
+          options={[{value:"green",label:"Green"},{value:"blue",label:"Blue"},{value:"amber",label:"Amber"}]}
+          onChange={v => {
+            setTweak("accentColor", v);
+            const map = { green:"oklch(0.72 0.18 145)", blue:"oklch(0.72 0.14 230)", amber:"oklch(0.78 0.16 80)" };
+            document.documentElement.style.setProperty("--accent", map[v]);
+            document.documentElement.style.setProperty("--green", map[v]);
+          }}
+        />
+        <TweakRadio
+          label="Table Density"
+          value={tweaks.density}
+          options={[{value:"compact",label:"Compact"},{value:"comfortable",label:"Comfy"}]}
+          onChange={v => {
+            setTweak("density", v);
+            document.querySelectorAll(".data-table tbody td").forEach(el => {
+              el.style.padding = v === "compact" ? "6px 10px" : "10px 12px";
+            });
+          }}
+        />
+      </TweakSection>
+      <TweakSection title="Live Overview Layout">
+        <TweakRadio
+          label="Section Order"
+          value={tweaks.overviewLayout}
+          options={[
+            {value:"chart-first", label:"Chart → Positions"},
+            {value:"positions-first", label:"Positions → Chart"},
+          ]}
+          onChange={v => setTweak("overviewLayout", v)}
+        />
+        <TweakSlider
+          label="Chart Height"
+          value={tweaks.chartHeight}
+          min={80} max={280} step={20}
+          onChange={v => setTweak("chartHeight", v)}
+        />
+        <TweakToggle
+          label="Show Allocation Charts"
+          value={tweaks.showAllocation}
+          onChange={v => setTweak("showAllocation", v)}
+        />
+      </TweakSection>
+      <TweakSection title="Data">
+        <TweakToggle
+          label="Show FX Rates"
+          value={tweaks.showFxRates}
+          onChange={v => setTweak("showFxRates", v)}
+        />
+      </TweakSection>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// APP SHELL
+// ─────────────────────────────────────────────────────────────────────────
+const NAV_ITEMS = [
+  { id:"overview",    label:"Live Overview",       icon:"◉", badge: null },
+  { id:"analytics",   label:"Analytics & Risk",    icon:"⬡", badge: { text:"new", color:"amber" } },
+  { id:"performance", label:"Performance",         icon:"↗", badge: null },
+  { id:"tax",         label:"Tax Dashboard",       icon:"§", badge: null },
+  { id:"decision",    label:"Decision Gates",      icon:"▲", badge: { text:"3 flags", color:"" } },
+  { id:"behaviour",   label:"Behavioural Ledger",  icon:"◎", badge: null },
+  { id:"lots",        label:"Lot Ledger",          icon:"≡", badge: null },
+  { id:"manage",      label:"Manage Portfolio",    icon:"⚙", badge: null },
+];
+
+const PAGE_TITLES = {
+  overview:    "Live Overview",
+  analytics:   "Analytics & Risk",
+  performance: "Performance",
+  tax:         "Tax Dashboard",
+  decision:    "Decision Gates & Risk Flags",
+  behaviour:   "Behavioural Ledger",
+  lots:        "Lot Ledger",
+  manage:      "Manage Portfolio",
+};
+
+function App() {
+  const [page, setPage] = useState("overview");
+  const { tweaks, setTweak, TweaksPanel: TP } = useTweaks(TWEAK_DEFAULTS);
+
+  // Keep global ref in sync so OverviewPage can read without prop-drilling
+  Object.assign(_activeTweaks, tweaks);
+
+  const renderPage = () => {
+    switch(page) {
+      case "overview":    return <OverviewPage />;
+      case "analytics":   return <AnalyticsPage />;
+      case "performance": return <PerformancePage />;
+      case "tax":         return <TaxPage />;
+      case "decision":    return <DecisionGatesPage />;
+      case "behaviour":   return <BehaviouralPage />;
+      case "lots":        return <LotLedgerPage />;
+      case "manage":      return <ManagePortfolioPage />;
+      default:            return <OverviewPage />;
+    }
+  };
+
+  return (
+    <>
+      <div id="root" style={{display:"flex",height:"100vh",overflow:"hidden"}}>
+        {/* Sidebar */}
+        <div className="sidebar">
+          <div className="sidebar-logo">
+            <div className="mark">
+              <div className="icon">📈</div>
+              <div>
+                <div className="name">Investment Panel</div>
+                <div className="sub">Scalable Capital · DE</div>
+              </div>
+            </div>
+          </div>
+          <nav className="sidebar-nav">
+            <div className="nav-section-label">Portfolio</div>
+            {NAV_ITEMS.filter(i => i.id !== "manage").map(item => (
+              <button
+                key={item.id}
+                className={`nav-item${page===item.id?" active":""}`}
+                onClick={()=>setPage(item.id)}
+              >
+                <span className="nav-icon">{item.icon}</span>
+                {item.label}
+                {item.badge && (
+                  <span className={`nav-badge${item.badge.color?" "+item.badge.color:""}`}>{item.badge.text}</span>
+                )}
+              </button>
+            ))}
+            <div className="nav-section-label" style={{marginTop:8}}>Settings</div>
+            <button
+              className={`nav-item${page==="manage"?" active":""}`}
+              onClick={()=>setPage("manage")}
+            >
+              <span className="nav-icon">⚙</span>
+              Manage Portfolio
+            </button>
+          </nav>
+          <div className="sidebar-footer">
+            <span><span className="live-dot"></span>Live prices</span>
+            <span>2026-05-02</span>
+          </div>
+        </div>
+
+        {/* Main */}
+        <div className="main">
+          <div className="topbar">
+            <h1>{PAGE_TITLES[page]}</h1>
+            <div className="topbar-meta">USD/EUR 1.0786 · {new Date().toLocaleTimeString("en-DE",{hour:"2-digit",minute:"2-digit"})}</div>
+            <button className="refresh-btn">↺ Refresh</button>
+          </div>
+          <div className="page-content">
+            {renderPage()}
+          </div>
+        </div>
+      </div>
+
+      {TP && (
+        <TP>
+          <TweaksContent tweaks={tweaks} setTweak={setTweak} />
+        </TP>
+      )}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+
+<template id="__bundler_thumbnail">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140">
+  <rect width="200" height="140" fill="#1a1f2e"/>
+  <rect x="0" y="0" width="45" height="140" fill="#161b28"/>
+  <rect x="55" y="15" width="130" height="18" rx="4" fill="#1e2535"/>
+  <rect x="55" y="42" width="60" height="30" rx="4" fill="#1e2535"/>
+  <rect x="122" y="42" width="63" height="30" rx="4" fill="#1e2535"/>
+  <rect x="55" y="82" width="130" height="6" rx="2" fill="#1e2535"/>
+  <rect x="55" y="96" width="130" height="6" rx="2" fill="#1e2535"/>
+  <rect x="55" y="110" width="90" height="6" rx="2" fill="#1e2535"/>
+  <rect x="8" y="28" width="30" height="5" rx="2" fill="#2a3045"/>
+  <rect x="8" y="40" width="30" height="5" rx="2" fill="#4ade80" fillOpacity="0.7"/>
+  <rect x="8" y="52" width="30" height="5" rx="2" fill="#2a3045"/>
+  <rect x="8" y="64" width="30" height="5" rx="2" fill="#2a3045"/>
+  <rect x="8" y="76" width="30" height="5" rx="2" fill="#2a3045"/>
+  <rect x="8" y="88" width="30" height="5" rx="2" fill="#2a3045"/>
+  <text x="70" y="33" font-family="monospace" font-size="7" fill="#4ade80" opacity="0.9">€26,291</text>
+  <text x="130" y="33" font-family="monospace" font-size="7" fill="#4ade80" opacity="0.9">+€4,227</text>
+</svg>
+</template>
+</body>
+</html>

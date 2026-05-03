@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-03 by Claude Code (TICKET-000 session)
+**Last updated:** 2026-05-03 by Gemini CLI (TICKET-007 session)
 
 ---
 
@@ -79,15 +79,14 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-006 — Valuation service (lots × prices × FX → positions)
 
 ### In review 👀
-- (none)
+- TICKET-007 — Streamlit shell + dark CSS theme
 
 ### In progress 🚧
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-007 — Streamlit shell + dark CSS theme
-5. TICKET-008 — Live Overview page (KPI tiles + positions table)
-6. TICKET-009 — Manage Portfolio page (add/edit/delete lots)
+1. TICKET-008 — Live Overview page (KPI tiles + positions table)
+2. TICKET-009 — Manage Portfolio page (add/edit/delete lots)
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
