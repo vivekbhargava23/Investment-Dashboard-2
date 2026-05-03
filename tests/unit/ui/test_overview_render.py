@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from app.domain.models import Currency, Money
-from app.domain.positions import LivePosition, PortfolioSummary, Position
+from app.domain.positions import LivePosition, OpenLot, PortfolioSummary, Position
 from app.ui.pages.overview import _PLACEHOLDER_THESIS_STATUS
 
 
@@ -83,3 +83,137 @@ def test_stale_rows_sort_to_bottom():
 
 def test_placeholder_thesis_status_defaults():
     assert _PLACEHOLDER_THESIS_STATUS.get("UNKNOWN_TICKER", "intact") == "intact"
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for TICKET-008b: positions-table HTML leak
+# ---------------------------------------------------------------------------
+
+def _make_open_lot(ticker: str, shares: str, cost_per_share: str) -> OpenLot:
+    return OpenLot(
+        source_transaction_id="tx-001",
+        ticker=ticker,
+        trade_date=date(2024, 1, 15),
+        remaining_shares=Decimal(shares),
+        cost_per_share_native=Money(amount=Decimal(cost_per_share), currency=Currency.EUR),
+        fx_rate_eur=Decimal("1.0"),
+    )
+
+
+def _make_position_with_lot(ticker: str, shares: str, cost_per_share: str) -> Position:
+    lot = _make_open_lot(ticker, shares, cost_per_share)
+    cost_basis = Decimal(shares) * Decimal(cost_per_share)
+    return Position(
+        ticker=ticker,
+        open_shares=Decimal(shares),
+        open_lots=(lot,),
+        realised_gain_eur_ytd=Money(amount=Decimal("0"), currency=Currency.EUR),
+        cost_basis_eur=Money(amount=cost_basis, currency=Currency.EUR),
+    )
+
+
+def _make_live_position(ticker: str, shares: str = "10", cost: str = "100") -> LivePosition:
+    position = _make_position_with_lot(ticker, shares, cost)
+    live_price = Money(amount=Decimal("120"), currency=Currency.EUR)
+    live_value = Money(amount=Decimal(shares) * Decimal("120"), currency=Currency.EUR)
+    gain = Money(
+        amount=(Decimal(shares) * Decimal("120")) - (Decimal(shares) * Decimal(cost)),
+        currency=Currency.EUR,
+    )
+    return LivePosition(
+        position=position,
+        live_price_native=live_price,
+        live_value_eur=live_value,
+        unrealised_gain_eur=gain,
+        unrealised_gain_pct=Decimal("0.2"),
+        current_fx_rate=Decimal("1.0"),
+        staleness_reason=None,
+    )
+
+
+def _make_summary(positions: dict[str, LivePosition]) -> PortfolioSummary:
+    total_value = sum(
+        (p.live_value_eur.amount for p in positions.values() if p.live_value_eur),
+        Decimal("0"),
+    )
+    total_cost = sum(
+        (p.position.cost_basis_eur.amount for p in positions.values()),
+        Decimal("0"),
+    )
+    count = len(positions)
+    return PortfolioSummary(
+        total_value_eur=Money(amount=total_value, currency=Currency.EUR),
+        total_cost_basis_eur=Money(amount=total_cost, currency=Currency.EUR),
+        total_unrealised_gain_eur=Money(amount=total_value - total_cost, currency=Currency.EUR),
+        total_unrealised_gain_pct=Decimal("0.2"),
+        total_realised_gain_eur_ytd=Money(amount=Decimal("0"), currency=Currency.EUR),
+        position_count=count,
+        live_position_count=count,
+        staleness="live",
+        as_of=datetime(2026, 5, 4, 10, 0, 0),
+    )
+
+
+def test_positions_table_html_no_leading_whitespace() -> None:
+    """Regression: HTML must start with '<', never whitespace (markdown code-block bug)."""
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary)
+    assert html[0] == "<", (
+        f"HTML must start with '<' at index 0 to avoid markdown code-block rendering. "
+        f"Got: {html[:40]!r}"
+    )
+
+
+def test_positions_table_html_not_four_spaces() -> None:
+    """4+ leading spaces triggers markdown code block."""
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary)
+    assert not html.startswith("    "), f"Got: {html[:40]!r}"
+
+
+def test_positions_table_html_one_table_tag() -> None:
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {
+        "NVDA": _make_live_position("NVDA", "5", "400"),
+        "ANET": _make_live_position("ANET", "10", "100"),
+    }
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary)
+    assert html.count("<table") == 1
+
+
+def test_positions_table_html_tr_per_position() -> None:
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {
+        "NVDA": _make_live_position("NVDA", "5", "400"),
+        "ANET": _make_live_position("ANET", "10", "100"),
+    }
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary)
+    assert html.count("<tr") >= len(positions)
+
+
+def test_positions_table_html_no_double_escaping() -> None:
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary)
+    assert "&lt;" not in html, "Found &lt; — HTML is double-escaped"
+
+
+def test_positions_table_html_empty_positions() -> None:
+    from app.ui.pages.overview import _build_positions_table_html
+
+    summary = _make_summary({})
+    html = _build_positions_table_html({}, summary)
+    assert "<table" in html
+    assert html[0] == "<"
