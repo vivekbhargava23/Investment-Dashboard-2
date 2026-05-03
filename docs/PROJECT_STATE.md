@@ -72,9 +72,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### Done ✓
 - TICKET-000 — Repo scaffolding and CI setup
+- TICKET-001 — Domain models (Lot, Transaction, Position, Money, Currency)
 
 ### In review 👀
-- TICKET-001 — Domain models (Lot, Transaction, Position, Money, Currency)
+- (none)
 
 ### In progress 🚧
 - (none)
