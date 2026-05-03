@@ -76,9 +76,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-002 — FIFO engine with replay-on-edit
 - TICKET-003 — JSON Transaction Repository (port + adapter)
 - TICKET-004-005 — yfinance adapter (prices + FX)
+- TICKET-006 — Valuation service (lots × prices × FX → positions)
 
 ### In review 👀
-- TICKET-006 — Valuation service (lots × prices × FX → positions)
+- (none)
 
 ### In progress 🚧
 - (none)
