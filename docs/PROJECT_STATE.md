@@ -77,10 +77,9 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-003 — JSON Transaction Repository (port + adapter)
 - TICKET-004-005 — yfinance adapter (prices + FX)
 - TICKET-006 — Valuation service (lots × prices × FX → positions)
-- TICKET-007 — Streamlit shell + dark CSS theme
 
 ### In review 👀
-- (none)
+- TICKET-007 — Streamlit shell refactor + light theme
 
 ### In progress 🚧
 - (none)
