@@ -10,7 +10,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 |---|---|---|---|---|
 | TICKET-000 | Repo scaffolding + CI setup | MERGED | P0 | 30–45 min |
 | TICKET-001 | Domain models — Money, Transaction, Position, OpenLot | MERGED | P0 | 1 – 1.5 hr |
-| TICKET-002 | FIFO engine — compute_positions, RealisedGain | READY | P0 | 2 – 2.5 hr |
+| TICKET-002 | FIFO engine — compute_positions, RealisedGain | IN_REVIEW | P0 | 2 – 2.5 hr |
 | TICKET-003 | JSON repository adapter | DRAFT | P0 | 1 hr |
 | TICKET-004 | ECB FX adapter with on-disk cache | DRAFT | P0 | 1 hr |
 | TICKET-005 | yfinance + Finnhub price adapters with fallback | DRAFT | P0 | 1.5 hr |
