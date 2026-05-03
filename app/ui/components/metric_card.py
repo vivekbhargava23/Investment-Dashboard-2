@@ -1,3 +1,4 @@
+import textwrap
 import streamlit as st
 
 
@@ -19,19 +20,19 @@ def render_metric_card(
     progress_html = ""
     if progress_pct is not None:
         # Simple CSS progress bar
-        progress_html = f"""
-        <div style="width: 100%; background: var(--surface2); height: 4px; 
-                    border-radius: 2px; margin-top: 10px;">
-            <div style="width: {progress_pct}%; background: var(--accent); 
-                        height: 100%; border-radius: 2px;"></div>
-        </div>
-        """
+        progress_html = textwrap.dedent(f"""
+            <div style="width: 100%; background: var(--surface2); height: 4px; 
+                        border-radius: 2px; margin-top: 10px;">
+                <div style="width: {progress_pct}%; background: var(--accent); 
+                            height: 100%; border-radius: 2px;"></div>
+            </div>
+        """).strip()
     
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-label">{label}</div>
-        <div class="metric-value">{value}</div>
-        {subtitle_html}
-        {progress_html}
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(textwrap.dedent(f"""
+        <div class="metric-card">
+            <div class="metric-label">{label}</div>
+            <div class="metric-value">{value}</div>
+            {subtitle_html}
+            {progress_html}
+        </div>
+    """).strip(), unsafe_allow_html=True)

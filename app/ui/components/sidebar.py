@@ -1,3 +1,4 @@
+import textwrap
 from datetime import date
 from typing import Any
 
@@ -32,15 +33,15 @@ def render_sidebar() -> str:
     current_page = st.session_state.get("current_page", "overview")
     
     # Brand block
-    brand_html = """
-    <div class="sidebar-logo">
-        <div class="mark">
-            <div class="icon">📈</div>
-            <div class="name">Investment Panel</div>
+    brand_html = textwrap.dedent("""
+        <div class="sidebar-logo">
+            <div class="mark">
+                <div class="icon">📈</div>
+                <div class="name">Investment Panel</div>
+            </div>
+            <div class="sub">Scalable Capital · DE</div>
         </div>
-        <div class="sub">Scalable Capital · DE</div>
-    </div>
-    """
+    """).strip()
     
     # Nav items
     nav_html = '<div class="sidebar-nav">'
@@ -54,40 +55,40 @@ def render_sidebar() -> str:
             badge_class = f"nav-badge {item['badge']['color']}"
             badge_html = f'<span class="{badge_class}">{item["badge"]["text"]}</span>'
         
-        nav_html += f"""
-        <a href="/?page={item['id']}" target="_self" class="nav-item-link {active_class}">
-            <span class="nav-icon">{item['icon']}</span>
-            <span>{item['label']}</span>
-            {badge_html}
-        </a>
-        """
+        nav_html += textwrap.dedent(f"""
+            <a href="/?page={item['id']}" target="_self" class="nav-item-link {active_class}">
+                <span class="nav-icon">{item['icon']}</span>
+                <span>{item['label']}</span>
+                {badge_html}
+            </a>
+        """).strip()
     
     # Settings section
     nav_html += '<div class="nav-section-label">Settings</div>'
     manage_item = NAV_ITEMS[-1]
     active_class = "active" if current_page == manage_item["id"] else ""
-    nav_html += f"""
-    <a href="/?page={manage_item['id']}" target="_self" class="nav-item-link {active_class}">
-        <span class="nav-icon">{manage_item['icon']}</span>
-        <span>{manage_item['label']}</span>
-    </a>
-    """
+    nav_html += textwrap.dedent(f"""
+        <a href="/?page={manage_item['id']}" target="_self" class="nav-item-link {active_class}">
+            <span class="nav-icon">{manage_item['icon']}</span>
+            <span>{manage_item['label']}</span>
+        </a>
+    """).strip()
     nav_html += '</div>' # close sidebar-nav
     
     # Footer
     today = date.today().isoformat()
-    footer_html = f"""
-    <div class="sidebar-footer">
-        <div><span class="live-dot"></span>Live prices</div>
-        <div>{today}</div>
-    </div>
-    """
+    footer_html = textwrap.dedent(f"""
+        <div class="sidebar-footer">
+            <div><span class="live-dot"></span>Live prices</div>
+            <div>{today}</div>
+        </div>
+    """).strip()
     
-    sidebar_html = f"""
-    <div class="custom-sidebar">
-        {brand_html}
-        {nav_html}
-        {footer_html}
-    </div>
-    """
+    sidebar_html = textwrap.dedent(f"""
+        <div class="custom-sidebar">
+            {brand_html}
+            {nav_html}
+            {footer_html}
+        </div>
+    """).strip()
     return sidebar_html
