@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-04 by Claude Code (TICKET-008b session)
+**Last updated:** 2026-05-04 by Claude Chat (post-TICKET-008b merge)
 
 ---
 
@@ -78,10 +78,11 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-004-005 — yfinance adapter (prices + FX)
 - TICKET-006 — Valuation service (lots × prices × FX → positions)
 - TICKET-007 — Streamlit shell refactor + light theme
-
-### In review 👀
 - TICKET-008 — Live Overview page (KPI tiles + positions table)
 - TICKET-008b — Positions table HTML leak fix + render_html helper
+
+### In review 👀
+- (none)
 
 ### In progress 🚧
 - (none)
