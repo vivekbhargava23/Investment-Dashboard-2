@@ -73,9 +73,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 ### Done ✓
 - TICKET-000 — Repo scaffolding and CI setup
 - TICKET-001 — Domain models (Lot, Transaction, Position, Money, Currency)
+- TICKET-002 — FIFO engine with replay-on-edit
 
 ### In review 👀
-- TICKET-002 — FIFO engine with replay-on-edit
+- (none)
 
 ### In progress 🚧
 - (none)

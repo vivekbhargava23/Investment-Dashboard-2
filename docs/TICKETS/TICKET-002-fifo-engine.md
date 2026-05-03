@@ -1,10 +1,10 @@
 # TICKET-002 — FIFO engine (compute_positions, compute_realised_gains, RealisedGain)
 
-**Status:** IN_REVIEW
+**Status:** MERGED
 **Priority:** P0
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-03)
-**Implemented by:** _pending_
+**Implemented by:** Claude Code (session 2026-05-03)
 **Depends on:** TICKET-001 (must be merged into main before this ticket starts)
 
 ## Problem
