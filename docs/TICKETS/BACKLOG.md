@@ -9,19 +9,21 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | ID | Title | Status | Priority | Est |
 |---|---|---|---|---|
 | TICKET-000 | Repo scaffolding + CI setup | MERGED | P0 | 30–45 min |
-| TICKET-001 | Domain models — Money, Transaction, Position, OpenLot | MERGED | P0 | 1 – 1.5 hr |
+| TICKET-001 | Domain models — Money, Transaction, Position, OpenLot | MERGED | P0 | 1 – 1.5 hr|
 | TICKET-002 | FIFO engine — compute_positions, RealisedGain | MERGED | P0 | 2 – 2.5 hr |
-| TICKET-003 | JSON repository adapter | DRAFT | P0 | 1 hr |
-| TICKET-004 | ECB FX adapter with on-disk cache | DRAFT | P0 | 1 hr |
-| TICKET-005 | yfinance + Finnhub price adapters with fallback | DRAFT | P0 | 1.5 hr |
-| TICKET-006 | Valuation service | DRAFT | P0 | 1 hr |
+| TICKET-003 | JSON Transaction Repository (port + adapter) | IN_REVIEW | P0 | 1 – 1.5 hr |
+| TICKET-004-005 | yfinance adapter — prices + FX (consolidated, was 004+005) | READY | P0 | 2 – 2.5 hr |
+| TICKET-006 | Valuation service — compute_live_positions, compute_portfolio_summary | READY | P0 | 1 – 1.5 hr |
+
+> Note: TICKET-004 (ECB FX adapter) was removed in chat session 2026-05-03.
+> Decision: use yfinance for both prices and FX. Folded into TICKET-004-005.
 
 ## Phase 1 — Minimum viable UI
 
 | ID | Title | Status | Priority | Est |
 |---|---|---|---|---|
-| TICKET-007 | Streamlit shell + dark CSS theme | DRAFT | P1 | 1 hr |
-| TICKET-008 | Live Overview page — KPI tiles + positions table | DRAFT | P1 | 2 hr |
+| TICKET-007 | Streamlit shell + dark CSS theme + sidebar/topbar/page placeholders | READY | P1 | 2 – 2.5 hr |
+| TICKET-008 | Live Overview page wiring + portfolio seed bootstrap | READY | P1 | 2 – 2.5 hr |
 | TICKET-009 | Manage Portfolio page — add/edit/delete lots | DRAFT | P1 | 2 hr |
 
 ## Phase 2 — Tax & decisions
@@ -47,9 +49,10 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | TICKET-016 | Thesis state machine (intact/watch/broken) | DRAFT | P2 | 1.5 hr |
 | TICKET-017 | Decision Gates page | DRAFT | P2 | 2 hr |
 | TICKET-018 | Behavioural Ledger | DRAFT | P2 | 2 hr |
+| TICKET-019 | Analytics & Risk page (Benchmark/Drawdown, Correlation, Technicals, Position Sizer, Price Targets) | DRAFT | P3 | TBD |
 
 ---
 
-**Total estimated foundation work:** ~30 hours of Claude Code time across ~15 sessions.
+**Total estimated foundation work (Phase 0 + 1):** ~12 hours of Claude Code time across ~8 sessions.
 
 **Workflow reminder:** Tickets in DRAFT need to be detailed in Claude Chat before they move to READY. Only READY tickets are picked up by Claude Code.

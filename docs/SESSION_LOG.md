@@ -136,44 +136,43 @@ All files under `docs/`, `.github/PULL_REQUEST_TEMPLATE.md`, root `CLAUDE.md`. S
 
 ---
 
-## 2026-05-03 — TICKET-002
+## 2026-05-03 — TICKET-003
 
-**Surface:** Claude Code
-**Model:** sonnet-4.6
-**Duration:** ~45 min
-**Branch:** ticket-002-fifo-engine
+**Surface:** Gemini CLI
+**Model:** Gemini 2.0 Pro
+**Duration:** ~30 min
+**Branch:** _pending_
 **PR:** _pending_
 **Status at session end:** IN_REVIEW
 
 ### What got done
-- Implemented `RealisedGain` domain model with EUR gain calculation and holding period tracking.
-- Implemented core FIFO engine in `app/domain/fifo.py` including `compute_positions` and `compute_realised_gains`.
-- Implemented deterministic transaction sorting (BUY before SELL on same day).
-- Implemented lot splitting and consumption logic using `collections.deque`.
-- Added exhaustive unit tests (13 test cases) covering basic FIFO, multi-ticker, FX changes, and YTD calculations.
-- Added a property-based test (Hypothesis) to verify share consistency across complex transaction sequences.
-- All tests and lints (ruff, mypy strict, import-linter) pass.
+- Implemented `TransactionRepository` port (Protocol) in `app/ports/repository.py` with CRUD and atomic save methods.
+- Implemented `JsonTransactionRepository` adapter in `app/adapters/repo_json/json_repo.py` using Pydantic serialization.
+- Implemented atomic writes using a temporary file, `fsync`, and `os.replace` to prevent data corruption.
+- Added schema versioning (`version: 1`) to the JSON file format.
+- Created 18 integration tests in `tests/integration/test_json_repo.py` covering CRUD, atomic writes, corruption handling, and Decimal precision.
+- All tests (63 passing), lints (ruff), and type checks (mypy) pass.
+- `import-linter` contracts verified.
 
 ### Files touched
-- `app/domain/realised_gain.py` — new
-- `app/domain/fifo.py` — new
-- `app/domain/__init__.py` — exported new functions and models
-- `app/domain/CLAUDE.md` — updated with FIFO invariants
-- `tests/unit/domain/test_fifo.py` — new
+- `app/ports/repository.py` — new
+- `app/ports/__init__.py` — updated
+- `app/adapters/repo_json/__init__.py` — new
+- `app/adapters/repo_json/json_repo.py` — new
+- `tests/integration/test_json_repo.py` — new
+- `docs/TICKETS/TICKET-003-json-repository.md` — updated
 - `docs/PROJECT_STATE.md` — updated
-- `docs/TICKETS/TICKET-002-fifo-engine.md` — updated
+- `docs/TICKETS/BACKLOG.md` — updated
 - `docs/SESSION_LOG.md` — updated
 
 ### Tests
-32 passing → 45 passing (13 new)
+45 passing → 63 passing (18 new)
 
 ### Decisions made during the session
-- Decided to use the latest transaction's year as the reference for YTD realised gains since the engine has no clock.
-- Enforced BUY before SELL on the same day for economic validity and preventing false-positive `SellExceedsOpenSharesError`.
+- Used `collections.abc.Sequence` for type hints in the port and adapter.
+- Implemented parent directory creation in `save_all`.
+- Chained underlying exceptions in `RepositoryCorruptedError` for better debugging.
 
 ### Out-of-scope items noticed
 - (none)
-
-### Tokens used (rough)
-~50k
 
