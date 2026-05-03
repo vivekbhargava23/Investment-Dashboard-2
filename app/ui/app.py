@@ -1,13 +1,6 @@
 import streamlit as st
 
-import app.ui.pages.analytics as analytics
-import app.ui.pages.behaviour as behaviour
-import app.ui.pages.decision as decision
-import app.ui.pages.lots as lots
-import app.ui.pages.manage as manage
 import app.ui.pages.overview as overview
-import app.ui.pages.performance as performance
-import app.ui.pages.tax as tax
 from app.ui.components.sidebar import render_sidebar
 from app.ui.components.topbar import render_topbar
 
@@ -29,16 +22,14 @@ def load_css() -> None:
 
 load_css()
 
+def render_placeholder() -> None:
+    st.info("This page is coming soon.")
+
 # Routing Logic
+# For now, we only wire the overview page. 
+# Other pages will be imported and added as their tickets are implemented.
 PAGE_REGISTRY = {
     "overview": overview.render,
-    "analytics": analytics.render,
-    "performance": performance.render,
-    "tax": tax.render,
-    "decision": decision.render,
-    "behaviour": behaviour.render,
-    "lots": lots.render,
-    "manage": manage.render,
 }
 
 # Sync session state with query params
@@ -50,10 +41,6 @@ if "current_page" not in st.session_state:
     st.session_state.current_page = "overview"
 
 # Main Layout
-# We use a custom flex container to match the mockup's sidebar/main split.
-# Since Streamlit columns have fixed gaps and padding, we render the skeleton as HTML.
-
-# Real implementation using Streamlit columns but hiding the gaps
 col_sidebar, col_main = st.columns([0.18, 0.82], gap="small")
 
 with col_sidebar:
@@ -62,5 +49,5 @@ with col_sidebar:
 with col_main:
     render_topbar()
     # Execute the current page's render function
-    page_func = PAGE_REGISTRY.get(st.session_state.current_page, overview.render)
+    page_func = PAGE_REGISTRY.get(st.session_state.current_page, render_placeholder)
     page_func()
