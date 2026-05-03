@@ -84,11 +84,6 @@ All files under `docs/`, `.github/PULL_REQUEST_TEMPLATE.md`, root `CLAUDE.md`. S
 ### Out-of-scope items noticed
 - (none)
 
-### Tokens used (rough)
-~40k
-
----
-
 ---
 
 ## 2026-05-03 — TICKET-001
@@ -133,7 +128,6 @@ All files under `docs/`, `.github/PULL_REQUEST_TEMPLATE.md`, root `CLAUDE.md`. S
 ### Out-of-scope items noticed
 - `.importlinter` was missing from the repo despite being mentioned in TICKET-000 and ARCHITECTURE.md. Restored it.
 
-
 ---
 
 ## 2026-05-03 — TICKET-003
@@ -176,3 +170,55 @@ All files under `docs/`, `.github/PULL_REQUEST_TEMPLATE.md`, root `CLAUDE.md`. S
 ### Out-of-scope items noticed
 - (none)
 
+---
+
+## 2026-05-03 — TICKET-004-005
+
+**Surface:** Gemini CLI
+**Model:** Gemini 2.0 Pro
+**Duration:** ~45 min
+**Branch:** ticket-004-005-yfinance-adapter
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Implemented `PriceProvider` and `FxProvider` ports (Protocols) with detailed error classes.
+- Implemented `YfinanceAdapter` satisfying both ports with in-memory caching and 60s TTL.
+- Added currency inference heuristic for European tickers (.DE, .F, etc.).
+- Implemented EUR/USD FX rate handling with automatic inversion for USD/EUR lookups.
+- Created `FakePriceProvider` and `FakeFxProvider` for unit testing downstream services.
+- Added integration tests gated by `--run-integration` flag hitting real yfinance.
+- Verified all unit and integration tests (94 passing), lints (ruff), type checks (mypy), and import contracts.
+
+### Files touched
+- `app/ports/price_feed.py` — new
+- `app/ports/fx_feed.py` — new
+- `app/ports/__init__.py` — updated
+- `app/adapters/yfinance_feed/__init__.py` — new
+- `app/adapters/yfinance_feed/yfinance_adapter.py` — new
+- `tests/fakes/__init__.py` — new
+- `tests/fakes/price_feed.py` — new
+- `tests/fakes/fx_feed.py` — new
+- `tests/unit/adapters/test_yfinance_adapter_caching.py` — new
+- `tests/unit/adapters/test_yfinance_adapter_inference.py` — new
+- `tests/unit/adapters/test_yfinance_adapter_errors.py` — new
+- `tests/unit/fakes/test_fakes.py` — new
+- `tests/integration/test_yfinance_real.py` — new
+- `tests/conftest.py` — new
+- `pyproject.toml` — updated
+- `docs/TICKETS/TICKET-004-005-yfinance-adapter.md` — updated
+- `docs/PROJECT_STATE.md` — updated
+- `docs/TICKETS/BACKLOG.md` — updated
+- `docs/SESSION_LOG.md` — updated
+
+### Tests
+63 passing → 94 passing (31 new: 27 unit, 4 integration)
+
+### Decisions made during the session
+- Used `time.monotonic()` for cache TTL to ensure immunity to system clock changes.
+- Implemented 7-day look-back expansion for historical data to handle weekends/holidays.
+- Used `Decimal(str(float))` conversion to avoid floating point precision issues.
+- Integrated `integration` marker in `pyproject.toml` and custom `pytest` hook in `conftest.py`.
+
+### Out-of-scope items noticed
+- (none)
