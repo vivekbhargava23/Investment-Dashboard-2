@@ -262,7 +262,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 **Model:** claude-sonnet-4-6
 **Duration:** ~40 min
 **Branch:** ticket-008b-html-leak-fix (based on ticket-008-live-overview)
-**PR:** _pending_
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/13
 **Status at session end:** IN_REVIEW
 
 ### What got done
