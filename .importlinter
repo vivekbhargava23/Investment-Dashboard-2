@@ -1,0 +1,35 @@
+[importlinter]
+root_package = app
+
+[importlinter:contract:1]
+name = Layered architecture
+type = layers
+layers =
+    app.ui
+    app.services
+    app.domain
+
+[importlinter:contract:2]
+name = Domain is pure
+type = forbidden
+source_modules = app.domain
+forbidden_modules =
+    app.ports
+    app.adapters
+    app.config
+
+[importlinter:contract:3]
+name = Services isolation
+type = forbidden
+source_modules = app.services
+forbidden_modules =
+    app.adapters
+
+[importlinter:contract:4]
+name = Ports isolation
+type = forbidden
+source_modules = app.ports
+forbidden_modules =
+    app.services
+    app.adapters
+    app.ui
