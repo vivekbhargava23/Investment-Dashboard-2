@@ -1,0 +1,166 @@
+from collections.abc import Sequence
+from datetime import datetime
+from decimal import Decimal
+from typing import Literal
+
+from app.domain.fifo import compute_positions
+from app.domain.models import Transaction
+from app.domain.money import Currency, Money
+from app.domain.positions import LivePosition, PortfolioSummary
+from app.ports.fx_feed import FxProvider, FxRateUnavailableError
+from app.ports.price_feed import PriceProvider, PriceUnavailableError
+
+
+def compute_live_positions(
+    transactions: Sequence[Transaction],
+    price_provider: PriceProvider,
+    fx_provider: FxProvider,
+) -> dict[str, LivePosition]:
+    """
+    Orchestrates FIFO position computation and live valuation.
+    """
+    positions = compute_positions(transactions)
+    live_positions: dict[str, LivePosition] = {}
+
+    try:
+        usd_to_eur = fx_provider.get_current_rate(Currency.EUR, Currency.USD)
+    except FxRateUnavailableError:
+        usd_to_eur = None
+
+    for ticker, position in positions.items():
+        live_price_native: Money | None = None
+        live_value_eur: Money | None = None
+        unrealised_gain_eur: Money | None = None
+        unrealised_gain_pct: Decimal | None = None
+        current_fx_rate: Decimal | None = None
+        staleness_reason: str | None = None
+
+        try:
+            live_price_native = price_provider.get_current_price(ticker)
+
+            if live_price_native.currency == Currency.EUR:
+                live_value_eur = Money(
+                    amount=position.open_shares * live_price_native.amount,
+                    currency=Currency.EUR,
+                )
+            elif live_price_native.currency == Currency.USD:
+                if usd_to_eur is not None:
+                    # live_price_native is in USD. We need how many EUR per 1 USD.
+                    # usd_to_eur from provider is "USD per 1 EUR".
+                    # So 1 USD = 1 / usd_to_eur EUR.
+                    rate_eur_per_usd = Decimal("1") / usd_to_eur
+                    current_fx_rate = rate_eur_per_usd
+                    live_value_eur = Money(
+                        amount=position.open_shares * live_price_native.amount * rate_eur_per_usd,
+                        currency=Currency.EUR,
+                    )
+                else:
+                    staleness_reason = "FX rate USD/EUR unavailable"
+            else:
+                staleness_reason = f"Unsupported currency: {live_price_native.currency}"
+
+            if live_value_eur is not None:
+                unrealised_gain_eur = Money(
+                    amount=live_value_eur.amount - position.cost_basis_eur.amount,
+                    currency=Currency.EUR,
+                )
+                if position.cost_basis_eur.amount > 0:
+                    unrealised_gain_pct = (
+                        unrealised_gain_eur.amount / position.cost_basis_eur.amount
+                    ) * Decimal("100")
+                else:
+                    unrealised_gain_pct = None
+
+        except PriceUnavailableError as e:
+            staleness_reason = e.reason
+            live_price_native = None
+            live_value_eur = None
+            unrealised_gain_eur = None
+            unrealised_gain_pct = None
+        except Exception as e:
+            staleness_reason = str(e)
+            live_price_native = None
+            live_value_eur = None
+            unrealised_gain_eur = None
+            unrealised_gain_pct = None
+
+        live_positions[ticker] = LivePosition(
+            position=position,
+            live_price_native=live_price_native,
+            live_value_eur=live_value_eur,
+            unrealised_gain_eur=unrealised_gain_eur,
+            unrealised_gain_pct=unrealised_gain_pct,
+            current_fx_rate=current_fx_rate,
+            staleness_reason=staleness_reason,
+        )
+
+    return live_positions
+
+
+def compute_portfolio_summary(
+    live_positions: dict[str, LivePosition],
+    as_of: datetime,
+) -> PortfolioSummary:
+    """
+    Aggregates live positions into a portfolio-wide summary.
+    """
+    total_value_amount = Decimal("0")
+    total_cost_basis_live_subset_amount = Decimal("0")
+    total_cost_basis_all_amount = Decimal("0")
+    total_realised_gain_ytd_amount = Decimal("0")
+    live_position_count = 0
+    position_count = len(live_positions)
+
+    for lp in live_positions.values():
+        total_cost_basis_all_amount += lp.position.cost_basis_eur.amount
+        total_realised_gain_ytd_amount += lp.position.realised_gain_eur_ytd.amount
+
+        if not lp.is_stale and lp.live_value_eur is not None:
+            total_value_amount += lp.live_value_eur.amount
+            total_cost_basis_live_subset_amount += lp.position.cost_basis_eur.amount
+            live_position_count += 1
+
+    total_unrealised_gain_amount = total_value_amount - total_cost_basis_live_subset_amount
+    if total_cost_basis_live_subset_amount > 0:
+        total_unrealised_gain_pct = (
+            total_unrealised_gain_amount / total_cost_basis_live_subset_amount
+        ) * Decimal("100")
+    else:
+        total_unrealised_gain_pct = Decimal("0")
+
+    staleness: Literal["live", "partial", "stale"]
+    if position_count == 0:
+        staleness = "live"
+    elif live_position_count == position_count:
+        staleness = "live"
+    elif live_position_count == 0:
+        staleness = "stale"
+    else:
+        staleness = "partial"
+
+    return PortfolioSummary(
+        total_value_eur=Money(amount=total_value_amount, currency=Currency.EUR),
+        total_cost_basis_eur=Money(amount=total_cost_basis_all_amount, currency=Currency.EUR),
+        total_unrealised_gain_eur=Money(
+            amount=total_unrealised_gain_amount, currency=Currency.EUR
+        ),
+        total_unrealised_gain_pct=total_unrealised_gain_pct,
+        total_realised_gain_eur_ytd=Money(
+            amount=total_realised_gain_ytd_amount, currency=Currency.EUR
+        ),
+        position_count=position_count,
+        live_position_count=live_position_count,
+        staleness=staleness,
+        as_of=as_of,
+    )
+
+
+def clear_caches(
+    price_provider: PriceProvider,
+    fx_provider: FxProvider,
+) -> None:
+    """
+    Invalidates caches in the underlying providers.
+    """
+    price_provider.clear_cache()
+    fx_provider.clear_cache()

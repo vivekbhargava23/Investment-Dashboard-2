@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -51,9 +52,7 @@ class Position(BaseModel):
                 )
 
         # Check shares sum
-        sum_shares = sum(
-            (lot.remaining_shares for lot in self.open_lots), Decimal("0")
-        )
+        sum_shares = sum((lot.remaining_shares for lot in self.open_lots), Decimal("0"))
         if (
             sum_shares.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
             != self.open_shares.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
@@ -76,3 +75,67 @@ class Position(BaseModel):
             )
 
         return self
+
+
+class LivePosition(BaseModel):
+    """
+    Combines a Position with its live valuation data.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    position: Position
+    live_price_native: Money | None
+    live_value_eur: Money | None
+    unrealised_gain_eur: Money | None
+    unrealised_gain_pct: Decimal | None
+    current_fx_rate: Decimal | None
+    staleness_reason: str | None
+
+    @model_validator(mode="after")
+    def validate_valuation_consistency(self) -> LivePosition:
+        if self.live_price_native is None:
+            if any(
+                v is not None
+                for v in [
+                    self.live_value_eur,
+                    self.unrealised_gain_eur,
+                    self.unrealised_gain_pct,
+                ]
+            ):
+                raise ValueError("Cannot have value without live price")
+
+        if self.live_price_native is None or self.live_value_eur is None:
+            if self.staleness_reason is None:
+                raise ValueError("Stale positions must have a staleness_reason")
+        else:
+            if self.staleness_reason is not None:
+                raise ValueError("Live positions should not have a staleness_reason")
+
+        return self
+
+    @property
+    def is_stale(self) -> bool:
+        return self.live_price_native is None or self.live_value_eur is None
+
+    @property
+    def ticker(self) -> str:
+        return self.position.ticker
+
+
+class PortfolioSummary(BaseModel):
+    """
+    Aggregated KPIs for the entire portfolio.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    total_value_eur: Money
+    total_cost_basis_eur: Money
+    total_unrealised_gain_eur: Money
+    total_unrealised_gain_pct: Decimal
+    total_realised_gain_eur_ytd: Money
+    position_count: int
+    live_position_count: int
+    staleness: Literal["live", "partial", "stale"]
+    as_of: datetime
