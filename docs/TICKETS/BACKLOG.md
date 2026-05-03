@@ -11,10 +11,12 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | TICKET-000 | Repo scaffolding + CI setup | MERGED | P0 | 30–45 min |
 | TICKET-001 | Domain models — Money, Transaction, Position, OpenLot | MERGED | P0 | 1 – 1.5 hr |
 | TICKET-002 | FIFO engine — compute_positions, RealisedGain | MERGED | P0 | 2 – 2.5 hr |
-| TICKET-003 | JSON repository adapter | DRAFT | P0 | 1 hr |
-| TICKET-004 | ECB FX adapter with on-disk cache | DRAFT | P0 | 1 hr |
-| TICKET-005 | yfinance + Finnhub price adapters with fallback | DRAFT | P0 | 1.5 hr |
+| TICKET-003 | JSON Transaction Repository (port + adapter) | READY | P0 | 1 – 1.5 hr |
+| TICKET-004-005 | yfinance adapter — prices + FX (consolidated) | READY | P0 | 2 – 2.5 hr |
 | TICKET-006 | Valuation service | DRAFT | P0 | 1 hr |
+
+> Note: TICKET-004 (ECB FX adapter) was removed in chat session 2026-05-03.
+> Decision: use yfinance for both prices and FX. Folded into TICKET-005.
 
 ## Phase 1 — Minimum viable UI
 
@@ -50,6 +52,6 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 
 ---
 
-**Total estimated foundation work:** ~30 hours of Claude Code time across ~15 sessions.
+**Total estimated foundation work:** ~28 hours of Claude Code time across ~14 sessions.
 
 **Workflow reminder:** Tickets in DRAFT need to be detailed in Claude Chat before they move to READY. Only READY tickets are picked up by Claude Code.
