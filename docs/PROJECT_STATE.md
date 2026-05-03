@@ -78,14 +78,13 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-004-005 — yfinance adapter (prices + FX)
 
 ### In review 👀
-- (none)
+- TICKET-006 — Valuation service (lots × prices × FX → positions)
 
 ### In progress 🚧
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-006 — Valuation service (lots × prices × FX → positions)
-4. TICKET-007 — Streamlit shell + dark CSS theme
+1. TICKET-007 — Streamlit shell + dark CSS theme
 5. TICKET-008 — Live Overview page (KPI tiles + positions table)
 6. TICKET-009 — Manage Portfolio page (add/edit/delete lots)
 

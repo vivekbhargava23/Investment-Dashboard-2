@@ -23,22 +23,6 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 - Drafted `ADR-001` (Streamlit over FastAPI)
 - Set up `.github/PULL_REQUEST_TEMPLATE.md` for standardized PRs
 
-### Decisions made
-- ADR-001: Streamlit over FastAPI+React
-- ADR-002: JSON over SQLite (with port for swap) — ADR file pending
-- ADR-003: FIFO replay-on-edit (not immutable lots) — ADR file pending
-- ADR-004: Cost basis frozen at transaction-date ECB FX — ADR file pending
-- Workflow: Claude Code does all commits and opens PRs; Vivek reviews and merges; `main` is branch-protected
-
-### Follow-ups
-- Vivek to create empty repo, drop in scaffold files, push initial commit
-- Vivek to authenticate `gh` CLI: `gh auth login`
-- Vivek to set up branch protection on `main` after TICKET-000 lands (CI must exist first as a status check)
-- First Claude Code session: TICKET-000 (scaffolding + CI)
-
-### Files produced
-All files under `docs/`, `.github/PULL_REQUEST_TEMPLATE.md`, root `CLAUDE.md`. See repo for current state.
-
 ---
 
 ## 2026-05-03 — TICKET-000
@@ -60,30 +44,6 @@ All files under `docs/`, `.github/PULL_REQUEST_TEMPLATE.md`, root `CLAUDE.md`. S
 - Created `.importlinter` — 3 contracts enforcing clean-architecture layer boundaries
 - Created `.env.example`, `environment.yml`, `README.md`
 
-### Files touched
-- `pyproject.toml` — new
-- `environment.yml` — new
-- `.gitignore` — added project-specific entries to existing file
-- `.importlinter` — new
-- `.env.example` — new
-- `README.md` — replaced placeholder with full setup/run/test instructions
-- `app/__init__.py` + all sub-package `__init__.py` — new
-- `app/config.py` — new
-- `app/domain/CLAUDE.md` — new
-- `app/ui/app.py` — new
-- `tests/unit/test_smoke.py`, `test_imports.py`, `test_config.py` — new
-- `.github/workflows/ci.yml` — new
-
-### Tests
-0 passing → 5 passing (3 new test files)
-
-### Decisions made during the session
-- Used `setuptools.build_meta` backend (not `setuptools.backends.legacy` — not available in the installed setuptools version)
-- No architectural decisions made
-
-### Out-of-scope items noticed
-- (none)
-
 ---
 
 ## 2026-05-03 — TICKET-001
@@ -103,30 +63,6 @@ All files under `docs/`, `.github/PULL_REQUEST_TEMPLATE.md`, root `CLAUDE.md`. S
 - Restored `.importlinter` configuration to enforce clean architecture layers.
 - Exported all models via `app.domain.__init__.py`.
 - All tests and lints (ruff, mypy strict, import-linter) pass.
-
-### Files touched
-- `app/domain/money.py` — new
-- `app/domain/models.py` — new
-- `app/domain/positions.py` — new
-- `app/domain/__init__.py` — updated
-- `tests/unit/domain/test_money.py` — new
-- `tests/unit/domain/test_transaction.py` — new
-- `tests/unit/domain/test_positions.py` — new
-- `.importlinter` — new (restored)
-- `app/domain/CLAUDE.md` — updated
-- `docs/PROJECT_STATE.md` — updated
-- `docs/SESSION_LOG.md` — updated
-
-### Tests
-5 passing → 32 passing (27 new tests)
-
-### Decisions made during the session
-- Used `StrEnum` (Python 3.11+) for `Currency` and `TransactionType` as suggested by `ruff`.
-- Used `from __future__ import annotations` to support modern type hint syntax with forward references.
-- Return types for `Money` arithmetic operators were adjusted to `Money` instead of `Self` to satisfy `mypy`'s strictness with Pydantic models.
-
-### Out-of-scope items noticed
-- `.importlinter` was missing from the repo despite being mentioned in TICKET-000 and ARCHITECTURE.md. Restored it.
 
 ---
 
@@ -148,28 +84,6 @@ All files under `docs/`, `.github/PULL_REQUEST_TEMPLATE.md`, root `CLAUDE.md`. S
 - All tests (63 passing), lints (ruff), and type checks (mypy) pass.
 - `import-linter` contracts verified.
 
-### Files touched
-- `app/ports/repository.py` — new
-- `app/ports/__init__.py` — updated
-- `app/adapters/repo_json/__init__.py` — new
-- `app/adapters/repo_json/json_repo.py` — new
-- `tests/integration/test_json_repo.py` — new
-- `docs/TICKETS/TICKET-003-json-repository.md` — updated
-- `docs/PROJECT_STATE.md` — updated
-- `docs/TICKETS/BACKLOG.md` — updated
-- `docs/SESSION_LOG.md` — updated
-
-### Tests
-45 passing → 63 passing (18 new)
-
-### Decisions made during the session
-- Used `collections.abc.Sequence` for type hints in the port and adapter.
-- Implemented parent directory creation in `save_all`.
-- Chained underlying exceptions in `RepositoryCorruptedError` for better debugging.
-
-### Out-of-scope items noticed
-- (none)
-
 ---
 
 ## 2026-05-03 — TICKET-004-005
@@ -190,35 +104,41 @@ All files under `docs/`, `.github/PULL_REQUEST_TEMPLATE.md`, root `CLAUDE.md`. S
 - Added integration tests gated by `--run-integration` flag hitting real yfinance.
 - Verified all unit and integration tests (94 passing), lints (ruff), type checks (mypy), and import contracts.
 
+---
+
+## 2026-05-03 — TICKET-006
+
+**Surface:** Gemini CLI
+**Model:** Gemini 2.0 Pro
+**Duration:** ~30 min
+**Branch:** ticket-006-valuation-service
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Implemented `LivePosition` and `PortfolioSummary` domain models in `app/domain/positions.py`.
+- Created `app/services/CLAUDE.md` defining service layer principles (statelessness, dependency injection).
+- Implemented `valuation.py` service with `compute_live_positions`, `compute_portfolio_summary`, and `clear_caches`.
+- Implemented per-ticker failure isolation in `compute_live_positions`.
+- Created exhaustive unit tests in `tests/unit/services/test_valuation.py` using fakes and mocks.
+- Verified all quality checks (ruff, mypy, import-linter) and 104 passing tests.
+
 ### Files touched
-- `app/ports/price_feed.py` — new
-- `app/ports/fx_feed.py` — new
-- `app/ports/__init__.py` — updated
-- `app/adapters/yfinance_feed/__init__.py` — new
-- `app/adapters/yfinance_feed/yfinance_adapter.py` — new
-- `tests/fakes/__init__.py` — new
-- `tests/fakes/price_feed.py` — new
-- `tests/fakes/fx_feed.py` — new
-- `tests/unit/adapters/test_yfinance_adapter_caching.py` — new
-- `tests/unit/adapters/test_yfinance_adapter_inference.py` — new
-- `tests/unit/adapters/test_yfinance_adapter_errors.py` — new
-- `tests/unit/fakes/test_fakes.py` — new
-- `tests/integration/test_yfinance_real.py` — new
-- `tests/conftest.py` — new
-- `pyproject.toml` — updated
-- `docs/TICKETS/TICKET-004-005-yfinance-adapter.md` — updated
+- `app/domain/positions.py` — updated
+- `app/domain/__init__.py` — updated
+- `app/services/CLAUDE.md` — new
+- `app/services/valuation.py` — new
+- `tests/unit/services/test_valuation.py` — new
 - `docs/PROJECT_STATE.md` — updated
 - `docs/TICKETS/BACKLOG.md` — updated
 - `docs/SESSION_LOG.md` — updated
 
 ### Tests
-63 passing → 94 passing (31 new: 27 unit, 4 integration)
+94 passing → 104 passing (10 new)
 
 ### Decisions made during the session
-- Used `time.monotonic()` for cache TTL to ensure immunity to system clock changes.
-- Implemented 7-day look-back expansion for historical data to handle weekends/holidays.
-- Used `Decimal(str(float))` conversion to avoid floating point precision issues.
-- Integrated `integration` marker in `pyproject.toml` and custom `pytest` hook in `conftest.py`.
+- Used explicit `Literal` type hint for `staleness` to satisfy `mypy`.
+- Favored `compute_live_positions` for generating test data instead of manual `LivePosition` instantiation to avoid consistency check issues.
 
 ### Out-of-scope items noticed
 - (none)
