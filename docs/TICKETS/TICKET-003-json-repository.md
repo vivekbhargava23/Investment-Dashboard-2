@@ -1,6 +1,6 @@
 # TICKET-003 — JSON Transaction Repository (port + adapter)
 
-**Status:** IN_REVIEW
+**Status:** MERGED
 **Priority:** P0
 **Estimated session length:** 1 – 1.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-03)
