@@ -90,6 +90,33 @@ Any context Claude Code needs that isn't in the architecture docs.
 
 ---
 
+## Ticket-drafting checklist (Claude Chat)
+
+Before a ticket moves from DRAFT → READY, walk this list. Each item is a real lesson from a session that went sideways.
+
+- [ ] **Bench-test the spec against the real workflow.** Open the actual application or service the user will use, and trace the spec against what they actually see and have. *Lesson from TICKET-009 (2026-05-04):* the original form spec was internally consistent and demanded fields (native price, FX rate) that Scalable Capital's confirmations don't surface. The user couldn't fill those fields without inventing data, and the form happily accepted invented data. Three silent-corruption bugs followed. A 5-minute thought experiment of "what would I actually type into this form when looking at a Scalable confirmation?" would have caught the mismatch before any code was written.
+- [ ] **No "documented approximation" placeholders.** If the spec says "use X as approximation; Y not supported in v1" that is a future bug. Approximations marked TODO have a way of staying. Either properly support what is needed, or leave it out entirely with no half-implementation. *Lesson from TICKET-008c (2026-05-04):* the seed CSV's `5631.T,...,USD,...,Japan Steel Works (use USD as approximation; KRW/JPY not supported in v1)` produced €4,000 of fake gain on Live Overview that the user only caught months later because the absolute number happened to be implausible.
+- [ ] **No module names that collide with Python stdlib.** `html`, `email`, `string`, `io`, `time`, `json`, `logging`, `csv`, `tokenize`, `code` — any of these as a filename in your package will shadow the stdlib in unpredictable contexts. *Lesson from TICKET-008b (2026-05-04):* `app/ui/html.py` shadowed `html` in Streamlit's import context, breaking the bs4 → yfinance import chain on app startup.
+- [ ] **No silent fallback to a default value without surfacing it.** If the form's "FX rate auto-fill" can quietly fall back to `1.0` when yfinance is offline, that is silent corruption waiting to happen. Every fallback path either (a) surfaces a banner the user must acknowledge, or (b) refuses to submit. *Lesson from TICKET-009 (2026-05-04).*
+- [ ] **Test cases include at least one that would catch the real-world failure mode.** "Tests pass" is necessary, not sufficient — a test that asserts the form *constructs a Transaction* says nothing about whether the form *records the right values*. Aim for one acceptance test per spec rule that would observably fail if the rule were violated.
+
+The first two items are about the *spec*; the last three are about the *implementation*. Both can be checked at draft time. None of them require running code.
+
+---
+
+## Reviewing PRs
+
+When Claude Code opens a PR, Vivek's review walks four checks:
+
+1. **Read the ticket file.** Re-anchor on what the spec asked for. If memory of the spec disagrees with what the file says, the file wins — Claude Code worked from the file.
+2. **Read the diff.** Map each acceptance-criterion checkbox to a concrete change. Unchecked criteria → request changes.
+3. **Run the app.** Not just `pytest`. Open Streamlit, click through the relevant page, observe the working state. *"Verification" means observed working behavior in the running app, not just tests passing.* Tests catching what they were written to catch is necessary, not sufficient. *Lesson from TICKET-008b (2026-05-04):* the positions table HTML leak passed every existing test — there was no test for "does the rendered output start with `<` instead of literal HTML text" because nobody thought to write one.
+4. **Screenshot before/after when the change is user-visible.** Drop the screenshots in the PR description. This is the cheapest possible "I observed it working" record. For a future AI session opening the PR weeks later, the screenshot is worth more than a paragraph of description.
+
+If all four pass, merge. If any fail, comment on the PR with the specific finding and let Claude Code address it in the next session.
+
+---
+
 ## Vivek's role in the implementation loop
 
 Vivek does **not** write code. Vivek does:
@@ -197,3 +224,6 @@ Vivek commits all three in one commit: `docs: ADR-XXX <title>`. Or — better �
 - ❌ Vivek writing code directly → Fix the workflow instead.
 - ❌ Claude Code merging its own PRs → Vivek merges.
 - ❌ Claude Code pushing to main → Branch protection rejects this; if it doesn't, branch protection is broken.
+- ❌ Open-ended fix instructions like "reconcile X and Y" or "consolidate the implementation" → Scope-expansion verbs license agents to rewrite far beyond the actual bug. Bug-fix tickets get explicit "Files NOT to modify" sections. *Lesson from TICKET-008b debugging (2026-05-04):* "fix the problem" produced a sprawling consolidated diff; the targeted fix was 30 lines.
+- ❌ Documented approximations in seed data ("use X as proxy; Y not supported v1") → File a real ticket or omit. The TODO will not get done before it bites.
+- ❌ Silent fallbacks to default values when an upstream lookup fails → Either show the user, or refuse to proceed. Never both fail and continue.
