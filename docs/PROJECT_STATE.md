@@ -82,13 +82,13 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-008b — Positions table HTML leak fix + render_html helper
 
 ### In review 👀
-- (none)
+- TICKET-009 — Manage Portfolio page (add/edit/delete lots)
 
 ### In progress 🚧
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-009 — Manage Portfolio page (add/edit/delete lots)
+1. TICKET-010 — Tax engine — Sparerpauschbetrag + Verlustverrechnungstopf
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 

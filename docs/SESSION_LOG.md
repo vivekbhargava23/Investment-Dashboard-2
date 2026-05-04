@@ -309,3 +309,35 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tests
 107 passing
+
+---
+
+## 2026-05-04 — TICKET-009
+
+**Surface:** Gemini CLI
+**Model:** Gemini 2.5 Pro
+**Duration:** ~45 min
+**Branch:** main (Direct commit for speed, though normally a branch)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Implemented `app/ui/pages/manage.py` for CRUD portfolio operations (Add/Edit/Delete transactions).
+- Handled FIFO validation on the form before persistence to prevent invalid sequence states.
+- Handled form-level state for Edit and Delete interactions via `st.session_state`.
+- Added CSS `.tx-row` styling to `app/ui/styles/dark.css`.
+- Added integration tests for CRUD and FIFO interaction in `tests/integration/test_manage_crud.py`.
+- Added unit tests for UI helper methods in `tests/unit/ui/test_manage_page.py`.
+- Updated backlog and project state markdown documents.
+
+### Files touched
+- `app/ui/pages/manage.py`
+- `app/ui/styles/dark.css`
+- `tests/integration/test_manage_crud.py`
+- `tests/unit/ui/test_manage_page.py`
+- `docs/PROJECT_STATE.md`
+- `docs/TICKETS/BACKLOG.md`
+- `docs/TICKETS/TICKET-009-manage-portfolio.md`
+- `docs/SESSION_LOG.md`
+
+### Tests
+107 passing -> 117 passing (10 new)
