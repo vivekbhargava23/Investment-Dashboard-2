@@ -1,10 +1,10 @@
-# PROJECT_STATE.md
+ # PROJECT_STATE.md
 
 > **This is the single source of truth for project state.**
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-04 by Claude Chat (post-TICKET-008b merge)
+**Last updated:** 2026-05-04 by Claude Chat (post-TICKET-009 close, ADR-005 drafting)
 
 ---
 
@@ -84,11 +84,17 @@ See `docs/ARCHITECTURE.md` for the full rules.
 ### In review 👀
 - (none)
 
+### Closed without merging ⊘
+- TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
+
 ### In progress 🚧
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-009 — Manage Portfolio page (add/edit/delete lots)
+1. TICKET-008c — Currency-correctness audit + JPY support + data migration (P0)
+2. TICKET-020 — TickerResolver port + yfinance adapter (P1)
+3. TICKET-009-revised — Manage Portfolio (EUR-native input) (P1)
+4. TICKET-010 — Tax engine — Sparerpauschbetrag + Verlustverrechnungstopf (P1)
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
@@ -103,6 +109,7 @@ See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 - ADR-002: JSON over SQLite (port preserved for swap)
 - ADR-003: FIFO replay-on-edit (not immutable lots) — keeps data model clean, audit trail via git
 - ADR-004: Cost basis frozen at transaction-date ECB FX
+- ADR-005: User input is EUR-native; currency and FX inferred from ticker + broker EUR total
 
 See `docs/DECISIONS/` for full ADRs.
 
