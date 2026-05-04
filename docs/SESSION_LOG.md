@@ -309,3 +309,72 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tests
 107 passing
+
+---
+
+## 2026-05-04 — TICKET-009
+
+**Surface:** Gemini CLI
+**Model:** Gemini 2.5 Pro
+**Duration:** ~45 min
+**Branch:** main (Direct commit for speed, though normally a branch)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Implemented `app/ui/pages/manage.py` for CRUD portfolio operations (Add/Edit/Delete transactions).
+- Handled FIFO validation on the form before persistence to prevent invalid sequence states.
+- Handled form-level state for Edit and Delete interactions via `st.session_state`.
+- Added CSS `.tx-row` styling to `app/ui/styles/dark.css`.
+- Added integration tests for CRUD and FIFO interaction in `tests/integration/test_manage_crud.py`.
+- Added unit tests for UI helper methods in `tests/unit/ui/test_manage_page.py`.
+- Updated backlog and project state markdown documents.
+
+### Files touched
+- `app/ui/pages/manage.py`
+- `app/ui/styles/dark.css`
+- `tests/integration/test_manage_crud.py`
+- `tests/unit/ui/test_manage_page.py`
+- `docs/PROJECT_STATE.md`
+- `docs/TICKETS/BACKLOG.md`
+- `docs/TICKETS/TICKET-009-manage-portfolio.md`
+- `docs/SESSION_LOG.md`
+
+### Tests
+107 passing -> 117 passing (10 new)
+
+## 2026-05-04 — Drafting session: ADR-005 + TICKET-008c, 020, 009-revised (Claude Chat)
+
+**Surface:** Claude Chat (claude.ai)
+**Participants:** Vivek + Claude
+**Duration:** ~2 hours
+
+### What got done
+- Bench-tested original TICKET-009 implementation against real Scalable Capital workflow.
+- Surfaced three silent-corruption bugs: (1) FX field defaulted to 1.0 with no warning on USD APD purchase; (2) Currency dropdown defaulted to EUR for NVDA, producing stale row; (3) 5631.T mislabelled as USD since seed time, producing €4,032 of fake unrealised gain.
+- Diagnosed root cause: form's input model demands data Scalable doesn't surface to the user (native price, FX rate). Three bugs were symptoms of one mismatch.
+- Drafted ADR-005: input becomes EUR-native; currency and FX inferred from ticker + broker EUR total; data model unchanged.
+- Drafted TICKET-008c: extend Currency enum (add JPY); add ticker↔currency domain validator; migrate `data/portfolio.json`.
+- Drafted TICKET-020: new `TickerResolver` port + yfinance adapter for autocomplete.
+- Drafted TICKET-009-revised: replaces original TICKET-009 form with EUR-native input, ticker autocomplete, 2% FX-deviation guard, transparent fallback to manual entry.
+- Decided to close original TICKET-009 PR #14 without merging.
+
+### Decisions made during the session
+- ADR-005 chosen over three alternatives (patch existing form; pure EUR-only with no currency tracking; native + live EUR readout). See ADR for rejection reasons.
+- 2% FX deviation tolerance for the new form's warning (catches typos; tolerates broker spread of 5–25 bps).
+- Migration script (TICKET-008c) preserves recorded EUR cost basis rather than recomputing from yfinance, with an interactive override for 5631.T specifically.
+- Currency enum extended only to JPY in this round; GBP/CHF/HKD added on demand.
+- TICKET-009-revised supersedes TICKET-009 wholesale (form module rewrite). Original PR closed, not merged. Implementer not penalised — the ticket spec was correct as drafted; the spec itself was wrong, which is what bench-testing surfaced.
+
+### Out-of-scope items noticed
+- METHODOLOGY.md updates from TICKET-008b's session log (stdlib name collisions, "verification = observed behavior", scope-expansion verbs) still pending.
+- The placeholder `_TICKER_NAMES` dict in `app/ui/pages/overview.py` becomes obsolete after TICKET-009-revised; cleanup folded into that ticket.
+- Methodology lesson to fold in: "Bench-test ticket specs against real-world workflow before marking READY."
+
+### Files touched (chat-side; repo edits done by Vivek post-session)
+- `docs/DECISIONS/ADR-005-eur-native-input.md` (new)
+- `docs/TICKETS/TICKET-008c-currency-correctness.md` (new)
+- `docs/TICKETS/TICKET-020-ticker-resolver.md` (new)
+- `docs/TICKETS/TICKET-009-revised-eur-native-form.md` (new)
+- `docs/PROJECT_STATE.md` (updated)
+- `docs/TICKETS/BACKLOG.md` (updated)
+- `docs/SESSION_LOG.md` (this entry)
