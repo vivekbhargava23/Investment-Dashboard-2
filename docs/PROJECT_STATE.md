@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-04 by Claude Chat (post-TICKET-009 close, ADR-005 drafting)
+**Last updated:** 2026-05-05 by Claude Chat (drafted tax engine, page, and simulator tickets)
 
 ---
 
@@ -94,7 +94,9 @@ See `docs/ARCHITECTURE.md` for the full rules.
 1. TICKET-008c — Currency-correctness audit + JPY support + data migration (P0)
 2. TICKET-020 — TickerResolver port + yfinance adapter (P1)
 3. TICKET-009-revised — Manage Portfolio (EUR-native input) (P1)
-4. TICKET-010 — Tax engine — Sparerpauschbetrag + Verlustverrechnungstopf (P1)
+4. TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstopf, Teilfreistellung, Abgeltungsteuer) (P1)
+5. TICKET-011 — Tax Dashboard page (Sparerpauschbetrag tracker, harvest opportunity, tax exposure) (P1)
+6. TICKET-012 — Pre-trade sell simulator (FIFO lot preview + tax impact + portfolio impact) (P1)
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
