@@ -1,6 +1,6 @@
 # TICKET-008c — Currency-correctness audit, JPY support, and `data/portfolio.json` migration
 
-**Status:** DRAFT
+**Status:** IN_PROGRESS
 **Priority:** P0 (blocks TICKET-009-revised; live app currently shows €4,000+ in fake gains)
 **Estimated session length:** 1.5 – 2 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-04)
