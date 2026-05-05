@@ -1,3 +1,4 @@
+# Currency must match infer_currency_from_ticker(ticker). See ADR-005, TICKET-008c.
 ticker,type,trade_date,shares,price_native,currency,fx_rate_eur,notes
 VUSA.DE,buy,2024-08-01,32.0000,97.5000,EUR,1.0,Core S&P 500 ETF entry
 ETN,buy,2025-01-15,5.0000,320.0000,USD,0.9300,Eaton — power infra entry
@@ -10,7 +11,7 @@ HY9H.F,buy,2025-05-23,1.0000,179.2000,EUR,1.0,SK Hynix GDR — second lot
 MRVL,buy,2025-06-15,10.0000,58.0000,USD,0.8950,Marvell — custom silicon
 APD,buy,2025-07-22,4.0000,250.0000,USD,0.9050,Air Products — under review
 AVGO,buy,2025-08-20,4.0000,195.0000,USD,0.8950,Broadcom — XPU
-5631.T,buy,2025-11-10,1.0000,4200.0000,USD,0.9300,Japan Steel Works (use USD as approximation; KRW/JPY not supported in v1)
+5631.T,buy,2025-11-10,1.0000,8829.5596,JPY,0.005776,Japan Steel Works (Tokyo, JPY-priced)
 RHM.DE,buy,2026-03-27,1.0000,1452.7500,EUR,1.0,Rheinmetall — long-standing target
 HY9H.F,buy,2026-03-31,10.0000,121.4000,EUR,1.0,SK Hynix — fifth lot
 ETN,sell,2026-03-12,1.0000,340.0000,USD,0.9180,Trim — partial sell

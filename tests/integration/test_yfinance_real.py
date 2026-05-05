@@ -40,3 +40,28 @@ def test_real_nvda_historical_close() -> None:
     # yfinance usually returns split-adjusted prices.
     # On 2024-01-02, split adjusted price was around 48.1
     assert Decimal("40") < price.amount < Decimal("60")
+
+
+@pytest.mark.integration
+def test_real_5631t_current_price_is_jpy() -> None:
+    """5631.T (Japan Steel Works) must return a JPY-denominated price."""
+    adapter = YfinanceAdapter()
+    price = adapter.get_current_price("5631.T")
+    assert price.currency == Currency.JPY
+    assert price.amount > 0
+
+
+@pytest.mark.integration
+def test_real_eur_jpy_rate() -> None:
+    adapter = YfinanceAdapter()
+    rate = adapter.get_current_rate(Currency.EUR, Currency.JPY)
+    assert Decimal("100") < rate < Decimal("200")
+
+
+@pytest.mark.integration
+def test_real_jpy_eur_rate_is_reciprocal() -> None:
+    adapter = YfinanceAdapter()
+    eur_jpy = adapter.get_current_rate(Currency.EUR, Currency.JPY)
+    jpy_eur = adapter.get_current_rate(Currency.JPY, Currency.EUR)
+    product = eur_jpy * jpy_eur
+    assert Decimal("0.99") < product < Decimal("1.01")

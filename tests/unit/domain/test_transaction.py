@@ -124,6 +124,79 @@ def test_transaction_frozen():
         t.shares = Decimal("20")
 
 
+def test_ticker_currency_valid_nvda_usd():
+    t = Transaction(
+        type=TransactionType.BUY,
+        ticker="NVDA",
+        trade_date=date(2024, 1, 1),
+        shares=Decimal("1"),
+        price_native=Money(amount=Decimal("100"), currency=Currency.USD),
+        fx_rate_eur=Decimal("0.92"),
+    )
+    assert t.ticker == "NVDA"
+
+
+def test_ticker_currency_invalid_nvda_eur():
+    with pytest.raises(ValidationError, match="NVDA trades in USD"):
+        Transaction(
+            type=TransactionType.BUY,
+            ticker="NVDA",
+            trade_date=date(2024, 1, 1),
+            shares=Decimal("1"),
+            price_native=Money(amount=Decimal("100"), currency=Currency.EUR),
+            fx_rate_eur=Decimal("1"),
+        )
+
+
+def test_ticker_currency_valid_5631t_jpy():
+    t = Transaction(
+        type=TransactionType.BUY,
+        ticker="5631.T",
+        trade_date=date(2025, 11, 10),
+        shares=Decimal("1"),
+        price_native=Money(amount=Decimal("9000"), currency=Currency.JPY),
+        fx_rate_eur=Decimal("0.0061"),
+    )
+    assert t.ticker == "5631.T"
+
+
+def test_ticker_currency_invalid_5631t_usd_regression():
+    """Regression test for the original JPY-as-USD bug (TICKET-008c)."""
+    with pytest.raises(ValidationError, match="5631.T trades in JPY"):
+        Transaction(
+            type=TransactionType.BUY,
+            ticker="5631.T",
+            trade_date=date(2025, 11, 10),
+            shares=Decimal("1"),
+            price_native=Money(amount=Decimal("4200"), currency=Currency.USD),
+            fx_rate_eur=Decimal("0.93"),
+        )
+
+
+def test_ticker_currency_valid_rhm_de_eur():
+    t = Transaction(
+        type=TransactionType.BUY,
+        ticker="RHM.DE",
+        trade_date=date(2026, 3, 27),
+        shares=Decimal("1"),
+        price_native=Money(amount=Decimal("1452"), currency=Currency.EUR),
+        fx_rate_eur=Decimal("1"),
+    )
+    assert t.ticker == "RHM.DE"
+
+
+def test_ticker_currency_invalid_rhm_de_usd():
+    with pytest.raises(ValidationError, match="RHM.DE trades in EUR"):
+        Transaction(
+            type=TransactionType.BUY,
+            ticker="RHM.DE",
+            trade_date=date(2026, 3, 27),
+            shares=Decimal("1"),
+            price_native=Money(amount=Decimal("1452"), currency=Currency.USD),
+            fx_rate_eur=Decimal("0.9"),
+        )
+
+
 def test_transaction_id_unique():
     t1 = Transaction(
         type=TransactionType.BUY,

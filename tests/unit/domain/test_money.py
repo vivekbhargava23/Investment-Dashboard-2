@@ -99,6 +99,39 @@ def test_money_string_formatting():
     )
 
 
+def test_jpy_construction_and_formatting():
+    m = Money(amount=Decimal("9049"), currency=Currency.JPY)
+    assert m.currency == Currency.JPY
+    assert m.amount == Decimal("9049.0000")
+    assert str(m) == "¥9,049"
+
+
+def test_jpy_large_amount_formatting():
+    m = Money(amount=Decimal("1234567"), currency=Currency.JPY)
+    assert str(m) == "¥1,234,567"
+
+
+def test_jpy_zero():
+    m = Money.zero(Currency.JPY)
+    assert m.amount == Decimal("0")
+    assert m.currency == Currency.JPY
+    assert str(m) == "¥0"
+
+
+def test_jpy_usd_mismatch_raises():
+    m1 = Money(amount=Decimal("9000"), currency=Currency.JPY)
+    m2 = Money(amount=Decimal("100"), currency=Currency.USD)
+    with pytest.raises(CurrencyMismatchError):
+        _ = m1 + m2
+
+
+def test_jpy_eur_mismatch_raises():
+    m1 = Money(amount=Decimal("9000"), currency=Currency.JPY)
+    m2 = Money(amount=Decimal("55"), currency=Currency.EUR)
+    with pytest.raises(CurrencyMismatchError):
+        _ = m1 + m2
+
+
 # Property-based tests
 @given(
     a_amount=st.decimals(
