@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-05 by Claude Chat (drafted tax engine, page, and simulator tickets)
+**Last updated:** 2026-05-05 by Claude Code (TICKET-008c merged)
 
 ---
 
@@ -81,9 +81,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-008 — Live Overview page (KPI tiles + positions table)
 - TICKET-008b — Positions table HTML leak fix + render_html helper
   (also: fixed pre-existing test import break: test_html_helper.py referenced app.ui.html instead of app.ui.render)
+- TICKET-008c — Currency enum JPY, ticker↔currency validator, LegacyDataError, migration script (PR #19)
 
 ### In review 👀
-- TICKET-008c — Currency-correctness audit + JPY support + data migration (P0)
+- (none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
