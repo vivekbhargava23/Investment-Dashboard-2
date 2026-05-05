@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-05 by Claude Code (TICKET-008c merged)
+**Last updated:** 2026-05-05 by Claude Code (TICKET-020 in review)
 
 ---
 
@@ -84,7 +84,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-008c — Currency enum JPY, ticker↔currency validator, LegacyDataError, migration script (PR #19)
 
 ### In review 👀
-- (none)
+- TICKET-020 — TickerResolver port + yfinance adapter (P1)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -93,7 +93,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-020 — TickerResolver port + yfinance adapter (P1)
+1. TICKET-009-revised — Manage Portfolio (EUR-native input) (P1)
 2. TICKET-009-revised — Manage Portfolio (EUR-native input) (P1)
 3. TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstopf, Teilfreistellung, Abgeltungsteuer) (P1)
 4. TICKET-011 — Tax Dashboard page (Sparerpauschbetrag tracker, harvest opportunity, tax exposure) (P1)
