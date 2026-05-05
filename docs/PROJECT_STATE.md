@@ -80,9 +80,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-007 — Streamlit shell refactor + light theme
 - TICKET-008 — Live Overview page (KPI tiles + positions table)
 - TICKET-008b — Positions table HTML leak fix + render_html helper
+  (also: fixed pre-existing test import break: test_html_helper.py referenced app.ui.html instead of app.ui.render)
 
 ### In review 👀
-- (none)
+- TICKET-008c — Currency-correctness audit + JPY support + data migration (P0)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -91,12 +92,11 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-008c — Currency-correctness audit + JPY support + data migration (P0)
-2. TICKET-020 — TickerResolver port + yfinance adapter (P1)
-3. TICKET-009-revised — Manage Portfolio (EUR-native input) (P1)
-4. TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstopf, Teilfreistellung, Abgeltungsteuer) (P1)
-5. TICKET-011 — Tax Dashboard page (Sparerpauschbetrag tracker, harvest opportunity, tax exposure) (P1)
-6. TICKET-012 — Pre-trade sell simulator (FIFO lot preview + tax impact + portfolio impact) (P1)
+1. TICKET-020 — TickerResolver port + yfinance adapter (P1)
+2. TICKET-009-revised — Manage Portfolio (EUR-native input) (P1)
+3. TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstopf, Teilfreistellung, Abgeltungsteuer) (P1)
+4. TICKET-011 — Tax Dashboard page (Sparerpauschbetrag tracker, harvest opportunity, tax exposure) (P1)
+5. TICKET-012 — Pre-trade sell simulator (FIFO lot preview + tax impact + portfolio impact) (P1)
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
