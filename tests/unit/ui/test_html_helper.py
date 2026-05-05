@@ -7,7 +7,7 @@ def test_render_html_strips_leading_whitespace() -> None:
         <div>hello</div>
     """
     with patch("streamlit.markdown") as mock_md:
-        from app.ui.html import render_html
+        from app.ui.render import render_html
 
         render_html(indented)
         call_args = mock_md.call_args
@@ -22,7 +22,7 @@ def test_render_html_preserves_internal_structure() -> None:
         </table>
     """
     with patch("streamlit.markdown") as mock_md:
-        from app.ui.html import render_html
+        from app.ui.render import render_html
 
         render_html(html)
         rendered = mock_md.call_args[0][0]
@@ -33,7 +33,7 @@ def test_render_html_preserves_internal_structure() -> None:
 
 def test_render_html_empty_string() -> None:
     with patch("streamlit.markdown") as mock_md:
-        from app.ui.html import render_html
+        from app.ui.render import render_html
 
         render_html("")
         mock_md.assert_called_once()
@@ -43,7 +43,7 @@ def test_render_html_empty_string() -> None:
 
 def test_render_html_uses_unsafe_allow_html() -> None:
     with patch("streamlit.markdown") as mock_md:
-        from app.ui.html import render_html
+        from app.ui.render import render_html
 
         render_html("<p>x</p>")
         call_kwargs = mock_md.call_args[1]
