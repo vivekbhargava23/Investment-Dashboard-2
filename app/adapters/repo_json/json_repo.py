@@ -6,11 +6,32 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from app.domain.models import Transaction
+from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 from app.ports.repository import (
     RepositoryCorruptedError,
     TransactionNotFoundError,
     TransactionRepository,
 )
+
+
+class LegacyDataError(Exception):
+    """
+    Raised when portfolio.json contains transactions whose ticker does not match
+    their recorded currency (a pre-ADR-005 corruption). Run the migration:
+
+        python -m app.scripts.migrate_currency --input <path>
+    """
+
+    def __init__(self, path: Path, count: int, first_offender: dict[str, object]) -> None:
+        self.path = path
+        self.count = count
+        self.first_offender: dict[str, object] = first_offender
+        self.offenders: list[dict[str, object]] = [first_offender]
+        super().__init__(
+            f"Found {count} transaction(s) in {path} that fail the ticker↔currency "
+            f"consistency check. First offender: {first_offender}. "
+            f"Run `python -m app.scripts.migrate_currency --input {path}` to upgrade."
+        )
 
 
 class JsonTransactionRepository(TransactionRepository):
@@ -48,6 +69,26 @@ class JsonTransactionRepository(TransactionRepository):
         if "transactions" not in data:
             raise RepositoryCorruptedError("Missing 'transactions' field")
 
+        # Phase 1: detect legacy ticker↔currency mismatches before full construction.
+        # Raises LegacyDataError so the user knows to run the migration script.
+        offenders: list[dict[str, object]] = []
+        for tx_data in data["transactions"]:
+            ticker = tx_data.get("ticker", "")
+            currency_str = (tx_data.get("price_native") or {}).get("currency", "")
+            if ticker and currency_str:
+                try:
+                    inferred = infer_currency_from_ticker(ticker)
+                    if inferred.value != currency_str:
+                        offenders.append(tx_data)
+                except UnsupportedTickerError:
+                    offenders.append(tx_data)
+
+        if offenders:
+            err = LegacyDataError(self.path, len(offenders), offenders[0])
+            err.offenders = offenders
+            raise err
+
+        # Phase 2: full Pydantic construction.
         transactions = []
         for tx_data in data["transactions"]:
             try:

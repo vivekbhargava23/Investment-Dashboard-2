@@ -8,6 +8,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain.money import Currency, Money
+from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 
 
 class TransactionType(StrEnum):
@@ -48,6 +49,19 @@ class Transaction(BaseModel):
         if v <= 0:
             raise ValueError("fx_rate_eur must be positive")
         return v
+
+    @model_validator(mode="after")
+    def validate_ticker_currency(self) -> Transaction:
+        try:
+            inferred = infer_currency_from_ticker(self.ticker)
+        except UnsupportedTickerError as e:
+            raise ValueError(str(e)) from e
+        if inferred != self.price_native.currency:
+            raise ValueError(
+                f"Ticker {self.ticker} trades in {inferred} but transaction recorded as "
+                f"{self.price_native.currency}. See ADR-005."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_eur_fx_rate(self) -> Transaction:

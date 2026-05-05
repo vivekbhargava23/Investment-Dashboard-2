@@ -6,6 +6,7 @@ from typing import Any
 import yfinance as yf
 
 from app.domain.money import Currency, Money
+from app.domain.tickers import infer_currency_from_ticker
 from app.ports.fx_feed import (
     FxRateUnavailableError,
     UnsupportedCurrencyPairError,
@@ -32,14 +33,7 @@ class YfinanceAdapter:
         self._historical_cache: dict[str, Any] = {}
 
     def _infer_currency(self, ticker: str) -> Currency:
-        """
-        Heuristic to infer currency from yfinance ticker suffixes.
-        European exchanges typically use suffixes like .DE, .PA, etc.
-        """
-        euro_suffixes = (".DE", ".F", ".MI", ".PA", ".AS")
-        if any(ticker.upper().endswith(s) for s in euro_suffixes):
-            return Currency.EUR
-        return Currency.USD
+        return infer_currency_from_ticker(ticker)
 
     def get_current_price(self, ticker: str) -> Money:
         cache_key = f"price:{ticker}"
@@ -110,10 +104,34 @@ class YfinanceAdapter:
         except Exception as e:
             raise PriceUnavailableError(ticker, str(e)) from e
 
+    # Canonical yfinance tickers for currency pairs (base=first named, quote=second).
+    # For reversed pairs, we fetch the canonical ticker and invert.
+    _FX_CANONICAL: dict[tuple[Currency, Currency], str] = {
+        (Currency.EUR, Currency.USD): "EURUSD=X",
+        (Currency.EUR, Currency.JPY): "EURJPY=X",
+        (Currency.USD, Currency.JPY): "USDJPY=X",
+    }
+
+    _SUPPORTED_PAIRS: frozenset[tuple[Currency, Currency]] = frozenset({
+        (Currency.EUR, Currency.USD),
+        (Currency.USD, Currency.EUR),
+        (Currency.EUR, Currency.JPY),
+        (Currency.JPY, Currency.EUR),
+        (Currency.USD, Currency.JPY),
+        (Currency.JPY, Currency.USD),
+    })
+
+    def _fx_yfinance_ticker(self, base: Currency, quote: Currency) -> tuple[str, bool]:
+        """Return (yfinance_ticker, invert) for the given pair."""
+        if (base, quote) in self._FX_CANONICAL:
+            return self._FX_CANONICAL[(base, quote)], False
+        return self._FX_CANONICAL[(quote, base)], True
+
     def get_current_rate(self, base: Currency, quote: Currency) -> Decimal:
-        if (base, quote) not in [(Currency.EUR, Currency.USD), (Currency.USD, Currency.EUR)]:
+        if (base, quote) not in self._SUPPORTED_PAIRS:
             raise UnsupportedCurrencyPairError(
-                base, quote, None, "Only EUR/USD pairs are supported"
+                base, quote, None,
+                "Supported pairs: EUR/USD, USD/EUR, EUR/JPY, JPY/EUR, USD/JPY, JPY/USD"
             )
 
         cache_key = f"fx:{base}/{quote}"
@@ -125,8 +143,8 @@ class YfinanceAdapter:
                 return value  # type: ignore
 
         try:
-            # yfinance uses EURUSD=X for USD per 1 EUR
-            t = yf.Ticker("EURUSD=X")
+            yf_ticker, invert = self._fx_yfinance_ticker(base, quote)
+            t = yf.Ticker(yf_ticker)
             rate_raw = t.fast_info.get("lastPrice")
 
             if rate_raw is None or (isinstance(rate_raw, float) and rate_raw != rate_raw):
@@ -140,7 +158,7 @@ class YfinanceAdapter:
                 )
 
             rate = Decimal(str(rate_raw))
-            if base == Currency.USD and quote == Currency.EUR:
+            if invert:
                 rate = Decimal("1") / rate
 
             rate = rate.quantize(Decimal("0.000001"))
@@ -153,9 +171,10 @@ class YfinanceAdapter:
             raise FxRateUnavailableError(base, quote, None, str(e)) from e
 
     def get_historical_rate(self, base: Currency, quote: Currency, on_date: date) -> Decimal:
-        if (base, quote) not in [(Currency.EUR, Currency.USD), (Currency.USD, Currency.EUR)]:
+        if (base, quote) not in self._SUPPORTED_PAIRS:
             raise UnsupportedCurrencyPairError(
-                base, quote, on_date, "Only EUR/USD pairs are supported"
+                base, quote, on_date,
+                "Supported pairs: EUR/USD, USD/EUR, EUR/JPY, JPY/EUR, USD/JPY, JPY/USD"
             )
 
         cache_key = f"fx:{base}/{quote}:{on_date.isoformat()}"
@@ -163,7 +182,8 @@ class YfinanceAdapter:
             return self._historical_cache[cache_key]  # type: ignore
 
         try:
-            t = yf.Ticker("EURUSD=X")
+            yf_ticker, invert = self._fx_yfinance_ticker(base, quote)
+            t = yf.Ticker(yf_ticker)
             hist = t.history(start=on_date, end=on_date + timedelta(days=1))
 
             if hist.empty:
@@ -177,7 +197,7 @@ class YfinanceAdapter:
                 raise FxRateUnavailableError(base, quote, on_date, f"NaN rate near {on_date}")
 
             rate = Decimal(str(rate_raw))
-            if base == Currency.USD and quote == Currency.EUR:
+            if invert:
                 rate = Decimal("1") / rate
 
             rate = rate.quantize(Decimal("0.000001"))
