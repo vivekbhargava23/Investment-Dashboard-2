@@ -1,6 +1,6 @@
 # TICKET-009-revised — Manage Portfolio (EUR-native input + ticker resolver)
 
-**Status:** DRAFT
+**Status:** IN_PROGRESS
 **Priority:** P1
 **Estimated session length:** 3 – 3.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-04)
