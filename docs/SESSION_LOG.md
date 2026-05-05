@@ -399,3 +399,18 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 - Opted for a "sequential" harvest impact model in the UI to reflect shared allowance.
 - Simulator will use a promoted `simulate_lot_consumption` helper from the FIFO engine.
 
+
+---
+
+## 2026-05-05 — TICKET-010 Appendix: Bench-test findings (Claude Code)
+
+**Surface:** Gemini CLI
+**Participants:** Vivek + Claude
+**Duration:** ~5 min
+
+### What got done
+- Added "Bench-test findings (2026-05-04)" appendix to `docs/TICKETS/TICKET-010-tax-engine.md`.
+- Documented requirement for per-trade tax withholding tracking.
+- Documented five new transaction types (DIVIDEND, INTEREST, taxes).
+- Documented CAD currency requirement for specific holdings (Niobium).
+
