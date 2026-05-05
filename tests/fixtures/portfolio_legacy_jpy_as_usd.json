@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "transactions": [
+    {
+      "id": "clean-row-001",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-05-12",
+      "shares": "9.0000",
+      "price_native": {
+        "amount": "115.0000",
+        "currency": "USD"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "0.9100",
+      "notes": "NVIDIA — AI compute"
+    },
+    {
+      "id": "legacy-bad-row-001",
+      "type": "buy",
+      "ticker": "5631.T",
+      "trade_date": "2025-11-10",
+      "shares": "1.0000",
+      "price_native": {
+        "amount": "4200.0000",
+        "currency": "USD"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "0.9300",
+      "notes": "Japan Steel Works (use USD as approximation; KRW/JPY not supported in v1)"
+    }
+  ]
+}

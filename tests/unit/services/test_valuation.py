@@ -108,30 +108,28 @@ def test_compute_live_positions_empty() -> None:
 
 
 def test_per_ticker_failure_isolation(eur_buy: Transaction) -> None:
-    # Two transactions, one price missing
+    # Two transactions, one price missing from the fake provider
     t2 = Transaction(
         id="t2",
-        ticker="MISSING",
+        ticker="NOPRICE.DE",
         type=TransactionType.BUY,
         trade_date=date(2024, 1, 1),
         shares=Decimal("10"),
         price_native=Money(amount=Decimal("100"), currency=Currency.EUR),
         fx_rate_eur=Decimal("1"),
-        fee_native=Money(amount=Decimal("0"), currency=Currency.EUR),
-        tax_native=Money(amount=Decimal("0"), currency=Currency.EUR),
     )
 
     pp = FakePriceProvider(
         current_prices={"RHM.DE": Money(amount=Decimal("110"), currency=Currency.EUR)}
-        # "MISSING" is missing
+        # "NOPRICE.DE" is intentionally absent
     )
     fp = FakeFxProvider()
 
     res = compute_live_positions([eur_buy, t2], pp, fp)
 
     assert res["RHM.DE"].is_stale is False
-    assert res["MISSING"].is_stale is True
-    assert res["MISSING"].staleness_reason == "Price not in fake"
+    assert res["NOPRICE.DE"].is_stale is True
+    assert res["NOPRICE.DE"].staleness_reason == "Price not in fake"
 
 
 def test_fx_failure_marks_usd_stale(eur_buy: Transaction, usd_buy: Transaction) -> None:

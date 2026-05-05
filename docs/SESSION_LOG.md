@@ -414,3 +414,84 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 - Documented five new transaction types (DIVIDEND, INTEREST, taxes).
 - Documented CAD currency requirement for specific holdings (Niobium).
 
+
+## 2026-05-05 14:30 — TICKET-008c
+
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~90 min
+**Branch:** ticket-008c-currency-correctness
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/19
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Pre-existing bug fix: `tests/unit/ui/test_html_helper.py` imported from `app.ui.html`
+  (renamed to `app.ui.render` in TICKET-008b) — 4 tests were broken on main before work started.
+  Fixed as a prep commit; reported to Vivek.
+- `Currency.JPY` added to `app/domain/money.py`; `__str__` updated: JPY → `¥` prefix,
+  zero decimal places (e.g. `¥9,049`).
+- New `app/domain/tickers.py`: pure `infer_currency_from_ticker()` function; maps
+  `.DE`/`.F`/`.MI`/`.PA`/`.AS` → EUR, `.T` → JPY, `.HK` → `UnsupportedTickerError`,
+  unsuffixed → USD. Single source of truth for ticker→currency mapping (ADR-005).
+- `Transaction` gains `@model_validator` that calls `infer_currency_from_ticker`;
+  rejects construction if ticker and price currency disagree. 5631.T-as-USD is now
+  structurally impossible.
+- `JsonTransactionRepository.load_all()` pre-checks ticker↔currency consistency;
+  raises `LegacyDataError` (with `.offenders` attribute and migration-script hint)
+  before attempting full Pydantic construction. Existing `RepositoryCorruptedError`
+  path for other validation failures preserved.
+- `YfinanceAdapter._infer_currency()` now delegates to `infer_currency_from_ticker()`
+  (eliminating duplicated logic). FX rate methods extended to cover EUR/JPY, JPY/EUR,
+  USD/JPY, JPY/USD via new `_fx_yfinance_ticker()` helper.
+- New `app/scripts/migrate_currency.py`: one-shot CLI that detects legacy ticker↔
+  currency mismatches, fetches historical native-currency close from yfinance,
+  back-computes FX rate to preserve recorded EUR cost basis; dry-run, --force,
+  interactive override for the specific 5631.T row; validates output round-trips
+  through `JsonTransactionRepository` before writing.
+- `docs/reference/seed_portfolio.csv`: 5631.T row rewritten as JPY (price=8829.5596,
+  fx=0.005776); "use USD as approximation" note deleted; schema comment added.
+- `data/portfolio.json` already had JPY for 5631.T from prior aborted attempt;
+  file is gitignored so not committed — migration is a no-op in current state.
+
+### Files touched
+- `app/domain/money.py` — JPY enum member + __str__ dispatch
+- `app/domain/tickers.py` — new module
+- `app/domain/models.py` — ticker↔currency @model_validator
+- `app/domain/__init__.py` — export infer_currency_from_ticker, UnsupportedTickerError
+- `app/adapters/repo_json/json_repo.py` — LegacyDataError + pre-check in load_all
+- `app/adapters/yfinance_feed/yfinance_adapter.py` — delegate + JPY FX pairs
+- `app/scripts/migrate_currency.py` — new migration script
+- `tests/unit/domain/test_money.py` — JPY cases
+- `tests/unit/domain/test_transaction.py` — currency validator cases (incl. regression)
+- `tests/unit/domain/test_tickers.py` — new test module
+- `tests/unit/domain/test_fifo.py` — ticker fixtures updated to EUR-suffixed (.DE)
+- `tests/unit/services/test_valuation.py` — MISSING→NOPRICE.DE
+- `tests/unit/ui/test_html_helper.py` — import path fix (app.ui.html → app.ui.render)
+- `tests/integration/test_json_repo.py` — LegacyDataError tests
+- `tests/integration/test_yfinance_real.py` — JPY price + FX rate integration tests
+- `tests/integration/test_migrate_currency.py` — new migration tests
+- `tests/fixtures/portfolio_legacy_jpy_as_usd.json` — new legacy fixture
+- `docs/reference/seed_portfolio.csv` — 5631.T row fixed
+- `docs/TICKETS/TICKET-008c-currency-correctness.md` — status IN_REVIEW
+- `docs/TICKETS/BACKLOG.md` — TICKET-008c → IN_REVIEW
+- `docs/PROJECT_STATE.md` — TICKET-008c moved to In review
+
+### Tests
+107 passing → 128 passing (21 new; 38 skipped — integration tests gated behind @pytest.mark.integration)
+
+### Decisions made during the session
+- Pre-existing test failure (app.ui.html → app.ui.render import) fixed inline as a
+  prep commit rather than a separate hotfix PR — reported to Vivek before proceeding.
+- `data/portfolio.json` is gitignored; migration confirmed as no-op since prior
+  aborted attempt already updated the local file; documented in PR description.
+- `dict[str, Any]` used in migration script for raw JSON data — `object` type is too
+  restrictive for mypy's attribute checks on JSON-sourced dicts.
+
+### Out-of-scope items noticed
+- TICKET-008b session note: `app/ui/html.py` → `app/ui/render.py` rename left stale
+  import in `test_html_helper.py`. Fixed here since it was blocking a green baseline.
+- `data/portfolio.json` is gitignored. The ticket spec assumed it would be committed;
+  per `.gitignore`, it's user data. Migration documented in PR instead.
+
+### Tokens used (rough)
+~85k

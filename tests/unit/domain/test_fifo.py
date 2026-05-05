@@ -145,12 +145,12 @@ def test_multiple_buys_partial_sell_crossing_lots():
 
 
 def test_multi_ticker_no_interference():
-    tx1 = _buy("NVDA", date(2024, 1, 1), Decimal("10"), Decimal("100"))
+    tx1 = _buy("NVDA.DE", date(2024, 1, 1), Decimal("10"), Decimal("100"))
     tx2 = _buy("SAP.DE", date(2024, 1, 1), Decimal("10"), Decimal("150"))
 
     positions = compute_positions([tx1, tx2])
     assert len(positions) == 2
-    assert positions["NVDA"].open_shares == Decimal("10")
+    assert positions["NVDA.DE"].open_shares == Decimal("10")
     assert positions["SAP.DE"].open_shares == Decimal("10")
 
 
@@ -172,9 +172,9 @@ def test_fx_correctness():
 
 def test_tie_breaking_by_id():
     # Same date, same ticker, same type
-    tx1 = _buy("NVDA", date(2024, 1, 1), Decimal("10"), Decimal("100"), tx_id="aaa")
-    tx2 = _buy("NVDA", date(2024, 1, 1), Decimal("10"), Decimal("110"), tx_id="bbb")
-    tx3 = _sell("NVDA", date(2024, 2, 1), Decimal("5"), Decimal("120"))
+    tx1 = _buy("SAP.DE", date(2024, 1, 1), Decimal("10"), Decimal("100"), tx_id="aaa")
+    tx2 = _buy("SAP.DE", date(2024, 1, 1), Decimal("10"), Decimal("110"), tx_id="bbb")
+    tx3 = _sell("SAP.DE", date(2024, 2, 1), Decimal("5"), Decimal("120"))
 
     gains = compute_realised_gains([tx1, tx2, tx3])
     # Should consume from tx1 because "aaa" < "bbb"
@@ -182,8 +182,8 @@ def test_tie_breaking_by_id():
 
 
 def test_same_day_buy_then_sell():
-    tx1 = _sell("NVDA", date(2024, 1, 1), Decimal("10"), Decimal("120"))
-    tx2 = _buy("NVDA", date(2024, 1, 1), Decimal("10"), Decimal("100"))
+    tx1 = _sell("SAP.DE", date(2024, 1, 1), Decimal("10"), Decimal("120"))
+    tx2 = _buy("SAP.DE", date(2024, 1, 1), Decimal("10"), Decimal("100"))
 
     # Even if constructed/sorted SELL before BUY in the input list,
     # compute_positions should process BUY before SELL on the same day.
@@ -196,25 +196,25 @@ def test_same_day_buy_then_sell():
 
 
 def test_error_sell_exceeds_open():
-    tx1 = _buy("NVDA", date(2024, 1, 1), Decimal("5"), Decimal("100"), tx_id="buy1")
-    tx2 = _sell("NVDA", date(2024, 2, 1), Decimal("10"), Decimal("120"), tx_id="sell1")
+    tx1 = _buy("SAP.DE", date(2024, 1, 1), Decimal("5"), Decimal("100"), tx_id="buy1")
+    tx2 = _sell("SAP.DE", date(2024, 2, 1), Decimal("10"), Decimal("120"), tx_id="sell1")
 
     with pytest.raises(SellExceedsOpenSharesError) as excinfo:
         compute_positions([tx1, tx2])
 
     msg = str(excinfo.value)
-    assert "Sell of 10 NVDA on 2024-02-01" in msg
+    assert "Sell of 10 SAP.DE on 2024-02-01" in msg
     assert "exceeds open position of 5 shares" in msg
     assert "transaction sell1" in msg
 
 
 def test_ytd_realised_gain():
-    tx1 = _buy("NVDA", date(2023, 1, 1), Decimal("15"), Decimal("100"))
-    tx2 = _sell("NVDA", date(2023, 2, 1), Decimal("5"), Decimal("120"))  # 5 * 20 = 100 gain in 2023
-    tx3 = _sell("NVDA", date(2024, 2, 1), Decimal("5"), Decimal("130"))  # 5 * 30 = 150 gain in 2024
+    tx1 = _buy("SAP.DE", date(2023, 1, 1), Decimal("15"), Decimal("100"))
+    tx2 = _sell("SAP.DE", date(2023, 2, 1), Decimal("5"), Decimal("120"))  # 5*20=100 gain 2023
+    tx3 = _sell("SAP.DE", date(2024, 2, 1), Decimal("5"), Decimal("130"))  # 5*30=150 gain 2024
 
     positions = compute_positions([tx1, tx2, tx3])
-    pos = positions["NVDA"]
+    pos = positions["SAP.DE"]
     # YTD should only be 150 because 2024 is the latest year
     assert pos.realised_gain_eur_ytd == Money(amount=Decimal("150"), currency=Currency.EUR)
     assert pos.open_shares == Decimal("5")
@@ -222,9 +222,9 @@ def test_ytd_realised_gain():
 
 def test_determinism():
     txs = [
-        _buy("NVDA", date(2024, 1, 1), Decimal("10"), Decimal("100"), tx_id="1"),
-        _buy("NVDA", date(2024, 1, 1), Decimal("10"), Decimal("110"), tx_id="2"),
-        _sell("NVDA", date(2024, 2, 1), Decimal("5"), Decimal("120"), tx_id="3"),
+        _buy("RHM.DE", date(2024, 1, 1), Decimal("10"), Decimal("100"), tx_id="1"),
+        _buy("RHM.DE", date(2024, 1, 1), Decimal("10"), Decimal("110"), tx_id="2"),
+        _sell("RHM.DE", date(2024, 2, 1), Decimal("5"), Decimal("120"), tx_id="3"),
         _buy("SAP.DE", date(2024, 1, 1), Decimal("10"), Decimal("150"), tx_id="4"),
     ]
 
@@ -245,7 +245,7 @@ def test_determinism():
 @st.composite
 def valid_transaction_sequence(draw):
     num_tickers = draw(st.integers(min_value=1, max_value=3))
-    tickers = [f"TICKER{i}" for i in range(num_tickers)]
+    tickers = [f"TICKER{i}.DE" for i in range(num_tickers)]
 
     num_txs = draw(st.integers(min_value=1, max_value=15))
     transactions = []
