@@ -13,6 +13,7 @@ from app.ports.repository import (
     TransactionNotFoundError,
     TransactionRepository,
 )
+from app.ports.ticker_resolver import TickerMatch, TickerResolver
 
 __all__ = [
     "TransactionRepository",
@@ -24,4 +25,6 @@ __all__ = [
     "FxProvider",
     "FxRateUnavailableError",
     "UnsupportedCurrencyPairError",
+    "TickerResolver",
+    "TickerMatch",
 ]

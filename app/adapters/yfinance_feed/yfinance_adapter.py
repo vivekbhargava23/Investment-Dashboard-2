@@ -1,3 +1,4 @@
+import logging
 import time
 from datetime import date, timedelta
 from decimal import Decimal
@@ -6,7 +7,7 @@ from typing import Any
 import yfinance as yf
 
 from app.domain.money import Currency, Money
-from app.domain.tickers import infer_currency_from_ticker
+from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 from app.ports.fx_feed import (
     FxRateUnavailableError,
     UnsupportedCurrencyPairError,
@@ -15,12 +16,19 @@ from app.ports.price_feed import (
     PriceUnavailableError,
     TickerNotFoundError,
 )
+from app.ports.ticker_resolver import TickerMatch
+
+_log = logging.getLogger(__name__)
+
+
+_RESOLVER_TTL = 3600  # 1 hour — ticker metadata changes rarely
 
 
 class YfinanceAdapter:
     """
-    Adapter for yfinance providing both stock prices and FX rates.
-    Includes in-memory caching with TTL for current values.
+    Adapter for yfinance providing stock prices, FX rates, and ticker search.
+    Implements PriceProvider, FxProvider, and TickerResolver protocols.
+    Includes in-memory caching with TTL for all lookups.
     """
 
     def __init__(self, current_ttl_seconds: int = 60):
@@ -31,6 +39,9 @@ class YfinanceAdapter:
         # Key: "price:{ticker}:{date}" or "fx:{base}/{quote}:{date}"
         # Value: value
         self._historical_cache: dict[str, Any] = {}
+        # Key: query string or "lookup:{symbol}"
+        # Value: (timestamp, list[TickerMatch] | TickerMatch | None)
+        self._resolver_cache: dict[str, tuple[float, Any]] = {}
 
     def _infer_currency(self, ticker: str) -> Currency:
         return infer_currency_from_ticker(ticker)
@@ -209,6 +220,111 @@ class YfinanceAdapter:
         except Exception as e:
             raise FxRateUnavailableError(base, quote, on_date, str(e)) from e
 
+    # ------------------------------------------------------------------
+    # TickerResolver implementation
+    # ------------------------------------------------------------------
+
+    def _build_match(self, symbol: str, name: str, exchange: str) -> TickerMatch | None:
+        """
+        Build a TickerMatch from raw fields.
+
+        Returns None if the ticker's currency is not yet supported (e.g. HKD),
+        so callers can silently omit unsupported results.
+        """
+        try:
+            inferred = infer_currency_from_ticker(symbol)
+        except UnsupportedTickerError:
+            return None
+
+        recent_price: Money | None = None
+        try:
+            fi = yf.Ticker(symbol).fast_info
+            raw = fi.get("lastPrice")
+            if raw is not None and not (isinstance(raw, float) and raw != raw):
+                recent_price = Money(
+                    amount=Decimal(str(raw)).quantize(Decimal("0.0001")),
+                    currency=inferred,
+                )
+        except Exception:
+            pass  # recent_price stays None — non-critical
+
+        return TickerMatch(
+            symbol=symbol,
+            name=name,
+            exchange=exchange,
+            currency=inferred,
+            recent_price=recent_price,
+        )
+
+    def resolve(self, query: str, limit: int = 10) -> list[TickerMatch]:
+        """
+        Fuzzy/prefix search for tickers matching *query*.
+
+        Results whose native currency is not yet in the Currency enum are
+        silently omitted — the form cannot record such transactions anyway.
+        Empty query or no results returns [].
+        """
+        query = query.strip()
+        if not query:
+            return []
+
+        cache_key = f"resolve:{query.upper()}:{limit}"
+        now = time.monotonic()
+        if cache_key in self._resolver_cache:
+            ts, cached = self._resolver_cache[cache_key]
+            if now - ts < _RESOLVER_TTL:
+                return list(cached)
+
+        results: list[TickerMatch] = []
+        try:
+            quotes = yf.Search(query, max_results=limit).quotes
+            for q in quotes:
+                symbol = q.get("symbol", "")
+                if not symbol:
+                    continue
+                name = q.get("longname") or q.get("shortname") or symbol
+                exchange = q.get("exchDisp") or q.get("exchange") or ""
+                match = self._build_match(symbol, name, exchange)
+                if match is not None:
+                    results.append(match)
+                if len(results) >= limit:
+                    break
+        except Exception as exc:
+            _log.warning("yfinance Search failed for %r: %s", query, exc)
+
+        self._resolver_cache[cache_key] = (now, results)
+        return results
+
+    def lookup(self, symbol: str) -> TickerMatch | None:
+        """
+        Exact-symbol metadata lookup. Returns None if the symbol is unknown
+        or its currency is not yet supported.
+        """
+        symbol = symbol.strip().upper()
+        if not symbol:
+            return None
+
+        cache_key = f"lookup:{symbol}"
+        now = time.monotonic()
+        if cache_key in self._resolver_cache:
+            ts, cached = self._resolver_cache[cache_key]
+            if now - ts < _RESOLVER_TTL:
+                return cached if isinstance(cached, TickerMatch) else None
+
+        result: TickerMatch | None = None
+        try:
+            info = yf.Ticker(symbol).info
+            if info and info.get("symbol"):
+                name = info.get("longName") or info.get("shortName") or symbol
+                exchange = info.get("exchange") or ""
+                result = self._build_match(symbol, name, exchange)
+        except Exception as exc:
+            _log.warning("yfinance Ticker.info failed for %r: %s", symbol, exc)
+
+        self._resolver_cache[cache_key] = (now, result)
+        return result
+
     def clear_cache(self) -> None:
         self._current_cache.clear()
         self._historical_cache.clear()
+        self._resolver_cache.clear()
