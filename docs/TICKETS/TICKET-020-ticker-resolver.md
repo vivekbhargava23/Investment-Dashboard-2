@@ -1,6 +1,6 @@
 # TICKET-020 — TickerResolver port + yfinance adapter (autocomplete + metadata)
 
-**Status:** DRAFT
+**Status:** IN_REVIEW
 **Priority:** P1 (blocks TICKET-009-revised)
 **Estimated session length:** 1.5 – 2 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-04)
