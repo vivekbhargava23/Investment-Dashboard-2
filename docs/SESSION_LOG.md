@@ -378,3 +378,24 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 - `docs/PROJECT_STATE.md` (updated)
 - `docs/TICKETS/BACKLOG.md` (updated)
 - `docs/SESSION_LOG.md` (this entry)
+
+---
+
+## 2026-05-05 — Drafting session: Tax Engine, Dashboard, and Simulator (Claude Chat)
+
+**Surface:** Claude Chat (claude.ai)
+**Participants:** Vivek + Claude
+**Duration:** ~1 hour
+
+### What got done
+- Drafted TICKET-010: Detailed spec for the pure-Python tax engine (pipeline, rates, classification).
+- Drafted TICKET-011: Detailed spec for the Tax Dashboard page and service layer.
+- Drafted TICKET-012: Detailed spec for the Pre-trade sell simulator and FIFO lot-preview.
+- Updated docs/TICKETS/BACKLOG.md and docs/PROJECT_STATE.md to reflect the new tickets.
+
+### Decisions made during the session
+- Chose to keep the tax engine pure and stateless in `app/domain/tax/`.
+- Decided on a JSON-based tax profile repository for persisting carryforwards and status.
+- Opted for a "sequential" harvest impact model in the UI to reflect shared allowance.
+- Simulator will use a promoted `simulate_lot_consumption` helper from the FIFO engine.
+
