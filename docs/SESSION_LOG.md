@@ -495,3 +495,67 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tokens used (rough)
 ~85k
+
+## 2026-05-05 16:00 — TICKET-020
+
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~40 min
+**Branch:** ticket-020-ticker-resolver
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/20
+**Status at session end:** IN_REVIEW
+
+### What got done
+- New `app/ports/ticker_resolver.py`: `TickerMatch` frozen Pydantic model
+  (symbol, name, exchange, currency: Currency, recent_price: Money | None) and
+  `TickerResolver` Protocol (resolve, lookup, clear_cache).
+- `app/ports/__init__.py` updated to export `TickerMatch` and `TickerResolver`.
+- `YfinanceAdapter` extended to satisfy `TickerResolver` alongside existing
+  `PriceProvider` and `FxProvider`:
+  - `_resolver_cache: dict[str, tuple[float, Any]]` with 3600s TTL
+  - `_build_match(symbol, name, exchange)`: shared helper that calls
+    `infer_currency_from_ticker`; returns `None` for unsupported currencies
+    (e.g. HKD) so callers can silently omit rather than raise
+  - `resolve(query, limit)`: yf.Search-backed; normalises query; empty →
+    returns []; exceptions → empty list with warning log; respects limit
+  - `lookup(symbol)`: yf.Ticker.info exact fetch; None on miss or unsupported
+  - `clear_cache()` extended to also clear `_resolver_cache`
+- `tests/fakes/ticker_resolver.py`: `FakeTickerResolver` that satisfies
+  `TickerResolver` Protocol via hardcoded match list; used by TICKET-009-revised.
+- `tests/unit/ports/test_ticker_resolver_protocol.py`: 12 unit tests covering
+  TickerMatch construction/frozen, EUR/JPY variants, FakeTickerResolver resolve/
+  lookup/clear_cache behaviour.
+- `tests/integration/test_yfinance_resolver.py`: 11 tests (7 integration-marked
+  needing network; 4 using mocks); covers USD/EUR/JPY resolve, empty/garbage
+  queries, unsupported-currency omission, search exceptions, limit enforcement.
+
+### Files touched
+- `app/ports/ticker_resolver.py` — new
+- `app/ports/__init__.py` — export TickerMatch, TickerResolver
+- `app/adapters/yfinance_feed/yfinance_adapter.py` — resolver methods added
+- `tests/fakes/ticker_resolver.py` — new
+- `tests/unit/ports/__init__.py` — new
+- `tests/unit/ports/test_ticker_resolver_protocol.py` — new
+- `tests/integration/test_yfinance_resolver.py` — new
+- `docs/TICKETS/TICKET-020-ticker-resolver.md` — status IN_REVIEW
+- `docs/TICKETS/BACKLOG.md` — TICKET-020 → IN_REVIEW
+- `docs/PROJECT_STATE.md` — TICKET-020 moved to In review
+
+### Tests
+128 passing → 140 passing (12 new; 50 skipped — integration tests gated behind @pytest.mark.integration)
+
+### Decisions made during the session
+- yfinance Search results have no `currency` field; `infer_currency_from_ticker`
+  is used exclusively rather than cross-checking yfinance metadata — this is
+  consistent with TICKET-008c's design and avoids the risk of stale yfinance
+  currency metadata causing issues.
+- resolve() returns `list(cached)` (a new list) rather than the cached list
+  object directly, to prevent callers mutating the cache.
+- lookup() uses `isinstance(cached, TickerMatch)` guard when returning from
+  cache to keep the return type clean for mypy.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~25k
