@@ -1,14 +1,17 @@
 import json
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from app.adapters.repo_json.json_repo import JsonTransactionRepository
+from app.adapters.repo_json.json_repo import JsonTransactionRepository, LegacyDataError
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.ports.repository import RepositoryCorruptedError, TransactionNotFoundError
+
+FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
 
 @pytest.fixture
@@ -203,6 +206,45 @@ def test_decimal_precision_round_trip(tmp_path):
     assert loaded.shares == Decimal("0.0001")
     assert loaded.price_native.amount == Decimal("12345.6789")
     assert loaded.fx_rate_eur == Decimal("0.9234")
+
+
+def test_legacy_data_error_raised_for_jpy_as_usd():
+    """Loading the legacy 5631.T-as-USD fixture must raise LegacyDataError."""
+    path = FIXTURES_DIR / "portfolio_legacy_jpy_as_usd.json"
+    repo = JsonTransactionRepository(path)
+    with pytest.raises(LegacyDataError) as exc_info:
+        repo.load_all()
+    assert "5631.T" in str(exc_info.value)
+    assert exc_info.value.count == 1
+    assert len(exc_info.value.offenders) == 1
+
+
+def test_legacy_data_error_message_includes_migration_hint():
+    """LegacyDataError message must tell the user which script to run."""
+    path = FIXTURES_DIR / "portfolio_legacy_jpy_as_usd.json"
+    repo = JsonTransactionRepository(path)
+    with pytest.raises(LegacyDataError) as exc_info:
+        repo.load_all()
+    assert "migrate_currency" in str(exc_info.value)
+
+
+def test_clean_portfolio_loads_without_error(tmp_path):
+    """A portfolio with correct ticker↔currency mapping loads fine."""
+    path = tmp_path / "portfolio.json"
+    repo = JsonTransactionRepository(path)
+    tx = Transaction(
+        type=TransactionType.BUY,
+        ticker="5631.T",
+        trade_date=date(2025, 11, 10),
+        shares=Decimal("1"),
+        price_native=Money(amount=Decimal("9049"), currency=Currency.JPY),
+        fx_rate_eur=Decimal("0.0061"),
+    )
+    repo.save_all([tx])
+    loaded = repo.load_all()
+    assert len(loaded) == 1
+    assert loaded[0].ticker == "5631.T"
+    assert loaded[0].price_native.currency == Currency.JPY
 
 
 def test_creates_parent_directory(tmp_path):
