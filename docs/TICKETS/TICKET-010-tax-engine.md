@@ -499,3 +499,20 @@ We could fake them as `Transaction(type=DIVIDEND, ...)` and feed them through FI
 Live Overview shows hardcoded €0 values for the two tax tiles. That is wrong but not *misleading* — anyone looking at it can see it is a placeholder. A wrong-but-plausible computed value would be misleading. So the dashboard is "honestly missing" rather than "lying," which is the better state to ship in until this ticket lands.
 
 The thing that made TICKET-008c P0 was that the dashboard was *displaying a wrong number that looked right*. None of the current tax tiles do that; they all show their placeholder status (`€0,00 used of €1.000,00` is unmistakably "not yet wired"). So P1 is the right priority — we should build this soon, but the dashboard is not actively misleading anyone in the meantime.
+
+---
+
+## Appendix: Bench-test findings (2026-05-04)
+
+Review of real-world Scalable Capital monthly statements surfaced several requirements that broaden the scope of the data model upstream of the tax engine (though the engine's core math logic remains unchanged):
+
+1. **Tax withholding vs. Year-end filing**: Scalable statements show tax withholding (Abgeltungsteuer + Soli) or refunds *per-trade*. The dashboard needs to track "tax already withheld by broker" to show a "remaining tax liability / refund due" view, alongside the theoretical "as-filed" bill.
+2. **New Transaction Types**: Real statements include five types currently unmodelled:
+   - `DIVIDEND`: Dividend payments.
+   - `INTEREST`: Interest income (e.g., from cash balances).
+   - `WITHHOLDING_TAX_FOREIGN`: e.g., US withholding tax on dividends.
+   - `TAX_CAPITAL_GAINS_DEDUCTED`: Abgeltungsteuer withheld by broker.
+   - `TAX_SOLI_DEDUCTED`: Solidarity surcharge withheld by broker.
+3. **CAD Support**: Real holdings include CAD-priced tickers (e.g., Niobium, ISIN CA65704Y1079). The `Currency` enum and `TickerResolver` must support CAD to prevent "unknown currency" crashes.
+
+These findings are documented here to ensure that when TICKET-010 is implemented, the `TaxYearSummary` and `TaxImpact` models include fields for "withheld" amounts, and the upstream data migration (TICKET-008c) and resolver (TICKET-020) are aware of the CAD requirement.
