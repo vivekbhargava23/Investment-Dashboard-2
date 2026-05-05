@@ -16,6 +16,7 @@ class CurrencyMismatchError(Exception):
 class Currency(StrEnum):
     EUR = "EUR"
     USD = "USD"
+    JPY = "JPY"
 
 
 
@@ -120,5 +121,8 @@ class Money(BaseModel):
         return self.currency == other.currency and self.amount == other.amount
 
     def __str__(self) -> str:
-        symbol = "€" if self.currency == Currency.EUR else "$"
-        return f"{symbol}{self.amount:,.2f}"
+        if self.currency == Currency.EUR:
+            return f"€{self.amount:,.2f}"
+        if self.currency == Currency.JPY:
+            return f"¥{self.amount:,.0f}"
+        return f"${self.amount:,.2f}"
