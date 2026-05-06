@@ -131,12 +131,16 @@ def _render_recording_preview(
     if currency == Currency.EUR:
         net = eur_total - fees_eur
         price_per_share = net / shares
+        total_line = (
+            f"- Your EUR total: {format_eur(_eur(eur_total))}"
+            f"  (= {format_eur(_eur(net))} net + {format_eur(_eur(fees_eur))} fees) ✓"
+            if fees_eur
+            else f"- Your EUR total: {format_eur(_eur(eur_total))} ✓"
+        )
         st.markdown(
             f"Recording: {shares:g} share(s) of **{ticker}** on {format_date(trade_date)}\n"
-            f"- Native currency: EUR\n"
-            f"- Per-share cost: {format_eur(_eur(price_per_share))}\n"
-            f"- EUR cost basis: {format_eur(_eur(net))} + {format_eur(_eur(fees_eur))} fees"
-            f" = {format_eur(_eur(eur_total))} ✓"
+            f"- Price: {format_eur(_eur(price_per_share))}\n"
+            f"{total_line}"
         )
         return True, None
 
@@ -146,29 +150,44 @@ def _render_recording_preview(
         implied_fx = (net / (shares * hist.amount)).quantize(Decimal("0.000001"))
 
         deviation_pct: Decimal | None = None
-        deviation_line = ""
+        ecb_ref_line = ""
+        deviation_note = ""
         try:
             ecb_fx = get_fx_provider().get_historical_rate(currency, Currency.EUR, trade_date)
+            ecb_ref_amount = (hist.amount * ecb_fx).quantize(Decimal("0.01"))
+            ecb_ref_eur = _eur(ecb_ref_amount)
+            ecb_rate_str = ecb_fx.quantize(Decimal("0.0001"))
+            ecb_ref_line = f"- ECB reference price: {format_eur(ecb_ref_eur)}  (= {hist} × {ecb_rate_str} ECB rate)\n"
+
             deviation_pct = (abs(implied_fx - ecb_fx) / ecb_fx * Decimal("100")).quantize(Decimal("0.1"))
+            direction = "below" if implied_fx < ecb_fx else "above"
             if deviation_pct > Decimal("2"):
+                implied_per_share = _eur((net / shares).quantize(Decimal("0.01")))
                 st.warning(
-                    f"⚠ Your EUR total ({format_eur(_eur(eur_total))}) implies an FX rate of {implied_fx}, "
-                    f"but the ECB rate on {format_date(trade_date)} was {ecb_fx.quantize(Decimal('0.0001'))} — "
-                    f"a {deviation_pct}% deviation. Check your amount and date."
+                    f"⚠ Your total ({format_eur(_eur(eur_total))}) implies "
+                    f"{format_eur(implied_per_share)} per share vs ECB reference "
+                    f"{format_eur(ecb_ref_eur)} — {deviation_pct}% {direction} ECB reference. "
+                    f"Check your amount and date."
                 )
+                deviation_note = f"  ({deviation_pct}% {direction} ECB reference — check your amount)"
             else:
-                deviation_line = f"- Deviation from ECB: {deviation_pct}% ✓ within tolerance\n"
+                deviation_note = f"  ✓ within {deviation_pct}% of ECB"
         except Exception:
             pass
 
+        total_line = (
+            f"- Your EUR total: {format_eur(_eur(eur_total))}"
+            f"  (= {format_eur(_eur(net))} net + {format_eur(_eur(fees_eur))} fees)"
+            if fees_eur
+            else f"- Your EUR total: {format_eur(_eur(eur_total))}"
+        )
         st.markdown(
             f"Recording: {shares:g} share(s) of **{ticker}** on {format_date(trade_date)}\n"
             f"- Native currency: {currency.value}\n"
             f"- Historical close on {format_date(trade_date)}: {hist}\n"
-            f"- Implied FX rate: {implied_fx}\n"
-            f"{deviation_line}"
-            f"- EUR cost basis: {format_eur(_eur(net))} + {format_eur(_eur(fees_eur))} fees"
-            f" = {format_eur(_eur(eur_total))} ✓"
+            f"{ecb_ref_line}"
+            f"{total_line}\n"
+            f"- Implied FX rate: {implied_fx}{deviation_note}"
         )
         return True, deviation_pct
 
