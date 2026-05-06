@@ -4,6 +4,8 @@ Manage Portfolio page — EUR-native transaction entry (ADR-005 / TICKET-009-rev
 
 Input model: ticker, type, date, shares, total EUR paid, fees EUR.
 Currency and FX are derived, never entered by the user.
+
+Submit flow (Add): Fill form → Calculate Preview → Confirm & Record.
 """
 from __future__ import annotations
 
@@ -36,12 +38,13 @@ from app.ui.wiring import (
 
 _STATE_DEFAULTS: dict[str, Any] = {
     "manage_add_query": "",
-    "manage_add_resolved": None,   # TickerMatch | None
+    "manage_add_resolved": None,       # TickerMatch | None
     "manage_add_use_as_typed": False,
-    "manage_add_fallback": False,
+    "manage_add_step": "fill",         # "fill" | "preview"
+    "manage_add_pending": None,        # dict of captured form values | None
     "manage_editing_tx_id": None,
     "manage_deleting_tx_id": None,
-    "manage_feedback": None,       # ("success"|"error", message) | None
+    "manage_feedback": None,           # ("success"|"error", message) | None
 }
 
 
@@ -99,7 +102,7 @@ def _run_fifo_check(new_tx: Transaction, existing_txs: list[Transaction]) -> Non
 
 
 # ---------------------------------------------------------------------------
-# Recording preview panel (called each rerun when form is filled)
+# Recording preview panel — returns (price_available, deviation_pct)
 # ---------------------------------------------------------------------------
 
 def _render_recording_preview(
@@ -110,16 +113,17 @@ def _render_recording_preview(
     shares: Decimal,
     eur_total: Decimal,
     fees_eur: Decimal,
-) -> bool:
+) -> tuple[bool, Decimal | None]:
     """
-    Renders the "Recording…" confirmation panel.
-    Returns True if all is well (or a deviation warning was shown).
-    Returns False if the panel switched to fallback mode (price unavailable).
+    Renders the breakdown of what will be recorded.
+
+    Returns (price_available, deviation_pct):
+    - price_available=False → PriceUnavailableError; caller should show fallback.
+    - deviation_pct=None    → EUR-native or ECB rate unavailable.
+    - deviation_pct≥10      → high-deviation; caller should change button label.
     """
     if shares <= 0 or eur_total <= 0:
-        return True
-
-    st.markdown("**Preview — what will be recorded:**")
+        return True, None
 
     def _eur(v: Decimal) -> Money:
         return Money(amount=v.quantize(Decimal("0.01")), currency=Currency.EUR)
@@ -134,25 +138,26 @@ def _render_recording_preview(
             f"- EUR cost basis: {format_eur(_eur(net))} + {format_eur(_eur(fees_eur))} fees"
             f" = {format_eur(_eur(eur_total))} ✓"
         )
-        return True
+        return True, None
 
     try:
         hist = get_price_provider().get_historical_close(ticker, trade_date)
         net = eur_total - fees_eur
         implied_fx = (net / (shares * hist.amount)).quantize(Decimal("0.000001"))
 
+        deviation_pct: Decimal | None = None
         deviation_line = ""
         try:
             ecb_fx = get_fx_provider().get_historical_rate(currency, Currency.EUR, trade_date)
-            dev = abs(implied_fx - ecb_fx) / ecb_fx * Decimal("100")
-            if dev > Decimal("2"):
+            deviation_pct = (abs(implied_fx - ecb_fx) / ecb_fx * Decimal("100")).quantize(Decimal("0.1"))
+            if deviation_pct > Decimal("2"):
                 st.warning(
                     f"⚠ Your EUR total ({format_eur(_eur(eur_total))}) implies an FX rate of {implied_fx}, "
                     f"but the ECB rate on {format_date(trade_date)} was {ecb_fx.quantize(Decimal('0.0001'))} — "
-                    f"a {dev.quantize(Decimal('0.1'))}% deviation. Check your amount and date. You can still submit."
+                    f"a {deviation_pct}% deviation. Check your amount and date."
                 )
             else:
-                deviation_line = f"- Deviation from ECB: {dev.quantize(Decimal('0.1'))}% ✓ within tolerance\n"
+                deviation_line = f"- Deviation from ECB: {deviation_pct}% ✓ within tolerance\n"
         except Exception:
             pass
 
@@ -165,28 +170,39 @@ def _render_recording_preview(
             f"- EUR cost basis: {format_eur(_eur(net))} + {format_eur(_eur(fees_eur))} fees"
             f" = {format_eur(_eur(eur_total))} ✓"
         )
-        return True
+        return True, deviation_pct
 
     except PriceUnavailableError:
         st.warning(
             f"⚠ Couldn't fetch the historical price for **{ticker}** on {format_date(trade_date)}. "
             "Enter native price and FX rate manually below."
         )
-        return False
+        return False, None
     except Exception:
-        return True
+        return True, None
 
 
 # ---------------------------------------------------------------------------
-# Add form
+# Add form — step router
 # ---------------------------------------------------------------------------
 
 def _render_add_form() -> None:
+    if st.session_state.manage_add_step == "preview":
+        _render_add_preview()
+        return
+    _render_add_fill()
+
+
+# ---------------------------------------------------------------------------
+# Add form — step 1: Fill
+# ---------------------------------------------------------------------------
+
+def _render_add_fill() -> None:
     st.subheader("Add Transaction")
 
     resolver = get_ticker_resolver()
 
-    # --- Ticker autocomplete ---
+    # --- Ticker autocomplete (outside form — uses st.rerun) ---
     query = st.text_input(
         "Ticker search",
         value=st.session_state.manage_add_query,
@@ -227,6 +243,7 @@ def _render_add_form() -> None:
     if ticker_display:
         st.caption(f"Ticker: **{ticker_display}**" + (f" · {resolved.name} · {resolved.exchange}" if resolved else " (as-typed)"))
 
+    # --- Transaction form ---
     with st.form("manage_add_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
@@ -239,12 +256,13 @@ def _render_add_form() -> None:
             )
             shares_f = st.number_input("Shares", min_value=0.0001, value=1.0, step=0.0001, format="%.4f")
         with col2:
-            eur_total_f = st.number_input(
+            eur_total_f: float | None = st.number_input(
                 "Total EUR paid",
                 min_value=0.01,
-                value=0.01,
+                value=None,
                 step=0.01,
                 format="%.2f",
+                placeholder="e.g. 1452.75",
                 help="Total euros debited from your account (including fees), per your broker confirmation.",
             )
             fees_eur_f = st.number_input(
@@ -257,46 +275,135 @@ def _render_add_form() -> None:
             )
             notes = st.text_input("Notes (optional)", value="")
 
-        shares = Decimal(str(shares_f))
-        eur_total = Decimal(str(eur_total_f))
-        fees_eur = Decimal(str(fees_eur_f))
-
-        # Recording preview (live, above submit)
-        currency = _resolve_currency(resolved, ticker_display, use_as_typed)
-        preview_ok = True
-        if ticker_display and currency is not None and shares > 0 and eur_total > 0:
-            preview_ok = _render_recording_preview(
-                ticker_display, currency, tx_type_str, trade_date, shares, eur_total, fees_eur
-            )
-
-        # Fallback manual fields (shown when price fetch failed)
-        fallback_price: Decimal | None = None
-        fallback_fx: Decimal | None = None
-        fallback_currency: Currency | None = None
-        if not preview_ok or st.session_state.manage_add_fallback:
-            with st.expander("Manual entry (fallback)", expanded=True):
-                fb_currency_str = st.selectbox("Currency", [c.value for c in Currency])
-                fallback_currency = Currency(fb_currency_str)
-                fallback_price = Decimal(str(st.number_input("Native price per share", min_value=0.0001, step=0.01, format="%.4f")))
-                fallback_fx = Decimal(str(st.number_input("FX rate (EUR per 1 native)", min_value=0.000001, value=1.0, step=0.000001, format="%.6f")))
-
-        submitted = st.form_submit_button("Record Transaction", type="primary")
+        submitted = st.form_submit_button("Calculate Preview →", type="primary")
 
     if submitted:
-        _handle_add_submit(
-            ticker=ticker_display,
-            resolved=resolved,
-            use_as_typed=use_as_typed,
-            tx_type_str=tx_type_str,
-            trade_date=trade_date,
-            shares=shares,
-            eur_total=eur_total,
-            fees_eur=fees_eur,
-            notes=notes or None,
-            fallback_price=fallback_price,
-            fallback_fx=fallback_fx,
-            fallback_currency=fallback_currency,
+        currency = _resolve_currency(resolved, ticker_display, use_as_typed)
+        if not ticker_display:
+            st.error("Please search for and select a ticker, or click 'Use as-typed' first.")
+        elif currency is None:
+            st.error(f"Currency for '{ticker_display}' is not yet supported. Contact the developer.")
+        elif eur_total_f is None or eur_total_f <= 0:
+            st.error("Please enter the total EUR paid (the amount debited from your account).")
+        else:
+            st.session_state.manage_add_pending = {
+                "ticker": ticker_display,
+                "resolved": resolved,
+                "use_as_typed": use_as_typed,
+                "tx_type_str": str(tx_type_str),
+                "trade_date": trade_date,
+                "shares": Decimal(str(shares_f)),
+                "eur_total": Decimal(str(eur_total_f)),
+                "fees_eur": Decimal(str(fees_eur_f)),
+                "notes": notes or None,
+                "currency": currency,
+            }
+            st.session_state.manage_add_step = "preview"
+            st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Add form — step 2: Preview + Confirm
+# ---------------------------------------------------------------------------
+
+def _render_add_preview() -> None:
+    pending = st.session_state.manage_add_pending
+    if pending is None:
+        st.session_state.manage_add_step = "fill"
+        st.rerun()
+        return
+
+    ticker: str = pending["ticker"]
+    currency: Currency = pending["currency"]
+    tx_type_str: str = pending["tx_type_str"]
+    trade_date: date = pending["trade_date"]
+    shares: Decimal = pending["shares"]
+    eur_total: Decimal = pending["eur_total"]
+    fees_eur: Decimal = pending["fees_eur"]
+    notes: str | None = pending.get("notes")
+    resolved: TickerMatch | None = pending.get("resolved")
+    use_as_typed: bool = pending.get("use_as_typed", False)
+
+    st.subheader("Preview Transaction")
+    st.caption(
+        f"Reviewing: **{ticker}** — {tx_type_str} {shares:g} share(s) "
+        f"on {format_date(trade_date)} for €{eur_total:.2f}"
+    )
+
+    price_available, deviation_pct = _render_recording_preview(
+        ticker, currency, tx_type_str, trade_date, shares, eur_total, fees_eur
+    )
+
+    st.divider()
+
+    if not price_available:
+        # Fallback: price fetch failed — show manual entry
+        st.markdown("**Enter values manually to proceed:**")
+        fb_currency_str = st.selectbox(
+            "Currency", [c.value for c in Currency], key="_preview_fb_currency"
         )
+        fallback_currency = Currency(fb_currency_str)
+        fallback_price_f = st.number_input(
+            "Native price per share", min_value=0.0001, step=0.01, format="%.4f",
+            key="_preview_fb_price",
+        )
+        fallback_fx_f = st.number_input(
+            "FX rate (EUR per 1 native)", min_value=0.000001, value=1.0,
+            step=0.000001, format="%.6f", key="_preview_fb_fx",
+        )
+        col1, col2 = st.columns([2, 5])
+        with col1:
+            if st.button("Record with manual values", type="primary", key="_preview_confirm_fallback"):
+                _handle_add_submit(
+                    ticker=ticker,
+                    resolved=resolved,
+                    use_as_typed=use_as_typed,
+                    tx_type_str=tx_type_str,
+                    trade_date=trade_date,
+                    shares=shares,
+                    eur_total=eur_total,
+                    fees_eur=fees_eur,
+                    notes=notes,
+                    fallback_price=Decimal(str(fallback_price_f)),
+                    fallback_fx=Decimal(str(fallback_fx_f)),
+                    fallback_currency=fallback_currency,
+                )
+        with col2:
+            if st.button("← Back to edit", key="_preview_back_fallback"):
+                st.session_state.manage_add_step = "fill"
+                st.session_state.manage_add_pending = None
+                st.rerun()
+        return
+
+    # Price is available — show confirm / back buttons
+    _HIGH_DEV = Decimal("10")
+    is_high_dev = deviation_pct is not None and deviation_pct >= _HIGH_DEV
+    if not is_high_dev:
+        st.success("FX check passed — ready to record.")
+
+    confirm_label = "Record anyway" if is_high_dev else "Confirm & Record ✓"
+    col1, col2 = st.columns([2, 5])
+    with col1:
+        if st.button(confirm_label, type="primary", key="_preview_confirm"):
+            _handle_add_submit(
+                ticker=ticker,
+                resolved=resolved,
+                use_as_typed=use_as_typed,
+                tx_type_str=tx_type_str,
+                trade_date=trade_date,
+                shares=shares,
+                eur_total=eur_total,
+                fees_eur=fees_eur,
+                notes=notes,
+                fallback_price=None,
+                fallback_fx=None,
+                fallback_currency=None,
+            )
+    with col2:
+        if st.button("← Back to edit", key="_preview_back"):
+            st.session_state.manage_add_step = "fill"
+            st.session_state.manage_add_pending = None
+            st.rerun()
 
 
 def _handle_add_submit(
@@ -327,7 +434,6 @@ def _handle_add_submit(
 
     try:
         if fallback_price is not None and fallback_fx is not None and fallback_currency is not None:
-            # Manual fallback path
             fees_native = None
             if fees_eur:
                 fees_native = Money(
@@ -359,8 +465,7 @@ def _handle_add_submit(
             tx = tx.model_copy(update={"notes": notes})
 
     except PriceUnavailableError as e:
-        st.session_state.manage_add_fallback = True
-        st.error(f"Could not fetch price for {ticker}: {e}. Use manual entry below.")
+        st.error(f"Could not fetch price for {ticker}: {e}. Use manual entry above.")
         return
     except ValidationError as e:
         st.error(f"Validation error: {e}")
@@ -369,7 +474,6 @@ def _handle_add_submit(
         st.error(f"Unexpected error: {e}")
         return
 
-    # FIFO check for sells
     if tx_type == TransactionType.SELL:
         try:
             existing = get_repository().load_all()
@@ -386,7 +490,6 @@ def _handle_add_submit(
         st.error(f"Failed to save: {e}")
         return
 
-    # Clear caches
     st.cache_data.clear()
     if tx.ticker not in existing_tickers:
         clear_caches(get_price_provider(), get_fx_provider())
@@ -394,7 +497,8 @@ def _handle_add_submit(
     st.session_state.manage_add_query = ""
     st.session_state.manage_add_resolved = None
     st.session_state.manage_add_use_as_typed = False
-    st.session_state.manage_add_fallback = False
+    st.session_state.manage_add_step = "fill"
+    st.session_state.manage_add_pending = None
     st.session_state.manage_feedback = (
         "success",
         f"Recorded {tx_type_str} of {shares:g} {ticker} for €{eur_total:.2f}.",

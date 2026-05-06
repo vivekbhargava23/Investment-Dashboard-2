@@ -559,3 +559,77 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tokens used (rough)
 ~25k
+
+## 2026-05-06 — TICKET-009-revised
+
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~90 min (including context-window continuation)
+**Branch:** ticket-009-revised-eur-native-form
+**PR:** (opening this session)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- New `app/services/trading.py`: `build_transaction()` pure pipeline — EUR-native path
+  (price_per_share from net EUR / shares, fx_rate_eur=1) and non-EUR path (fetch
+  historical close via PriceProvider, back-compute implied FX, deviation check vs ECB).
+  Returns `(Transaction, deviation_pct)` where deviation_pct is None for EUR.
+- Full rewrite of `app/ui/pages/manage.py` (EUR-native form, ADR-005):
+  - Two-step Add flow: Fill → Calculate Preview → Confirm & Record.
+    Preview hidden until explicitly triggered; "Confirm & Record" becomes "Record anyway"
+    if FX deviation ≥ 10%.
+  - Bug fix: "Total EUR paid" defaults to `None` (blank) instead of 0.01; user must
+    type their actual broker debit.
+  - Ticker autocomplete with `TickerResolver.resolve()` + "Use as-typed" escape hatch.
+  - Fallback manual-entry path exposed in the preview step when `PriceUnavailableError`.
+  - Live recording preview in edit form (unchanged — edit flow keeps inline preview).
+  - Edit / Delete table with per-row buttons and inline delete confirmation.
+  - `_init_state`, `_tx_to_form_values`, `_match_label` as pure testable helpers.
+- New `app/ui/wiring.py`: `get_ticker_resolver()` singleton.
+- New `tests/unit/ui/test_manage_form_pipeline.py`: 12 tests for `build_transaction`
+  (EUR/USD/JPY happy paths, cost_eur round-trip, zero fees, deviation warning,
+  graceful on missing ECB rate, FIFO sell guard pass/fail, validator regression).
+- New `tests/unit/ui/test_manage_page.py`: 10 tests for pure helpers
+  (`_init_state` idempotency, `_tx_to_form_values` EUR/USD, `_match_label` formatting).
+- New `tests/integration/test_manage_e2e.py`: 9 tests (add EUR/USD/JPY, three together,
+  edit shares, delete, resolver lookup, manual fallback).
+- Fixed pre-existing test failures caused by TICKET-008c ticker↔currency validator:
+  renamed test tickers in `test_fifo.py` (NVDA → NVDA.DE / SAP.DE / RHM.DE) and
+  `test_valuation.py` (MISSING → NOPRICE.DE) to use EUR-suffixed symbols.
+- New `tests/fixtures/portfolio_legacy_jpy_as_usd.json` for LegacyDataError tests.
+- New `tests/fakes/ticker_resolver.py`: `FakeTickerResolver`.
+
+### Files touched
+- `app/services/trading.py` — new
+- `app/ui/pages/manage.py` — full rewrite (EUR-native two-step form)
+- `app/ui/wiring.py` — get_ticker_resolver() singleton
+- `tests/unit/ui/test_manage_form_pipeline.py` — new
+- `tests/unit/ui/test_manage_page.py` — new
+- `tests/integration/test_manage_e2e.py` — new
+- `tests/fakes/ticker_resolver.py` — new
+- `tests/fixtures/portfolio_legacy_jpy_as_usd.json` — new
+- `tests/unit/domain/test_fifo.py` — ticker renames (EUR-suffix fix)
+- `tests/unit/services/test_valuation.py` — ticker rename (EUR-suffix fix)
+- `tests/unit/ui/test_html_helper.py` — import fix (app.ui.html → app.ui.render)
+- `docs/TICKETS/TICKET-009-revised-eur-native-form.md` — status IN_REVIEW
+
+### Tests
+140 passing → 161 passing (21 new)
+
+### Decisions made during the session
+- Two-step submit (Fill → Preview → Confirm) chosen over live preview to prevent
+  accidental submissions before the user has verified the FX back-computation.
+- `build_transaction` placed in `app/services/` (pure, no Streamlit) so it is
+  fully unit-testable without a Streamlit context.
+- Fallback manual-entry exposed in preview step (not fill step) to keep the happy
+  path clean; only surfaced when yfinance price fetch actually fails.
+- Deviation threshold for button-label change: ≥10% → "Record anyway";
+  >2% → warning shown inline (both thresholds tunable without tests).
+- `eur_total value=None` (blank) is correct UX; 0.01 was a Streamlit default
+  artefact that had no relation to any real transaction amount.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~120k (two context windows)
