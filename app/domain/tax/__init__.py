@@ -8,6 +8,8 @@ from app.domain.tax.classification import (
 from app.domain.tax.engine import compute_tax_year_summary
 from app.domain.tax.models import (
     FilingStatus,
+    HarvestImpact,
+    HarvestImpactReport,
     LossPotState,
     TaxImpact,
     TaxProfile,
@@ -21,6 +23,8 @@ __all__ = [
     "TaxImpact",
     "LossPotState",
     "TaxProfile",
+    "HarvestImpact",
+    "HarvestImpactReport",
     "InstrumentKind",
     "FilingStatus",
     "InstrumentClassificationError",

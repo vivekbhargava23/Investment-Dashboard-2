@@ -5,13 +5,15 @@ from typing import Literal
 
 import streamlit as st
 
-from app.domain.models import Transaction
 from app.domain.positions import LivePosition, PortfolioSummary
+from app.domain.tax.models import TaxProfile, TaxYearSummary
+from app.services.tax_planning import compute_current_tax_summary
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
+from app.ui.cache_keys import transactions_signature
 from app.ui.components.badges import render_thesis_badge
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
-from app.ui.wiring import get_fx_provider, get_price_provider, get_repository
+from app.ui.wiring import get_fx_provider, get_price_provider, get_repository, get_tax_profile_repo
 
 _PLACEHOLDER_THESIS_STATUS: dict[str, Literal["intact", "watch", "broken"]] = {
     "NVDA": "intact", "RHM.DE": "intact", "MU": "intact", "HY9H.F": "intact",
@@ -31,22 +33,36 @@ _PLACEHOLDER_NAME: dict[str, str] = {
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def _cached_live_positions(transactions_signature: str) -> dict[str, LivePosition]:
+def _cached_live_positions(tx_sig: str) -> dict[str, LivePosition]:
     transactions = get_repository().load_all()
     return compute_live_positions(transactions, get_price_provider(), get_fx_provider())
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def _cached_summary(transactions_signature: str, as_of_iso: str) -> PortfolioSummary:
-    live_positions = _cached_live_positions(transactions_signature)
+def _cached_portfolio_summary(tx_sig: str, as_of_iso: str) -> PortfolioSummary:
+    live_positions = _cached_live_positions(tx_sig)
     return compute_portfolio_summary(live_positions, datetime.fromisoformat(as_of_iso))
 
 
-def _transactions_signature(transactions: list[Transaction]) -> str:
-    if not transactions:
-        return "empty"
-    sorted_ids = sorted(str(tx.id) for tx in transactions)
-    return f"{len(transactions)}:{sorted_ids[-1]}"
+@st.cache_data(ttl=60, show_spinner=False)
+def _cached_tax_summary_for_overview(tx_sig: str, year: int) -> TaxYearSummary | None:
+    try:
+        repo = get_tax_profile_repo()
+        doc = repo.load()
+        inputs = doc.inputs_for_year(year)
+        profile = TaxProfile(filing_status=doc.filing_status)
+        txs = get_repository().load_all()
+        return compute_current_tax_summary(
+            transactions=txs,
+            profile=profile,
+            carryforward_eur_aktien=inputs.carryforward_aktien_eur,
+            carryforward_eur_general=inputs.carryforward_general_eur,
+            additional_dividend_income_eur=inputs.additional_dividend_income_eur,
+            additional_interest_income_eur=inputs.additional_interest_income_eur,
+            as_of=datetime(year, 12, 31),
+        )
+    except Exception:
+        return None
 
 
 def _build_positions_table_html(
@@ -142,12 +158,13 @@ def _build_positions_table_html(
 def render() -> None:
     repo = get_repository()
     transactions = repo.load_all()
-    sig = _transactions_signature(transactions)
+    sig = transactions_signature(transactions)
     now = datetime.now()
     now_iso = now.isoformat()
 
     live_positions = _cached_live_positions(sig)
-    summary = _cached_summary(sig, now_iso)
+    summary = _cached_portfolio_summary(sig, now_iso)
+    tax_summary = _cached_tax_summary_for_overview(sig, now.year)
 
     cost_basis_eur = format_eur(summary.total_cost_basis_eur)
     ur_gain = summary.total_unrealised_gain_eur.amount
@@ -215,21 +232,21 @@ def render() -> None:
             </div>
             <div class="metric-card">
                 <div class="metric-label">Sparerpauschbetrag</div>
-                <div class="metric-value sm">€0,00</div>
+                <div class="metric-value sm">{format_eur(tax_summary.sparerpauschbetrag_consumed_eur) if tax_summary else "—"}</div>
                 <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">
-                    used of €1.000,00 (Wired in TICKET-010)
+                    {"used of " + format_eur(tax_summary.sparerpauschbetrag_total_eur) if tax_summary else "Tax profile unavailable"}
                 </div>
             </div>
             <div class="metric-card">
                 <div class="metric-label">Tax Headroom</div>
-                <div class="metric-value sm">€1.000,00</div>
+                <div class="metric-value sm gain-positive">{format_eur(tax_summary.sparerpauschbetrag_remaining_eur + tax_summary.aktien_pot.remaining_carryforward_eur + tax_summary.general_pot.remaining_carryforward_eur) if tax_summary else "—"}</div>
                 <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">
-                    Wired in TICKET-010
+                    {"gain you can realise tax-free" if tax_summary else ""}
                 </div>
             </div>
         </div>
         <div style="width: 100%; height: 4px; background: var(--surface2); border-radius: 2px; margin-bottom: 24px; overflow: hidden;">
-            <div style="width: 0%; height: 100%; background: var(--green);"></div>
+            <div style="width: {min(100.0, float(tax_summary.sparerpauschbetrag_consumed_eur.amount / tax_summary.sparerpauschbetrag_total_eur.amount * 100)) if tax_summary and tax_summary.sparerpauschbetrag_total_eur.amount > 0 else 0:.1f}%; height: 100%; background: var(--green);"></div>
         </div>
     """)
 

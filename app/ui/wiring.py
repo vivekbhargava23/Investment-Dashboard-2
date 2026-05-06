@@ -2,11 +2,13 @@ from functools import lru_cache
 from pathlib import Path
 
 from app.adapters.repo_json import JsonTransactionRepository
+from app.adapters.repo_json.tax_profile_repo import JsonTaxProfileRepository
 from app.adapters.yfinance_feed import YfinanceAdapter
 from app.config import get_settings
 from app.ports.fx_feed import FxProvider
 from app.ports.price_feed import PriceProvider
 from app.ports.repository import TransactionRepository
+from app.ports.tax_profile_repo import TaxProfileRepository
 from app.ports.ticker_resolver import TickerResolver
 
 
@@ -14,6 +16,12 @@ from app.ports.ticker_resolver import TickerResolver
 def get_repository() -> TransactionRepository:
     settings = get_settings()
     return JsonTransactionRepository(Path(settings.portfolio_json_path))
+
+
+@lru_cache(maxsize=1)
+def get_tax_profile_repo() -> TaxProfileRepository:
+    settings = get_settings()
+    return JsonTaxProfileRepository(Path(settings.tax_profile_json_path))
 
 
 @lru_cache(maxsize=1)
