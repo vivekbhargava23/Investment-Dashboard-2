@@ -27,7 +27,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | TICKET-009 | Manage Portfolio page (original spec — superseded by 009-revised) | CLOSED | P1 | 2 hr |
 | TICKET-008c | Currency-correctness audit + JPY support + data migration | MERGED | P0 | 1.5 – 2 hr |
 | TICKET-020 | TickerResolver port + yfinance adapter | IN_REVIEW | P1 | 1.5 – 2 hr |
-| TICKET-009-revised | Manage Portfolio page (EUR-native input) | DRAFT | P1 | 3 – 3.5 hr |
+| TICKET-009-revised | Manage Portfolio page (EUR-native input) | IN_REVIEW | P1 | 3 – 3.5 hr |
 
 ## Phase 2 — Tax & decisions
 
