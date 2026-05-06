@@ -86,6 +86,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-009-revised — Manage Portfolio page (EUR-native input, two-step form) (PR #21)
 - TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstöpfe, Teilfreistellung, Abgeltungsteuer) (PR #22)
 - TICKET-011 — Tax Dashboard page (YTD tiles, harvest opportunity, tax exposure, profile editor) (PR #23)
+- TICKET-012 — Pre-trade sell simulator (FIFO lot preview + tax impact + portfolio impact)
 
 
 ### In review 👀
@@ -98,7 +99,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-012 — Pre-trade sell simulator (FIFO lot preview + tax impact + portfolio impact) (P1)
+- (none currently, check BACKLOG.md)
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 

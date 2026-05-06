@@ -46,7 +46,10 @@ def compute_positions(transactions: Sequence[Transaction]) -> dict[str, Position
                 )
             )
         elif tx.type == TransactionType.SELL:
-            gains = _consume_from_lots(ticker_queues[tx.ticker], tx.shares, tx)
+            gains, remaining_lots = simulate_lot_consumption(
+                tuple(ticker_queues[tx.ticker]), tx.shares, tx
+            )
+            ticker_queues[tx.ticker] = deque(remaining_lots)
             ticker_realised_gains[tx.ticker].extend(gains)
 
     # Convert queues to Position objects
@@ -105,7 +108,10 @@ def compute_realised_gains(transactions: Sequence[Transaction]) -> list[Realised
                 )
             )
         elif tx.type == TransactionType.SELL:
-            gains = _consume_from_lots(ticker_queues[tx.ticker], tx.shares, tx)
+            gains, remaining_lots = simulate_lot_consumption(
+                tuple(ticker_queues[tx.ticker]), tx.shares, tx
+            )
+            ticker_queues[tx.ticker] = deque(remaining_lots)
             all_gains.extend(gains)
 
     # The processing already produces gains in chronological order because we process
@@ -127,29 +133,31 @@ def _sort_transactions(transactions: Sequence[Transaction]) -> list[Transaction]
     )
 
 
-def _consume_from_lots(
-    lot_queue: deque[OpenLot], shares_to_consume: Decimal, sell_tx: Transaction
-) -> list[RealisedGain]:
+def simulate_lot_consumption(
+    open_lots: tuple[OpenLot, ...], shares_to_sell: Decimal, sell_tx: Transaction
+) -> tuple[list[RealisedGain], tuple[OpenLot, ...]]:
     """
-    Consumes shares from the oldest lots in the queue using FIFO.
+    Consumes shares from the given lots using FIFO, returning the realised gains
+    and the remaining open lots without modifying the inputs.
     """
-    open_shares = sum((lot.remaining_shares for lot in lot_queue), Decimal("0"))
-    if shares_to_consume > open_shares:
+    open_shares = sum((lot.remaining_shares for lot in open_lots), Decimal("0"))
+    if shares_to_sell > open_shares:
         raise SellExceedsOpenSharesError(
-            f"Sell of {shares_to_consume} {sell_tx.ticker} on {sell_tx.trade_date} "
+            f"Sell of {shares_to_sell} {sell_tx.ticker} on {sell_tx.trade_date} "
             f"exceeds open position of {open_shares} shares (transaction {sell_tx.id})"
         )
 
     gains: list[RealisedGain] = []
-    remaining_to_sell = shares_to_consume
+    remaining_to_sell = shares_to_sell
+    remaining_lots: list[OpenLot] = []
 
-    while remaining_to_sell > 0:
-        lot = lot_queue.popleft()
-        
-        # Determine how many shares to take from this lot
+    for lot in open_lots:
+        if remaining_to_sell <= 0:
+            remaining_lots.append(lot)
+            continue
+
         shares_from_this_lot = min(lot.remaining_shares, remaining_to_sell)
         
-        # Create RealisedGain record
         proceeds_eur_amount = (
             shares_from_this_lot * sell_tx.price_native.amount * sell_tx.fx_rate_eur
         )
@@ -175,11 +183,10 @@ def _consume_from_lots(
         
         remaining_to_sell -= shares_from_this_lot
         
-        # If lot not fully consumed, put back the remainder
         if lot.remaining_shares > shares_from_this_lot:
             updated_lot = lot.model_copy(
                 update={"remaining_shares": lot.remaining_shares - shares_from_this_lot}
             )
-            lot_queue.appendleft(updated_lot)
+            remaining_lots.append(updated_lot)
 
-    return gains
+    return gains, tuple(remaining_lots)

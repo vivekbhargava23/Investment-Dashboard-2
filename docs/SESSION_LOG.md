@@ -748,3 +748,17 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tokens used (rough)
 ~100k
+
+
+## 2026-05-06 — Implement TICKET-012 (Sell Simulator)
+
+### What I did
+- Implemented `simulate_lot_consumption` in domain/fifo.py.
+- Added `MarginalTaxImpact` model and `compute_marginal_tax_for_realised_gains` in services/tax_planning.py.
+- Built the `sell_simulator.py` service to orchestrate FIFO and Tax impact calculations.
+- Added tests for `sell_simulator.py`.
+- Built `render_sell_simulator` UI component and the Simulator page.
+- Registered the Simulator page in sidebar and topbar.
+
+### Why I did it
+- To allow the user to test the tax and portfolio impact of selling a position before doing it in reality (TICKET-012).

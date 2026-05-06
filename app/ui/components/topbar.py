@@ -12,12 +12,12 @@ PAGE_TITLES: dict[str, str] = {
     "analytics": "Analytics & Risk",
     "performance": "Performance",
     "tax": "Tax Dashboard",
+    "simulator": "Simulator",
     "decision": "Decision Gates",
     "behaviour": "Behavioural Ledger",
     "lots": "Lot Ledger",
     "manage": "Manage Portfolio",
 }
-
 def _handle_refresh() -> None:
     clear_caches(get_price_provider(), get_fx_provider())
     st.cache_data.clear()

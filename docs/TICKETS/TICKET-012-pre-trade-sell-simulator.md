@@ -1,10 +1,10 @@
 # TICKET-012 — Pre-trade sell simulator (FIFO lot preview + tax impact + portfolio impact)
 
-**Status:** DRAFT
+**Status:** DONE
 **Priority:** P1
 **Estimated session length:** 2.5 – 3 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-04)
-**Implemented by:** _pending_
+**Implemented by:** Claude Code (2026-05-06)
 **Depends on:** TICKETs 001 (domain), 002 (FIFO + RealisedGain), 003 (repo), 006 (valuation), 007 (UI shell), 008 (Live Overview), 008c (currency correctness), 009-revised (Manage Portfolio), **010 (tax engine)**, **011 (Tax Dashboard service layer)**.
 
 > **After this ticket merges, the user can answer "what happens if I sell N shares of X right now?" without typing a real transaction.** The answer covers (a) which FIFO lots get consumed, (b) the realised gain in EUR, (c) the marginal tax bill, (d) the post-sell Sparerpauschbetrag state, and (e) the portfolio weight change. All before any data is written.

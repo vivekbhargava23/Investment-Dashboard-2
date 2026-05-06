@@ -141,6 +141,38 @@ class HarvestImpact(BaseModel):
         return self
 
 
+class MarginalTaxImpact(BaseModel):
+    """Incremental tax effect of a hypothetical set of transactions."""
+
+    model_config = ConfigDict(frozen=True)
+
+    before_summary: TaxYearSummary
+    after_summary: TaxYearSummary
+    marginal_taxable_gain_eur: Money
+    marginal_allowance_consumed_eur: Money
+    marginal_aktien_carryforward_change_eur: Money
+    marginal_general_carryforward_change_eur: Money
+    marginal_abgeltungsteuer_eur: Money
+    marginal_solidaritaetszuschlag_eur: Money
+    marginal_total_tax_owed_eur: Money
+
+    @model_validator(mode="after")
+    def validate_all_eur(self) -> MarginalTaxImpact:
+        for field_name in (
+            "marginal_taxable_gain_eur",
+            "marginal_allowance_consumed_eur",
+            "marginal_aktien_carryforward_change_eur",
+            "marginal_general_carryforward_change_eur",
+            "marginal_abgeltungsteuer_eur",
+            "marginal_solidaritaetszuschlag_eur",
+            "marginal_total_tax_owed_eur",
+        ):
+            val: Money = getattr(self, field_name)
+            if val.currency != _EUR:
+                raise ValueError(f"{field_name} must be EUR")
+        return self
+
+
 class HarvestImpactReport(BaseModel):
     """Output of compute_per_position_harvest_impact."""
 

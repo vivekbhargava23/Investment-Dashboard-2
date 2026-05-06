@@ -1,4 +1,9 @@
-from app.domain.fifo import SellExceedsOpenSharesError, compute_positions, compute_realised_gains
+from app.domain.fifo import (
+    SellExceedsOpenSharesError,
+    compute_positions,
+    compute_realised_gains,
+    simulate_lot_consumption,
+)
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, CurrencyMismatchError, Money
 from app.domain.positions import LivePosition, OpenLot, PortfolioSummary, Position
@@ -31,6 +36,7 @@ __all__ = [
     "RealisedGain",
     "compute_positions",
     "compute_realised_gains",
+    "simulate_lot_consumption",
     "SellExceedsOpenSharesError",
     "infer_currency_from_ticker",
     "UnsupportedTickerError",

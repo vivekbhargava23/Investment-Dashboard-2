@@ -21,6 +21,7 @@ from app.domain.tax.engine import compute_tax_year_summary
 from app.domain.tax.models import (
     HarvestImpact,
     HarvestImpactReport,
+    MarginalTaxImpact,
     TaxProfile,
     TaxYearSummary,
 )
@@ -28,6 +29,53 @@ from app.domain.tax.pipeline import TaxYearLedger, run_pipeline
 from app.domain.tax.rates import RATES_BY_YEAR, UnsupportedTaxYearError
 
 _EUR = Currency.EUR
+
+
+def compute_marginal_tax_for_realised_gains(
+    current_transactions: Sequence[Transaction],
+    proposed_sell: Transaction,
+    profile: TaxProfile,
+    carryforward_eur_aktien: Money,
+    carryforward_eur_general: Money,
+    additional_dividend_income_eur: Money,
+    additional_interest_income_eur: Money,
+) -> MarginalTaxImpact:
+    """Compute the marginal tax impact of a hypothetical sell transaction."""
+    year = proposed_sell.trade_date.year
+    if year not in RATES_BY_YEAR:
+        raise UnsupportedTaxYearError(f"Tax year {year} is not configured.")
+
+    before_summary = compute_tax_year_summary(
+        year=year,
+        transactions=current_transactions,
+        profile=profile,
+        prior_year_aktien_carryforward_eur=carryforward_eur_aktien,
+        prior_year_general_carryforward_eur=carryforward_eur_general,
+        additional_dividend_income_eur=additional_dividend_income_eur,
+        additional_interest_income_eur=additional_interest_income_eur,
+    )
+
+    after_summary = compute_tax_year_summary(
+        year=year,
+        transactions=list(current_transactions) + [proposed_sell],
+        profile=profile,
+        prior_year_aktien_carryforward_eur=carryforward_eur_aktien,
+        prior_year_general_carryforward_eur=carryforward_eur_general,
+        additional_dividend_income_eur=additional_dividend_income_eur,
+        additional_interest_income_eur=additional_interest_income_eur,
+    )
+
+    return MarginalTaxImpact(
+        before_summary=before_summary,
+        after_summary=after_summary,
+        marginal_taxable_gain_eur=after_summary.taxable_after_allowance_eur - before_summary.taxable_after_allowance_eur,
+        marginal_allowance_consumed_eur=after_summary.sparerpauschbetrag_consumed_eur - before_summary.sparerpauschbetrag_consumed_eur,
+        marginal_aktien_carryforward_change_eur=after_summary.aktien_pot.remaining_carryforward_eur - before_summary.aktien_pot.remaining_carryforward_eur,
+        marginal_general_carryforward_change_eur=after_summary.general_pot.remaining_carryforward_eur - before_summary.general_pot.remaining_carryforward_eur,
+        marginal_abgeltungsteuer_eur=after_summary.abgeltungsteuer_eur - before_summary.abgeltungsteuer_eur,
+        marginal_solidaritaetszuschlag_eur=after_summary.solidaritaetszuschlag_eur - before_summary.solidaritaetszuschlag_eur,
+        marginal_total_tax_owed_eur=after_summary.total_tax_owed_eur - before_summary.total_tax_owed_eur,
+    )
 
 
 def compute_current_tax_summary(
