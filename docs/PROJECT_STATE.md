@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-06 by Claude Code (TICKET-011 in review)
+**Last updated:** 2026-05-06 by Claude Code (TICKET-011 merged)
 
 ---
 
@@ -87,8 +87,9 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstöpfe, Teilfreistellung, Abgeltungsteuer) (PR #22)
 - TICKET-011 — Tax Dashboard page (YTD tiles, harvest opportunity, tax exposure, profile editor) (PR #23)
 
+
 ### In review 👀
-- TICKET-011 — Tax Dashboard page (PR #23)
+- (none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
