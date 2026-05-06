@@ -34,7 +34,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | ID | Title | Status | Priority | Est |
 |---|---|---|---|---|
 | TICKET-010 | Tax engine (Sparerpauschbetrag, Verlustverrechnungstopf, Teilfreistellung, Abgeltungsteuer) | MERGED | P1 | 2.5 – 3.5 hr |
-| TICKET-011 | Tax Dashboard page (Sparerpauschbetrag tracker, harvest opportunity, tax exposure) | IN_REVIEW | P1 | 2 – 2.5 hr |
+| TICKET-011 | Tax Dashboard page (Sparerpauschbetrag tracker, harvest opportunity, tax exposure) | MERGED | P1 | 2 – 2.5 hr |
 | TICKET-012 | Pre-trade sell simulator (FIFO lot preview + tax impact + portfolio impact) | DRAFT | P1 | 2.5 – 3 hr |
 
 ## Phase 3 — Performance & history
