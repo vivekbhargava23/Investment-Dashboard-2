@@ -677,3 +677,74 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tokens used (rough)
 ~80k
+
+## 2026-05-06 14:30 — TICKET-011
+
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~90 min
+**Branch:** ticket-011-tax-dashboard
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `HarvestImpact`, `HarvestImpactReport` to `app/domain/tax/models.py`
+- Added `current_year_losses_unconsumed_eur` property to `LossPotState`
+- Created `app/ports/tax_profile_repo.py` — `TaxProfileRepository` Protocol, `TaxProfileDocument`, `YearlyTaxInputs`
+- Created `app/adapters/repo_json/tax_profile_repo.py` — `JsonTaxProfileRepository` (atomic write, legacy version detection)
+- Created `app/services/tax_planning.py` — three pure service functions:
+  `compute_current_tax_summary`, `compute_per_position_harvest_impact`, `compute_tax_if_full_liquidation`
+- Created `app/ui/cache_keys.py` — factored `transactions_signature` + added `file_mtime_key`
+- Built Tax Dashboard page (`app/ui/pages/tax.py`): YTD tiles, Sparerpauschbetrag progress bar,
+  total tax exposure section, harvest opportunity table (sequential), loss harvesting table,
+  edit tax profile expander with Steuerbescheid guidance
+- Wired Sparerpauschbetrag and Tax Headroom tiles on Live Overview (removed hardcoded TICKET-010 placeholders)
+- Added `tax_profile_json_path` to `app/config.py` and `Settings`
+- Added `get_tax_profile_repo()` lazy singleton to `app/ui/wiring.py`
+- Added `.tax-progress-wrap` and `.harvest-table` CSS classes to `dark.css`
+- Created `.env.example` (was missing from repo), added `data/tax_profile.json` to `.gitignore`
+- Created `tests/fixtures/tax_profile_legacy_v0.json` for legacy version rejection test
+- 12 new unit tests: 7 service tests, 5 UI helper tests
+- 2 integration test files (skipped without `--run-integration` flag)
+
+### Files touched
+- `app/domain/tax/models.py` — added HarvestImpact, HarvestImpactReport, LossPotState property
+- `app/domain/tax/__init__.py` — re-exported new types
+- `app/ports/tax_profile_repo.py` — new
+- `app/adapters/repo_json/tax_profile_repo.py` — new
+- `app/config.py` — tax_profile_json_path setting
+- `app/services/tax_planning.py` — new
+- `app/ui/cache_keys.py` — new
+- `app/ui/pages/tax.py` — full implementation (was stub)
+- `app/ui/pages/overview.py` — wire two tiles; use transactions_signature from cache_keys
+- `app/ui/styles/dark.css` — .tax-progress-wrap, .harvest-table
+- `app/ui/wiring.py` — get_tax_profile_repo()
+- `.env.example` — new
+- `.gitignore` — data/tax_profile.json
+- `tests/unit/services/test_tax_planning.py` — new
+- `tests/unit/ui/test_tax_page_helpers.py` — new
+- `tests/integration/test_tax_profile_repo.py` — new
+- `tests/integration/test_tax_dashboard_e2e.py` — new
+- `tests/fixtures/tax_profile_legacy_v0.json` — new
+- `tests/unit/ui/test_overview_helpers.py` — updated import to cache_keys
+- `docs/TICKETS/TICKET-011-tax-dashboard-page.md` — status → IN_REVIEW
+
+### Tests
+211 passing → 223 passing (12 new)
+
+### Decisions made during the session
+- `compute_per_position_harvest_impact` takes `transactions` + `as_of` in addition to `current_summary`
+  because the engine computes FIFO gains from transactions internally; there's no way to reconstruct
+  the per-gain breakdown from the summary alone without duplicating pipeline logic.
+- `compute_headroom` uses `remaining_carryforward_eur` from each pot (not `prior_year_carryforward + unconsumed_current_losses`)
+  because they are mathematically equivalent and simpler. The property `current_year_losses_unconsumed_eur`
+  is added to `LossPotState` for completeness but is not used in the headroom formula.
+- Test case for headroom with "mixed components" redesigned from ticket spec: the ticket's described
+  scenario (€400 allowance remaining + €300 aktien pot + €200 general pot intact) is not achievable
+  with the current engine pipeline (carryforward is consumed before allowance). Used a correct equivalent.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~100k
