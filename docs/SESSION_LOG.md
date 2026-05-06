@@ -633,3 +633,47 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tokens used (rough)
 ~120k (two context windows)
+
+---
+
+## 2026-05-06 14:00 — TICKET-010
+
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~90 min
+**Branch:** ticket-010-tax-engine
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created `app/domain/tax/` sub-package with 6 files:
+  - `classification.py` — `InstrumentKind` enum + `TICKER_KIND` table (12 seed tickers) + `classify_instrument` (raises loudly on unknown)
+  - `rates.py` — `TaxYearRates`, `TAX_RATES_2025`, `TAX_RATES_2026`, `RATES_BY_YEAR`, `UnsupportedTaxYearError`
+  - `models.py` — `FilingStatus`, `TaxProfile`, `TaxImpact`, `LossPotState`, `TaxYearSummary` (all frozen Pydantic)
+  - `pipeline.py` — internal `TaxYearLedger` dataclass + 8 ordered pipeline steps enforcing §20 EStG rule sequence
+  - `engine.py` — `compute_tax_year_summary` (pure, referentially transparent)
+  - `CLAUDE.md` — per-module rules
+- Extended `app/domain/__init__.py` to re-export tax public API
+- Created 50 unit tests across 5 test files in `tests/unit/domain/tax/`
+- Created `tests/fixtures/tax/nrw_aktienfonds_2024.json`
+
+### Files touched
+- `app/domain/tax/` — entire sub-package (new)
+- `app/domain/__init__.py` — added tax re-exports
+- `tests/unit/domain/tax/` — 5 test files (new)
+- `tests/fixtures/tax/nrw_aktienfonds_2024.json` — new
+- `docs/TICKETS/TICKET-010-tax-engine.md` — status → IN_REVIEW
+
+### Tests
+161 passing → 211 passing (50 new)
+
+### Decisions made during the session
+- No architectural decisions required beyond what was drafted in the ticket spec.
+- `TaxYearLedger` is a mutable dataclass (not frozen) since it is internal-only; pipeline steps mutate and return it.
+- Tests import private pipeline functions (`_apply_*`) directly — acceptable since these functions are the primary test surface; the tests are in `tests/unit/domain/tax/` not in production code.
+
+### Out-of-scope items noticed
+- `tests/unit/domain/tax/test_known_scenarios.py::test_loss_pot_firewall_worked_example` uses TaxImpact with `teilfreistellung_pct=0.00` on an AKTIENFONDS to get an exact -€1000 taxable amount. This is a test construct only; in production, the classifier + rates always compute the correct percentage.
+
+### Tokens used (rough)
+~80k
