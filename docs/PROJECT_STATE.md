@@ -85,10 +85,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-020 — TickerResolver port + yfinance adapter (PR #20)
 - TICKET-009-revised — Manage Portfolio page (EUR-native input, two-step form) (PR #21)
 - TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstöpfe, Teilfreistellung, Abgeltungsteuer) (PR #22)
-- TICKET-011 — Tax Dashboard page (YTD tiles, harvest opportunity, tax exposure, profile editor) (PR pending)
+- TICKET-011 — Tax Dashboard page (YTD tiles, harvest opportunity, tax exposure, profile editor) (PR #23)
 
 ### In review 👀
-- TICKET-011 — Tax Dashboard page (PR pending)
+- TICKET-011 — Tax Dashboard page (PR #23)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
