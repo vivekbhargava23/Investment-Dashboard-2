@@ -1,0 +1,8 @@
+{
+  "description": "NRW Finanzamt Aktienfonds example (§ 20 InvStG Teilfreistellung)",
+  "year": 2024,
+  "gross_gain_eur": "900.00",
+  "instrument_kind": "AKTIENFONDS",
+  "expected_teilfreistellung_pct": "0.30",
+  "expected_taxable_gain_eur": "630.00"
+}
