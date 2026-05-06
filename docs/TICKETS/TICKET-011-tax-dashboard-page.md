@@ -1,10 +1,10 @@
 # TICKET-011 — Tax Dashboard page (Sparerpauschbetrag tracker, harvest opportunity, tax exposure)
 
-**Status:** DRAFT
+**Status:** IN_REVIEW
 **Priority:** P1
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-04)
-**Implemented by:** _pending_
+**Implemented by:** Claude Code (session 2026-05-06)
 **Depends on:** TICKETs 001 (domain), 002 (FIFO), 003 (repo), 006 (valuation), 007 (UI shell), 008 (Live Overview seeding + render_html), 008c (currency correctness), **010 (tax engine)**.
 
 > **After this ticket merges, the user has a dedicated page that answers: "what is my 2026 tax bill, where is my Sparerpauschbetrag headroom, and which positions could I sell tax-free today?"** The placeholder Sparerpauschbetrag/Tax-Headroom tiles on Live Overview also stop being hardcoded and start reading the real engine output.
