@@ -10,6 +10,8 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from app.domain.money import Currency, Money
 from app.domain.tax.classification import InstrumentKind
 
+_EUR = Currency.EUR
+
 
 class FilingStatus(StrEnum):
     """German Veranlagungsform for Sparerpauschbetrag purposes."""
@@ -99,6 +101,53 @@ class LossPotState(BaseModel):
         if self.taxable_after_offset_eur.amount < Decimal("0"):
             raise ValueError("taxable_after_offset_eur cannot be negative")
         return self
+
+    @property
+    def current_year_losses_unconsumed_eur(self) -> Money:
+        """Portion of current-year losses not consumed against gains.
+
+        May be negative when prior-year carryforward was also consumed.
+        Always: prior_year_carryforward + current_year_losses_unconsumed == remaining_carryforward.
+        """
+        return self.current_year_losses_eur - self.consumed_against_gains_eur
+
+
+class HarvestImpact(BaseModel):
+    """Per-position incremental tax impact if that position were fully liquidated today."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ticker: str
+    instrument_kind: InstrumentKind
+    unrealised_gain_eur: Money
+    taxable_gain_after_teilfreistellung_eur: Money
+    incremental_tax_eur: Money
+    incremental_soli_eur: Money
+    total_incremental_eur: Money
+    is_fully_sheltered: bool
+
+    @model_validator(mode="after")
+    def validate_all_eur(self) -> HarvestImpact:
+        for field_name in (
+            "unrealised_gain_eur",
+            "taxable_gain_after_teilfreistellung_eur",
+            "incremental_tax_eur",
+            "incremental_soli_eur",
+            "total_incremental_eur",
+        ):
+            val: Money = getattr(self, field_name)
+            if val.currency != _EUR:
+                raise ValueError(f"{field_name} must be EUR")
+        return self
+
+
+class HarvestImpactReport(BaseModel):
+    """Output of compute_per_position_harvest_impact."""
+
+    model_config = ConfigDict(frozen=True)
+
+    impacts: dict[str, HarvestImpact]
+    stale_tickers: tuple[str, ...]
 
 
 class TaxYearSummary(BaseModel):

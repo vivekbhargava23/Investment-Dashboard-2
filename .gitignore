@@ -139,4 +139,5 @@ data/*
 !data/.gitkeep
 data/*.json.pre-tx-migration
 data/*.backup-*
+data/tax_profile.json
 .env
