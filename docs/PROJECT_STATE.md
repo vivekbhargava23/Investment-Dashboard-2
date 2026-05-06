@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-06 by Claude Code (TICKET-010 in review)
+**Last updated:** 2026-05-06 by Claude Code (TICKET-010 merged)
 
 ---
 
@@ -84,10 +84,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-008c — Currency enum JPY, ticker↔currency validator, LegacyDataError, migration script (PR #19)
 - TICKET-020 — TickerResolver port + yfinance adapter (PR #20)
 - TICKET-009-revised — Manage Portfolio page (EUR-native input, two-step form) (PR #21)
-- TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstöpfe, Teilfreistellung, Abgeltungsteuer) — in review
+- TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstöpfe, Teilfreistellung, Abgeltungsteuer) (PR #22)
 
 ### In review 👀
-- TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstöpfe, Teilfreistellung, Abgeltungsteuer)
+- (none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.

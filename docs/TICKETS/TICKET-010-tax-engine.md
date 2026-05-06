@@ -1,6 +1,6 @@
 # TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstopf, Teilfreistellung, Abgeltungsteuer)
 
-**Status:** IN_REVIEW
+**Status:** MERGED
 **Priority:** P1
 **Estimated session length:** 2.5 – 3.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-04)
