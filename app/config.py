@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     alpha_vantage_api_key: str | None = None
     app_env: str = "local"
     portfolio_json_path: str = "data/portfolio.json"
+    tax_profile_json_path: str = "data/tax_profile.json"
 
 
 def get_settings() -> Settings:

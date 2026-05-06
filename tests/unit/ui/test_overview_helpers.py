@@ -3,7 +3,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from app.domain.models import Currency, Money, Transaction
-from app.ui.pages.overview import _transactions_signature
+from app.ui.cache_keys import transactions_signature as _transactions_signature
 
 
 def test_transactions_signature_deterministic():

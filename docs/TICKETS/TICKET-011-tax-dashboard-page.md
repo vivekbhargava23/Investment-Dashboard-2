@@ -1,6 +1,6 @@
 # TICKET-011 — Tax Dashboard page (Sparerpauschbetrag tracker, harvest opportunity, tax exposure)
 
-**Status:** DRAFT
+**Status:** IN_PROGRESS
 **Priority:** P1
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-04)
