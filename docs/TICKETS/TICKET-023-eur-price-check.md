@@ -1,6 +1,6 @@
 # TICKET-023 — Price sanity check for EUR-denominated and unsupported-suffix tickers
 
-**Status:** IN_REVIEW
+**Status:** MERGED
 **Priority:** P0
 **Estimated session length:** 1 – 1.5 hr
 **Drafted by:** Claude Code (bug investigation 2026-05-07)
