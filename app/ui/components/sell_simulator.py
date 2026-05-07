@@ -14,6 +14,7 @@ from decimal import Decimal
 import streamlit as st
 
 from app.domain.money import Currency, Money
+from app.domain.positions import LivePosition
 from app.domain.tax.models import TaxProfile
 from app.ports.tax_profile_repo import TaxProfileDocument
 from app.services.sell_simulator import (
@@ -31,6 +32,13 @@ from app.ui.wiring import (
     get_tax_profile_repo,
     get_ticker_resolver,
 )
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _live_positions_cached(tx_ids: tuple[str, ...]) -> dict[str, LivePosition]:
+    """Compute live positions once per transaction set within the price TTL."""
+    transactions = get_repository().load_all()
+    return compute_live_positions(transactions, get_price_provider(), get_fx_provider())
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -198,7 +206,16 @@ def _render_position_after(sim: SellSimulation) -> None:
 def render_sell_simulator(default_ticker: str | None = None) -> None:
     """Render the embeddable sell simulator panel."""
     transactions = get_repository().load_all()
-    live_positions = compute_live_positions(transactions, get_price_provider(), get_fx_provider())
+    tx_ids = tuple(tx.id for tx in transactions)
+    try:
+        live_positions = _live_positions_cached(tx_ids)
+    except Exception:
+        _logger.warning("Falling back to uncached live positions", exc_info=True)
+        live_positions = compute_live_positions(
+            transactions,
+            get_price_provider(),
+            get_fx_provider(),
+        )
 
     open_tickers = sorted(live_positions.keys())
     if not open_tickers:
