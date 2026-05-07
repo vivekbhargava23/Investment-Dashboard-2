@@ -62,7 +62,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | ID | Title | Status | Priority | Est |
 |---|---|---|---|---|
 | TICKET-022a | Chart service + Plotly components (OHLC, line, sparkline) | MERGED | P1 | 2 – 2.5 hr |
-| TICKET-022b | Research page + Live Overview chart integration | IN_REVIEW | P1 | 2 – 2.5 hr |
+| TICKET-022b | Research page + Live Overview chart integration | MERGED | P1 | 2 – 2.5 hr |
 
 ---
 
