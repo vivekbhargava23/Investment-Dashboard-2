@@ -1008,11 +1008,15 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 - Added Research to the sidebar and topbar, and wired the Refresh button to clear OHLC caches alongside price/FX caches.
 - Replaced the static Overview positions table rendering path with a Streamlit-column table that can render per-row Plotly sparklines and chart buttons.
 - Added Overview mini-chart selection with a 6-month line chart, per-row sparkline error isolation, and positive/negative chart coloring.
+- Added intraday Plotly range breaks to hide weekend/overnight gaps and coarser yfinance OHLC intervals for dense periods.
+- Restored the Overview sell-simulator action alongside the chart controls and added a period selector to the expanded mini chart.
 - Kept the Research "Simulate buy" action visible but disabled because the existing simulator is sell-only.
 
 ### Files touched
 - `app/ui/pages/research.py` — new Research page
 - `app/ui/pages/overview.py` — Trend sparklines and mini chart panel
+- `app/ui/components/charts.py` — intraday range breaks
+- `app/adapters/yfinance_feed/yfinance_adapter.py` — denser-period OHLC interval aggregation
 - `app/ui/components/sidebar.py` — Research navigation entry
 - `app/ui/components/topbar.py` — Research title and OHLC cache refresh
 - `tests/unit/ui/test_research_page.py` — new Research page tests
@@ -1021,7 +1025,7 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 - `docs/TICKETS/BACKLOG.md`, `docs/TICKETS/TICKET-022b-research-page-and-overview-charts.md`, `docs/PROJECT_STATE.md` — status updates
 
 ### Tests
-303 passing → 312 passing (9 new); 68 skipped
+303 passing → 314 passing (11 new); 68 skipped
 Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 UI smoke: `streamlit run app/ui/main.py --server.headless true --server.port 8765`; `curl -I http://127.0.0.1:8765/?page=research` returned HTTP 200.
 

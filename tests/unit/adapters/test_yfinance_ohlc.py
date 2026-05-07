@@ -40,7 +40,7 @@ def test_yfinance_dataframe_converts_to_ohlc_series() -> None:
     assert series.bars[0].open == Decimal("100.1")
     mock_ticker.return_value.history.assert_called_once_with(
         period="6mo",
-        interval="1d",
+        interval="1wk",
         auto_adjust=False,
     )
 
@@ -125,4 +125,9 @@ def test_ohlc_cache_ttl_respected(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_interval_for_period_mappings() -> None:
     assert _interval_for_period(ChartPeriod.ONE_DAY) == "5m"
     assert _interval_for_period(ChartPeriod.FIVE_DAY) == "15m"
-    assert _interval_for_period(ChartPeriod.SIX_MONTH) == "1d"
+    assert _interval_for_period(ChartPeriod.ONE_MONTH) == "1d"
+    assert _interval_for_period(ChartPeriod.THREE_MONTH) == "1wk"
+    assert _interval_for_period(ChartPeriod.SIX_MONTH) == "1wk"
+    assert _interval_for_period(ChartPeriod.ONE_YEAR) == "1mo"
+    assert _interval_for_period(ChartPeriod.TWO_YEAR) == "1mo"
+    assert _interval_for_period(ChartPeriod.FIVE_YEAR) == "1mo"

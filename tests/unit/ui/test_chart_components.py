@@ -2,6 +2,7 @@ from typing import Any
 
 import plotly.graph_objects as go
 
+from app.domain.market_data import ChartPeriod
 from app.ui.components import charts
 from tests.fakes.ohlc import make_ohlc_series
 
@@ -47,3 +48,12 @@ def test_render_sparkline_hides_axes(monkeypatch) -> None:  # type: ignore[no-un
     assert fig.layout.xaxis.visible is False
     assert fig.layout.yaxis.visible is False
     assert calls[0]["kwargs"]["use_container_width"] is False
+
+
+def test_intraday_candlestick_uses_rangebreaks(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    calls = _capture_plotly_calls(monkeypatch)
+
+    charts.render_candlestick(make_ohlc_series(period=ChartPeriod.FIVE_DAY))
+
+    fig = calls[0]["args"][0]
+    assert len(fig.layout.xaxis.rangebreaks) == 2

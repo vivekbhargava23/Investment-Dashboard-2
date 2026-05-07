@@ -46,7 +46,7 @@ def test_sparkline_success_renders_one_chart(monkeypatch: pytest.MonkeyPatch) ->
 
     overview._render_trend_cell("NVDA")
 
-    assert rendered == [("NVDA", 34, 110)]
+    assert rendered == [("NVDA", 30, 110)]
 
 
 def test_chart_button_sets_selected_ticker(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -67,6 +67,19 @@ def test_chart_button_toggles_selected_ticker_off(monkeypatch: pytest.MonkeyPatc
     overview._render_chart_button("NVDA")
 
     assert state["overview_selected_ticker"] is None
+
+
+def test_sell_button_routes_to_simulator(monkeypatch: pytest.MonkeyPatch) -> None:
+    state: dict[str, str | None] = {}
+    query_params: dict[str, str] = {}
+    monkeypatch.setattr(overview.st, "session_state", state)
+    monkeypatch.setattr(overview.st, "query_params", query_params)
+    monkeypatch.setattr(overview.st, "button", lambda *args, **kwargs: True)
+
+    overview._render_sell_button("NVDA")
+
+    assert state["simulator_default_ticker"] == "NVDA"
+    assert query_params["page"] == "simulator"
 
 
 def test_mini_chart_color_uses_period_change() -> None:
