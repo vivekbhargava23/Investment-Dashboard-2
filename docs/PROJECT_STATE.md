@@ -93,7 +93,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (PR #31)
 
 ### In review 👀
-- TICKET-022b — Research page + Live Overview chart integration (PR pending)
+- TICKET-022b — Research page + Live Overview chart integration (PR #33)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
