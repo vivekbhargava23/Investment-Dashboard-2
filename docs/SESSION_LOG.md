@@ -913,7 +913,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 **Duration:** ~30 min
 **Branch:** ticket-024-sell-simulator-cold-start
 **PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/29
-**Status at session end:** IN_REVIEW
+**Status at session end:** MERGED
 
 ### What got done
 - Added a 60-second Streamlit cache wrapper around sell simulator live-position computation, keyed by transaction IDs.
