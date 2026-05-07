@@ -91,7 +91,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-023 — EUR-denominated & unsupported-suffix price check + Add form UX (price-per-share input, shares step=1, back-navigation state restore) (PR #28)
 
 ### In review 👀
-- TICKET-024 — Sell simulator cold-start performance (PR pending)
+- TICKET-024 — Sell simulator cold-start performance (PR #29)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.

@@ -912,7 +912,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 **Model:** GPT-5
 **Duration:** ~30 min
 **Branch:** ticket-024-sell-simulator-cold-start
-**PR:** pending
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/29
 **Status at session end:** IN_REVIEW
 
 ### What got done
