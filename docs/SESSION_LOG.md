@@ -748,3 +748,61 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tokens used (rough)
 ~100k
+
+---
+
+## 2026-05-07 — TICKET-012
+
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~90 min
+**Branch:** ticket-012-pre-trade-sell-simulator
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Promoted `_consume_from_lots` to public `simulate_lot_consumption` (pure, tuple-in/tuple-out); refactored `compute_realised_gains` to call it internally.
+- Added `MarginalTaxImpact` frozen Pydantic model to `app/domain/tax/models.py`.
+- Added `compute_marginal_tax_for_realised_gains` to `app/services/tax_planning.py` — runs the engine before/after the proposed sell and returns per-field deltas.
+- New `app/services/sell_simulator.py`: `SellSimulationRequest`, `LotConsumption`, `PositionAfterSnapshot`, `SellSimulation`, `simulate_sell` (read-only, deterministic — uses a stable transaction ID derived from request fields).
+- New `app/ui/components/sell_simulator.py`: embeddable `render_sell_simulator` panel with lot table, tax impact tiles, and position-after tiles.
+- New `app/ui/pages/simulator.py`: top-level Pre-trade Sell Simulator page; reads default ticker from `session_state.simulator_default_ticker` or `?ticker=` query param.
+- Added ⚡ Simulate sell HTML links to Live Overview positions table and Tax Dashboard harvest table (navigates to `/?page=simulator&ticker=TICKER`).
+- `manage.py`: added `_apply_simulator_handoff` that pre-fills the Add Transaction form and advances to preview step when `session_state.simulator_handoff` is set.
+- Sidebar + PAGE_TITLES: added Simulator entry between Lot Ledger and Manage Portfolio.
+- Tests: 21 new tests across domain, service, UI, and integration layers. 223 → 244 passing.
+
+### Files touched
+- `app/domain/fifo.py` — `simulate_lot_consumption` public function; refactored `compute_realised_gains`
+- `app/domain/__init__.py` — export `simulate_lot_consumption`
+- `app/domain/tax/models.py` — add `MarginalTaxImpact`
+- `app/domain/tax/__init__.py` — export `MarginalTaxImpact`
+- `app/services/tax_planning.py` — add `compute_marginal_tax_for_realised_gains`
+- `app/services/sell_simulator.py` — new
+- `app/ui/components/sell_simulator.py` — new
+- `app/ui/pages/simulator.py` — new
+- `app/ui/pages/overview.py` — add Sim column
+- `app/ui/pages/tax.py` — add Sim column to harvest table
+- `app/ui/pages/manage.py` — accept simulator handoff
+- `app/ui/components/sidebar.py` — add Simulator nav entry
+- `app/ui/components/topbar.py` — add "simulator" to PAGE_TITLES
+- `tests/unit/domain/test_simulate_lot_consumption.py` — new (8 tests)
+- `tests/unit/services/test_sell_simulator.py` — new (9 tests)
+- `tests/unit/ui/test_sell_simulator_component.py` — new (4 tests)
+- `tests/integration/test_simulator_e2e.py` — new (3 tests, 1 for each e2e scenario)
+- `tests/unit/ui/test_components.py` — updated NAV_ITEMS count
+
+### Tests
+223 passing → 244 passing (21 new)
+
+### Decisions made during the session
+- Deterministic transaction ID for hypothetical sell (derived from request fields) to make `simulate_sell` a pure function (same input → same output).
+- `marginal_taxable_gain_eur` is the delta in `total_taxable_after_loss_offset_eur` (before allowance deduction), per ticket spec — consistent with how the engine fields are named.
+- Simulator → Manage Portfolio handoff uses `st.query_params` (`?ticker=`) for HTML table links (since HTML `<a>` tags can't set session_state), plus `session_state.simulator_default_ticker` for button-triggered navigation.
+- Carryforward params added to `compute_marginal_tax_for_realised_gains` and `simulate_sell` (not in original ticket spec, but required for correct marginal analysis with real carryforward losses).
+
+### Out-of-scope items noticed
+- (none — stayed within ticket scope)
+
+### Tokens used (rough)
+~180k
