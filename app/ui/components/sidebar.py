@@ -22,6 +22,7 @@ NAV_ITEMS: list[dict[str, Any]] = [
     },
     {"id": "behaviour",   "label": "Behavioural Ledger", "icon": "◎", "badge": None},
     {"id": "lots",        "label": "Lot Ledger",         "icon": "≡", "badge": None},
+    {"id": "simulator",   "label": "Sell Simulator",     "icon": "⚡", "badge": None},
     {"id": "manage",      "label": "Manage Portfolio",   "icon": "⚙", "badge": None},
 ]
 

@@ -115,6 +115,10 @@ def _build_positions_table_html(
             f'</div></div>'
         )
 
+        sim_link = (
+            f'<a href="/?page=simulator&ticker={ticker}" target="_self" '
+            f'title="Simulate sell" style="color: var(--text3); text-decoration: none; font-size: 14px;">⚡</a>'
+        )
         tbody_rows.append(
             f'<tr class="{row_class}">'
             f'<td><strong>{ticker}</strong></td>'
@@ -129,6 +133,7 @@ def _build_positions_table_html(
             f'<td class="text-center">{horizon}</td>'
             f'<td class="text-center">{thesis}</td>'
             f'<td class="font-mono text-center" style="color: var(--text3);">{lots}</td>'
+            f'<td class="text-center">{sim_link}</td>'
             f'</tr>'
         )
 
@@ -148,6 +153,7 @@ def _build_positions_table_html(
         '<th style="padding: 8px 4px; text-align: center;">Horizon</th>'
         '<th style="padding: 8px 4px; text-align: center;">Thesis</th>'
         '<th style="padding: 8px 4px; text-align: center;">Lots</th>'
+        '<th style="padding: 8px 4px; text-align: center;">Sim</th>'
         '</tr>'
         '</thead>'
         '<tbody>'
