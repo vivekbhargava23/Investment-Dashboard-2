@@ -5,6 +5,7 @@ No Streamlit context required.
 """
 from datetime import date
 from decimal import Decimal
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -12,6 +13,7 @@ from pydantic import ValidationError
 from app.domain.fifo import SellExceedsOpenSharesError, compute_positions
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
+from app.ports.price_feed import PriceUnavailableError
 from app.services.trading import build_transaction
 from tests.fakes.fx_feed import FakeFxProvider
 from tests.fakes.price_feed import FakePriceProvider
@@ -278,3 +280,105 @@ def test_validator_rejects_ticker_currency_mismatch() -> None:
             price_native=Money(amount=Decimal("4200"), currency=Currency.USD),
             fx_rate_eur=Decimal("0.93"),
         )
+
+
+# ---------------------------------------------------------------------------
+# _render_recording_preview — EUR price check
+# ---------------------------------------------------------------------------
+
+@patch("app.ui.pages.manage.get_price_provider")
+@patch("app.ui.pages.manage.st")
+def test_eur_price_check_within_tolerance(mock_st: MagicMock, mock_get_price: MagicMock) -> None:
+    # RHM.DE market close = €125.00; user total implies €125.50 per share (< 2% off)
+    mock_get_price.return_value.get_historical_close.return_value = Money(
+        amount=Decimal("125.00"), currency=Currency.EUR
+    )
+    from app.ui.pages.manage import _render_recording_preview
+
+    price_available, deviation_pct = _render_recording_preview(
+        ticker="RHM.DE",
+        currency=Currency.EUR,
+        tx_type="Buy",
+        trade_date=_TRADE_DATE,
+        shares=Decimal("1"),
+        eur_total=Decimal("126.49"),   # net = 125.50 after 0.99 fees → 0.4% off
+        fees_eur=Decimal("0.99"),
+    )
+
+    assert price_available is True
+    assert deviation_pct is not None
+    assert deviation_pct < Decimal("2")
+    mock_st.warning.assert_not_called()
+
+
+@patch("app.ui.pages.manage.get_price_provider")
+@patch("app.ui.pages.manage.st")
+def test_eur_deviation_triggers_warning(mock_st: MagicMock, mock_get_price: MagicMock) -> None:
+    # RHM.DE market close = €125.00; user total €150 implies €150/share — 20% off
+    mock_get_price.return_value.get_historical_close.return_value = Money(
+        amount=Decimal("125.00"), currency=Currency.EUR
+    )
+    from app.ui.pages.manage import _render_recording_preview
+
+    price_available, deviation_pct = _render_recording_preview(
+        ticker="RHM.DE",
+        currency=Currency.EUR,
+        tx_type="Buy",
+        trade_date=_TRADE_DATE,
+        shares=Decimal("1"),
+        eur_total=Decimal("150.00"),
+        fees_eur=Decimal("0"),
+    )
+
+    assert price_available is True
+    assert deviation_pct is not None
+    assert deviation_pct > Decimal("2")
+    mock_st.warning.assert_called_once()
+
+
+@patch("app.ui.pages.manage.get_price_provider")
+@patch("app.ui.pages.manage.st")
+def test_eur_unavailable_returns_true_none(mock_st: MagicMock, mock_get_price: MagicMock) -> None:
+    # Price feed raises PriceUnavailableError — form is still usable
+    mock_get_price.return_value.get_historical_close.side_effect = PriceUnavailableError(
+        "RHM.DE", "data gap"
+    )
+    from app.ui.pages.manage import _render_recording_preview
+
+    price_available, deviation_pct = _render_recording_preview(
+        ticker="RHM.DE",
+        currency=Currency.EUR,
+        tx_type="Buy",
+        trade_date=_TRADE_DATE,
+        shares=Decimal("1"),
+        eur_total=Decimal("126.49"),
+        fees_eur=Decimal("0.99"),
+    )
+
+    assert price_available is True
+    assert deviation_pct is None
+    mock_st.warning.assert_called_once()
+
+
+@patch("app.ui.pages.manage.get_price_provider")
+@patch("app.ui.pages.manage.st")
+def test_broad_exception_returns_true_none_and_does_not_raise(
+    mock_st: MagicMock, mock_get_price: MagicMock
+) -> None:
+    # A generic (non-PriceUnavailableError) exception from the price provider
+    # must not propagate — returns (True, None) and logs at WARNING.
+    mock_get_price.return_value.get_historical_close.side_effect = ValueError("unexpected boom")
+    from app.ui.pages.manage import _render_recording_preview
+
+    price_available, deviation_pct = _render_recording_preview(
+        ticker="APD",
+        currency=Currency.USD,
+        tx_type="Buy",
+        trade_date=_TRADE_DATE,
+        shares=Decimal("1"),
+        eur_total=Decimal("300.00"),
+        fees_eur=Decimal("0"),
+    )
+
+    assert price_available is True
+    assert deviation_pct is None

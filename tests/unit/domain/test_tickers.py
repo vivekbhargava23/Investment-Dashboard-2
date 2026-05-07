@@ -41,6 +41,31 @@ def test_hk_suffix_raises_unsupported():
         infer_currency_from_ticker("0700.HK")
 
 
+def test_ks_suffix_raises_unsupported():
+    with pytest.raises(UnsupportedTickerError, match="KRW"):
+        infer_currency_from_ticker("000660.KS")
+
+
+def test_kq_suffix_raises_unsupported():
+    with pytest.raises(UnsupportedTickerError, match="KRW"):
+        infer_currency_from_ticker("035720.KQ")
+
+
+def test_tw_suffix_raises_unsupported():
+    with pytest.raises(UnsupportedTickerError, match="TWD"):
+        infer_currency_from_ticker("2330.TW")
+
+
+def test_two_suffix_raises_unsupported():
+    with pytest.raises(UnsupportedTickerError, match="TWD"):
+        infer_currency_from_ticker("6770.TWO")
+
+
+def test_bk_suffix_raises_unsupported():
+    with pytest.raises(UnsupportedTickerError, match="THB"):
+        infer_currency_from_ticker("BCH.BK")
+
+
 def test_suffix_matching_is_case_insensitive():
     assert infer_currency_from_ticker("sap.de") == Currency.EUR
     assert infer_currency_from_ticker("5631.t") == Currency.JPY

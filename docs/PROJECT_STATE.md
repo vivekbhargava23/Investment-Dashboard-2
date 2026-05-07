@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-07 by Claude Code (TICKET-021 merged)
+**Last updated:** 2026-05-07 by Claude Code (TICKET-023 in review)
 
 ---
 
@@ -90,7 +90,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-021 — Smooth ticker autocomplete (disk cache + streamlit-searchbox) (PR #27)
 
 ### In review 👀
-- (none)
+- TICKET-023 — EUR-denominated & unsupported-suffix price check (PR #28)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -99,8 +99,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-023 — EUR-denominated & unsupported-suffix price check (SK Hynix bug) (P0)
-2. TICKET-024 — Sell simulator cold-start performance (P1)
+1. TICKET-024 — Sell simulator cold-start performance (P1)
 3. TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (P1)
 4. TICKET-022b — Research page + Live Overview chart integration (P1)
 5. *Then:* Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)
