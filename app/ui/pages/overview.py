@@ -244,9 +244,11 @@ def _render_chart_button(ticker: str) -> None:
 
 
 def _render_sell_button(ticker: str) -> None:
-    if st.button("📉", key=f"overview_sell_{ticker}", help=f"Simulate selling {ticker}"):
-        st.session_state["simulator_default_ticker"] = ticker
-        st.query_params["page"] = "simulator"
+    render_html(
+        f'<a href="/?page=simulator&ticker={ticker}" target="_self" '
+        f'title="Simulate sell" style="color: var(--text3); text-decoration: none; '
+        f'font-size: 14px;">⚡</a>'
+    )
 
 
 def _render_positions_table(

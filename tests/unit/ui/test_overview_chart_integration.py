@@ -96,23 +96,13 @@ def test_chart_button_toggles_selected_ticker_off(monkeypatch: pytest.MonkeyPatc
 
 
 def test_sell_button_routes_to_simulator(monkeypatch: pytest.MonkeyPatch) -> None:
-    state: dict[str, str | None] = {}
-    query_params: dict[str, str] = {}
-    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
-    monkeypatch.setattr(overview.st, "session_state", state)
-    monkeypatch.setattr(overview.st, "query_params", query_params)
-    monkeypatch.setattr(
-        overview.st,
-        "button",
-        lambda *args, **kwargs: calls.append((args, kwargs)) or True,
-    )
+    rendered: list[str] = []
+    monkeypatch.setattr(overview, "render_html", lambda html: rendered.append(html))
 
     overview._render_sell_button("NVDA")
 
-    assert state["simulator_default_ticker"] == "NVDA"
-    assert query_params["page"] == "simulator"
-    assert calls[0][0][0] == "📉"
-    assert "use_container_width" not in calls[0][1]
+    assert "/?page=simulator&ticker=NVDA" in rendered[0]
+    assert "⚡" in rendered[0]
 
 
 def test_mini_chart_panel_uses_research_style_metrics_and_candlestick(
