@@ -224,7 +224,14 @@ class YfinanceAdapter:
     # TickerResolver implementation
     # ------------------------------------------------------------------
 
-    def _build_match(self, symbol: str, name: str, exchange: str) -> TickerMatch | None:
+    def _build_match(
+        self,
+        symbol: str,
+        name: str,
+        exchange: str,
+        *,
+        fetch_price: bool = True,
+    ) -> TickerMatch | None:
         """
         Build a TickerMatch from raw fields.
 
@@ -237,16 +244,17 @@ class YfinanceAdapter:
             return None
 
         recent_price: Money | None = None
-        try:
-            fi = yf.Ticker(symbol).fast_info
-            raw = fi.get("lastPrice")
-            if raw is not None and not (isinstance(raw, float) and raw != raw):
-                recent_price = Money(
-                    amount=Decimal(str(raw)).quantize(Decimal("0.0001")),
-                    currency=inferred,
-                )
-        except Exception:
-            pass  # recent_price stays None — non-critical
+        if fetch_price:
+            try:
+                fi = yf.Ticker(symbol).fast_info
+                raw = fi.get("lastPrice")
+                if raw is not None and not (isinstance(raw, float) and raw != raw):
+                    recent_price = Money(
+                        amount=Decimal(str(raw)).quantize(Decimal("0.0001")),
+                        currency=inferred,
+                    )
+            except Exception:
+                pass  # recent_price stays None — non-critical
 
         return TickerMatch(
             symbol=symbol,
@@ -284,7 +292,7 @@ class YfinanceAdapter:
                     continue
                 name = q.get("longname") or q.get("shortname") or symbol
                 exchange = q.get("exchDisp") or q.get("exchange") or ""
-                match = self._build_match(symbol, name, exchange)
+                match = self._build_match(symbol, name, exchange, fetch_price=False)
                 if match is not None:
                     results.append(match)
                 if len(results) >= limit:
