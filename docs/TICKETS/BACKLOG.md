@@ -28,6 +28,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | TICKET-008c | Currency-correctness audit + JPY support + data migration | MERGED | P0 | 1.5 – 2 hr |
 | TICKET-020 | TickerResolver port + yfinance adapter | MERGED | P1 | 1.5 – 2 hr |
 | TICKET-009-revised | Manage Portfolio page (EUR-native input) | MERGED | P1 | 3 – 3.5 hr |
+| TICKET-021 | Smooth ticker autocomplete (disk cache + streamlit-searchbox) | DRAFT | P1 | 1.5 – 2 hr |
 
 ## Phase 2 — Tax & decisions
 
@@ -53,6 +54,13 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | TICKET-017 | Decision Gates page | DRAFT | P2 | 2 hr |
 | TICKET-018 | Behavioural Ledger | DRAFT | P2 | 2 hr |
 | TICKET-019 | Analytics & Risk page (Benchmark/Drawdown, Correlation, Technicals, Position Sizer, Price Targets) | DRAFT | P3 | TBD |
+
+## Phase 5 — Charts & research
+
+| ID | Title | Status | Priority | Est |
+|---|---|---|---|---|
+| TICKET-022a | Chart service + Plotly components (OHLC, line, sparkline) | DRAFT | P1 | 2 – 2.5 hr |
+| TICKET-022b | Research page + Live Overview chart integration | DRAFT | P1 | 2 – 2.5 hr |
 
 ---
 

@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-06 by Claude Code (TICKET-011 merged)
+**Last updated:** 2026-05-06 by Claude Chat (TICKETs 021, 022a, 022b drafted; TICKET-012 ready to start)
 
 ---
 
@@ -98,7 +98,11 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-012 — Pre-trade sell simulator (FIFO lot preview + tax impact + portfolio impact) (P1)
+1. TICKET-012 — Pre-trade sell simulator (FIFO lot preview + tax impact + portfolio impact) (P1, draft already exists)
+2. TICKET-021 — Smooth ticker autocomplete (disk cache + streamlit-searchbox) (P1)
+3. TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (P1)
+4. TICKET-022b — Research page + Live Overview chart integration (P1)
+5. *Then:* Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
@@ -121,7 +125,9 @@ See `docs/DECISIONS/` for full ADRs.
 
 ## Open questions / parking lot
 
-- (none yet)
+- **Investment Panel framework** — schema-first design pending in a dedicated brainstorm session. See `docs/PANEL_BRAINSTORM_HANDOFF.md`. Old TICKET-016 / 017 / 018 (Thesis state, Decision Gates, Behavioural Ledger) likely get replaced by Panel-driven equivalents once the schema lands.
+- **Hardcoded `_PLACEHOLDER_THESIS_STATUS` / `_PLACEHOLDER_HORIZON` dicts in `app/ui/pages/overview.py`** — still 12-ticker fixed. Adding a 13th ticker via Manage Portfolio defaults silently. Slated to migrate to Panel-managed JSON once schema lands; not blocking.
+- **TICKET-013 (Daily NAV cache)** — purpose overlaps with the future Panel "portfolio snapshot" idea. Holding off until Panel design is settled.
 
 ---
 
