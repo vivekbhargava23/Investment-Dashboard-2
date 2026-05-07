@@ -90,7 +90,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-021 — Smooth ticker autocomplete (disk cache + streamlit-searchbox) (PR #27)
 
 ### In review 👀
-- TICKET-023 — EUR-denominated & unsupported-suffix price check (PR pending)
+- TICKET-023 — EUR-denominated & unsupported-suffix price check (PR #28)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
