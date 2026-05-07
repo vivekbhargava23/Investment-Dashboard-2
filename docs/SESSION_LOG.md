@@ -806,3 +806,53 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tokens used (rough)
 ~180k
+
+---
+
+## 2026-05-07 14:00 — TICKET-021
+
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~90 min
+**Branch:** ticket-021-smooth-ticker-autocomplete
+**PR:** pending
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `CachedTickerResolver` decorating adapter (`app/adapters/ticker_resolver_cached.py`) — disk-backed JSON cache with 30-day TTL, lazy load, atomic writes, best-effort persistence (never raises)
+- Added `render_ticker_searchbox` UI component (`app/ui/components/ticker_searchbox.py`) wrapping `streamlit-searchbox`, with `_search_callback_for` factory (testable without Streamlit runtime)
+- Replaced `st.text_input + st.selectbox` ticker block in Add Transaction form with `render_ticker_searchbox`; "use as-typed" escape hatch retained
+- Updated Edit Transaction form with pre-filled searchbox (`default_match=resolver.lookup(tx.ticker)`)
+- Added `ticker_cache_json_path` to `app/config.py` and `.env.example`
+- Updated `app/ui/wiring.py` to wrap the yfinance resolver with `CachedTickerResolver`
+- Added `streamlit-searchbox>=0.1.16` to `pyproject.toml`; added `data/ticker_cache.json` to `.gitignore`
+- Added call counters (`resolve_call_count`, `lookup_call_count`) to `FakeTickerResolver`
+
+### Files touched
+- `app/adapters/ticker_resolver_cached.py` — new
+- `app/ui/components/ticker_searchbox.py` — new
+- `app/ui/wiring.py` — wrap resolver with CachedTickerResolver
+- `app/ui/pages/manage.py` — swap ticker input for searchbox (add + edit forms)
+- `app/config.py` — add ticker_cache_json_path
+- `pyproject.toml` — add streamlit-searchbox dependency + mypy override
+- `.gitignore` — add data/ticker_cache.json
+- `.env.example` — document TICKER_CACHE_JSON_PATH
+- `tests/fakes/ticker_resolver.py` — add resolve_call_count, lookup_call_count
+- `tests/unit/ports/test_ticker_resolver_protocol.py` — 3 new round-trip tests
+- `tests/unit/adapters/test_ticker_resolver_cached.py` — new (13 tests)
+- `tests/unit/ui/test_ticker_searchbox.py` — new (5 tests)
+- `tests/integration/test_ticker_cache_e2e.py` — new (1 integration test, skipped without --run-integration)
+
+### Tests
+244 passing → 265 passing (21 new); 68 skipped (integration tests including new one)
+
+### Decisions made during the session
+- `_search_callback_for(resolver)` factory pattern makes the callback testable without a Streamlit runtime (imported directly in unit tests)
+- `manage_add_form_key` counter in session state resets the searchbox widget after a transaction is recorded (Streamlit widget-reset pattern)
+- `cast(TickerResolver, get_price_provider())` in wiring.py avoids a type: ignore while correctly expressing that YfinanceAdapter satisfies both protocols
+
+### Out-of-scope items noticed
+- (none — stayed within ticket scope)
+
+### Tokens used (rough)
+~120k

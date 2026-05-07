@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-07 by Claude Code (TICKET-012 merged)
+**Last updated:** 2026-05-07 by Claude Code (TICKET-021 in review)
 
 ---
 
@@ -90,7 +90,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 
 ### In review 👀
-- (none)
+- TICKET-021 — Smooth ticker autocomplete (disk cache + streamlit-searchbox)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -99,10 +99,8 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-021 — Smooth ticker autocomplete (disk cache + streamlit-searchbox) (P1)
-2. TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (P1)
-3. TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (P1)
-4. TICKET-022b — Research page + Live Overview chart integration (P1)
+1. TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (P1)
+2. TICKET-022b — Research page + Live Overview chart integration (P1)
 5. *Then:* Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
