@@ -72,7 +72,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 **Model:** Gemini 2.0 Pro
 **Duration:** ~30 min
 **Branch:** _pending_
-**PR:** _pending_
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/33
 **Status at session end:** IN_REVIEW
 
 ### What got done
