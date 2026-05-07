@@ -133,7 +133,7 @@ def _render_recording_preview(
 
     if currency == Currency.EUR:
         net = eur_total - fees_eur
-        price_per_share = net / shares
+        eur_price_per_share = net / shares
         total_line = (
             f"- Your EUR total: {format_eur(_eur(eur_total))}"
             f"  (= {format_eur(_eur(net))} net + {format_eur(_eur(fees_eur))} fees) ✓"
@@ -142,17 +142,36 @@ def _render_recording_preview(
         )
         st.markdown(
             f"Recording: {shares:g} share(s) of **{ticker}** on {format_date(trade_date)}\n"
-            f"- Price: {format_eur(_eur(price_per_share))}\n"
+            f"- Price: {format_eur(_eur(eur_price_per_share))}\n"
             f"{total_line}"
         )
-        return True, None
+        eur_deviation_pct: Decimal | None = None
+        try:
+            hist = get_price_provider().get_historical_close(ticker, trade_date)
+            raw_dev = abs(eur_price_per_share - hist.amount) / hist.amount * Decimal("100")
+            eur_deviation_pct = raw_dev.quantize(Decimal("0.1"))
+            direction = "below" if eur_price_per_share < hist.amount else "above"
+            if eur_deviation_pct > Decimal("2"):
+                st.warning(
+                    f"⚠ Your total ({format_eur(_eur(eur_total))}) implies "
+                    f"{format_eur(_eur(eur_price_per_share))} per share vs market close "
+                    f"{format_eur(hist)} — {eur_deviation_pct}% {direction} market close. "
+                    f"Check your amount and date."
+                )
+            else:
+                st.markdown(f"✓ within {eur_deviation_pct}% of market close ({format_eur(hist)})")
+        except PriceUnavailableError:
+            st.warning(
+                f"⚠ Couldn't fetch the historical price for **{ticker}** on {format_date(trade_date)}."
+            )
+        return True, eur_deviation_pct
 
     try:
         hist = get_price_provider().get_historical_close(ticker, trade_date)
         net = eur_total - fees_eur
         implied_fx = (net / (shares * hist.amount)).quantize(Decimal("0.000001"))
 
-        deviation_pct: Decimal | None = None
+        deviation_pct = None
         ecb_ref_line = ""
         deviation_note = ""
         try:
@@ -201,6 +220,7 @@ def _render_recording_preview(
         )
         return False, None
     except Exception:
+        logging.warning("_render_recording_preview unexpected error for %s", ticker, exc_info=True)
         return True, None
 
 
@@ -219,8 +239,24 @@ def _render_add_form() -> None:
 # Add form — step 1: Fill
 # ---------------------------------------------------------------------------
 
+def _restore_fill_state_from_pending(pending: dict[str, Any] | None) -> None:
+    """Re-sync session-state ticker fields from pending so the fill form re-populates.
+
+    Called by the 'Back' button in the preview step. The pending dict is kept
+    intact (not cleared) so the fill form can read draft values from it.
+    """
+    if pending is None:
+        return
+    if pending.get("use_as_typed"):
+        st.session_state.manage_add_use_as_typed = True
+        st.session_state.manage_add_query = pending.get("ticker", "")
+
+
 def _render_add_fill() -> None:
     st.subheader("Add Transaction")
+
+    # Draft holds saved values when the user navigates back from the preview step.
+    draft: dict[str, Any] | None = st.session_state.manage_add_pending
 
     resolver = get_ticker_resolver()
 
@@ -228,8 +264,10 @@ def _render_add_fill() -> None:
     searchbox_key = f"add_tx_ticker_{st.session_state.manage_add_form_key}"
     try:
         from app.ui.components.ticker_searchbox import render_ticker_searchbox
+        # Pass the previously selected ticker as default when coming back from preview.
+        default_match = draft.get("resolved") if draft else None
         resolved: TickerMatch | None = render_ticker_searchbox(
-            key=searchbox_key, resolver=resolver
+            key=searchbox_key, resolver=resolver, default_match=default_match
         )
     except Exception:
         logging.warning("Searchbox failed; falling back to text input", exc_info=True)
@@ -267,36 +305,46 @@ def _render_add_fill() -> None:
         st.caption(f"Ticker: **{ticker_display}**" + (f" · {resolved.name} · {resolved.exchange}" if resolved else " (as-typed)"))
 
     # --- Transaction form ---
+    # Pre-populate from draft so values survive a round-trip through the preview step.
+    default_type_idx = 0 if draft is None or draft.get("tx_type_str") == "Buy" else 1
+    default_date = draft["trade_date"] if draft else date.today()
+    default_shares = float(draft["shares"]) if draft else 1.0
+    default_price = float(draft["price_per_share"]) if draft and "price_per_share" in draft else None
+    default_fees = float(draft["fees_eur"]) if draft else 0.99
+    default_notes = draft.get("notes") or "" if draft else ""
+
     with st.form("manage_add_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
-            tx_type_str = st.radio("Type", ["Buy", "Sell"], horizontal=True)
+            tx_type_str = st.radio("Type", ["Buy", "Sell"], index=default_type_idx, horizontal=True)
             trade_date = st.date_input(
                 "Trade date",
-                value=date.today(),
+                value=default_date,
                 min_value=date(2000, 1, 1),
                 max_value=date.today(),
             )
-            shares_f = st.number_input("Shares", min_value=0.0001, value=1.0, step=0.0001, format="%.4f")
+            shares_f = st.number_input(
+                "Shares", min_value=0.0001, value=default_shares, step=1.0, format="%.4f"
+            )
         with col2:
-            eur_total_f: float | None = st.number_input(
-                "Total EUR paid",
+            price_per_share_f: float | None = st.number_input(
+                "Price per share (EUR)",
                 min_value=0.01,
-                value=None,
+                value=default_price,
                 step=0.01,
                 format="%.2f",
-                placeholder="e.g. 1452.75",
-                help="Total euros debited from your account (including fees), per your broker confirmation.",
+                placeholder="e.g. 725.50",
+                help="Price of a single share in EUR per your broker confirmation.",
             )
             fees_eur_f = st.number_input(
                 "Fees (EUR, optional)",
                 min_value=0.0,
-                value=0.99,
+                value=default_fees,
                 step=0.01,
                 format="%.2f",
                 help="Broker commission. Scalable typically charges €0.99.",
             )
-            notes = st.text_input("Notes (optional)", value="")
+            notes = st.text_input("Notes (optional)", value=default_notes)
 
         submitted = st.form_submit_button("Calculate Preview →", type="primary")
 
@@ -306,18 +354,23 @@ def _render_add_fill() -> None:
             st.error("Please search for and select a ticker, or click 'Use as-typed' first.")
         elif currency is None:
             st.error(f"Currency for '{ticker_display}' is not yet supported. Contact the developer.")
-        elif eur_total_f is None or eur_total_f <= 0:
-            st.error("Please enter the total EUR paid (the amount debited from your account).")
+        elif price_per_share_f is None or price_per_share_f <= 0:
+            st.error("Please enter the price per share (the price of a single share in EUR).")
         else:
+            price_per_share = Decimal(str(price_per_share_f))
+            shares = Decimal(str(shares_f))
+            fees_eur = Decimal(str(fees_eur_f))
+            eur_total = (price_per_share * shares + fees_eur).quantize(Decimal("0.01"))
             st.session_state.manage_add_pending = {
                 "ticker": ticker_display,
                 "resolved": resolved,
                 "use_as_typed": use_as_typed,
                 "tx_type_str": str(tx_type_str),
                 "trade_date": trade_date,
-                "shares": Decimal(str(shares_f)),
-                "eur_total": Decimal(str(eur_total_f)),
-                "fees_eur": Decimal(str(fees_eur_f)),
+                "shares": shares,
+                "price_per_share": price_per_share,
+                "eur_total": eur_total,
+                "fees_eur": fees_eur,
                 "notes": notes or None,
                 "currency": currency,
             }
@@ -393,8 +446,8 @@ def _render_add_preview() -> None:
                 )
         with col2:
             if st.button("← Back to edit", key="_preview_back_fallback"):
+                _restore_fill_state_from_pending(st.session_state.manage_add_pending)
                 st.session_state.manage_add_step = "fill"
-                st.session_state.manage_add_pending = None
                 st.rerun()
         return
 
@@ -424,8 +477,8 @@ def _render_add_preview() -> None:
             )
     with col2:
         if st.button("← Back to edit", key="_preview_back"):
+            _restore_fill_state_from_pending(st.session_state.manage_add_pending)
             st.session_state.manage_add_step = "fill"
-            st.session_state.manage_add_pending = None
             st.rerun()
 
 
@@ -740,6 +793,7 @@ def _apply_simulator_handoff(state: Any) -> None:
     state.manage_add_query = handoff.ticker
     state.manage_add_use_as_typed = True
     state.manage_add_step = "fill"
+    _price_eur = (handoff.sell_price_native.amount * handoff.sell_fx_rate_eur).quantize(Decimal("0.01"))
     state.manage_add_pending = {
         "ticker": handoff.ticker,
         "resolved": None,
@@ -747,7 +801,8 @@ def _apply_simulator_handoff(state: Any) -> None:
         "tx_type_str": "Sell",
         "trade_date": handoff.sell_date,
         "shares": handoff.shares,
-        "eur_total": (handoff.sell_price_native.amount * handoff.sell_fx_rate_eur * handoff.shares).quantize(Decimal("0.01")),
+        "price_per_share": _price_eur,
+        "eur_total": (_price_eur * handoff.shares).quantize(Decimal("0.01")),
         "fees_eur": Decimal("0"),
         "notes": "Recorded from sell simulator",
         "currency": handoff.sell_price_native.currency,

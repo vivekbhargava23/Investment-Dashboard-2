@@ -9,8 +9,18 @@ _SUFFIX_TO_CURRENCY: dict[str, Currency] = {
     ".PA": Currency.EUR,
     ".F": Currency.EUR,
     ".T": Currency.JPY,
-    # .HK (HKD) intentionally omitted — HKD not yet in Currency enum.
-    # Add when a HKD-priced transaction is onboarded. See TICKET-008c notes.
+}
+
+# Recognised suffixes that map to currencies not yet in the Currency enum.
+# These raise UnsupportedTickerError instead of silently defaulting to USD.
+# Ordered longest-first to ensure .TWO is checked before .TW.
+_UNSUPPORTED_SUFFIXES: dict[str, str] = {
+    ".TWO": "TWD",   # Taiwan OTC (TWD)
+    ".HK": "HKD",   # Hong Kong (HKD)
+    ".KS": "KRW",   # Korea Stock Exchange (KRW)
+    ".KQ": "KRW",   # KOSDAQ (KRW)
+    ".TW": "TWD",   # Taiwan Stock Exchange (TWD)
+    ".BK": "THB",   # Thailand (THB)
 }
 
 
@@ -36,14 +46,12 @@ def infer_currency_from_ticker(ticker: str) -> Currency:
         if upper.endswith(suffix.upper()):
             return currency
 
-    # Recognised-but-unsupported suffixes.  Keep this list explicit so future
-    # contributors know exactly which suffixes need a Currency enum extension.
-    _UNSUPPORTED_SUFFIXES: tuple[str, ...] = (".HK",)
-    for suffix in _UNSUPPORTED_SUFFIXES:
+    for suffix, currency_name in _UNSUPPORTED_SUFFIXES.items():
         if upper.endswith(suffix.upper()):
             raise UnsupportedTickerError(
-                f"Ticker {ticker!r} trades on an exchange whose currency (HKD) is not yet "
-                f"supported. Add Currency.HKD and a .HK entry in tickers.py."
+                f"Ticker {ticker!r} trades on an exchange whose currency "
+                f"({currency_name}) is not yet supported. "
+                f"Add Currency.{currency_name} and a {suffix} entry in tickers.py."
             )
 
     return Currency.USD
