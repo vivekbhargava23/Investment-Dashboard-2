@@ -22,12 +22,10 @@ def _search_callback_for(
             return pinned
         try:
             matches = resolver.resolve(query, limit=8)
-            seen = {m.symbol for m in pinned_matches}
-            resolved = [m for m in matches if m.symbol not in seen]
-            return pinned + [(_format_label(m), m) for m in resolved]
+            return [(_format_label(m), m) for m in matches]
         except Exception:
             logging.warning("Ticker resolver error for query %r", query, exc_info=True)
-            return pinned
+            return []
 
     return _callback
 

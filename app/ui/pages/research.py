@@ -118,21 +118,6 @@ def _portfolio_matches() -> tuple[TickerMatch, ...]:
     return tuple(matches)
 
 
-def _quick_pick_matches(portfolio_matches: tuple[TickerMatch, ...]) -> tuple[TickerMatch, ...]:
-    return portfolio_matches[:5]
-
-
-def _render_quick_picks(matches: tuple[TickerMatch, ...]) -> None:
-    if not matches:
-        return
-    cols = st.columns(len(matches))
-    for col, match in zip(cols, matches, strict=True):
-        with col:
-            if st.button(match.symbol, key=f"research_quick_{match.symbol}"):
-                st.session_state["research_selected_match"] = match
-                st.rerun()
-
-
 def render() -> None:
     st.markdown("# 📈 Research")
     st.caption("Type any ticker to see its chart, regardless of whether you own it.")
@@ -152,7 +137,6 @@ def render() -> None:
             default_match=default_match,
             pinned_matches=portfolio_matches,
         )
-        _render_quick_picks(_quick_pick_matches(portfolio_matches))
     with period_col:
         periods = list(ChartPeriod)
         period = st.radio(
