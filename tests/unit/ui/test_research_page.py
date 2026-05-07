@@ -64,7 +64,10 @@ def patch_streamlit(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[Any]]:
         return ChartPeriod.SIX_MONTH
 
     monkeypatch.setattr(research.st, "radio", fake_radio)
+    monkeypatch.setattr(research.st, "session_state", {})
+    monkeypatch.setattr(research.st, "rerun", lambda: None)
     monkeypatch.setattr(research, "get_ticker_resolver", lambda: object())
+    monkeypatch.setattr(research, "_portfolio_matches", lambda: ())
     return calls
 
 

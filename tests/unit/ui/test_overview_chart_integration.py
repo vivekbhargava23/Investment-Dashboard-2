@@ -1,9 +1,6 @@
-from decimal import Decimal
-
 import pytest
 
 from app.domain.market_data import ChartPeriod, OhlcUnavailableError
-from app.ui.components._chart_styles import CANDLE_DOWN, CANDLE_UP
 from app.ui.pages import overview
 from tests.fakes.ohlc import make_ohlc_series
 
@@ -118,16 +115,42 @@ def test_sell_button_routes_to_simulator(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "use_container_width" not in calls[0][1]
 
 
-def test_mini_chart_color_uses_period_change() -> None:
-    positive = make_ohlc_series()
-    negative = positive.model_copy(
-        update={
-            "bars": (
-                positive.bars[0],
-                positive.bars[1].model_copy(update={"close": Decimal("90")}),
-            )
-        }
+def test_mini_chart_panel_uses_research_style_metrics_and_candlestick(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state: dict[str, str] = {"overview_selected_ticker": "NVDA"}
+    metrics: list[tuple[tuple[object, ...], dict[str, object]]] = []
+    rendered: list[tuple[str, int]] = []
+    monkeypatch.setattr(overview.st, "session_state", state)
+    monkeypatch.setattr(overview.st, "columns", lambda spec: [_Column() for _ in range(spec)])
+    monkeypatch.setattr(
+        overview.st,
+        "metric",
+        lambda *args, **kwargs: metrics.append((args, kwargs)),
+    )
+    monkeypatch.setattr(
+        overview.st,
+        "radio",
+        lambda *args, **kwargs: ChartPeriod.SIX_MONTH,
+    )
+    monkeypatch.setattr(overview.st, "button", lambda *args, **kwargs: False)
+    monkeypatch.setattr(overview, "render_html", lambda html: None)
+
+    def fake_series(ticker: str, period_value: str):
+        return make_ohlc_series(ticker=ticker, period=ChartPeriod(period_value))
+
+    monkeypatch.setattr(
+        overview,
+        "_cached_ohlc_for_overview",
+        fake_series,
+    )
+    monkeypatch.setattr(
+        overview,
+        "render_candlestick",
+        lambda series, height: rendered.append((series.ticker, height)),
     )
 
-    assert overview._mini_chart_color(positive) == CANDLE_UP
-    assert overview._mini_chart_color(negative) == CANDLE_DOWN
+    overview._render_mini_chart_panel()
+
+    assert [call[0][0] for call in metrics] == ["Latest", "Period change", "Period"]
+    assert rendered == [("NVDA", 420)]

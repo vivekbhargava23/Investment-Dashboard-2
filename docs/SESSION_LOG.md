@@ -1011,11 +1011,14 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 - Added intraday Plotly range breaks to hide weekend/overnight gaps and coarser yfinance OHLC intervals for dense periods.
 - Restored the Overview sell-simulator action alongside the chart controls and added a period selector to the expanded mini chart.
 - Tightened chart y-axis autoranging to avoid flat price-action visuals and replaced bulky Overview text buttons with compact icon controls.
+- Unified the Overview expanded chart with the Research candlestick + metric layout.
+- Added portfolio holdings as pinned Research search suggestions and quick-pick buttons for faster ticker selection.
 - Kept the Research "Simulate buy" action visible but disabled because the existing simulator is sell-only.
 
 ### Files touched
 - `app/ui/pages/research.py` — new Research page
 - `app/ui/pages/overview.py` — Trend sparklines and mini chart panel
+- `app/ui/components/ticker_searchbox.py` — pinned portfolio suggestions
 - `app/ui/components/charts.py` — intraday range breaks
 - `app/ui/components/_chart_styles.py` — y-axis autorange settings
 - `app/adapters/yfinance_feed/yfinance_adapter.py` — denser-period OHLC interval aggregation
@@ -1027,7 +1030,7 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 - `docs/TICKETS/BACKLOG.md`, `docs/TICKETS/TICKET-022b-research-page-and-overview-charts.md`, `docs/PROJECT_STATE.md` — status updates
 
 ### Tests
-303 passing → 314 passing (11 new); 68 skipped
+303 passing → 316 passing (13 new); 68 skipped
 Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 UI smoke: `streamlit run app/ui/main.py --server.headless true --server.port 8765`; `curl -I http://127.0.0.1:8765/?page=research` returned HTTP 200.
 

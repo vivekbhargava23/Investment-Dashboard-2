@@ -29,6 +29,15 @@ def test_empty_query_returns_empty() -> None:
     assert fake.resolve_call_count == 0
 
 
+def test_empty_query_returns_pinned_matches() -> None:
+    pinned = _make_match(symbol="NVDA", name="NVIDIA")
+    fake = FakeTickerResolver([_make_match()])
+    callback = _search_callback_for(fake, (pinned,))
+
+    assert callback("") == [(_format_label(pinned), pinned)]
+    assert fake.resolve_call_count == 0
+
+
 def test_single_char_returns_empty() -> None:
     fake = FakeTickerResolver([_make_match()])
     callback = _search_callback_for(fake)
@@ -49,6 +58,17 @@ def test_search_callback_formats_label_correctly() -> None:
     label, value = results[0]
     assert label == "APD — Air Products (NYSE, USD)"
     assert value == m
+
+
+def test_search_callback_prepends_pinned_matches_without_duplicates() -> None:
+    pinned = _make_match(symbol="APD", name="Air Products")
+    other = _make_match(symbol="AAPL", name="Apple")
+    fake = FakeTickerResolver([pinned, other])
+    callback = _search_callback_for(fake, (pinned,))
+
+    results = callback("AP")
+
+    assert [value.symbol for _, value in results] == ["APD", "AAPL"]
 
 
 def test_format_label_all_currencies() -> None:
