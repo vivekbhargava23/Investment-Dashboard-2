@@ -60,10 +60,11 @@ def test_search_callback_formats_label_correctly() -> None:
     assert value == m
 
 
-def test_search_callback_prepends_pinned_matches_without_duplicates() -> None:
-    pinned = _make_match(symbol="APD", name="Air Products")
+def test_search_callback_typed_query_uses_resolver_results_without_pinned_prefix() -> None:
+    pinned = _make_match(symbol="NVDA", name="NVIDIA")
+    apd = _make_match(symbol="APD", name="Air Products")
     other = _make_match(symbol="AAPL", name="Apple")
-    fake = FakeTickerResolver([pinned, other])
+    fake = FakeTickerResolver([apd, other])
     callback = _search_callback_for(fake, (pinned,))
 
     results = callback("AP")

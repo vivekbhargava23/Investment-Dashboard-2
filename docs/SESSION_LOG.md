@@ -1013,6 +1013,7 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 - Tightened chart y-axis autoranging to avoid flat price-action visuals and replaced bulky Overview text buttons with compact icon controls.
 - Unified the Overview expanded chart with the Research candlestick + metric layout.
 - Added portfolio holdings as pinned Research search suggestions and quick-pick buttons for faster ticker selection.
+- Refined Research search priority so pinned holdings show only on empty input; typed searches now show resolver recommendations first and quick-pick blocks were removed.
 - Kept the Research "Simulate buy" action visible but disabled because the existing simulator is sell-only.
 
 ### Files touched
