@@ -229,19 +229,23 @@ def _render_trend_cell(ticker: str) -> None:
     except OhlcUnavailableError:
         _trend_placeholder()
         return
-    render_sparkline(series, height=30, width=110)
-    _render_chart_button(ticker, label_prefix="Trend")
+    trend_cols = st.columns([0.76, 0.24], gap="small")
+    with trend_cols[0]:
+        render_sparkline(series, height=30, width=100)
+    with trend_cols[1]:
+        _render_chart_button(ticker)
 
 
-def _render_chart_button(ticker: str, *, label_prefix: str = "Chart") -> None:
+def _render_chart_button(ticker: str) -> None:
     selected = st.session_state.get("overview_selected_ticker")
-    label = "Close" if selected == ticker else label_prefix
-    if st.button(label, key=f"overview_chart_{ticker}", use_container_width=True):
+    label = "×" if selected == ticker else "🔍"
+    help_text = "Close chart" if selected == ticker else f"Open {ticker} chart"
+    if st.button(label, key=f"overview_chart_{ticker}", help=help_text):
         st.session_state["overview_selected_ticker"] = None if selected == ticker else ticker
 
 
 def _render_sell_button(ticker: str) -> None:
-    if st.button("Sell", key=f"overview_sell_{ticker}", use_container_width=True):
+    if st.button("📉", key=f"overview_sell_{ticker}", help=f"Simulate selling {ticker}"):
         st.session_state["simulator_default_ticker"] = ticker
         st.query_params["page"] = "simulator"
 
@@ -255,7 +259,7 @@ def _render_positions_table(
             Positions
         </div>
     """)
-    col_spec = [1.0, 1.4, 0.8, 0.8, 1.0, 1.1, 1.1, 1.0, 0.8]
+    col_spec = [1.0, 1.4, 0.8, 0.8, 1.2, 1.1, 1.1, 0.9, 0.45]
     header = st.columns(col_spec, gap="small")
     labels = ("Ticker", "Name", "Price", "Shares", "Trend", "Value", "Gain", "Weight", "Sell")
     for col, label in zip(header, labels, strict=True):
