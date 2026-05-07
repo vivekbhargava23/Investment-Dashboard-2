@@ -92,7 +92,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-024 — Sell simulator cold-start performance (PR #29)
 
 ### In review 👀
-- TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (PR pending)
+- TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (PR #31)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.

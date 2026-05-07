@@ -52,7 +52,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 **Model:** sonnet-4.6
 **Duration:** ~45 min
 **Branch:** ticket-001-domain-models
-**PR:** _pending_
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/31
 **Status at session end:** IN_REVIEW
 
 ### What got done
