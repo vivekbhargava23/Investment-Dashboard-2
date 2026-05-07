@@ -856,3 +856,50 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tokens used (rough)
 ~120k
+
+---
+
+## 2026-05-07 — TICKET-023
+
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~30 min
+**Branch:** ticket-023-eur-price-check
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- `app/domain/tickers.py`: promoted `_UNSUPPORTED_SUFFIXES` from a local tuple
+  to a module-level dict mapping suffix → currency name. Added `.KS`/`.KQ` (KRW),
+  `.TW`/`.TWO` (TWD), `.BK` (THB). These now raise `UnsupportedTickerError` instead
+  of silently defaulting to USD. `.HK` retained with the same error message.
+- `app/ui/pages/manage.py` (`_render_recording_preview`): replaced the EUR branch
+  early-return (no price check) with a real `get_historical_close` call. Computes
+  `eur_deviation_pct`; shows ⚠ warning when >2%, ✓ confirmation when within 2%,
+  or a "Couldn't fetch" warning on `PriceUnavailableError`. Form remains usable in
+  all cases (`price_available=True`).
+- `app/ui/pages/manage.py`: broad `except Exception: return True, None` now logs
+  at WARNING with `exc_info=True` before returning, so unexpected errors are visible.
+
+### Files touched
+- `app/domain/tickers.py` — `_UNSUPPORTED_SUFFIXES` dict with 6 suffixes
+- `app/ui/pages/manage.py` — EUR price check; logging in broad except
+- `tests/unit/domain/test_tickers.py` — 5 new cases (.KS, .KQ, .TW, .TWO, .BK)
+- `tests/unit/ui/test_manage_form_pipeline.py` — 4 new _render_recording_preview tests
+
+### Tests
+265 passing → 274 passing (9 new); 68 skipped
+
+### Decisions made during the session
+- Used distinct variable names (`eur_price_per_share`, `eur_deviation_pct`) in the EUR
+  branch to avoid mypy type conflicts with identically-named variables in the non-EUR
+  path that carry different types (`Money` vs `Decimal`).
+- `price_available=True` on `PriceUnavailableError` for EUR path (unlike non-EUR which
+  returns `False`): EUR total is always self-consistent without a price check, so the
+  form remains fully submittable.
+
+### Out-of-scope items noticed
+- (none — stayed within ticket scope)
+
+### Tokens used (rough)
+~60k
