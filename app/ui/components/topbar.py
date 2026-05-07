@@ -4,11 +4,13 @@ from datetime import datetime
 import streamlit as st
 
 from app.domain.money import Currency
+from app.services.market_data import clear_market_data_caches
 from app.services.valuation import clear_caches
-from app.ui.wiring import get_fx_provider, get_price_provider
+from app.ui.wiring import get_fx_provider, get_ohlc_data_provider, get_price_provider
 
 PAGE_TITLES: dict[str, str] = {
     "overview": "Live Overview",
+    "research": "Research",
     "analytics": "Analytics & Risk",
     "performance": "Performance",
     "tax": "Tax Dashboard",
@@ -21,6 +23,7 @@ PAGE_TITLES: dict[str, str] = {
 
 def _handle_refresh() -> None:
     clear_caches(get_price_provider(), get_fx_provider())
+    clear_market_data_caches(get_ohlc_data_provider())
     st.cache_data.clear()
     st.rerun()
 
