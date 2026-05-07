@@ -1,6 +1,6 @@
 # TICKET-021 — Smooth ticker autocomplete on Manage Portfolio
 
-**Status:** IN_REVIEW
+**Status:** MERGED
 **Priority:** P1
 **Estimated session length:** 1.5 – 2 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-06)

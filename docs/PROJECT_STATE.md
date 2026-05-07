@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-07 by Claude Code (TICKET-021 in review)
+**Last updated:** 2026-05-07 by Claude Code (TICKET-021 merged)
 
 ---
 
@@ -87,10 +87,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstöpfe, Teilfreistellung, Abgeltungsteuer) (PR #22)
 - TICKET-011 — Tax Dashboard page (YTD tiles, harvest opportunity, tax exposure, profile editor) (PR #23)
 - TICKET-012 — Pre-trade sell simulator (FIFO lot preview, marginal tax, portfolio impact, Manage Portfolio handoff) (PR #26)
-
+- TICKET-021 — Smooth ticker autocomplete (disk cache + streamlit-searchbox) (PR #27)
 
 ### In review 👀
-- TICKET-021 — Smooth ticker autocomplete (disk cache + streamlit-searchbox)
+- (none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -99,8 +99,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (P1)
-2. TICKET-022b — Research page + Live Overview chart integration (P1)
+1. TICKET-023 — EUR-denominated & unsupported-suffix price check (SK Hynix bug) (P0)
+2. TICKET-024 — Sell simulator cold-start performance (P1)
+3. TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (P1)
+4. TICKET-022b — Research page + Live Overview chart integration (P1)
 5. *Then:* Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
