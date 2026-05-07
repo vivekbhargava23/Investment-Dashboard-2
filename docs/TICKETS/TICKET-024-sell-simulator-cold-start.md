@@ -1,10 +1,10 @@
 # TICKET-024 — Sell simulator cold-start performance (repeated slow renders after restart)
 
-**Status:** IN_PROGRESS
+**Status:** IN_REVIEW
 **Priority:** P1
 **Estimated session length:** 1 – 1.5 hr
 **Drafted by:** Claude Code (bug investigation 2026-05-07)
-**Implemented by:** _pending_
+**Implemented by:** ChatGPT Codex (GPT-5, session 2026-05-07)
 **Found by:** Vivek — sell simulator was "opening instantly after first load" post-TICKET-012, but now takes several seconds again after each Streamlit restart.
 
 ---
