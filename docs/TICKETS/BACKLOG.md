@@ -28,7 +28,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | TICKET-008c | Currency-correctness audit + JPY support + data migration | MERGED | P0 | 1.5 – 2 hr |
 | TICKET-020 | TickerResolver port + yfinance adapter | MERGED | P1 | 1.5 – 2 hr |
 | TICKET-009-revised | Manage Portfolio page (EUR-native input) | MERGED | P1 | 3 – 3.5 hr |
-| TICKET-021 | Smooth ticker autocomplete (disk cache + streamlit-searchbox) | IN_REVIEW | P1 | 1.5 – 2 hr |
+| TICKET-021 | Smooth ticker autocomplete (disk cache + streamlit-searchbox) | MERGED | P1 | 1.5 – 2 hr |
 
 ## Phase 2 — Tax & decisions
 
@@ -37,6 +37,8 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | TICKET-010 | Tax engine (Sparerpauschbetrag, Verlustverrechnungstopf, Teilfreistellung, Abgeltungsteuer) | MERGED | P1 | 2.5 – 3.5 hr |
 | TICKET-011 | Tax Dashboard page (Sparerpauschbetrag tracker, harvest opportunity, tax exposure) | MERGED | P1 | 2 – 2.5 hr |
 | TICKET-012 | Pre-trade sell simulator (FIFO lot preview + tax impact + portfolio impact) | MERGED | P1 | 2.5 – 3 hr |
+| TICKET-023 | EUR-denominated & unsupported-suffix price check (SK Hynix bug) | READY | P0 | 1 – 1.5 hr |
+| TICKET-024 | Sell simulator cold-start performance (repeated slow renders after restart) | READY | P1 | 1 – 1.5 hr |
 
 ## Phase 3 — Performance & history
 
