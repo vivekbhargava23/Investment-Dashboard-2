@@ -4,6 +4,7 @@ from app.domain.fifo import (
     compute_realised_gains,
     simulate_lot_consumption,
 )
+from app.domain.market_data import ChartPeriod, OhlcBar, OhlcSeries, OhlcUnavailableError
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, CurrencyMismatchError, Money
 from app.domain.positions import LivePosition, OpenLot, PortfolioSummary, Position
@@ -27,6 +28,10 @@ __all__ = [
     "Currency",
     "Money",
     "CurrencyMismatchError",
+    "ChartPeriod",
+    "OhlcBar",
+    "OhlcSeries",
+    "OhlcUnavailableError",
     "Transaction",
     "TransactionType",
     "OpenLot",

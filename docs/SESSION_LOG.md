@@ -52,7 +52,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 **Model:** sonnet-4.6
 **Duration:** ~45 min
 **Branch:** ticket-001-domain-models
-**PR:** _pending_
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/31
 **Status at session end:** IN_REVIEW
 
 ### What got done
@@ -941,3 +941,52 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~45k
+
+---
+
+## 2026-05-07 21:10 — TICKET-022a
+
+**Surface:** ChatGPT Codex
+**Model:** GPT-5
+**Duration:** ~75 min
+**Branch:** ticket-022a-chart-service-components
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added OHLC chart domain types (`ChartPeriod`, `OhlcBar`, `OhlcSeries`) with validation for timezone-aware timestamps, positive prices, OHLC integrity, non-empty series, and chronological ordering.
+- Added `OhlcDataProvider` port and a deliberately cached OHLC service with 15-minute intraday TTL and 24-hour daily TTL.
+- Extended the yfinance adapter with OHLC history fetching, per-period intervals, row-level bad-data skipping, currency inference, and OHLC cache invalidation.
+- Added Plotly chart components for candlestick, line/area, and sparkline rendering; no app page consumes them yet.
+- Added wiring for `get_ohlc_data_provider()` and a reusable fake OHLC provider for downstream tests.
+- Fixed stale backlog rows for TICKET-023 and TICKET-024, which were already merged.
+
+### Files touched
+- `app/domain/market_data.py` — new OHLC domain models and error
+- `app/ports/market_data.py` — new OHLC provider protocol
+- `app/services/market_data.py` — OHLC service-level cache and invalidation
+- `app/adapters/yfinance_feed/yfinance_adapter.py` — OHLC history adapter support
+- `app/ui/components/_chart_styles.py` — shared Plotly layout constants
+- `app/ui/components/charts.py` — candlestick, line, and sparkline renderers
+- `app/ui/wiring.py` — OHLC provider accessor
+- `tests/fakes/ohlc.py` — fake provider and fixture series
+- `tests/unit/domain/test_market_data.py` — new domain validation tests
+- `tests/unit/services/test_market_data.py` — new service cache tests
+- `tests/unit/adapters/test_yfinance_ohlc.py` — new adapter conversion/cache tests
+- `tests/unit/ui/test_chart_components.py` — new render-call-shape tests
+- `docs/TICKETS/BACKLOG.md`, `docs/TICKETS/TICKET-022a-chart-service-and-components.md`, `docs/PROJECT_STATE.md` — status updates
+
+### Tests
+277 passing → 303 passing (26 new); 68 skipped
+Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
+
+### Decisions made during the session
+- Kept chart components fetch-free: callers pass `OhlcSeries`; pages will catch `OhlcUnavailableError` in TICKET-022b.
+- Removed a pandas runtime import from app code to avoid requiring pandas stubs in mypy; adapter code uses local NaN detection for volume instead.
+- Treated `PROJECT_STATE.md` as the source of truth for selecting TICKET-022a because the backlog had stale READY rows for already-merged TICKET-023 and TICKET-024.
+
+### Out-of-scope items noticed
+- TICKET-022a remains a foundation ticket only; Research page and Live Overview chart consumption stay in TICKET-022b.
+
+### Tokens used (rough)
+~90k
