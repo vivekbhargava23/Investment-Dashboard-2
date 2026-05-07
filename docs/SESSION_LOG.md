@@ -815,7 +815,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 **Model:** sonnet-4.6
 **Duration:** ~90 min
 **Branch:** ticket-021-smooth-ticker-autocomplete
-**PR:** pending
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/27
 **Status at session end:** IN_REVIEW
 
 ### What got done
