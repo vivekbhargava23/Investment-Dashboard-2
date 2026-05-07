@@ -40,6 +40,21 @@ _PLACEHOLDER_NAME: dict[str, str] = {
     "MRVL": "Marvell", "APD": "Air Products", "ANET": "Arista", "AVGO": "Broadcom",
     "ETN": "Eaton", "ASX": "ASE Tech", "VUSA.DE": "S&P 500 ETF", "5631.T": "Japan Steel Works",
 }
+_PERIOD_LABELS: dict[ChartPeriod, str] = {
+    ChartPeriod.ONE_DAY: "1D",
+    ChartPeriod.FIVE_DAY: "5D",
+    ChartPeriod.ONE_MONTH: "1M",
+    ChartPeriod.THREE_MONTH: "3M",
+    ChartPeriod.SIX_MONTH: "6M",
+    ChartPeriod.ONE_YEAR: "1Y",
+    ChartPeriod.TWO_YEAR: "2Y",
+    ChartPeriod.FIVE_YEAR: "5Y",
+    ChartPeriod.YEAR_TO_DATE: "YTD",
+}
+
+
+def _period_label(period: ChartPeriod) -> str:
+    return _PERIOD_LABELS[period]
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -214,14 +229,21 @@ def _render_trend_cell(ticker: str) -> None:
     except OhlcUnavailableError:
         _trend_placeholder()
         return
-    render_sparkline(series, height=34, width=110)
+    render_sparkline(series, height=30, width=110)
+    _render_chart_button(ticker, label_prefix="Trend")
 
 
-def _render_chart_button(ticker: str) -> None:
+def _render_chart_button(ticker: str, *, label_prefix: str = "Chart") -> None:
     selected = st.session_state.get("overview_selected_ticker")
-    label = "Close" if selected == ticker else "Chart"
+    label = "Close" if selected == ticker else label_prefix
     if st.button(label, key=f"overview_chart_{ticker}", use_container_width=True):
         st.session_state["overview_selected_ticker"] = None if selected == ticker else ticker
+
+
+def _render_sell_button(ticker: str) -> None:
+    if st.button("Sell", key=f"overview_sell_{ticker}", use_container_width=True):
+        st.session_state["simulator_default_ticker"] = ticker
+        st.query_params["page"] = "simulator"
 
 
 def _render_positions_table(
@@ -233,8 +255,9 @@ def _render_positions_table(
             Positions
         </div>
     """)
-    header = st.columns([1.0, 1.4, 0.8, 0.8, 0.9, 1.1, 1.1, 1.0, 0.8], gap="small")
-    labels = ("Ticker", "Name", "Price", "Shares", "Trend", "Value", "Gain", "Weight", "")
+    col_spec = [1.0, 1.4, 0.8, 0.8, 1.0, 1.1, 1.1, 1.0, 0.8]
+    header = st.columns(col_spec, gap="small")
+    labels = ("Ticker", "Name", "Price", "Shares", "Trend", "Value", "Gain", "Weight", "Sell")
     for col, label in zip(header, labels, strict=True):
         with col:
             st.caption(label)
@@ -257,7 +280,7 @@ def _render_positions_table(
         gain_class = _position_gain_class(position)
         stale_style = "color: var(--text3);" if is_stale else ""
 
-        cols = st.columns([1.0, 1.4, 0.8, 0.8, 0.9, 1.1, 1.1, 1.0, 0.8], gap="small")
+        cols = st.columns(col_spec, gap="small")
         with cols[0]:
             st.markdown(f"**{ticker}**")
         with cols[1]:
@@ -275,7 +298,7 @@ def _render_positions_table(
         with cols[7]:
             st.markdown(f"{weight:.1f}%")
         with cols[8]:
-            _render_chart_button(ticker)
+            _render_sell_button(ticker)
 
 
 def _mini_chart_color(series: OhlcSeries) -> str:
@@ -288,13 +311,23 @@ def _render_mini_chart_panel() -> None:
     if not selected:
         return
 
+    periods = list(ChartPeriod)
+    selected_period = st.radio(
+        "Chart period",
+        options=periods,
+        horizontal=True,
+        key="overview_chart_period",
+        index=periods.index(ChartPeriod.SIX_MONTH),
+        format_func=_period_label,
+    )
+
     render_html(f"""
         <div style="font-size: 15px; font-weight: 700; margin: 22px 0 8px;">
-            {selected} — 6-month price
+            {selected} — {_period_label(selected_period)} price
         </div>
     """)
     try:
-        series = _cached_ohlc_for_overview(selected, ChartPeriod.SIX_MONTH.value)
+        series = _cached_ohlc_for_overview(selected, selected_period.value)
     except OhlcUnavailableError as exc:
         st.warning(f"Chart unavailable: {exc.reason}")
     else:
