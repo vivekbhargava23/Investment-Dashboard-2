@@ -30,6 +30,10 @@ def _interval_for_period(period: ChartPeriod) -> str:
         return "5m"
     if period == ChartPeriod.FIVE_DAY:
         return "15m"
+    if period in {ChartPeriod.THREE_MONTH, ChartPeriod.SIX_MONTH}:
+        return "1wk"
+    if period in {ChartPeriod.ONE_YEAR, ChartPeriod.TWO_YEAR, ChartPeriod.FIVE_YEAR}:
+        return "1mo"
     return "1d"
 
 

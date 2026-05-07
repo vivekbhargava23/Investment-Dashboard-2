@@ -72,7 +72,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 **Model:** Gemini 2.0 Pro
 **Duration:** ~30 min
 **Branch:** _pending_
-**PR:** _pending_
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/33
 **Status at session end:** IN_REVIEW
 
 ### What got done
@@ -990,3 +990,59 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~90k
+
+---
+
+## 2026-05-07 21:55 — TICKET-022b
+
+**Surface:** ChatGPT Codex
+**Model:** GPT-5
+**Duration:** ~70 min
+**Branch:** ticket-022b-research-overview-charts
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added a top-level Research page using the shared ticker searchbox, period selector, OHLC fetch path, candlestick chart, and chart metrics.
+- Added a small Streamlit UI cache around Research OHLC fetches so period/ticker switches reuse warm data promptly on rerun, layered over the TICKET-022a service cache.
+- Added Research to the sidebar and topbar, and wired the Refresh button to clear OHLC caches alongside price/FX caches.
+- Replaced the static Overview positions table rendering path with a Streamlit-column table that can render per-row Plotly sparklines and chart buttons.
+- Added Overview mini-chart selection with a 6-month line chart, per-row sparkline error isolation, and positive/negative chart coloring.
+- Added intraday Plotly range breaks to hide weekend/overnight gaps and coarser yfinance OHLC intervals for dense periods.
+- Restored the Overview sell-simulator action alongside the chart controls and added a period selector to the expanded mini chart.
+- Tightened chart y-axis autoranging to avoid flat price-action visuals and replaced bulky Overview text buttons with compact icon controls.
+- Unified the Overview expanded chart with the Research candlestick + metric layout.
+- Added portfolio holdings as pinned Research search suggestions and quick-pick buttons for faster ticker selection.
+- Refined Research search priority so pinned holdings show only on empty input; typed searches now show resolver recommendations first and quick-pick blocks were removed.
+- Restored the Live Overview sell action to its original compact link style and moved Manage Portfolio back to the Settings section in the sidebar.
+- Kept the Research "Simulate buy" action visible but disabled because the existing simulator is sell-only.
+
+### Files touched
+- `app/ui/pages/research.py` — new Research page
+- `app/ui/pages/overview.py` — Trend sparklines and mini chart panel
+- `app/ui/components/ticker_searchbox.py` — pinned portfolio suggestions
+- `app/ui/components/charts.py` — intraday range breaks
+- `app/ui/components/_chart_styles.py` — y-axis autorange settings
+- `app/adapters/yfinance_feed/yfinance_adapter.py` — denser-period OHLC interval aggregation
+- `app/ui/components/sidebar.py` — Research navigation entry
+- `app/ui/components/topbar.py` — Research title and OHLC cache refresh
+- `tests/unit/ui/test_research_page.py` — new Research page tests
+- `tests/unit/ui/test_overview_chart_integration.py` — new Overview chart tests
+- `tests/unit/ui/test_components.py` — nav/page registry expectations
+- `docs/TICKETS/BACKLOG.md`, `docs/TICKETS/TICKET-022b-research-page-and-overview-charts.md`, `docs/PROJECT_STATE.md` — status updates
+
+### Tests
+303 passing → 316 passing (13 new); 68 skipped
+Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
+UI smoke: `streamlit run app/ui/main.py --server.headless true --server.port 8765`; `curl -I http://127.0.0.1:8765/?page=research` returned HTTP 200.
+
+### Decisions made during the session
+- Disabled "Simulate buy" instead of wiring it to the sell simulator; TICKET-012 implements sell simulation only, so enabling it would misrepresent the flow.
+- Used a Streamlit-column table for Overview chart integration because Plotly charts cannot be safely mounted inside the existing static HTML table string.
+- Added a UI-level OHLC cache for Research to make chart period switching prompt after a series is fetched once, while still keeping the shared service cache as the cross-page source.
+
+### Out-of-scope items noticed
+- A real buy simulator or buy-side handoff needs its own ticket; the current simulator remains sell-only.
+
+### Tokens used (rough)
+~85k
