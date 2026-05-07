@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-07 by ChatGPT Codex (TICKET-022a merged)
+**Last updated:** 2026-05-07 by ChatGPT Codex (TICKET-022b in review)
 
 ---
 
@@ -93,7 +93,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (PR #31)
 
 ### In review 👀
-- (none)
+- TICKET-022b — Research page + Live Overview chart integration (PR pending)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -102,8 +102,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-022b — Research page + Live Overview chart integration (P1)
-2. *Then:* Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)
+1. Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 

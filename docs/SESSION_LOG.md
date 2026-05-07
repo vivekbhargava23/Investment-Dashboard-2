@@ -990,3 +990,48 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~90k
+
+---
+
+## 2026-05-07 21:55 — TICKET-022b
+
+**Surface:** ChatGPT Codex
+**Model:** GPT-5
+**Duration:** ~70 min
+**Branch:** ticket-022b-research-overview-charts
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added a top-level Research page using the shared ticker searchbox, period selector, OHLC fetch path, candlestick chart, and chart metrics.
+- Added a small Streamlit UI cache around Research OHLC fetches so period/ticker switches reuse warm data promptly on rerun, layered over the TICKET-022a service cache.
+- Added Research to the sidebar and topbar, and wired the Refresh button to clear OHLC caches alongside price/FX caches.
+- Replaced the static Overview positions table rendering path with a Streamlit-column table that can render per-row Plotly sparklines and chart buttons.
+- Added Overview mini-chart selection with a 6-month line chart, per-row sparkline error isolation, and positive/negative chart coloring.
+- Kept the Research "Simulate buy" action visible but disabled because the existing simulator is sell-only.
+
+### Files touched
+- `app/ui/pages/research.py` — new Research page
+- `app/ui/pages/overview.py` — Trend sparklines and mini chart panel
+- `app/ui/components/sidebar.py` — Research navigation entry
+- `app/ui/components/topbar.py` — Research title and OHLC cache refresh
+- `tests/unit/ui/test_research_page.py` — new Research page tests
+- `tests/unit/ui/test_overview_chart_integration.py` — new Overview chart tests
+- `tests/unit/ui/test_components.py` — nav/page registry expectations
+- `docs/TICKETS/BACKLOG.md`, `docs/TICKETS/TICKET-022b-research-page-and-overview-charts.md`, `docs/PROJECT_STATE.md` — status updates
+
+### Tests
+303 passing → 312 passing (9 new); 68 skipped
+Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
+UI smoke: `streamlit run app/ui/main.py --server.headless true --server.port 8765`; `curl -I http://127.0.0.1:8765/?page=research` returned HTTP 200.
+
+### Decisions made during the session
+- Disabled "Simulate buy" instead of wiring it to the sell simulator; TICKET-012 implements sell simulation only, so enabling it would misrepresent the flow.
+- Used a Streamlit-column table for Overview chart integration because Plotly charts cannot be safely mounted inside the existing static HTML table string.
+- Added a UI-level OHLC cache for Research to make chart period switching prompt after a series is fetched once, while still keeping the shared service cache as the cross-page source.
+
+### Out-of-scope items noticed
+- A real buy simulator or buy-side handoff needs its own ticket; the current simulator remains sell-only.
+
+### Tokens used (rough)
+~85k
