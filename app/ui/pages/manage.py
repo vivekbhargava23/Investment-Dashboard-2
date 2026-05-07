@@ -159,7 +159,7 @@ def _render_recording_preview(
                     f"Check your amount and date."
                 )
             else:
-                st.markdown(f"✓ within {eur_deviation_pct}% of market close")
+                st.markdown(f"✓ within {eur_deviation_pct}% of market close ({format_eur(hist)})")
         except PriceUnavailableError:
             st.warning(
                 f"⚠ Couldn't fetch the historical price for **{ticker}** on {format_date(trade_date)}."
