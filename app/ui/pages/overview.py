@@ -12,9 +12,8 @@ from app.services.market_data import get_ohlc_history
 from app.services.tax_planning import compute_current_tax_summary
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
 from app.ui.cache_keys import transactions_signature
-from app.ui.components._chart_styles import CANDLE_DOWN, CANDLE_UP
 from app.ui.components.badges import render_thesis_badge
-from app.ui.components.charts import render_line_chart, render_sparkline
+from app.ui.components.charts import render_candlestick, render_sparkline
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
 from app.ui.wiring import (
@@ -305,9 +304,34 @@ def _render_positions_table(
             _render_sell_button(ticker)
 
 
-def _mini_chart_color(series: OhlcSeries) -> str:
-    change = series.period_change_pct or Decimal("0")
-    return CANDLE_UP if change >= 0 else CANDLE_DOWN
+def _format_native_price(value: Decimal, currency: str) -> str:
+    if currency == "EUR":
+        return f"€{value:,.2f}"
+    if currency == "JPY":
+        return f"¥{value:,.0f}"
+    return f"${value:,.2f}"
+
+
+def _format_change(value: Decimal | None) -> str:
+    if value is None:
+        return "—"
+    sign = "+" if value >= 0 else ""
+    return f"{sign}{value:.2f}%"
+
+
+def _render_chart_metrics(series: OhlcSeries) -> None:
+    latest_col, change_col, period_col = st.columns(3)
+    with latest_col:
+        st.metric("Latest", _format_native_price(series.latest_close, series.currency.value))
+    with change_col:
+        st.metric(
+            "Period change",
+            _format_change(series.period_change_pct),
+            delta=_format_change(series.period_change_pct),
+            delta_color="normal",
+        )
+    with period_col:
+        st.metric("Period", _period_label(series.period))
 
 
 def _render_mini_chart_panel() -> None:
@@ -335,7 +359,8 @@ def _render_mini_chart_panel() -> None:
     except OhlcUnavailableError as exc:
         st.warning(f"Chart unavailable: {exc.reason}")
     else:
-        render_line_chart(series, height=300, color=_mini_chart_color(series))
+        _render_chart_metrics(series)
+        render_candlestick(series, height=420)
 
     if st.button("Close chart", key="overview_close_chart"):
         st.session_state["overview_selected_ticker"] = None

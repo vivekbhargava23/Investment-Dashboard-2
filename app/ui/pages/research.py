@@ -6,11 +6,12 @@ import streamlit as st
 
 from app.domain.market_data import ChartPeriod, OhlcSeries, OhlcUnavailableError
 from app.domain.money import Currency
+from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 from app.ports.ticker_resolver import TickerMatch
 from app.services.market_data import get_ohlc_history
 from app.ui.components.charts import render_candlestick
 from app.ui.components.ticker_searchbox import render_ticker_searchbox
-from app.ui.wiring import get_ohlc_data_provider, get_ticker_resolver
+from app.ui.wiring import get_ohlc_data_provider, get_repository, get_ticker_resolver
 
 _PERIOD_LABELS: dict[ChartPeriod, str] = {
     ChartPeriod.ONE_DAY: "1D",
@@ -87,18 +88,71 @@ def _render_actions(match: TickerMatch) -> None:
         )
 
 
+def _portfolio_tickers() -> tuple[str, ...]:
+    transactions = get_repository().load_all()
+    seen: set[str] = set()
+    tickers: list[str] = []
+    for tx in transactions:
+        ticker = tx.ticker.strip().upper()
+        if ticker not in seen:
+            seen.add(ticker)
+            tickers.append(ticker)
+    return tuple(tickers)
+
+
+def _fallback_match(ticker: str) -> TickerMatch | None:
+    try:
+        currency = infer_currency_from_ticker(ticker)
+    except UnsupportedTickerError:
+        return None
+    return TickerMatch(symbol=ticker, name=ticker, exchange="", currency=currency)
+
+
+def _portfolio_matches() -> tuple[TickerMatch, ...]:
+    resolver = get_ticker_resolver()
+    matches: list[TickerMatch] = []
+    for ticker in _portfolio_tickers():
+        match = resolver.lookup(ticker) or _fallback_match(ticker)
+        if match is not None:
+            matches.append(match)
+    return tuple(matches)
+
+
+def _quick_pick_matches(portfolio_matches: tuple[TickerMatch, ...]) -> tuple[TickerMatch, ...]:
+    return portfolio_matches[:5]
+
+
+def _render_quick_picks(matches: tuple[TickerMatch, ...]) -> None:
+    if not matches:
+        return
+    cols = st.columns(len(matches))
+    for col, match in zip(cols, matches, strict=True):
+        with col:
+            if st.button(match.symbol, key=f"research_quick_{match.symbol}"):
+                st.session_state["research_selected_match"] = match
+                st.rerun()
+
+
 def render() -> None:
     st.markdown("# 📈 Research")
     st.caption("Type any ticker to see its chart, regardless of whether you own it.")
 
     resolver = get_ticker_resolver()
+    portfolio_matches = _portfolio_matches()
+    default_match = st.session_state.get("research_selected_match")
+    if not isinstance(default_match, TickerMatch):
+        default_match = None
+
     search_col, period_col = st.columns([0.7, 0.3])
     with search_col:
         match = render_ticker_searchbox(
             key="research_ticker",
             resolver=resolver,
             placeholder="Type a ticker or company name...",
+            default_match=default_match,
+            pinned_matches=portfolio_matches,
         )
+        _render_quick_picks(_quick_pick_matches(portfolio_matches))
     with period_col:
         periods = list(ChartPeriod)
         period = st.radio(
@@ -109,6 +163,11 @@ def render() -> None:
             index=periods.index(ChartPeriod.SIX_MONTH),
             format_func=_period_label,
         )
+
+    if match is not None:
+        st.session_state["research_selected_match"] = match
+    else:
+        match = default_match
 
     if match is None:
         st.info("Type a ticker symbol or company name above to begin.")
