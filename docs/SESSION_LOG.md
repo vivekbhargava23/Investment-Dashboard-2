@@ -1010,12 +1010,14 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 - Added Overview mini-chart selection with a 6-month line chart, per-row sparkline error isolation, and positive/negative chart coloring.
 - Added intraday Plotly range breaks to hide weekend/overnight gaps and coarser yfinance OHLC intervals for dense periods.
 - Restored the Overview sell-simulator action alongside the chart controls and added a period selector to the expanded mini chart.
+- Tightened chart y-axis autoranging to avoid flat price-action visuals and replaced bulky Overview text buttons with compact icon controls.
 - Kept the Research "Simulate buy" action visible but disabled because the existing simulator is sell-only.
 
 ### Files touched
 - `app/ui/pages/research.py` — new Research page
 - `app/ui/pages/overview.py` — Trend sparklines and mini chart panel
 - `app/ui/components/charts.py` — intraday range breaks
+- `app/ui/components/_chart_styles.py` — y-axis autorange settings
 - `app/adapters/yfinance_feed/yfinance_adapter.py` — denser-period OHLC interval aggregation
 - `app/ui/components/sidebar.py` — Research navigation entry
 - `app/ui/components/topbar.py` — Research title and OHLC cache refresh

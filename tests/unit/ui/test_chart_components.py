@@ -25,6 +25,9 @@ def test_render_candlestick_calls_plotly_chart(monkeypatch) -> None:  # type: ig
     fig = calls[0]["args"][0]
     assert isinstance(fig, go.Figure)
     assert fig.data[0].type == "candlestick"
+    assert fig.layout.yaxis.autorange is True
+    assert fig.layout.yaxis.fixedrange is False
+    assert fig.layout.yaxis.rangemode == "normal"
     assert calls[0]["kwargs"]["use_container_width"] is True
 
 
