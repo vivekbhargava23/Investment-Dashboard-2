@@ -133,7 +133,7 @@ def _render_recording_preview(
 
     if currency == Currency.EUR:
         net = eur_total - fees_eur
-        price_per_share = net / shares
+        eur_price_per_share = net / shares
         total_line = (
             f"- Your EUR total: {format_eur(_eur(eur_total))}"
             f"  (= {format_eur(_eur(net))} net + {format_eur(_eur(fees_eur))} fees) ✓"
@@ -142,17 +142,36 @@ def _render_recording_preview(
         )
         st.markdown(
             f"Recording: {shares:g} share(s) of **{ticker}** on {format_date(trade_date)}\n"
-            f"- Price: {format_eur(_eur(price_per_share))}\n"
+            f"- Price: {format_eur(_eur(eur_price_per_share))}\n"
             f"{total_line}"
         )
-        return True, None
+        eur_deviation_pct: Decimal | None = None
+        try:
+            hist = get_price_provider().get_historical_close(ticker, trade_date)
+            raw_dev = abs(eur_price_per_share - hist.amount) / hist.amount * Decimal("100")
+            eur_deviation_pct = raw_dev.quantize(Decimal("0.1"))
+            direction = "below" if eur_price_per_share < hist.amount else "above"
+            if eur_deviation_pct > Decimal("2"):
+                st.warning(
+                    f"⚠ Your total ({format_eur(_eur(eur_total))}) implies "
+                    f"{format_eur(_eur(eur_price_per_share))} per share vs market close "
+                    f"{format_eur(hist)} — {eur_deviation_pct}% {direction} market close. "
+                    f"Check your amount and date."
+                )
+            else:
+                st.markdown(f"✓ within {eur_deviation_pct}% of market close")
+        except PriceUnavailableError:
+            st.warning(
+                f"⚠ Couldn't fetch the historical price for **{ticker}** on {format_date(trade_date)}."
+            )
+        return True, eur_deviation_pct
 
     try:
         hist = get_price_provider().get_historical_close(ticker, trade_date)
         net = eur_total - fees_eur
         implied_fx = (net / (shares * hist.amount)).quantize(Decimal("0.000001"))
 
-        deviation_pct: Decimal | None = None
+        deviation_pct = None
         ecb_ref_line = ""
         deviation_note = ""
         try:
@@ -201,6 +220,7 @@ def _render_recording_preview(
         )
         return False, None
     except Exception:
+        logging.warning("_render_recording_preview unexpected error for %s", ticker, exc_info=True)
         return True, None
 
 
