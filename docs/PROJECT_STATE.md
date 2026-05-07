@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-07 by ChatGPT Codex (TICKET-022a in review)
+**Last updated:** 2026-05-07 by ChatGPT Codex (TICKET-022a merged)
 
 ---
 
@@ -90,9 +90,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-021 — Smooth ticker autocomplete (disk cache + streamlit-searchbox) (PR #27)
 - TICKET-023 — EUR-denominated & unsupported-suffix price check + Add form UX (price-per-share input, shares step=1, back-navigation state restore) (PR #28)
 - TICKET-024 — Sell simulator cold-start performance (PR #29)
+- TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (PR #31)
 
 ### In review 👀
-- TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (PR #31)
+- (none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.

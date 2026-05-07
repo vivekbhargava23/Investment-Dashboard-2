@@ -950,8 +950,8 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 **Model:** GPT-5
 **Duration:** ~75 min
 **Branch:** ticket-022a-chart-service-components
-**PR:** _pending_
-**Status at session end:** IN_REVIEW
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/31
+**Status at session end:** MERGED
 
 ### What got done
 - Added OHLC chart domain types (`ChartPeriod`, `OhlcBar`, `OhlcSeries`) with validation for timezone-aware timestamps, positive prices, OHLC integrity, non-empty series, and chronological ordering.
