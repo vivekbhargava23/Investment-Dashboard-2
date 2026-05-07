@@ -6,7 +6,6 @@ import streamlit as st
 
 NAV_ITEMS: list[dict[str, Any]] = [
     {"id": "overview",    "label": "Live Overview",      "icon": "◉", "badge": None},
-    {"id": "manage",      "label": "Manage Portfolio",   "icon": "⚙", "badge": None},
     {"id": "tax",         "label": "Tax Dashboard",      "icon": "§", "badge": None},
     {"id": "research",    "label": "Research",           "icon": "📈", "badge": None},
     {"id": "simulator",   "label": "Sell Simulator",     "icon": "⚡", "badge": None},
@@ -25,6 +24,7 @@ NAV_ITEMS: list[dict[str, Any]] = [
     },
     {"id": "behaviour",   "label": "Behavioural Ledger", "icon": "◎", "badge": None},
     {"id": "lots",        "label": "Lot Ledger",         "icon": "≡", "badge": None},
+    {"id": "manage",      "label": "Manage Portfolio",   "icon": "⚙", "badge": None},
 ]
 
 def render_sidebar() -> str:
@@ -50,7 +50,7 @@ def render_sidebar() -> str:
     
     # Portfolio section
     nav_html += '<div class="nav-section-label">Portfolio</div>'
-    for item in NAV_ITEMS:
+    for item in NAV_ITEMS[:-1]:  # All except manage
         active_class = "active" if current_page == item["id"] else ""
         badge_html = ""
         if item["badge"]:
@@ -64,7 +64,17 @@ def render_sidebar() -> str:
                 {badge_html}
             </a>
         """).strip()
-    
+
+    # Settings section
+    nav_html += '<div class="nav-section-label">Settings</div>'
+    manage_item = NAV_ITEMS[-1]
+    active_class = "active" if current_page == manage_item["id"] else ""
+    nav_html += textwrap.dedent(f"""
+        <a href="/?page={manage_item['id']}" target="_self" class="nav-item-link {active_class}">
+            <span class="nav-icon">{manage_item['icon']}</span>
+            <span>{manage_item['label']}</span>
+        </a>
+    """).strip()
     nav_html += '</div>' # close sidebar-nav
     
     # Footer

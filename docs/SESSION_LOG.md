@@ -1014,6 +1014,7 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 - Unified the Overview expanded chart with the Research candlestick + metric layout.
 - Added portfolio holdings as pinned Research search suggestions and quick-pick buttons for faster ticker selection.
 - Refined Research search priority so pinned holdings show only on empty input; typed searches now show resolver recommendations first and quick-pick blocks were removed.
+- Restored the Live Overview sell action to its original compact link style and moved Manage Portfolio back to the Settings section in the sidebar.
 - Kept the Research "Simulate buy" action visible but disabled because the existing simulator is sell-only.
 
 ### Files touched
