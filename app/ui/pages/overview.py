@@ -5,15 +5,25 @@ from typing import Literal
 
 import streamlit as st
 
+from app.domain.market_data import ChartPeriod, OhlcSeries, OhlcUnavailableError
 from app.domain.positions import LivePosition, PortfolioSummary
 from app.domain.tax.models import TaxProfile, TaxYearSummary
+from app.services.market_data import get_ohlc_history
 from app.services.tax_planning import compute_current_tax_summary
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
 from app.ui.cache_keys import transactions_signature
+from app.ui.components._chart_styles import CANDLE_DOWN, CANDLE_UP
 from app.ui.components.badges import render_thesis_badge
+from app.ui.components.charts import render_line_chart, render_sparkline
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
-from app.ui.wiring import get_fx_provider, get_price_provider, get_repository, get_tax_profile_repo
+from app.ui.wiring import (
+    get_fx_provider,
+    get_ohlc_data_provider,
+    get_price_provider,
+    get_repository,
+    get_tax_profile_repo,
+)
 
 _PLACEHOLDER_THESIS_STATUS: dict[str, Literal["intact", "watch", "broken"]] = {
     "NVDA": "intact", "RHM.DE": "intact", "MU": "intact", "HY9H.F": "intact",
@@ -63,6 +73,23 @@ def _cached_tax_summary_for_overview(tx_sig: str, year: int) -> TaxYearSummary |
         )
     except Exception:
         return None
+
+
+@st.cache_data(ttl=15 * 60, show_spinner=False)
+def _cached_ohlc_for_overview(ticker: str, period_value: str) -> OhlcSeries:
+    return get_ohlc_history(
+        ticker,
+        ChartPeriod(period_value),
+        provider=get_ohlc_data_provider(),
+    )
+
+
+def _sorted_live_positions(positions: dict[str, LivePosition]) -> list[LivePosition]:
+    return sorted(
+        positions.values(),
+        key=lambda p: float(p.live_value_eur.amount) if p.live_value_eur is not None else -1.0,
+        reverse=True,
+    )
 
 
 def _build_positions_table_html(
@@ -161,6 +188,123 @@ def _build_positions_table_html(
     return header + "".join(tbody_rows) + "</tbody></table>"
 
 
+def _position_gain_class(position: LivePosition) -> str:
+    if position.unrealised_gain_eur is None:
+        return "gain-neutral"
+    if position.unrealised_gain_eur.amount > 0:
+        return "gain-positive"
+    if position.unrealised_gain_eur.amount < 0:
+        return "gain-negative"
+    return "gain-neutral"
+
+
+def _position_weight_pct(position: LivePosition, summary: PortfolioSummary) -> Decimal:
+    if position.live_value_eur is None or summary.total_value_eur.amount <= 0:
+        return Decimal("0")
+    return position.live_value_eur.amount / summary.total_value_eur.amount * Decimal("100")
+
+
+def _trend_placeholder() -> None:
+    st.markdown("—")
+
+
+def _render_trend_cell(ticker: str) -> None:
+    try:
+        series = _cached_ohlc_for_overview(ticker, ChartPeriod.ONE_MONTH.value)
+    except OhlcUnavailableError:
+        _trend_placeholder()
+        return
+    render_sparkline(series, height=34, width=110)
+
+
+def _render_chart_button(ticker: str) -> None:
+    selected = st.session_state.get("overview_selected_ticker")
+    label = "Close" if selected == ticker else "Chart"
+    if st.button(label, key=f"overview_chart_{ticker}", use_container_width=True):
+        st.session_state["overview_selected_ticker"] = None if selected == ticker else ticker
+
+
+def _render_positions_table(
+    positions: dict[str, LivePosition],
+    summary: PortfolioSummary,
+) -> None:
+    render_html("""
+        <div style="font-size: 15px; font-weight: 700; margin: 22px 0 8px;">
+            Positions
+        </div>
+    """)
+    header = st.columns([1.0, 1.4, 0.8, 0.8, 0.9, 1.1, 1.1, 1.0, 0.8], gap="small")
+    labels = ("Ticker", "Name", "Price", "Shares", "Trend", "Value", "Gain", "Weight", "")
+    for col, label in zip(header, labels, strict=True):
+        with col:
+            st.caption(label)
+
+    for position in _sorted_live_positions(positions):
+        ticker = position.position.ticker
+        is_stale = (
+            position.live_price_native is None
+            or position.live_value_eur is None
+            or position.unrealised_gain_eur is None
+        )
+        price = "—" if position.live_price_native is None else f"{position.live_price_native.amount:.2f}"
+        shares = f"{position.position.open_shares:g}"
+        value = "—" if position.live_value_eur is None else format_eur(position.live_value_eur)
+        gain = "—" if position.unrealised_gain_eur is None else format_eur(
+            position.unrealised_gain_eur,
+            signed=True,
+        )
+        weight = _position_weight_pct(position, summary)
+        gain_class = _position_gain_class(position)
+        stale_style = "color: var(--text3);" if is_stale else ""
+
+        cols = st.columns([1.0, 1.4, 0.8, 0.8, 0.9, 1.1, 1.1, 1.0, 0.8], gap="small")
+        with cols[0]:
+            st.markdown(f"**{ticker}**")
+        with cols[1]:
+            st.caption(_PLACEHOLDER_NAME.get(ticker, ticker))
+        with cols[2]:
+            render_html(f"<span style='{stale_style}'>{price}</span>")
+        with cols[3]:
+            st.markdown(shares)
+        with cols[4]:
+            _render_trend_cell(ticker)
+        with cols[5]:
+            st.markdown(f"**{value}**")
+        with cols[6]:
+            render_html(f'<span class="{gain_class}">{gain}</span>')
+        with cols[7]:
+            st.markdown(f"{weight:.1f}%")
+        with cols[8]:
+            _render_chart_button(ticker)
+
+
+def _mini_chart_color(series: OhlcSeries) -> str:
+    change = series.period_change_pct or Decimal("0")
+    return CANDLE_UP if change >= 0 else CANDLE_DOWN
+
+
+def _render_mini_chart_panel() -> None:
+    selected = st.session_state.get("overview_selected_ticker")
+    if not selected:
+        return
+
+    render_html(f"""
+        <div style="font-size: 15px; font-weight: 700; margin: 22px 0 8px;">
+            {selected} — 6-month price
+        </div>
+    """)
+    try:
+        series = _cached_ohlc_for_overview(selected, ChartPeriod.SIX_MONTH.value)
+    except OhlcUnavailableError as exc:
+        st.warning(f"Chart unavailable: {exc.reason}")
+    else:
+        render_line_chart(series, height=300, color=_mini_chart_color(series))
+
+    if st.button("Close chart", key="overview_close_chart"):
+        st.session_state["overview_selected_ticker"] = None
+        st.rerun()
+
+
 def render() -> None:
     repo = get_repository()
     transactions = repo.load_all()
@@ -256,8 +400,8 @@ def render() -> None:
         </div>
     """)
 
-    table_html = _build_positions_table_html(live_positions, summary)
-    render_html(f'<div class="metric-card" style="padding: 0; overflow-x: auto;">{table_html}</div>')
+    _render_positions_table(live_positions, summary)
+    _render_mini_chart_panel()
 
     status_text = f"● LIVE · refreshed {now.strftime('%H:%M')}"
     if summary.staleness == "stale" or summary.staleness == "partial":
