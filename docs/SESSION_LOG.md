@@ -92,8 +92,8 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 **Model:** Gemini 2.0 Pro
 **Duration:** ~45 min
 **Branch:** ticket-004-005-yfinance-adapter
-**PR:** _pending_
-**Status at session end:** IN_REVIEW
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/33
+**Status at session end:** MERGED
 
 ### What got done
 - Implemented `PriceProvider` and `FxProvider` ports (Protocols) with detailed error classes.
