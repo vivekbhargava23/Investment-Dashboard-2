@@ -6,14 +6,16 @@ import streamlit as st
 
 NAV_ITEMS: list[dict[str, Any]] = [
     {"id": "overview",    "label": "Live Overview",      "icon": "◉", "badge": None},
+    {"id": "tax",         "label": "Tax Dashboard",      "icon": "§", "badge": None},
+    {"id": "research",    "label": "Research",           "icon": "📈", "badge": None},
+    {"id": "simulator",   "label": "Sell Simulator",     "icon": "⚡", "badge": None},
+    {"id": "performance", "label": "Performance",        "icon": "↗", "badge": None},
     {
         "id": "analytics",
         "label": "Analytics & Risk",
         "icon": "⬡",
         "badge": {"text": "new", "color": "amber"}
     },
-    {"id": "performance", "label": "Performance",        "icon": "↗", "badge": None},
-    {"id": "tax",         "label": "Tax Dashboard",      "icon": "§", "badge": None},
     {
         "id": "decision",
         "label": "Decision Gates",
@@ -22,7 +24,6 @@ NAV_ITEMS: list[dict[str, Any]] = [
     },
     {"id": "behaviour",   "label": "Behavioural Ledger", "icon": "◎", "badge": None},
     {"id": "lots",        "label": "Lot Ledger",         "icon": "≡", "badge": None},
-    {"id": "simulator",   "label": "Sell Simulator",     "icon": "⚡", "badge": None},
     {"id": "manage",      "label": "Manage Portfolio",   "icon": "⚙", "badge": None},
 ]
 
@@ -49,7 +50,7 @@ def render_sidebar() -> str:
     
     # Portfolio section
     nav_html += '<div class="nav-section-label">Portfolio</div>'
-    for item in NAV_ITEMS[:-1]: # All except manage
+    for item in NAV_ITEMS[:-1]:  # All except manage
         active_class = "active" if current_page == item["id"] else ""
         badge_html = ""
         if item["badge"]:
@@ -63,7 +64,7 @@ def render_sidebar() -> str:
                 {badge_html}
             </a>
         """).strip()
-    
+
     # Settings section
     nav_html += '<div class="nav-section-label">Settings</div>'
     manage_item = NAV_ITEMS[-1]
