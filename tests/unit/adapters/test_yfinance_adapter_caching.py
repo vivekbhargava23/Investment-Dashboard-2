@@ -106,3 +106,23 @@ def test_cache_key_format(adapter: YfinanceAdapter) -> None:
 
         assert "price:NVDA" in adapter._current_cache
         assert "price:NVDA:2024-01-02" in adapter._historical_cache
+
+
+def test_resolve_does_not_fetch_recent_prices(adapter: YfinanceAdapter) -> None:
+    """Search results are lightweight; exact lookup can enrich prices separately."""
+    fake_quotes = [
+        {"symbol": "APD", "longname": "Air Products", "exchDisp": "NYSE"},
+    ]
+    with (
+        patch("yfinance.Search") as mock_search,
+        patch("yfinance.Ticker") as mock_ticker,
+    ):
+        mock_instance = MagicMock()
+        mock_instance.quotes = fake_quotes
+        mock_search.return_value = mock_instance
+
+        results = adapter.resolve("APD", limit=5)
+
+    assert len(results) == 1
+    assert results[0].recent_price is None
+    mock_ticker.assert_not_called()
