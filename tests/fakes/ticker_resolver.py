@@ -14,8 +14,11 @@ class FakeTickerResolver:
     def __init__(self, matches: list[TickerMatch] | None = None) -> None:
         self._matches: list[TickerMatch] = matches or []
         self._cache_cleared_count = 0
+        self.resolve_call_count = 0
+        self.lookup_call_count = 0
 
     def resolve(self, query: str, limit: int = 10) -> list[TickerMatch]:
+        self.resolve_call_count += 1
         query = query.strip().upper()
         if not query:
             return []
@@ -26,6 +29,7 @@ class FakeTickerResolver:
         return hits[:limit]
 
     def lookup(self, symbol: str) -> TickerMatch | None:
+        self.lookup_call_count += 1
         symbol = symbol.strip().upper()
         for m in self._matches:
             if m.symbol.upper() == symbol:

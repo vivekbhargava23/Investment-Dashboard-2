@@ -9,6 +9,7 @@ Submit flow (Add): Fill form → Calculate Preview → Confirm & Record.
 """
 from __future__ import annotations
 
+import logging
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -43,6 +44,7 @@ _STATE_DEFAULTS: dict[str, Any] = {
     "manage_add_use_as_typed": False,
     "manage_add_step": "fill",         # "fill" | "preview"
     "manage_add_pending": None,        # dict of captured form values | None
+    "manage_add_form_key": 0,          # incremented on submit to reset the searchbox
     "manage_editing_tx_id": None,
     "manage_deleting_tx_id": None,
     "manage_feedback": None,           # ("success"|"error", message) | None
@@ -223,42 +225,43 @@ def _render_add_fill() -> None:
     resolver = get_ticker_resolver()
 
     # --- Ticker autocomplete (outside form — uses st.rerun) ---
-    query = st.text_input(
-        "Ticker search",
-        value=st.session_state.manage_add_query,
-        placeholder="Type 2+ characters to search (e.g. APD, RHM, NVDA)…",
-        key="_manage_add_query_input",
-    )
-    if query != st.session_state.manage_add_query:
-        st.session_state.manage_add_query = query
-        st.session_state.manage_add_resolved = None
+    searchbox_key = f"add_tx_ticker_{st.session_state.manage_add_form_key}"
+    try:
+        from app.ui.components.ticker_searchbox import render_ticker_searchbox
+        resolved: TickerMatch | None = render_ticker_searchbox(
+            key=searchbox_key, resolver=resolver
+        )
+    except Exception:
+        logging.warning("Searchbox failed; falling back to text input", exc_info=True)
+        raw = st.text_input("Ticker (autocomplete unavailable)", key="add_tx_ticker_fallback")
+        resolved = resolver.lookup(raw) if raw else None
+
+    use_as_typed: bool = False
+    if resolved is not None:
+        st.session_state.manage_add_resolved = resolved
         st.session_state.manage_add_use_as_typed = False
+        st.session_state.manage_add_query = ""
+    elif st.session_state.manage_add_use_as_typed:
+        use_as_typed = True
+    else:
+        st.session_state.manage_add_resolved = None
+        query = st.session_state.manage_add_query
+        raw_ticker = st.text_input(
+            "Or enter ticker directly (if not in dropdown)",
+            value=query,
+            key="_manage_add_query_input",
+            placeholder="e.g. APD",
+        )
+        if raw_ticker != query:
+            st.session_state.manage_add_query = raw_ticker
+        if raw_ticker:
+            if st.button("Use as-typed (no validation)", key="_manage_add_use_as_typed_btn"):
+                st.session_state.manage_add_use_as_typed = True
+                st.rerun()
 
-    if len(query) >= 2 and not st.session_state.manage_add_use_as_typed:
-        try:
-            matches = resolver.resolve(query, limit=6)
-        except Exception:
-            matches = []
-        if matches:
-            labels = [_match_label(m) for m in matches]
-            sel = st.selectbox(
-                "Select ticker",
-                options=["— select —"] + labels,
-                key="_manage_add_select",
-            )
-            if sel != "— select —":
-                idx = labels.index(sel)
-                st.session_state.manage_add_resolved = matches[idx]
-        else:
-            st.caption("No matches — try a different query or use the escape hatch below.")
-
-    if st.session_state.manage_add_resolved is None and query:
-        if st.button("Use as-typed (no validation)", key="_manage_add_use_as_typed_btn"):
-            st.session_state.manage_add_use_as_typed = True
-
-    resolved: TickerMatch | None = st.session_state.manage_add_resolved
-    use_as_typed: bool = st.session_state.manage_add_use_as_typed
-    ticker_display = resolved.symbol if resolved else (query if use_as_typed else "")
+    ticker_display = resolved.symbol if resolved else (
+        st.session_state.manage_add_query if use_as_typed else ""
+    )
 
     if ticker_display:
         st.caption(f"Ticker: **{ticker_display}**" + (f" · {resolved.name} · {resolved.exchange}" if resolved else " (as-typed)"))
@@ -519,6 +522,7 @@ def _handle_add_submit(
     st.session_state.manage_add_use_as_typed = False
     st.session_state.manage_add_step = "fill"
     st.session_state.manage_add_pending = None
+    st.session_state.manage_add_form_key = st.session_state.manage_add_form_key + 1
     st.session_state.manage_feedback = (
         "success",
         f"Recorded {tx_type_str} of {shares:g} {ticker} for €{eur_total:.2f}.",
@@ -590,9 +594,24 @@ def _render_delete_confirmation(tx: Transaction) -> None:
 def _render_edit_form(tx: Transaction) -> None:
     st.subheader(f"Edit Transaction — {tx.ticker}")
     vals = _tx_to_form_values(tx)
-    currency = infer_currency_from_ticker(tx.ticker)
 
-    st.caption(f"Ticker: **{tx.ticker}** (read-only — to change ticker, delete and re-add)")
+    # Ticker searchbox (outside form; pre-filled with existing ticker)
+    resolver = get_ticker_resolver()
+    default_match = resolver.lookup(tx.ticker)
+    try:
+        from app.ui.components.ticker_searchbox import render_ticker_searchbox
+        edit_match: TickerMatch | None = render_ticker_searchbox(
+            key=f"edit_tx_ticker_{tx.id}",
+            resolver=resolver,
+            default_match=default_match,
+        )
+    except Exception:
+        logging.warning("Searchbox failed on edit form; showing ticker as caption", exc_info=True)
+        edit_match = default_match
+        st.caption(f"Ticker: **{tx.ticker}** (autocomplete unavailable)")
+
+    resolved_ticker = edit_match.symbol if edit_match is not None else tx.ticker
+    resolved_currency = edit_match.currency if edit_match is not None else infer_currency_from_ticker(tx.ticker)
 
     with st.form("manage_edit_form"):
         col1, col2 = st.columns(2)
@@ -630,7 +649,7 @@ def _render_edit_form(tx: Transaction) -> None:
 
         if shares > 0 and eur_total > 0:
             _render_recording_preview(
-                tx.ticker, currency, tx_type_str, trade_date, shares, eur_total, fees_eur
+                resolved_ticker, resolved_currency, tx_type_str, trade_date, shares, eur_total, fees_eur
             )
 
         col_save, col_cancel = st.columns([1, 5])
@@ -644,8 +663,8 @@ def _render_edit_form(tx: Transaction) -> None:
     if submitted:
         _handle_edit_submit(
             tx_id=tx.id,
-            ticker=tx.ticker,
-            currency=currency,
+            ticker=resolved_ticker,
+            currency=resolved_currency,
             tx_type_str=tx_type_str,
             trade_date=trade_date,
             shares=shares,
