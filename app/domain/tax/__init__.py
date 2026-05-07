@@ -11,6 +11,7 @@ from app.domain.tax.models import (
     HarvestImpact,
     HarvestImpactReport,
     LossPotState,
+    MarginalTaxImpact,
     TaxImpact,
     TaxProfile,
     TaxYearSummary,
@@ -20,6 +21,7 @@ from app.domain.tax.rates import TAX_RATES_2026, UnsupportedTaxYearError
 __all__ = [
     "compute_tax_year_summary",
     "TaxYearSummary",
+    "MarginalTaxImpact",
     "TaxImpact",
     "LossPotState",
     "TaxProfile",
