@@ -59,7 +59,7 @@ def test_sparkline_success_renders_one_chart(monkeypatch: pytest.MonkeyPatch) ->
     overview._render_trend_cell("NVDA")
 
     assert rendered == [("NVDA", 30, 100)]
-    assert buttons[0][0][0] == "🔍"
+    assert buttons[0][0][0] == "⚡"
 
 
 def test_chart_button_sets_selected_ticker(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -75,7 +75,7 @@ def test_chart_button_sets_selected_ticker(monkeypatch: pytest.MonkeyPatch) -> N
     overview._render_chart_button("NVDA")
 
     assert state["overview_selected_ticker"] == "NVDA"
-    assert calls[0][0][0] == "🔍"
+    assert calls[0][0][0] == "⚡"
     assert "use_container_width" not in calls[0][1]
 
 

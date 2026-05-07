@@ -237,7 +237,7 @@ def _render_trend_cell(ticker: str) -> None:
 
 def _render_chart_button(ticker: str) -> None:
     selected = st.session_state.get("overview_selected_ticker")
-    label = "×" if selected == ticker else "🔍"
+    label = "×" if selected == ticker else "⚡"
     help_text = "Close chart" if selected == ticker else f"Open {ticker} chart"
     if st.button(label, key=f"overview_chart_{ticker}", help=help_text):
         st.session_state["overview_selected_ticker"] = None if selected == ticker else ticker
