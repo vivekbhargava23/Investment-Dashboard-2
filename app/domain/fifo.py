@@ -105,12 +105,30 @@ def compute_realised_gains(transactions: Sequence[Transaction]) -> list[Realised
                 )
             )
         elif tx.type == TransactionType.SELL:
-            gains = _consume_from_lots(ticker_queues[tx.ticker], tx.shares, tx)
+            gains, remaining = simulate_lot_consumption(
+                tuple(ticker_queues[tx.ticker]), tx.shares, tx
+            )
+            ticker_queues[tx.ticker] = deque(remaining)
             all_gains.extend(gains)
 
     # The processing already produces gains in chronological order because we process
-    # sorted transactions and _consume_from_lots maintains that order.
+    # sorted transactions and simulate_lot_consumption maintains that order.
     return all_gains
+
+
+def simulate_lot_consumption(
+    open_lots: tuple[OpenLot, ...],
+    shares_to_sell: Decimal,
+    sell_tx: Transaction,
+) -> tuple[list[RealisedGain], tuple[OpenLot, ...]]:
+    """Pure FIFO lot consumption for simulation.
+
+    Returns (realised_gains, remaining_open_lots). Does not mutate inputs.
+    Raises SellExceedsOpenSharesError if shares_to_sell exceeds available shares.
+    """
+    lot_queue: deque[OpenLot] = deque(open_lots)
+    gains = _consume_from_lots(lot_queue, shares_to_sell, sell_tx)
+    return gains, tuple(lot_queue)
 
 
 def _sort_transactions(transactions: Sequence[Transaction]) -> list[Transaction]:

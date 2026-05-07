@@ -15,6 +15,7 @@ PAGE_TITLES: dict[str, str] = {
     "decision": "Decision Gates",
     "behaviour": "Behavioural Ledger",
     "lots": "Lot Ledger",
+    "simulator": "Sell Simulator",
     "manage": "Manage Portfolio",
 }
 
