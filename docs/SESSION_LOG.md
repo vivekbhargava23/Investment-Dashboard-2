@@ -903,3 +903,41 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tokens used (rough)
 ~60k
+
+---
+
+## 2026-05-07 20:18 — TICKET-024
+
+**Surface:** ChatGPT Codex
+**Model:** GPT-5
+**Duration:** ~30 min
+**Branch:** ticket-024-sell-simulator-cold-start
+**PR:** pending
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added a 60-second Streamlit cache wrapper around sell simulator live-position computation, keyed by transaction IDs.
+- Added a fallback to the existing uncached computation if Streamlit cache serialisation fails at runtime.
+- Made yfinance search-result matching skip `fast_info` price enrichment; exact lookup still keeps the richer price path.
+- Added unit coverage for sell simulator live-position cache reuse/invalidation and lightweight resolver search.
+
+### Files touched
+- `app/ui/components/sell_simulator.py` — `_live_positions_cached`; cached render path with fallback
+- `app/adapters/yfinance_feed/yfinance_adapter.py` — optional `_build_match(fetch_price=False)` path for resolver search
+- `tests/unit/ui/test_sell_simulator_component.py` — live-position cache-key tests
+- `tests/unit/adapters/test_yfinance_adapter_caching.py` — resolver search avoids `yfinance.Ticker`
+- `docs/TICKETS/TICKET-024-sell-simulator-cold-start.md` — status updates
+
+### Tests
+274 passing → 277 passing (3 new); 68 skipped
+Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
+
+### Decisions made during the session
+- Kept the live-position cache at the UI layer to preserve the service layer's stateless contract.
+- Search results now omit `recent_price`; exact lookup remains the enrichment path for places that need detailed metadata.
+
+### Out-of-scope items noticed
+- Persistent live-price caching across Streamlit restarts remains deferred to the daily NAV/cache work noted in the ticket.
+
+### Tokens used (rough)
+~45k
