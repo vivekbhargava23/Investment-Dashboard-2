@@ -99,3 +99,30 @@ def test_fake_resolver_clear_cache():
     r = FakeTickerResolver()
     r.clear_cache()
     assert r._cache_cleared_count == 1
+
+
+def test_ticker_match_round_trip_json():
+    """TickerMatch serialises and deserialises cleanly via model_dump(mode='json')."""
+    price = Money(amount=Decimal("255.30"), currency=Currency.USD)
+    m = _make_match(recent_price=price)
+    m2 = TickerMatch.model_validate(m.model_dump(mode="json"))
+    assert m == m2
+
+
+def test_ticker_match_round_trip_all_currencies():
+    """Round-trip is valid for every supported Currency enum value."""
+    for currency in Currency:
+        m = _make_match(
+            symbol=f"TST.{currency.value}",
+            currency=currency,
+            recent_price=Money(amount=Decimal("100"), currency=currency),
+        )
+        m2 = TickerMatch.model_validate(m.model_dump(mode="json"))
+        assert m == m2
+
+
+def test_ticker_match_round_trip_no_price():
+    """Round-trip works when recent_price is None."""
+    m = _make_match(recent_price=None)
+    m2 = TickerMatch.model_validate(m.model_dump(mode="json"))
+    assert m == m2

@@ -37,4 +37,10 @@ def get_fx_provider() -> FxProvider:
 
 @lru_cache(maxsize=1)
 def get_ticker_resolver() -> TickerResolver:
-    return get_price_provider()  # type: ignore[return-value]
+    from typing import cast
+
+    from app.adapters.ticker_resolver_cached import CachedTickerResolver
+
+    settings = get_settings()
+    inner = cast(TickerResolver, get_price_provider())
+    return CachedTickerResolver(inner=inner, cache_path=settings.ticker_cache_json_path)
