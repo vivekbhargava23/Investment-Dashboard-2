@@ -22,6 +22,7 @@ from app.domain.money import Currency, Money
 from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 from app.ports.price_feed import PriceUnavailableError
 from app.ports.ticker_resolver import TickerMatch
+from app.services.sell_simulator import SellSimulationRequest
 from app.services.trading import build_transaction
 from app.services.valuation import clear_caches
 from app.ui.format import format_date, format_eur
@@ -711,8 +712,34 @@ def _handle_edit_submit(
 # Page entry point
 # ---------------------------------------------------------------------------
 
+def _apply_simulator_handoff(state: Any) -> None:
+    """Pre-fill the add form from a simulator handoff, then clear it."""
+    handoff: SellSimulationRequest | None = state.get("simulator_handoff")
+    if handoff is None:
+        return
+    state.simulator_handoff = None  # consume once
+    state.manage_add_query = handoff.ticker
+    state.manage_add_use_as_typed = True
+    state.manage_add_step = "fill"
+    state.manage_add_pending = {
+        "ticker": handoff.ticker,
+        "resolved": None,
+        "use_as_typed": True,
+        "tx_type_str": "Sell",
+        "trade_date": handoff.sell_date,
+        "shares": handoff.shares,
+        "eur_total": (handoff.sell_price_native.amount * handoff.sell_fx_rate_eur * handoff.shares).quantize(Decimal("0.01")),
+        "fees_eur": Decimal("0"),
+        "notes": "Recorded from sell simulator",
+        "currency": handoff.sell_price_native.currency,
+    }
+    state.manage_add_step = "preview"
+    state.manage_feedback = ("success", "Pre-filled from simulator — review the values and click Confirm & Record.")
+
+
 def render() -> None:
     _init_state(st.session_state)
+    _apply_simulator_handoff(st.session_state)
 
     st.markdown("<h2>Manage Portfolio</h2>", unsafe_allow_html=True)
 

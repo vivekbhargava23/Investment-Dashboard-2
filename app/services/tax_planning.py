@@ -21,6 +21,7 @@ from app.domain.tax.engine import compute_tax_year_summary
 from app.domain.tax.models import (
     HarvestImpact,
     HarvestImpactReport,
+    MarginalTaxImpact,
     TaxProfile,
     TaxYearSummary,
 )
@@ -174,6 +175,73 @@ def compute_per_position_harvest_impact(
     return HarvestImpactReport(
         impacts=impacts,
         stale_tickers=tuple(stale_tickers),
+    )
+
+
+_ZERO_EUR = Money(amount=Decimal("0"), currency=_EUR)
+
+
+def compute_marginal_tax_for_realised_gains(
+    current_transactions: Sequence[Transaction],
+    proposed_sell: Transaction,
+    profile: TaxProfile,
+    carryforward_eur_aktien: Money = _ZERO_EUR,
+    carryforward_eur_general: Money = _ZERO_EUR,
+    additional_dividend_income_eur: Money = _ZERO_EUR,
+    additional_interest_income_eur: Money = _ZERO_EUR,
+) -> MarginalTaxImpact:
+    """Compute the marginal tax impact of a single hypothetical sell.
+
+    Runs the tax engine twice — before and after the proposed_sell — and returns
+    the deltas. Using the same carryforward for both runs ensures the delta reflects
+    only the marginal effect of the proposed sell.
+    """
+    year = proposed_sell.trade_date.year
+    if year not in RATES_BY_YEAR:
+        raise UnsupportedTaxYearError(
+            f"Tax year {year} is not configured."
+        )
+
+    def _run(txs: Sequence[Transaction]) -> TaxYearSummary:
+        return _run_pipeline_with_extra_gains(
+            year=year,
+            year_gains=[g for g in compute_realised_gains(list(txs)) if g.sell_date.year == year],
+            extra_gains=[],
+            profile=profile,
+            carryforward_eur_aktien=carryforward_eur_aktien,
+            carryforward_eur_general=carryforward_eur_general,
+            additional_dividend_income_eur=additional_dividend_income_eur,
+            additional_interest_income_eur=additional_interest_income_eur,
+        )
+
+    before = _run(current_transactions)
+    after = _run(list(current_transactions) + [proposed_sell])
+
+    def _delta(after_val: Money, before_val: Money) -> Money:
+        return Money(amount=after_val.amount - before_val.amount, currency=_EUR)
+
+    return MarginalTaxImpact(
+        before_summary=before,
+        after_summary=after,
+        marginal_taxable_gain_eur=_delta(
+            after.total_taxable_after_loss_offset_eur,
+            before.total_taxable_after_loss_offset_eur,
+        ),
+        marginal_allowance_consumed_eur=_delta(
+            after.sparerpauschbetrag_consumed_eur,
+            before.sparerpauschbetrag_consumed_eur,
+        ),
+        marginal_aktien_carryforward_change_eur=_delta(
+            after.aktien_pot.remaining_carryforward_eur,
+            before.aktien_pot.remaining_carryforward_eur,
+        ),
+        marginal_general_carryforward_change_eur=_delta(
+            after.general_pot.remaining_carryforward_eur,
+            before.general_pot.remaining_carryforward_eur,
+        ),
+        marginal_abgeltungsteuer_eur=_delta(after.abgeltungsteuer_eur, before.abgeltungsteuer_eur),
+        marginal_solidaritaetszuschlag_eur=_delta(after.solidaritaetszuschlag_eur, before.solidaritaetszuschlag_eur),
+        marginal_total_tax_owed_eur=_delta(after.total_tax_owed_eur, before.total_tax_owed_eur),
     )
 
 

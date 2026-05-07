@@ -178,3 +178,19 @@ class TaxYearSummary(BaseModel):
         if self.taxable_after_allowance_eur.amount < Decimal("0"):
             raise ValueError("taxable_after_allowance_eur cannot be negative")
         return self
+
+
+class MarginalTaxImpact(BaseModel):
+    """Marginal tax effect of a single hypothetical sell on the current tax position."""
+
+    model_config = ConfigDict(frozen=True)
+
+    before_summary: TaxYearSummary
+    after_summary: TaxYearSummary
+    marginal_taxable_gain_eur: Money
+    marginal_allowance_consumed_eur: Money
+    marginal_aktien_carryforward_change_eur: Money
+    marginal_general_carryforward_change_eur: Money
+    marginal_abgeltungsteuer_eur: Money
+    marginal_solidaritaetszuschlag_eur: Money
+    marginal_total_tax_owed_eur: Money

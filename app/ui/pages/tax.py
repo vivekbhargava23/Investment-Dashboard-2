@@ -405,6 +405,10 @@ def _render_harvest_table(
             gain_str = format_eur(impact.unrealised_gain_eur, signed=True)
             g_class = gain_class(impact.unrealised_gain_eur.amount)
             kind_label = _KIND_LABEL.get(impact.instrument_kind, impact.instrument_kind.value)
+            sim_link = (
+                f'<a href="/?page=simulator&ticker={impact.ticker}" target="_self" '
+                f'title="Simulate sell" style="color: var(--text3); text-decoration: none;">⚡</a>'
+            )
             rows += (
                 f'<tr>'
                 f'<td><strong>{impact.ticker}</strong></td>'
@@ -412,6 +416,7 @@ def _render_harvest_table(
                 f'<td class="font-mono text-right {tax_class}">{tax_label}</td>'
                 f'<td class="font-mono text-right">{format_eur(hdroom_after)}</td>'
                 f'<td style="color: var(--text3);">{kind_label}</td>'
+                f'<td class="text-center">{sim_link}</td>'
                 f'</tr>'
             )
 
@@ -424,6 +429,7 @@ def _render_harvest_table(
                         <th style="padding: 6px 4px; text-align: right;">Tax if Realised</th>
                         <th style="padding: 6px 4px; text-align: right;">Headroom Left</th>
                         <th style="padding: 6px 4px; text-align: left;">Kind</th>
+                        <th style="padding: 6px 4px; text-align: center;">Sim</th>
                     </tr>
                 </thead>
                 <tbody>{rows}</tbody>
