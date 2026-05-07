@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +11,7 @@ class Settings(BaseSettings):
     app_env: str = "local"
     portfolio_json_path: str = "data/portfolio.json"
     tax_profile_json_path: str = "data/tax_profile.json"
+    ticker_cache_json_path: Path = Path("data/ticker_cache.json")
 
 
 def get_settings() -> Settings:
