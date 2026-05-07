@@ -29,7 +29,29 @@ from app.ui.wiring import (
     get_price_provider,
     get_repository,
     get_tax_profile_repo,
+    get_ticker_resolver,
 )
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _build_ticker_labels(tickers: tuple[str, ...]) -> dict[str, str]:
+    """Map ticker symbols to 'TICKER — Company Name' display strings.
+
+    Uses resolver.resolve() (yf.Search, ~150ms/ticker) rather than resolver.lookup()
+    (yf.Ticker.info, ~800ms/ticker).  Cached at the Streamlit layer for 1 hour so
+    the network calls happen at most once per session — all subsequent renders are instant.
+    """
+    resolver = get_ticker_resolver()
+    labels: dict[str, str] = {}
+    for t in tickers:
+        try:
+            matches = resolver.resolve(t, limit=5)
+            name = next((m.name for m in matches if m.symbol.upper() == t.upper()), "")
+            labels[t] = f"{t} — {name}" if name else t
+        except Exception:
+            labels[t] = t
+    return labels
+
 
 _EUR = Currency.EUR
 _logger = logging.getLogger(__name__)
@@ -175,50 +197,69 @@ def _render_position_after(sim: SellSimulation) -> None:
 
 def render_sell_simulator(default_ticker: str | None = None) -> None:
     """Render the embeddable sell simulator panel."""
-    repo = get_repository()
-    transactions = repo.load_all()
-    price_provider = get_price_provider()
-    fx_provider = get_fx_provider()
-    live_positions = compute_live_positions(transactions, price_provider, fx_provider)
+    transactions = get_repository().load_all()
+    live_positions = compute_live_positions(transactions, get_price_provider(), get_fx_provider())
 
     open_tickers = sorted(live_positions.keys())
     if not open_tickers:
         st.info("No open positions. Add transactions in Manage Portfolio first.")
         return
 
-    # Determine starting ticker selection
-    if default_ticker and default_ticker in open_tickers:
-        default_idx = open_tickers.index(default_ticker)
-    else:
-        default_idx = 0
+    # Build ticker → display label once per session (cached).  Uses yf.Search
+    # (~150ms/ticker) so cold-cache first visit is ~2s total; all reruns instant.
+    ticker_labels = _build_ticker_labels(tuple(open_tickers))
 
+    # ── Ticker selector ────────────────────────────────────────────────────────
+    # Lives OUTSIDE the form so changing it triggers an immediate rerun, which
+    # updates the max-shares placeholder, price fields, and stale warning below.
+    # Pre-fill from default_ticker (e.g. the ⚡ link on Live Overview/Tax pages).
+    if default_ticker and default_ticker in open_tickers:
+        st.session_state["sim_ticker_select"] = default_ticker
+
+    ticker = st.selectbox(
+        "Position",
+        open_tickers,
+        key="sim_ticker_select",
+        format_func=lambda t: ticker_labels.get(t, t),
+    )
+    assert ticker is not None  # open_tickers is non-empty (checked above)
+
+    # Position context — all derived from live_positions (no network call).
+    live_pos = live_positions.get(ticker or "")
+    open_shares = live_pos.position.open_shares if live_pos else Decimal("0")
+    is_stale = live_pos is None or live_pos.is_stale
+
+    # Caption shows open shares + live price (no extra network call needed).
+    caption_parts: list[str] = [f"{float(open_shares):g} shares open"]
+    if not is_stale and live_pos and live_pos.live_price_native:
+        caption_parts.append(f"live {live_pos.live_price_native}")
+    st.caption(" · ".join(caption_parts))
+
+    if is_stale:
+        st.warning(
+            f"Live price for {ticker} is unavailable. "
+            "Enter the price you expect to execute at."
+        )
+
+    # ── Sell parameters form ───────────────────────────────────────────────────
     with st.form("sell_simulator_form"):
         col1, col2 = st.columns(2)
         with col1:
-            ticker = st.selectbox("Position", open_tickers, index=default_idx)
             sell_date = st.date_input(
                 "Sell date",
                 value=date.today(),
                 min_value=date(2000, 1, 1),
                 max_value=date.today(),
             )
-            shares_f = st.number_input(
+            shares_f: float | None = st.number_input(
                 "Shares to sell",
                 min_value=0.0001,
-                value=1.0,
-                step=0.0001,
+                value=None,
+                step=1.0,
                 format="%.4f",
+                placeholder=f"Max: {float(open_shares):g}",
             )
         with col2:
-            live_pos = live_positions.get(ticker or "")
-            is_stale = live_pos is None or live_pos.is_stale
-
-            if is_stale:
-                st.warning(
-                    f"Live price for {ticker} is unavailable. "
-                    "Enter the price you expect to execute at."
-                )
-
             use_live = False
             if not is_stale and live_pos and live_pos.live_price_native is not None:
                 price_toggle = st.radio("Price source", ["Live", "Manual"], horizontal=True)
@@ -250,6 +291,10 @@ def render_sell_simulator(default_ticker: str | None = None) -> None:
         submitted = st.form_submit_button("Preview impact →", type="primary")
 
     if not submitted:
+        return
+
+    if shares_f is None or shares_f <= 0:
+        st.error("Enter the number of shares to sell.")
         return
 
     # Resolve price
@@ -320,7 +365,9 @@ def render_sell_simulator(default_ticker: str | None = None) -> None:
     with col1:
         if st.button("Record this trade →", type="primary", key="sim_record_btn"):
             st.session_state.simulator_handoff = request
-            st.session_state.current_page = "manage"
-            st.rerun()
+            # Set query params — main.py reads these on every rerun and overwrites
+            # session_state.current_page, so this is the authoritative navigation signal.
+            # Assigning to st.query_params triggers the rerun automatically.
+            st.query_params["page"] = "manage"
     with col2:
         st.caption("Opens Manage Portfolio pre-filled with these values for your review.")
