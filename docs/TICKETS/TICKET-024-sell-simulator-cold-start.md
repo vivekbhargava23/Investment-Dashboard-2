@@ -1,6 +1,6 @@
 # TICKET-024 — Sell simulator cold-start performance (repeated slow renders after restart)
 
-**Status:** IN_REVIEW
+**Status:** MERGED
 **Priority:** P1
 **Estimated session length:** 1 – 1.5 hr
 **Drafted by:** Claude Code (bug investigation 2026-05-07)
