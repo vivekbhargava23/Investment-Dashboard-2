@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-07 by ChatGPT Codex (TICKET-022b in review)
+**Last updated:** 2026-05-07 by ChatGPT Codex (TICKET-022b merged)
 
 ---
 
@@ -93,7 +93,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (PR #31)
 
 ### In review 👀
-- TICKET-022b — Research page + Live Overview chart integration (PR #33)
+- (none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.

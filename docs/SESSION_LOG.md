@@ -999,8 +999,8 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 **Model:** GPT-5
 **Duration:** ~70 min
 **Branch:** ticket-022b-research-overview-charts
-**PR:** _pending_
-**Status at session end:** IN_REVIEW
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/33
+**Status at session end:** MERGED
 
 ### What got done
 - Added a top-level Research page using the shared ticker searchbox, period selector, OHLC fetch path, candlestick chart, and chart metrics.
