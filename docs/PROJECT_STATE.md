@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-07 by Claude Code (TICKET-012 in review)
+**Last updated:** 2026-05-07 by Claude Code (TICKET-012 merged)
 
 ---
 
@@ -86,10 +86,11 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-009-revised — Manage Portfolio page (EUR-native input, two-step form) (PR #21)
 - TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstöpfe, Teilfreistellung, Abgeltungsteuer) (PR #22)
 - TICKET-011 — Tax Dashboard page (YTD tiles, harvest opportunity, tax exposure, profile editor) (PR #23)
+- TICKET-012 — Pre-trade sell simulator (FIFO lot preview, marginal tax, portfolio impact, Manage Portfolio handoff) (PR #26)
 
 
 ### In review 👀
-- TICKET-012 — Pre-trade sell simulator
+- (none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
