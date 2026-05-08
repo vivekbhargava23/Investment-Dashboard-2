@@ -1006,3 +1006,126 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~120k
+
+## 2026-05-08 14:00 — TICKET-022b
+
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~90 min
+**Branch:** ticket-022b-research-page-overview-charts
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- New `app/ui/pages/research.py`: ticker searchbox + period selector (1D–YTD,
+  default 6M), candlestick chart (height=500), header metrics row (latest price,
+  period change pct, period label), Simulate buy handoff → simulator page, disabled
+  watchlist button, quick-pick buttons for 5 example tickers.
+- `app/ui/pages/overview.py`: Trend 30D column added to HTML table (text ↑/↓ + pct
+  from 30D sparkline data); new Position Trends section below table using st.columns
+  (one sparkline per position, actual Plotly charts, st.button per row); mini chart
+  panel below (6-month line chart for selected ticker, Close button); per-ticker error
+  isolation throughout.
+- `app/ui/components/charts.py` (quality fixes discovered as first consumer):
+  - `rangebreaks` added to x-axis for daily-bar charts → Sat/Sun gaps eliminated.
+  - `render_line_chart` now uses dynamic y-range (min/max ± 5% margin) so price
+    movements are visible regardless of absolute price level (no more $800 stock
+    collapsing against zero baseline).
+- `app/ui/components/sidebar.py`: 📈 Research added after Tax Dashboard.
+- `app/ui/components/topbar.py`: "research" added to PAGE_TITLES.
+- `tests/fakes/ticker_resolver.py`: FAKE_TICKER_NVDA and FAKE_TICKER_RHM constants added.
+- 15 new tests: 6 research page smoke tests, 9 overview chart integration tests.
+- Existing test updated: test_nav_items_consistency count 9→10 (Research added).
+
+### Files touched
+- `app/ui/pages/research.py` — new
+- `app/ui/pages/overview.py` — trend column + sparklines + mini chart
+- `app/ui/components/charts.py` — rangebreaks + dynamic y-range
+- `app/ui/components/sidebar.py` — Research nav entry
+- `app/ui/components/topbar.py` — Research page title
+- `tests/unit/ui/test_research_page.py` — new (6 tests)
+- `tests/unit/ui/test_overview_chart_integration.py` — new (9 tests)
+- `tests/unit/ui/test_components.py` — count fix (9→10)
+- `tests/fakes/ticker_resolver.py` — FAKE_TICKER_NVDA + FAKE_TICKER_RHM
+- `docs/TICKETS/TICKET-022b-research-page-and-overview-charts.md` — IN_REVIEW
+
+### Tests
+318 passing → 333 passing (15 new)
+
+### Decisions made during the session
+- Sparklines rendered in separate st.columns section below the HTML table (not
+  inside table cells, which is impossible with st.plotly_chart inside HTML strings).
+  Trend 30D column in HTML table is text-based (↑/↓ + pct) for alignment; actual
+  Plotly sparklines appear below the table.
+- rangebreaks and dynamic y-range fixes to charts.py are in scope: this ticket is
+  the first real consumer of those render functions, so rendering correctness issues
+  are discovered and fixed here.
+- Weekend gap fix applies only to non-intraday periods (daily bars); intraday data
+  from yfinance already contains only market-hours bars.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~90k
+
+---
+
+## 2026-05-08 — TICKET-022b continuation — Overview chart overhaul + OHLC aggregation
+
+**Ticket:** TICKET-022b (continuation of previous session)
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Branch:** ticket-022b-research-page-overview-charts
+**PR:** #38
+**Status at session end:** IN_REVIEW
+
+### What got done
+- `app/domain/market_data.py`: Added `AggregationFreq` type alias and
+  `aggregate_ohlc_series()` — groups bars by calendar bucket (hour/day/week/month),
+  producing one OHLC bar per bucket (open=first, high=max, low=min, close=last,
+  volume=sum). Raises `OhlcUnavailableError` if no bars remain. Fixed mypy
+  `tuple` type annotation to `tuple[int, ...]`.
+- `app/services/market_data.py`: Added `_AGGREGATION` dict mapping each `ChartPeriod`
+  to its aggregation freq (5D→day, 1Y/2Y→week, 5Y→month, YTD→week, others→None).
+  Aggregation applied post-fetch before caching, so cached series are display-ready.
+- `app/ui/components/charts.py`: Replaced static `not series.period.is_intraday`
+  rangebreaks check with `_needs_weekend_rangebreaks()` heuristic (8h ≤ avg bar
+  gap < 100h identifies daily bars; weekly/monthly bars skip rangebreaks to avoid
+  x-axis compression).
+- `app/ui/pages/overview.py`: Replaced all-sparklines section + mini chart panel
+  with a single candlestick chart: `st.selectbox` for ticker, `st.radio` (1D–YTD,
+  default 6M) for period, `render_candlestick` at height=400. Renamed
+  `_fetch_sparklines` → `_fetch_trend_texts` (returns `dict[str, str]` only).
+- New/updated tests: 8 `aggregate_ohlc_series` domain tests, 5 service-layer
+  aggregation tests, 4 `_needs_weekend_rangebreaks` chart component tests.
+  Rewrote `test_overview_chart_integration.py` (removed stale mini-chart color
+  tests, updated to `_fetch_trend_texts` API).
+
+### Files touched
+- `app/domain/market_data.py` — aggregate_ohlc_series + AggregationFreq
+- `app/services/market_data.py` — _AGGREGATION + service-layer aggregation
+- `app/ui/components/charts.py` — _needs_weekend_rangebreaks heuristic
+- `app/ui/pages/overview.py` — single candlestick chart replaces sparklines panel
+- `tests/unit/domain/test_market_data.py` — 8 new aggregation tests
+- `tests/unit/services/test_market_data.py` — 5 new aggregation tests
+- `tests/unit/ui/test_chart_components.py` — 4 new _needs_weekend_rangebreaks tests
+- `tests/unit/ui/test_overview_chart_integration.py` — rewritten for new API
+
+### Tests
+333 passing → 348 passing (15 new)
+
+### Decisions made during the session
+- Aggregation lives in the service layer (not UI), so the cache always holds
+  display-ready data; aggregation cost is paid once per TTL, not per render.
+- `_needs_weekend_rangebreaks` uses avg bar spacing rather than period label because
+  after aggregation the period label (e.g. ONE_YEAR) no longer tells us whether bars
+  are daily or weekly — the spacing does.
+- Overview page uses same `_PERIOD_LABELS` dict pattern as research page for
+  consistency; default period is SIX_MONTH (index=4) matching research page default.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~40k
