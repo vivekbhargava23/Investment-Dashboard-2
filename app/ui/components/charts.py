@@ -3,6 +3,7 @@ renders a Plotly figure via st.plotly_chart, and returns None.
 No fetching, no caching — the caller is responsible for those."""
 
 from decimal import Decimal
+from typing import Any
 
 import plotly.graph_objects as go
 import streamlit as st
@@ -20,6 +21,18 @@ def _hex_to_rgba(hex_color: str, alpha: float) -> str:
     h = hex_color.lstrip("#")
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f"rgba({r},{g},{b},{alpha})"
+
+
+def _weekend_rangebreaks() -> list[dict[str, Any]]:
+    """Exclude Saturday–Sunday gaps from the x-axis for daily-bar charts."""
+    return [{"bounds": ["sat", "mon"]}]
+
+
+def _dynamic_y_range(values: list[float], padding_pct: float = 0.05) -> list[float]:
+    """Return [y_min, y_max] with *padding_pct* margin above and below the data range."""
+    lo, hi = min(values), max(values)
+    margin = (hi - lo) * padding_pct if hi != lo else hi * padding_pct
+    return [lo - margin, hi + margin]
 
 
 def render_candlestick(series: OhlcSeries, *, height: int = 400) -> None:
@@ -46,6 +59,9 @@ def render_candlestick(series: OhlcSeries, *, height: int = 400) -> None:
     layout["xaxis"]["rangeslider"] = {"visible": False}
     layout["xaxis"]["tickformat"] = "%H:%M" if series.period.is_intraday else "%b %Y"
     layout["yaxis"]["tickprefix"] = f"{series.currency.value} "
+    # Hide weekend gaps for daily bars; intraday data only has market-hours bars already
+    if not series.period.is_intraday:
+        layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks()
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
@@ -56,6 +72,10 @@ def render_line_chart(
     line_color = color or LINE_COLOR_DEFAULT
     timestamps = [bar.timestamp for bar in series.bars]
     closes = [float(bar.close) for bar in series.bars]
+
+    # Use a dynamic y-range so movements are visible regardless of absolute price level.
+    # fill="tozeroy" on a $800 stock would collapse the visible change to a thin sliver.
+    y_min, y_max = _dynamic_y_range(closes)
 
     fig = go.Figure(
         data=[
@@ -69,7 +89,12 @@ def render_line_chart(
             )
         ]
     )
-    fig.update_layout(**base_layout(height=height, show_axes=True))
+    layout = base_layout(height=height, show_axes=True)
+    layout["yaxis"]["range"] = [y_min, y_max]
+    layout["yaxis"]["tickprefix"] = f"{series.currency.value} "
+    if not series.period.is_intraday:
+        layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks()
+    fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
 
