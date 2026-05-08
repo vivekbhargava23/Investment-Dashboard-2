@@ -1,11 +1,13 @@
 import logging
 import time
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+import pandas as pd
 import yfinance as yf
 
+from app.domain.market_data import ChartPeriod, OhlcBar, OhlcSeries, OhlcUnavailableError
 from app.domain.money import Currency, Money
 from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 from app.ports.fx_feed import (
@@ -20,6 +22,15 @@ from app.ports.ticker_resolver import TickerMatch
 
 _log = logging.getLogger(__name__)
 
+_OHLC_INTRADAY_TTL = 15 * 60.0
+_OHLC_DAILY_TTL = 24 * 60 * 60.0
+
+_INTERVAL_MAP: dict[ChartPeriod, str] = {
+    ChartPeriod.ONE_DAY: "5m",
+    ChartPeriod.FIVE_DAY: "15m",
+}
+_DEFAULT_INTERVAL = "1d"
+
 
 _RESOLVER_TTL = 3600  # 1 hour — ticker metadata changes rarely
 
@@ -33,15 +44,11 @@ class YfinanceAdapter:
 
     def __init__(self, current_ttl_seconds: int = 60):
         self.current_ttl_seconds = current_ttl_seconds
-        # Key: "price:{ticker}" or "fx:{base}/{quote}"
-        # Value: (timestamp, value)
         self._current_cache: dict[str, tuple[float, Any]] = {}
-        # Key: "price:{ticker}:{date}" or "fx:{base}/{quote}:{date}"
-        # Value: value
         self._historical_cache: dict[str, Any] = {}
-        # Key: query string or "lookup:{symbol}"
-        # Value: (timestamp, list[TickerMatch] | TickerMatch | None)
         self._resolver_cache: dict[str, tuple[float, Any]] = {}
+        # Key: (ticker, ChartPeriod); Value: (monotonic_ts, OhlcSeries)
+        self._ohlc_cache: dict[tuple[str, ChartPeriod], tuple[float, OhlcSeries]] = {}
 
     def _infer_currency(self, ticker: str) -> Currency:
         return infer_currency_from_ticker(ticker)
@@ -332,7 +339,63 @@ class YfinanceAdapter:
         self._resolver_cache[cache_key] = (now, result)
         return result
 
+    # ------------------------------------------------------------------
+    # OhlcDataProvider implementation
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _interval_for_period(period: ChartPeriod) -> str:
+        return _INTERVAL_MAP.get(period, _DEFAULT_INTERVAL)
+
+    @staticmethod
+    def _ttl_for_period(period: ChartPeriod) -> float:
+        return _OHLC_INTRADAY_TTL if period.is_intraday else _OHLC_DAILY_TTL
+
+    def get_ohlc_history(self, ticker: str, period: ChartPeriod) -> OhlcSeries:
+        key = (ticker, period)
+        now = time.monotonic()
+        if key in self._ohlc_cache:
+            ts, cached = self._ohlc_cache[key]
+            if now - ts < self._ttl_for_period(period):
+                return cached
+
+        interval = self._interval_for_period(period)
+        df = yf.Ticker(ticker).history(period=period.value, interval=interval, auto_adjust=False)
+
+        if df.empty:
+            raise OhlcUnavailableError(
+                reason=f"yfinance returned no data for {ticker} period={period.value}"
+            )
+
+        bars: list[OhlcBar] = []
+        for row in df.itertuples():
+            try:
+                ts_bar = row.Index.to_pydatetime().astimezone(UTC)
+                bar = OhlcBar(
+                    timestamp=ts_bar,
+                    open=Decimal(str(row.Open)),
+                    high=Decimal(str(row.High)),
+                    low=Decimal(str(row.Low)),
+                    close=Decimal(str(row.Close)),
+                    volume=int(row.Volume) if pd.notna(row.Volume) else None,
+                )
+                bars.append(bar)
+            except (ValueError, AttributeError) as exc:
+                _log.warning("Skipping malformed OHLC row for %s: %s", ticker, exc)
+
+        currency = infer_currency_from_ticker(ticker)
+        series = OhlcSeries(
+            ticker=ticker,
+            currency=currency,
+            period=period,
+            bars=tuple(bars),
+            fetched_at=datetime.now(tz=UTC),
+        )
+        self._ohlc_cache[key] = (now, series)
+        return series
+
     def clear_cache(self) -> None:
         self._current_cache.clear()
         self._historical_cache.clear()
         self._resolver_cache.clear()
+        self._ohlc_cache.clear()

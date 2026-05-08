@@ -4,6 +4,12 @@ from app.domain.fifo import (
     compute_realised_gains,
     simulate_lot_consumption,
 )
+from app.domain.market_data import (
+    ChartPeriod,
+    OhlcBar,
+    OhlcSeries,
+    OhlcUnavailableError,
+)
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, CurrencyMismatchError, Money
 from app.domain.positions import LivePosition, OpenLot, PortfolioSummary, Position
@@ -24,6 +30,10 @@ from app.domain.tax import (
 from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 
 __all__ = [
+    "ChartPeriod",
+    "OhlcBar",
+    "OhlcSeries",
+    "OhlcUnavailableError",
     "Currency",
     "Money",
     "CurrencyMismatchError",
