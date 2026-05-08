@@ -98,6 +98,7 @@ Enforced by `import-linter` (run in CI).
 ```
 investment-dashboard/
 ├── CLAUDE.md
+├── AGENTS.md
 ├── README.md
 ├── pyproject.toml
 ├── environment.yml
