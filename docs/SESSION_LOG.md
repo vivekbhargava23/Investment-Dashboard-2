@@ -1006,3 +1006,65 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~120k
+
+## 2026-05-08 14:00 — TICKET-022b
+
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~90 min
+**Branch:** ticket-022b-research-page-overview-charts
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- New `app/ui/pages/research.py`: ticker searchbox + period selector (1D–YTD,
+  default 6M), candlestick chart (height=500), header metrics row (latest price,
+  period change pct, period label), Simulate buy handoff → simulator page, disabled
+  watchlist button, quick-pick buttons for 5 example tickers.
+- `app/ui/pages/overview.py`: Trend 30D column added to HTML table (text ↑/↓ + pct
+  from 30D sparkline data); new Position Trends section below table using st.columns
+  (one sparkline per position, actual Plotly charts, st.button per row); mini chart
+  panel below (6-month line chart for selected ticker, Close button); per-ticker error
+  isolation throughout.
+- `app/ui/components/charts.py` (quality fixes discovered as first consumer):
+  - `rangebreaks` added to x-axis for daily-bar charts → Sat/Sun gaps eliminated.
+  - `render_line_chart` now uses dynamic y-range (min/max ± 5% margin) so price
+    movements are visible regardless of absolute price level (no more $800 stock
+    collapsing against zero baseline).
+- `app/ui/components/sidebar.py`: 📈 Research added after Tax Dashboard.
+- `app/ui/components/topbar.py`: "research" added to PAGE_TITLES.
+- `tests/fakes/ticker_resolver.py`: FAKE_TICKER_NVDA and FAKE_TICKER_RHM constants added.
+- 15 new tests: 6 research page smoke tests, 9 overview chart integration tests.
+- Existing test updated: test_nav_items_consistency count 9→10 (Research added).
+
+### Files touched
+- `app/ui/pages/research.py` — new
+- `app/ui/pages/overview.py` — trend column + sparklines + mini chart
+- `app/ui/components/charts.py` — rangebreaks + dynamic y-range
+- `app/ui/components/sidebar.py` — Research nav entry
+- `app/ui/components/topbar.py` — Research page title
+- `tests/unit/ui/test_research_page.py` — new (6 tests)
+- `tests/unit/ui/test_overview_chart_integration.py` — new (9 tests)
+- `tests/unit/ui/test_components.py` — count fix (9→10)
+- `tests/fakes/ticker_resolver.py` — FAKE_TICKER_NVDA + FAKE_TICKER_RHM
+- `docs/TICKETS/TICKET-022b-research-page-and-overview-charts.md` — IN_REVIEW
+
+### Tests
+318 passing → 333 passing (15 new)
+
+### Decisions made during the session
+- Sparklines rendered in separate st.columns section below the HTML table (not
+  inside table cells, which is impossible with st.plotly_chart inside HTML strings).
+  Trend 30D column in HTML table is text-based (↑/↓ + pct) for alignment; actual
+  Plotly sparklines appear below the table.
+- rangebreaks and dynamic y-range fixes to charts.py are in scope: this ticket is
+  the first real consumer of those render functions, so rendering correctness issues
+  are discovered and fixed here.
+- Weekend gap fix applies only to non-intraday periods (daily bars); intraday data
+  from yfinance already contains only market-hours bars.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~90k
