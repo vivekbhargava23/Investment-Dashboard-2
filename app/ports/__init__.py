@@ -3,6 +3,7 @@ from app.ports.fx_feed import (
     FxRateUnavailableError,
     UnsupportedCurrencyPairError,
 )
+from app.ports.market_data import OhlcDataProvider
 from app.ports.price_feed import (
     PriceProvider,
     PriceUnavailableError,
@@ -16,6 +17,7 @@ from app.ports.repository import (
 from app.ports.ticker_resolver import TickerMatch, TickerResolver
 
 __all__ = [
+    "OhlcDataProvider",
     "TransactionRepository",
     "TransactionNotFoundError",
     "RepositoryCorruptedError",

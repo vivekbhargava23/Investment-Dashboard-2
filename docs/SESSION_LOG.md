@@ -941,3 +941,68 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~45k
+
+---
+
+## 2026-05-08 — TICKET-022a
+
+**Surface:** Claude Code
+**Model:** claude-sonnet-4-6
+**Duration:** ~90 min
+**Branch:** ticket-022a-chart-service-components
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- New `app/domain/market_data.py`: `ChartPeriod` StrEnum (9 periods + `is_intraday` property),
+  `OhlcBar` frozen Pydantic model (OHLC integrity + positive-price + tz-aware validators),
+  `OhlcSeries` frozen Pydantic model (`latest_close`, `period_change_pct` properties),
+  `OhlcUnavailableError` exception.
+- New `app/ports/market_data.py`: `OhlcDataProvider` Protocol.
+- Extended `app/adapters/yfinance_feed/yfinance_adapter.py`: `_ohlc_cache`,
+  `_interval_for_period`, `_ttl_for_period`, `get_ohlc_history` (15-min TTL intraday / 24h daily),
+  bad-row skip with warning, `clear_cache()` extended.
+- New `app/services/market_data.py`: module-level OHLC cache with TTL, `get_ohlc_history`,
+  `clear_market_data_caches`. Documented deviation from stateless-service convention.
+- New `app/ui/components/_chart_styles.py`: `CHART_BG`, `CANDLE_UP/DOWN`, `LINE_COLOR_DEFAULT`, `base_layout()`.
+- New `app/ui/components/charts.py`: `render_candlestick`, `render_line_chart`, `render_sparkline`.
+- Updated `app/ui/wiring.py`: `get_ohlc_data_provider()` singleton.
+- Updated `app/domain/__init__.py`, `app/ports/__init__.py`: export new types.
+- Updated `pyproject.toml`: added `pandas.*` to mypy `ignore_missing_imports` (pandas is already
+  a dep via yfinance; direct import was new in this ticket).
+- New `tests/fakes/ohlc.py`: `FakeOhlcDataProvider` with call counting and raise-for support.
+- 41 new tests across 4 test files.
+
+### Files touched
+- `app/domain/market_data.py` — new
+- `app/ports/market_data.py` — new
+- `app/services/market_data.py` — new
+- `app/ui/components/_chart_styles.py` — new
+- `app/ui/components/charts.py` — new
+- `app/adapters/yfinance_feed/yfinance_adapter.py` — extended with OHLC support
+- `app/domain/__init__.py` — new exports
+- `app/ports/__init__.py` — new export
+- `app/ui/wiring.py` — get_ohlc_data_provider()
+- `pyproject.toml` — pandas mypy ignore
+- `tests/fakes/ohlc.py` — new
+- `tests/unit/domain/test_market_data.py` — new (24 tests)
+- `tests/unit/services/test_market_data.py` — new (8 tests)
+- `tests/unit/adapters/test_yfinance_ohlc.py` — new (9 tests)
+- `tests/unit/ui/test_chart_components.py` — new (5 tests)
+- `docs/TICKETS/TICKET-022a-chart-service-and-components.md` — status → IN_REVIEW
+
+### Tests
+277 passing → 318 passing (41 new)
+
+### Decisions made during the session
+- `base_layout()` returns separate dicts for xaxis/yaxis (not a shared reference) to prevent
+  mutations in `render_candlestick` (adding `rangeslider` to xaxis) from corrupting yaxis.
+- `pandas` added to mypy `ignore_missing_imports` (was already a transitive dep via yfinance,
+  now directly imported in the adapter for `pd.notna`).
+- Session included rollback of ChatGPT Codex 022a/022b (PR #36, merged by Vivek) before reimplementation.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~120k
