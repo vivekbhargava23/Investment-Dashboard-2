@@ -3,7 +3,13 @@ from decimal import Decimal
 
 import pytest
 
-from app.domain.market_data import ChartPeriod, OhlcBar, OhlcSeries, OhlcUnavailableError
+from app.domain.market_data import (
+    ChartPeriod,
+    OhlcBar,
+    OhlcSeries,
+    OhlcUnavailableError,
+    aggregate_ohlc_series,
+)
 from app.domain.money import Currency
 
 
@@ -204,3 +210,105 @@ def test_ohlc_unavailable_error_has_reason() -> None:
     err = OhlcUnavailableError(reason="no data")
     assert err.reason == "no data"
     assert "no data" in str(err)
+
+
+# --- aggregate_ohlc_series ---
+
+def test_aggregate_day_collapses_same_day_bars() -> None:
+    s = _series(
+        _bar("2024-01-02T09:30", "100", "112", "98", "105"),
+        _bar("2024-01-02T10:00", "105", "115", "103", "110"),
+        _bar("2024-01-02T10:30", "110", "120", "108", "118"),
+    )
+    result = aggregate_ohlc_series(s, "day")
+    assert len(result.bars) == 1
+    bar = result.bars[0]
+    assert bar.open == Decimal("100")
+    assert bar.high == Decimal("120")
+    assert bar.low == Decimal("98")
+    assert bar.close == Decimal("118")
+    assert bar.volume == 3000
+
+
+def test_aggregate_day_multiple_days() -> None:
+    s = _series(
+        _bar("2024-01-02T09:30", "100", "110", "95", "105"),
+        _bar("2024-01-02T10:00", "105", "112", "103", "108"),
+        _bar("2024-01-03T09:30", "108", "115", "106", "112"),
+    )
+    result = aggregate_ohlc_series(s, "day")
+    assert len(result.bars) == 2
+    assert result.bars[0].open == Decimal("100")
+    assert result.bars[1].open == Decimal("108")
+
+
+def test_aggregate_week_collapses_same_week_bars() -> None:
+    # 2024-01-02 (Tue) and 2024-01-05 (Fri) are in the same ISO week (week 1)
+    s = _series(
+        _bar("2024-01-02", "200", "210", "195", "205"),
+        _bar("2024-01-03", "205", "215", "202", "210"),
+        _bar("2024-01-05", "210", "220", "208", "218"),
+    )
+    result = aggregate_ohlc_series(s, "week")
+    assert len(result.bars) == 1
+    bar = result.bars[0]
+    assert bar.open == Decimal("200")   # first bar's open
+    assert bar.close == Decimal("218")  # last bar's close
+    assert bar.high == Decimal("220")
+    assert bar.low == Decimal("195")
+
+
+def test_aggregate_month_collapses_same_month_bars() -> None:
+    s = _series(
+        _bar("2024-01-02", "300", "310", "295", "305"),
+        _bar("2024-01-15", "305", "315", "300", "312"),
+        _bar("2024-01-31", "312", "320", "308", "318"),
+    )
+    result = aggregate_ohlc_series(s, "month")
+    assert len(result.bars) == 1
+    bar = result.bars[0]
+    assert bar.open == Decimal("300")
+    assert bar.close == Decimal("318")
+
+
+def test_aggregate_preserves_series_metadata() -> None:
+    s = _series(_bar("2024-01-02"), _bar("2024-01-03"))
+    result = aggregate_ohlc_series(s, "week")
+    assert result.ticker == s.ticker
+    assert result.currency == s.currency
+    assert result.period == s.period
+    assert result.fetched_at == s.fetched_at
+
+
+def test_aggregate_volume_summed() -> None:
+    s = _series(
+        _bar("2024-01-02T09:00", "100", "110", "95", "105"),
+        _bar("2024-01-02T10:00", "105", "112", "103", "108"),
+    )
+    result = aggregate_ohlc_series(s, "day")
+    assert result.bars[0].volume == 2000
+
+
+def test_aggregate_all_none_volumes_stays_none() -> None:
+    b1 = OhlcBar(
+        timestamp=_utc("2024-01-02T09:00"),
+        open=Decimal("100"), high=Decimal("110"),
+        low=Decimal("95"), close=Decimal("105"), volume=None,
+    )
+    b2 = OhlcBar(
+        timestamp=_utc("2024-01-02T10:00"),
+        open=Decimal("105"), high=Decimal("112"),
+        low=Decimal("103"), close=Decimal("108"), volume=None,
+    )
+    s = _series(b1, b2)
+    result = aggregate_ohlc_series(s, "day")
+    assert result.bars[0].volume is None
+
+
+def test_aggregate_timestamp_is_first_bar_of_bucket() -> None:
+    s = _series(
+        _bar("2024-01-02T09:30", "100", "110", "95", "105"),
+        _bar("2024-01-02T15:00", "105", "112", "103", "108"),
+    )
+    result = aggregate_ohlc_series(s, "day")
+    assert result.bars[0].timestamp == _utc("2024-01-02T09:30")

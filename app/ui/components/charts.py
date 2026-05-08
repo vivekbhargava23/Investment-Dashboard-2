@@ -28,6 +28,23 @@ def _weekend_rangebreaks() -> list[dict[str, Any]]:
     return [{"bounds": ["sat", "mon"]}]
 
 
+def _needs_weekend_rangebreaks(series: OhlcSeries) -> bool:
+    """Return True only when bars are approximately daily-spaced.
+
+    Weekly/monthly aggregated bars span weekends inside each bar — applying
+    rangebreaks would visually compress the axis incorrectly.
+    Intraday bars (sub-hourly) don't need weekend exclusion either.
+
+    Daily bars have avg spacing ~24–40 h (Mon→Tue=24h; Fri→Mon=72h averages out
+    to ~33h over a month). We use the window 8h–100h to safely identify daily.
+    """
+    if len(series.bars) < 2:
+        return False
+    total_s = (series.bars[-1].timestamp - series.bars[0].timestamp).total_seconds()
+    avg_h = total_s / (len(series.bars) - 1) / 3600
+    return 8.0 <= avg_h < 100.0
+
+
 def _dynamic_y_range(values: list[float], padding_pct: float = 0.05) -> list[float]:
     """Return [y_min, y_max] with *padding_pct* margin above and below the data range."""
     lo, hi = min(values), max(values)
@@ -59,8 +76,7 @@ def render_candlestick(series: OhlcSeries, *, height: int = 400) -> None:
     layout["xaxis"]["rangeslider"] = {"visible": False}
     layout["xaxis"]["tickformat"] = "%H:%M" if series.period.is_intraday else "%b %Y"
     layout["yaxis"]["tickprefix"] = f"{series.currency.value} "
-    # Hide weekend gaps for daily bars; intraday data only has market-hours bars already
-    if not series.period.is_intraday:
+    if _needs_weekend_rangebreaks(series):
         layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks()
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
@@ -73,8 +89,8 @@ def render_line_chart(
     timestamps = [bar.timestamp for bar in series.bars]
     closes = [float(bar.close) for bar in series.bars]
 
-    # Use a dynamic y-range so movements are visible regardless of absolute price level.
-    # fill="tozeroy" on a $800 stock would collapse the visible change to a thin sliver.
+    # Dynamic y-range: price movements visible regardless of absolute price level.
+    # fill="tozeroy" on a $800 stock collapses the visible change to a sliver.
     y_min, y_max = _dynamic_y_range(closes)
 
     fig = go.Figure(
@@ -92,7 +108,7 @@ def render_line_chart(
     layout = base_layout(height=height, show_axes=True)
     layout["yaxis"]["range"] = [y_min, y_max]
     layout["yaxis"]["tickprefix"] = f"{series.currency.value} "
-    if not series.period.is_intraday:
+    if _needs_weekend_rangebreaks(series):
         layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks()
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)

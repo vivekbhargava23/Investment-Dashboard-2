@@ -8,17 +8,42 @@ The cache here is justified because:
 
 The cache is invalidated by clear_market_data_caches() — wired into the
 Refresh button alongside the price/FX cache invalidation.
+
+Aggregation is applied after fetch so the cache always holds display-ready data:
+  - 5D  → daily bars   (avoids intraday-gap artefacts from 15m bars)
+  - 1Y/2Y → weekly bars (252 daily bars → 52 weekly; readable candle widths)
+  - 5Y  → monthly bars (~60 monthly bars for a 5-year view)
+  - YTD → weekly bars  (variable length, weekly gives stable bar count)
 """
 
 import time
 
-from app.domain.market_data import ChartPeriod, OhlcSeries
+from app.domain.market_data import (
+    AggregationFreq,
+    ChartPeriod,
+    OhlcSeries,
+    aggregate_ohlc_series,
+)
 from app.ports.market_data import OhlcDataProvider
 
 _cache: dict[tuple[str, ChartPeriod], tuple[float, OhlcSeries]] = {}
 
 _INTRADAY_TTL = 15 * 60.0
 _DAILY_TTL = 24 * 60 * 60.0
+
+# Periods that need coarser bars to look good on a candlestick chart.
+# None = keep the yfinance-native interval (daily for 1M–6M, intraday for 1D).
+_AGGREGATION: dict[ChartPeriod, AggregationFreq | None] = {
+    ChartPeriod.ONE_DAY: None,         # 5m intraday — already readable
+    ChartPeriod.FIVE_DAY: "day",       # 15m → 5 daily bars (no gap mess)
+    ChartPeriod.ONE_MONTH: None,       # ~22 daily bars — fine
+    ChartPeriod.THREE_MONTH: None,     # ~65 daily bars — fine
+    ChartPeriod.SIX_MONTH: None,       # ~130 daily bars — acceptable
+    ChartPeriod.ONE_YEAR: "week",      # ~252 daily → ~52 weekly
+    ChartPeriod.TWO_YEAR: "week",      # ~504 daily → ~104 weekly
+    ChartPeriod.FIVE_YEAR: "month",    # ~1260 daily → ~60 monthly
+    ChartPeriod.YEAR_TO_DATE: "week",  # variable daily → weekly
+}
 
 
 def _ttl_for_period(period: ChartPeriod) -> float:
@@ -31,9 +56,10 @@ def get_ohlc_history(
     *,
     provider: OhlcDataProvider,
 ) -> OhlcSeries:
-    """Return OHLC history, using the service-level cache to avoid redundant fetches.
+    """Return OHLC history, applying period-appropriate aggregation.
 
-    Raises OhlcUnavailableError if the provider has no data — propagated to the caller.
+    Aggregated series are cached so the aggregation cost is paid once per TTL.
+    Raises OhlcUnavailableError if the provider has no data.
     """
     ticker = ticker.strip().upper()
     key = (ticker, period)
@@ -45,6 +71,11 @@ def get_ohlc_history(
             return series
 
     series = provider.get_ohlc_history(ticker, period)
+
+    freq = _AGGREGATION.get(period)
+    if freq is not None:
+        series = aggregate_ohlc_series(series, freq)
+
     _cache[key] = (now, series)
     return series
 
