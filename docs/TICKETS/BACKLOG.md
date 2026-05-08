@@ -44,7 +44,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 
 | ID | Title | Status | Priority | Est |
 |---|---|---|---|---|
-| TICKET-013 | Daily NAV cache | DRAFT | P2 | 2 hr |
+| TICKET-013 | Daily NAV snapshot service | READY | P1 | 2 – 2.5 hr |
 | TICKET-014 | Performance page with timeframe toggle | DRAFT | P2 | 1.5 hr |
 | TICKET-015 | Lot Ledger page with edit-in-place | DRAFT | P2 | 2 hr |
 

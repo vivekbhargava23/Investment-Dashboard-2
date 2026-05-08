@@ -142,3 +142,10 @@ data/*.backup-*
 data/tax_profile.json
 data/ticker_cache.json
 .env
+
+# macOS
+.DS_Store
+
+.DS_Store
+.claude/
+memory/
