@@ -5,16 +5,15 @@ from typing import Literal
 
 import streamlit as st
 
-from app.domain.market_data import ChartPeriod, OhlcSeries, OhlcUnavailableError
+from app.domain.market_data import ChartPeriod, OhlcUnavailableError
 from app.domain.positions import LivePosition, PortfolioSummary
 from app.domain.tax.models import TaxProfile, TaxYearSummary
 from app.services.market_data import get_ohlc_history
 from app.services.tax_planning import compute_current_tax_summary
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
 from app.ui.cache_keys import transactions_signature
-from app.ui.components._chart_styles import CANDLE_DOWN, CANDLE_UP
 from app.ui.components.badges import render_thesis_badge
-from app.ui.components.charts import render_line_chart, render_sparkline
+from app.ui.components.charts import render_candlestick
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
 from app.ui.wiring import (
@@ -39,6 +38,17 @@ _PLACEHOLDER_NAME: dict[str, str] = {
     "NVDA": "NVIDIA", "RHM.DE": "Rheinmetall", "MU": "Micron", "HY9H.F": "SK Hynix",
     "MRVL": "Marvell", "APD": "Air Products", "ANET": "Arista", "AVGO": "Broadcom",
     "ETN": "Eaton", "ASX": "ASE Tech", "VUSA.DE": "S&P 500 ETF", "5631.T": "Japan Steel Works",
+}
+_PERIOD_LABELS: dict[ChartPeriod, str] = {
+    ChartPeriod.ONE_DAY: "1D",
+    ChartPeriod.FIVE_DAY: "5D",
+    ChartPeriod.ONE_MONTH: "1M",
+    ChartPeriod.THREE_MONTH: "3M",
+    ChartPeriod.SIX_MONTH: "6M",
+    ChartPeriod.ONE_YEAR: "1Y",
+    ChartPeriod.TWO_YEAR: "2Y",
+    ChartPeriod.FIVE_YEAR: "5Y",
+    ChartPeriod.YEAR_TO_DATE: "YTD",
 }
 
 
@@ -176,24 +186,18 @@ def _build_positions_table_html(
     return header + "".join(tbody_rows) + "</tbody></table>"
 
 
-def _fetch_sparklines(
-    tickers: list[str],
-) -> tuple[dict[str, OhlcSeries], dict[str, str]]:
-    """Fetch 30-day OHLC for each ticker.
+def _fetch_trend_texts(tickers: list[str]) -> dict[str, str]:
+    """Fetch 30-day OHLC for each ticker and return HTML trend text for the table.
 
-    Returns (series_map, trend_text_map).
-    series_map: ticker → OhlcSeries for tickers that succeeded.
-    trend_text_map: ticker → HTML trend text cell for the table (e.g. '↑ +2.3%' or '—').
-    Per-ticker errors are isolated — one failure never prevents other rows from rendering.
+    ticker → HTML span like '↑ +2.3%' (green) or '↓ -1.1%' (red) or '—' on error.
+    Per-ticker errors are isolated: one failure never blocks other rows.
     """
     provider = get_ohlc_data_provider()
-    series_map: dict[str, OhlcSeries] = {}
     trend_text_map: dict[str, str] = {}
 
     for ticker in tickers:
         try:
             series = get_ohlc_history(ticker, ChartPeriod.ONE_MONTH, provider=provider)
-            series_map[ticker] = series
             pct = series.period_change_pct
             if pct is None:
                 trend_text_map[ticker] = "—"
@@ -206,7 +210,7 @@ def _fetch_sparklines(
         except OhlcUnavailableError:
             trend_text_map[ticker] = "—"
 
-    return series_map, trend_text_map
+    return trend_text_map
 
 
 def render() -> None:
@@ -304,9 +308,8 @@ def render() -> None:
         </div>
     """)
 
-    # Fetch 30-day sparkline data for all positions; used for table trend column + sparkline charts
     tickers = list(live_positions.keys())
-    sparkline_series_map, trend_text_map = _fetch_sparklines(tickers)
+    trend_text_map = _fetch_trend_texts(tickers)
 
     table_html = _build_positions_table_html(live_positions, summary, trend_data=trend_text_map)
     render_html(f'<div class="metric-card" style="padding: 0; overflow-x: auto;">{table_html}</div>')
@@ -322,39 +325,31 @@ def render() -> None:
         </div>
     """)
 
-    # ── Position sparklines ───────────────────────────────────────────────────
-    # Rendered below the table in a compact row; one sparkline per position.
-    # The HTML table can't host Plotly charts, so they live here.
+    # ── Position Chart ────────────────────────────────────────────────────────
     if tickers:
-        render_html('<div style="margin-top: 20px; margin-bottom: 4px; font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em;">Position Trends (30D)</div>')
-        n_cols = min(len(tickers), 6)
-        sparkline_cols = st.columns(n_cols)
-        for i, ticker in enumerate(tickers):
-            with sparkline_cols[i % n_cols]:
-                st.caption(ticker)
-                if ticker in sparkline_series_map:
-                    render_sparkline(sparkline_series_map[ticker], height=60, width=120)
-                else:
-                    st.markdown("—")
-                if st.button("Chart", key=f"chart_btn_{ticker}"):
-                    if st.session_state.get("overview_selected_ticker") == ticker:
-                        del st.session_state["overview_selected_ticker"]
-                    else:
-                        st.session_state["overview_selected_ticker"] = ticker
-                    st.rerun()
-
-    # ── Mini chart panel ──────────────────────────────────────────────────────
-    selected_ticker: str | None = st.session_state.get("overview_selected_ticker")
-    if selected_ticker is not None and selected_ticker in live_positions:
-        ohlc_provider = get_ohlc_data_provider()
-        render_html(f'<div style="margin-top: 20px; font-size: 13px; font-weight: 600; color: var(--text);">{selected_ticker} — 6-month price</div>')
-        try:
-            series_6mo = get_ohlc_history(selected_ticker, ChartPeriod.SIX_MONTH, provider=ohlc_provider)
-            pct_6mo = series_6mo.period_change_pct
-            line_color = CANDLE_UP if (pct_6mo is None or pct_6mo >= Decimal("0")) else CANDLE_DOWN
-            render_line_chart(series_6mo, height=300, color=line_color)
-        except OhlcUnavailableError as e:
-            st.warning(f"Chart unavailable: {e.reason}")
-        if st.button("Close chart", key="overview_close_chart"):
-            del st.session_state["overview_selected_ticker"]
-            st.rerun()
+        render_html('<div style="margin-top: 24px; margin-bottom: 8px; font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em;">Position Chart</div>')
+        col_ticker, col_period = st.columns([1, 3])
+        with col_ticker:
+            chart_ticker = st.selectbox(
+                "Ticker",
+                options=tickers,
+                key="overview_chart_ticker",
+                label_visibility="collapsed",
+            )
+        with col_period:
+            chart_period: ChartPeriod = st.radio(
+                "Period",
+                options=list(ChartPeriod),
+                horizontal=True,
+                key="overview_chart_period",
+                index=4,
+                format_func=lambda p: _PERIOD_LABELS[p],
+                label_visibility="collapsed",
+            )
+        if chart_ticker:
+            ohlc_provider = get_ohlc_data_provider()
+            try:
+                series = get_ohlc_history(chart_ticker, chart_period, provider=ohlc_provider)
+                render_candlestick(series, height=400)
+            except OhlcUnavailableError as e:
+                st.warning(f"Chart unavailable: {e.reason}")
