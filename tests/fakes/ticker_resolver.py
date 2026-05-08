@@ -1,4 +1,23 @@
+from decimal import Decimal
+
+from app.domain.money import Currency, Money
 from app.ports.ticker_resolver import TickerMatch, TickerResolver
+
+FAKE_TICKER_NVDA = TickerMatch(
+    symbol="NVDA",
+    name="NVIDIA Corporation",
+    exchange="NASDAQ",
+    currency=Currency.USD,
+    recent_price=Money(amount=Decimal("450.00"), currency=Currency.USD),
+)
+
+FAKE_TICKER_RHM = TickerMatch(
+    symbol="RHM.DE",
+    name="Rheinmetall AG",
+    exchange="XETRA",
+    currency=Currency.EUR,
+    recent_price=None,
+)
 
 
 class FakeTickerResolver:
