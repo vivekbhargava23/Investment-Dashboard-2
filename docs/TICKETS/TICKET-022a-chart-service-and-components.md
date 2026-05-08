@@ -1,6 +1,6 @@
 # TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline)
 
-**Status:** MERGED
+**Status:** DRAFT
 **Priority:** P1
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-06)

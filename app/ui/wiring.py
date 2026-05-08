@@ -6,7 +6,6 @@ from app.adapters.repo_json.tax_profile_repo import JsonTaxProfileRepository
 from app.adapters.yfinance_feed import YfinanceAdapter
 from app.config import get_settings
 from app.ports.fx_feed import FxProvider
-from app.ports.market_data import OhlcDataProvider
 from app.ports.price_feed import PriceProvider
 from app.ports.repository import TransactionRepository
 from app.ports.tax_profile_repo import TaxProfileRepository
@@ -45,10 +44,3 @@ def get_ticker_resolver() -> TickerResolver:
     settings = get_settings()
     inner = cast(TickerResolver, get_price_provider())
     return CachedTickerResolver(inner=inner, cache_path=settings.ticker_cache_json_path)
-
-
-@lru_cache(maxsize=1)
-def get_ohlc_data_provider() -> OhlcDataProvider:
-    from typing import cast
-
-    return cast(OhlcDataProvider, get_price_provider())

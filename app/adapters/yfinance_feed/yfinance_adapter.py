@@ -1,12 +1,11 @@
 import logging
 import time
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
 import yfinance as yf
 
-from app.domain.market_data import ChartPeriod, OhlcBar, OhlcSeries, OhlcUnavailableError
 from app.domain.money import Currency, Money
 from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 from app.ports.fx_feed import (
@@ -23,24 +22,6 @@ _log = logging.getLogger(__name__)
 
 
 _RESOLVER_TTL = 3600  # 1 hour — ticker metadata changes rarely
-
-
-def _interval_for_period(period: ChartPeriod) -> str:
-    if period == ChartPeriod.ONE_DAY:
-        return "5m"
-    if period == ChartPeriod.FIVE_DAY:
-        return "15m"
-    if period in {ChartPeriod.THREE_MONTH, ChartPeriod.SIX_MONTH}:
-        return "1wk"
-    if period in {ChartPeriod.ONE_YEAR, ChartPeriod.TWO_YEAR, ChartPeriod.FIVE_YEAR}:
-        return "1mo"
-    return "1d"
-
-
-def _ttl_for_period(period: ChartPeriod) -> float:
-    if period.is_intraday:
-        return 15 * 60
-    return 24 * 60 * 60
 
 
 class YfinanceAdapter:
@@ -61,8 +42,6 @@ class YfinanceAdapter:
         # Key: query string or "lookup:{symbol}"
         # Value: (timestamp, list[TickerMatch] | TickerMatch | None)
         self._resolver_cache: dict[str, tuple[float, Any]] = {}
-        # Key: (ticker, period). Value: (timestamp, OhlcSeries)
-        self._ohlc_cache: dict[tuple[str, ChartPeriod], tuple[float, OhlcSeries]] = {}
 
     def _infer_currency(self, ticker: str) -> Currency:
         return infer_currency_from_ticker(ticker)
@@ -241,67 +220,6 @@ class YfinanceAdapter:
         except Exception as e:
             raise FxRateUnavailableError(base, quote, on_date, str(e)) from e
 
-    def get_ohlc_history(self, ticker: str, period: ChartPeriod) -> OhlcSeries:
-        normalized_ticker = ticker.strip().upper()
-        cache_key = (normalized_ticker, period)
-        now = time.monotonic()
-        if cache_key in self._ohlc_cache:
-            ts, cached = self._ohlc_cache[cache_key]
-            if now - ts < _ttl_for_period(period):
-                return cached
-
-        yf_ticker = yf.Ticker(normalized_ticker)
-        df = yf_ticker.history(
-            period=period.value,
-            interval=_interval_for_period(period),
-            auto_adjust=False,
-        )
-        if df.empty:
-            raise OhlcUnavailableError(
-                normalized_ticker,
-                f"yfinance returned no data for {normalized_ticker} period={period.value}",
-            )
-
-        bars: list[OhlcBar] = []
-        for idx, row in df.iterrows():
-            try:
-                timestamp = idx.to_pydatetime().astimezone(UTC)
-                raw_volume = row["Volume"]
-                volume = None if raw_volume != raw_volume else int(raw_volume)
-                bars.append(
-                    OhlcBar(
-                        timestamp=timestamp,
-                        open=Decimal(str(row["Open"])),
-                        high=Decimal(str(row["High"])),
-                        low=Decimal(str(row["Low"])),
-                        close=Decimal(str(row["Close"])),
-                        volume=volume,
-                    )
-                )
-            except ValueError as exc:
-                _log.warning(
-                    "Skipping invalid OHLC row for %s period=%s at %s: %s",
-                    normalized_ticker,
-                    period.value,
-                    idx,
-                    exc,
-                )
-
-        currency = infer_currency_from_ticker(normalized_ticker)
-        try:
-            series = OhlcSeries(
-                ticker=normalized_ticker,
-                currency=currency,
-                period=period,
-                bars=tuple(bars),
-                fetched_at=datetime.now(UTC),
-            )
-        except ValueError as exc:
-            raise OhlcUnavailableError(normalized_ticker, str(exc)) from exc
-
-        self._ohlc_cache[cache_key] = (now, series)
-        return series
-
     # ------------------------------------------------------------------
     # TickerResolver implementation
     # ------------------------------------------------------------------
@@ -418,4 +336,3 @@ class YfinanceAdapter:
         self._current_cache.clear()
         self._historical_cache.clear()
         self._resolver_cache.clear()
-        self._ohlc_cache.clear()

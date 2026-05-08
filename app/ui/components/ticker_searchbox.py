@@ -12,14 +12,12 @@ def _format_label(m: TickerMatch) -> str:
 
 def _search_callback_for(
     resolver: TickerResolver,
-    pinned_matches: tuple[TickerMatch, ...] = (),
 ) -> Callable[[str], list[tuple[str, TickerMatch]]]:
     """Return a search callback bound to *resolver* for use with st_searchbox."""
 
     def _callback(query: str) -> list[tuple[str, TickerMatch]]:
-        pinned = [(_format_label(m), m) for m in pinned_matches]
         if not query or len(query) < 2:
-            return pinned
+            return []
         try:
             matches = resolver.resolve(query, limit=8)
             return [(_format_label(m), m) for m in matches]
@@ -36,7 +34,6 @@ def render_ticker_searchbox(
     *,
     placeholder: str = "Type a ticker (e.g. APD, RHM)…",
     default_match: TickerMatch | None = None,
-    pinned_matches: tuple[TickerMatch, ...] = (),
 ) -> TickerMatch | None:
     """Render an autocomplete ticker search field.
 
@@ -48,7 +45,7 @@ def render_ticker_searchbox(
     )
 
     result = st_searchbox(
-        _search_callback_for(resolver, pinned_matches),
+        _search_callback_for(resolver),
         placeholder=placeholder,
         key=key,
         default=default,
