@@ -7,7 +7,6 @@ import app.ui.pages.lots as lots
 import app.ui.pages.manage as manage
 import app.ui.pages.overview as overview
 import app.ui.pages.performance as performance
-import app.ui.pages.research as research
 import app.ui.pages.tax as tax
 from app.ui.components.badges import render_severity_badge, render_thesis_badge
 from app.ui.components.sidebar import NAV_ITEMS
@@ -31,7 +30,7 @@ def test_render_severity_badge():
         render_severity_badge("invalid") # type: ignore
 
 def test_nav_items_consistency():
-    assert len(NAV_ITEMS) == 10
+    assert len(NAV_ITEMS) == 9
     for item in NAV_ITEMS:
         assert "id" in item
         assert "label" in item
@@ -45,7 +44,6 @@ def test_page_registry_presence():
     assert callable(overview.render)
     assert callable(analytics.render)
     assert callable(performance.render)
-    assert callable(research.render)
     assert callable(tax.render)
     assert callable(decision.render)
     assert callable(behaviour.render)
