@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
+from itertools import groupby
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
@@ -101,3 +103,60 @@ class OhlcSeries(BaseModel):
         if first_open == 0:
             return None
         return (self.latest_close - first_open) / first_open * Decimal("100")
+
+
+AggregationFreq = Literal["hour", "day", "week", "month"]
+
+
+def aggregate_ohlc_series(series: OhlcSeries, freq: AggregationFreq) -> OhlcSeries:
+    """Aggregate OhlcBars to a coarser time frequency for display.
+
+    Groups bars by calendar bucket; each bucket produces one bar:
+        open  = first bar's open
+        high  = max of all highs
+        low   = min of all lows
+        close = last bar's close
+        volume = sum of non-None volumes, or None if all are None
+
+    Use this to turn 252 daily bars (1Y) into ~52 weekly bars, or
+    5-day intraday 15m bars into 5 clean daily bars.
+    """
+    def _key(bar: OhlcBar) -> tuple[int, ...]:
+        ts = bar.timestamp
+        if freq == "hour":
+            return (ts.year, ts.month, ts.day, ts.hour)
+        if freq == "day":
+            return (ts.year, ts.month, ts.day)
+        if freq == "week":
+            iso = ts.isocalendar()
+            return (iso.year, iso.week)
+        # month
+        return (ts.year, ts.month)
+
+    aggregated: list[OhlcBar] = []
+    for _, group_iter in groupby(series.bars, key=_key):
+        group = list(group_iter)
+        vols = [b.volume for b in group if b.volume is not None]
+        aggregated.append(
+            OhlcBar(
+                timestamp=group[0].timestamp,
+                open=group[0].open,
+                high=max(b.high for b in group),
+                low=min(b.low for b in group),
+                close=group[-1].close,
+                volume=sum(vols) if vols else None,
+            )
+        )
+
+    if not aggregated:
+        raise OhlcUnavailableError(
+            f"No bars remain after aggregating {series.ticker} to {freq}"
+        )
+
+    return OhlcSeries(
+        ticker=series.ticker,
+        currency=series.currency,
+        period=series.period,
+        bars=tuple(aggregated),
+        fetched_at=series.fetched_at,
+    )

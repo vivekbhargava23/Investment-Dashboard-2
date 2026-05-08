@@ -5,15 +5,24 @@ from typing import Literal
 
 import streamlit as st
 
+from app.domain.market_data import ChartPeriod, OhlcUnavailableError
 from app.domain.positions import LivePosition, PortfolioSummary
 from app.domain.tax.models import TaxProfile, TaxYearSummary
+from app.services.market_data import get_ohlc_history
 from app.services.tax_planning import compute_current_tax_summary
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
 from app.ui.cache_keys import transactions_signature
 from app.ui.components.badges import render_thesis_badge
+from app.ui.components.charts import render_candlestick
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
-from app.ui.wiring import get_fx_provider, get_price_provider, get_repository, get_tax_profile_repo
+from app.ui.wiring import (
+    get_fx_provider,
+    get_ohlc_data_provider,
+    get_price_provider,
+    get_repository,
+    get_tax_profile_repo,
+)
 
 _PLACEHOLDER_THESIS_STATUS: dict[str, Literal["intact", "watch", "broken"]] = {
     "NVDA": "intact", "RHM.DE": "intact", "MU": "intact", "HY9H.F": "intact",
@@ -29,6 +38,17 @@ _PLACEHOLDER_NAME: dict[str, str] = {
     "NVDA": "NVIDIA", "RHM.DE": "Rheinmetall", "MU": "Micron", "HY9H.F": "SK Hynix",
     "MRVL": "Marvell", "APD": "Air Products", "ANET": "Arista", "AVGO": "Broadcom",
     "ETN": "Eaton", "ASX": "ASE Tech", "VUSA.DE": "S&P 500 ETF", "5631.T": "Japan Steel Works",
+}
+_PERIOD_LABELS: dict[ChartPeriod, str] = {
+    ChartPeriod.ONE_DAY: "1D",
+    ChartPeriod.FIVE_DAY: "5D",
+    ChartPeriod.ONE_MONTH: "1M",
+    ChartPeriod.THREE_MONTH: "3M",
+    ChartPeriod.SIX_MONTH: "6M",
+    ChartPeriod.ONE_YEAR: "1Y",
+    ChartPeriod.TWO_YEAR: "2Y",
+    ChartPeriod.FIVE_YEAR: "5Y",
+    ChartPeriod.YEAR_TO_DATE: "YTD",
 }
 
 
@@ -68,7 +88,9 @@ def _cached_tax_summary_for_overview(tx_sig: str, year: int) -> TaxYearSummary |
 def _build_positions_table_html(
     positions: dict[str, LivePosition],
     summary: PortfolioSummary,
+    trend_data: dict[str, str] | None = None,
 ) -> str:
+    """trend_data maps ticker → pre-formatted trend cell HTML (e.g. '↑ +2.3%' or '—')."""
     sorted_positions = sorted(
         positions.values(),
         key=lambda p: float(p.live_value_eur.amount) if p.live_value_eur is not None else -1.0,
@@ -119,6 +141,7 @@ def _build_positions_table_html(
             f'<a href="/?page=simulator&ticker={ticker}" target="_self" '
             f'title="Simulate sell" style="color: var(--text3); text-decoration: none; font-size: 14px;">⚡</a>'
         )
+        trend_cell = (trend_data or {}).get(ticker, "—")
         tbody_rows.append(
             f'<tr class="{row_class}">'
             f'<td><strong>{ticker}</strong></td>'
@@ -130,6 +153,7 @@ def _build_positions_table_html(
             f'<td class="font-mono text-right"><strong>{val}</strong></td>'
             f'<td class="font-mono text-right {gain_class}">{gain}</td>'
             f'<td class="font-mono">{weight_html}</td>'
+            f'<td class="font-mono text-right" style="font-size: 11px;">{trend_cell}</td>'
             f'<td class="text-center">{horizon}</td>'
             f'<td class="text-center">{thesis}</td>'
             f'<td class="font-mono text-center" style="color: var(--text3);">{lots}</td>'
@@ -150,6 +174,7 @@ def _build_positions_table_html(
         '<th style="padding: 8px 4px; text-align: right;">Value (€)</th>'
         '<th style="padding: 8px 4px; text-align: right;">Gain (€)</th>'
         '<th style="padding: 8px 4px;">Weight</th>'
+        '<th style="padding: 8px 4px; text-align: right;">Trend 30D</th>'
         '<th style="padding: 8px 4px; text-align: center;">Horizon</th>'
         '<th style="padding: 8px 4px; text-align: center;">Thesis</th>'
         '<th style="padding: 8px 4px; text-align: center;">Lots</th>'
@@ -159,6 +184,33 @@ def _build_positions_table_html(
         '<tbody>'
     )
     return header + "".join(tbody_rows) + "</tbody></table>"
+
+
+def _fetch_trend_texts(tickers: list[str]) -> dict[str, str]:
+    """Fetch 30-day OHLC for each ticker and return HTML trend text for the table.
+
+    ticker → HTML span like '↑ +2.3%' (green) or '↓ -1.1%' (red) or '—' on error.
+    Per-ticker errors are isolated: one failure never blocks other rows.
+    """
+    provider = get_ohlc_data_provider()
+    trend_text_map: dict[str, str] = {}
+
+    for ticker in tickers:
+        try:
+            series = get_ohlc_history(ticker, ChartPeriod.ONE_MONTH, provider=provider)
+            pct = series.period_change_pct
+            if pct is None:
+                trend_text_map[ticker] = "—"
+            elif pct >= 0:
+                color = "var(--green, #26a69a)"
+                trend_text_map[ticker] = f'<span style="color:{color};">↑ +{float(pct):.1f}%</span>'
+            else:
+                color = "var(--red, #ef5350)"
+                trend_text_map[ticker] = f'<span style="color:{color};">↓ {float(pct):.1f}%</span>'
+        except OhlcUnavailableError:
+            trend_text_map[ticker] = "—"
+
+    return trend_text_map
 
 
 def render() -> None:
@@ -256,7 +308,10 @@ def render() -> None:
         </div>
     """)
 
-    table_html = _build_positions_table_html(live_positions, summary)
+    tickers = list(live_positions.keys())
+    trend_text_map = _fetch_trend_texts(tickers)
+
+    table_html = _build_positions_table_html(live_positions, summary, trend_data=trend_text_map)
     render_html(f'<div class="metric-card" style="padding: 0; overflow-x: auto;">{table_html}</div>')
 
     status_text = f"● LIVE · refreshed {now.strftime('%H:%M')}"
@@ -269,3 +324,32 @@ def render() -> None:
             {status_text}
         </div>
     """)
+
+    # ── Position Chart ────────────────────────────────────────────────────────
+    if tickers:
+        render_html('<div style="margin-top: 24px; margin-bottom: 8px; font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em;">Position Chart</div>')
+        col_ticker, col_period = st.columns([1, 3])
+        with col_ticker:
+            chart_ticker = st.selectbox(
+                "Ticker",
+                options=tickers,
+                key="overview_chart_ticker",
+                label_visibility="collapsed",
+            )
+        with col_period:
+            chart_period: ChartPeriod = st.radio(
+                "Period",
+                options=list(ChartPeriod),
+                horizontal=True,
+                key="overview_chart_period",
+                index=4,
+                format_func=lambda p: _PERIOD_LABELS[p],
+                label_visibility="collapsed",
+            )
+        if chart_ticker:
+            ohlc_provider = get_ohlc_data_provider()
+            try:
+                series = get_ohlc_history(chart_ticker, chart_period, provider=ohlc_provider)
+                render_candlestick(series, height=400)
+            except OhlcUnavailableError as e:
+                st.warning(f"Chart unavailable: {e.reason}")
