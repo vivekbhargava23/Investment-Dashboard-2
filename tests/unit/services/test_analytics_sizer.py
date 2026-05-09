@@ -26,6 +26,7 @@ def _live_position(
     fx_rate: Decimal,
     stale_reason: str | None = None,
     missing: bool = False,
+    omit_current_fx_rate: bool = False,
 ) -> LivePosition:
     value_eur = shares * price_native * fx_rate
     lot = OpenLot(
@@ -60,7 +61,7 @@ def _live_position(
             live_value_eur=Money(amount=value_eur, currency=Currency.EUR),
             unrealised_gain_eur=Money(amount=Decimal("0"), currency=Currency.EUR),
             unrealised_gain_pct=Decimal("0"),
-            current_fx_rate=fx_rate,
+            current_fx_rate=None if omit_current_fx_rate else fx_rate,
             staleness_reason=stale_reason,
         )
     return LivePosition(
@@ -69,7 +70,7 @@ def _live_position(
         live_value_eur=Money(amount=value_eur, currency=Currency.EUR),
         unrealised_gain_eur=Money(amount=Decimal("0"), currency=Currency.EUR),
         unrealised_gain_pct=Decimal("0"),
-        current_fx_rate=fx_rate,
+        current_fx_rate=None if omit_current_fx_rate else fx_rate,
         staleness_reason=None,
     )
 
@@ -273,6 +274,36 @@ def test_eur_native_ticker_uses_fx_rate_one() -> None:
 
     assert view.current.last_price_native.currency == Currency.EUR
     assert view.current.last_price_eur.amount == Decimal("100.0000")
+
+
+def test_eur_native_ticker_without_current_fx_rate_still_computes() -> None:
+    positions = [
+        _live_position(
+            "HY9H.F",
+            shares=Decimal("10"),
+            price_native=Decimal("1065"),
+            currency=Currency.EUR,
+            fx_rate=Decimal("1"),
+            omit_current_fx_rate=True,
+        )
+    ]
+    view = compute_sizer_view(
+        positions=positions,
+        summary=_summary(positions),
+        selected_ticker="HY9H.F",
+        direction="buy",
+        risk_pct=Decimal("1"),
+        stop_pct=Decimal("8"),
+        target_weight_pct=Decimal("20"),
+    )
+
+    assert view.current.last_price_native.amount == Decimal("1065.0000")
+    assert view.current.last_price_eur.amount == Decimal("1065.0000")
+    assert view.current.staleness is None
+    assert view.degraded_reason is None
+    assert view.risk_based is not None
+    assert view.weight_based is not None
+    assert view.post_trade is not None
 
 
 def test_jpy_ticker_fx_conversion_keeps_stop_native() -> None:

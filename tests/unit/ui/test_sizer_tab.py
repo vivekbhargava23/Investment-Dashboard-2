@@ -70,29 +70,42 @@ def _view(*, degraded_reason: str | None = None, include_results: bool = True) -
     )
 
 
-def _live_position() -> LivePosition:
+def _live_position(
+    *,
+    ticker: str = "AAPL",
+    price_native: Decimal = Decimal("200"),
+    currency: Currency = Currency.USD,
+    fx_rate: Decimal = Decimal("0.9"),
+    current_fx_rate: Decimal | None = Decimal("0.9"),
+) -> LivePosition:
     lot = OpenLot(
-        source_transaction_id="AAPL-lot",
-        ticker="AAPL",
+        source_transaction_id=f"{ticker}-lot",
+        ticker=ticker,
         trade_date=datetime(2025, 1, 1).date(),
         remaining_shares=Decimal("100"),
-        cost_per_share_native=Money(amount=Decimal("200"), currency=Currency.USD),
-        fx_rate_eur=Decimal("0.9"),
+        cost_per_share_native=Money(amount=price_native, currency=currency),
+        fx_rate_eur=fx_rate,
     )
     position = Position(
-        ticker="AAPL",
+        ticker=ticker,
         open_shares=Decimal("100"),
         open_lots=(lot,),
         realised_gain_eur_ytd=Money(amount=Decimal("0"), currency=Currency.EUR),
-        cost_basis_eur=Money(amount=Decimal("18000"), currency=Currency.EUR),
+        cost_basis_eur=Money(
+            amount=Decimal("100") * price_native * fx_rate,
+            currency=Currency.EUR,
+        ),
     )
     return LivePosition(
         position=position,
-        live_price_native=Money(amount=Decimal("200"), currency=Currency.USD),
-        live_value_eur=Money(amount=Decimal("18000"), currency=Currency.EUR),
+        live_price_native=Money(amount=price_native, currency=currency),
+        live_value_eur=Money(
+            amount=Decimal("100") * price_native * fx_rate,
+            currency=Currency.EUR,
+        ),
         unrealised_gain_eur=Money(amount=Decimal("0"), currency=Currency.EUR),
         unrealised_gain_pct=Decimal("0"),
-        current_fx_rate=Decimal("0.9"),
+        current_fx_rate=current_fx_rate,
         staleness_reason=None,
     )
 
@@ -152,6 +165,41 @@ def test_sizer_tab_smoke_renders_inputs_and_result_cards() -> None:
     mock_st.columns.assert_called_once_with([1, 1])
     mock_compute.assert_called_once()
     assert mock_html.call_count == 4
+
+
+def test_sizer_tab_live_eur_price_without_fx_rate_renders_results() -> None:
+    live = {
+        "HY9H.F": _live_position(
+            ticker="HY9H.F",
+            price_native=Decimal("1065"),
+            currency=Currency.EUR,
+            fx_rate=Decimal("1"),
+            current_fx_rate=None,
+        )
+    }
+    with (
+        patch("app.ui.pages.analytics.st") as mock_st,
+        patch("app.ui.pages.analytics.get_repository") as mock_repo,
+        patch("app.ui.pages.analytics._cached_concentration_live_positions") as mock_live,
+        patch("app.ui.pages.analytics._cached_concentration_summary") as mock_summary,
+        patch("app.ui.pages.analytics.render_html") as mock_html,
+    ):
+        mock_st.session_state = {}
+        mock_st.columns.return_value = _columns(2)
+        mock_st.selectbox.return_value = "HY9H.F"
+        mock_st.radio.return_value = "buy"
+        mock_st.number_input.side_effect = [1.0, 8.0, 20.0]
+        mock_repo.return_value.load_all.return_value = []
+        mock_live.return_value = live
+        mock_summary.return_value = _summary()
+
+        analytics._render_sizer_tab()
+
+    mock_st.error.assert_not_called()
+    assert mock_html.call_count == 4
+    rendered_html = "".join(call.args[0] for call in mock_html.call_args_list)
+    assert "HY9H.F" in rendered_html
+    assert "€1.065,00" in rendered_html
 
 
 def test_sizer_view_missing_price_banner_hides_result_cards() -> None:

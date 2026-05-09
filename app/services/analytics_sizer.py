@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Final, Literal
 
@@ -41,6 +42,14 @@ _PCT_QUANT = Decimal("0.01")
 _HUNDRED = Decimal("100")
 
 
+@dataclass(frozen=True)
+class _PriceSnapshot:
+    price_native: Money
+    price_eur: Money
+    value_eur: Money
+    warning_reason: str | None
+
+
 def to_base_eur(amount: Decimal, currency: Currency, fx_rate: Decimal) -> Decimal:
     """Convert ``amount`` in ``currency`` to EUR using native-to-EUR ``fx_rate``.
 
@@ -69,25 +78,20 @@ def compute_sizer_view(
     if position is None:
         return _degraded_empty_view(selected_ticker, ZERO_PORTFOLIO_REASON)
 
-    current = _current_card(position, summary)
+    price_snapshot = _usable_price_snapshot(position)
+    current = _current_card(position, summary, price_snapshot)
     portfolio_value = summary.total_value_eur.amount
-    if position.live_price_native is None or position.live_value_eur is None:
-        return _degraded_view(current, MISSING_PRICE_REASON)
-    if position.current_fx_rate is None:
+    if price_snapshot is None:
         return _degraded_view(current, MISSING_PRICE_REASON)
     if portfolio_value <= 0:
         return _degraded_view(current, ZERO_PORTFOLIO_REASON)
 
-    price_native = position.live_price_native
-    price_eur = to_base_eur(
-        price_native.amount,
-        price_native.currency,
-        _fx_rate_for(position),
-    )
+    price_native = price_snapshot.price_native
+    price_eur = price_snapshot.price_eur.amount
     weight_price_eur = to_base_eur(
-        price_native.amount,
-        price_native.currency,
-        _fx_rate_for(position),
+        price_snapshot.price_eur.amount,
+        Currency.EUR,
+        Decimal("1"),
     )
 
     raw_risk_shares = risk_based_shares(
@@ -129,21 +133,16 @@ def compute_sizer_view(
 
     post_trade = _post_trade_preview(
         current_weight_pct=current.weight_pct,
-        current_value_eur=position.live_value_eur.amount,
+        current_value_eur=price_snapshot.value_eur.amount,
         portfolio_value_eur=portfolio_value,
         signed_trade_value_eur=signed_risk_shares * price_eur,
-    )
-    degraded_reason = (
-        STALE_PRICE_REASON
-        if position.staleness_reason is not None and "stale" in position.staleness_reason
-        else None
     )
     return SizerView(
         current=current,
         risk_based=risk_based,
         weight_based=weight_based,
         post_trade=post_trade,
-        degraded_reason=degraded_reason,
+        degraded_reason=price_snapshot.warning_reason,
     )
 
 
@@ -160,16 +159,16 @@ def _find_position(
 def _current_card(
     position: LivePosition,
     summary: PortfolioSummary,
+    price_snapshot: _PriceSnapshot | None,
 ) -> CurrentPositionCard:
-    value_eur = position.live_value_eur or _ZERO_EUR
-    price_native = position.live_price_native or Money(
-        amount=Decimal("0"),
-        currency=_native_currency(position),
+    value_eur = price_snapshot.value_eur if price_snapshot is not None else _ZERO_EUR
+    price_native = (
+        price_snapshot.price_native
+        if price_snapshot is not None
+        else Money(amount=Decimal("0"), currency=_native_currency(position))
     )
-    fx_rate = _fx_rate_for(position)
-    last_price_eur = Money(
-        amount=to_base_eur(price_native.amount, price_native.currency, fx_rate),
-        currency=Currency.EUR,
+    last_price_eur = (
+        price_snapshot.price_eur if price_snapshot is not None else _ZERO_EUR
     )
     return CurrentPositionCard(
         ticker=position.ticker,
@@ -205,6 +204,35 @@ def _degraded_view(current: CurrentPositionCard, reason: str) -> SizerView:
         post_trade=None,
         degraded_reason=reason,
     )
+
+
+def _usable_price_snapshot(position: LivePosition) -> _PriceSnapshot | None:
+    price_native = position.live_price_native
+    value_eur = position.live_value_eur
+    if price_native is None or value_eur is None:
+        return None
+    if price_native.amount <= 0 or value_eur.amount <= 0:
+        return None
+
+    fx_rate = _fx_rate_for(position)
+    if fx_rate <= 0:
+        return None
+
+    price_eur_amount = to_base_eur(price_native.amount, price_native.currency, fx_rate)
+    if price_eur_amount <= 0:
+        return None
+
+    return _PriceSnapshot(
+        price_native=price_native,
+        price_eur=Money(amount=price_eur_amount, currency=Currency.EUR),
+        value_eur=value_eur,
+        warning_reason=STALE_PRICE_REASON if _is_stale_warning(position) else None,
+    )
+
+
+def _is_stale_warning(position: LivePosition) -> bool:
+    reason = position.staleness_reason
+    return reason is not None and "stale" in reason.lower()
 
 
 def _post_trade_preview(
