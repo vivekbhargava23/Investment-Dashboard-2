@@ -1,10 +1,10 @@
 # TICKET-A2 — Analytics: Correlation tab v1
 
-**Status:** READY
+**Status:** IN_PROGRESS
 **Priority:** P1
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-09)
-**Implemented by:** _pending_
+**Implemented by:** GPT Codex (GPT-5, session 2026-05-09)
 **Depends on:** TICKET-A0 (analytics page shell + `app/domain/analytics.py`), TICKET-022a (`OhlcDataProvider` port + adapter), TICKET-006 (live positions for the universe)
 
 > **After this ticket merges, the Correlation sub-tab on the Analytics page renders a pairwise-correlation heatmap, an avg-correlation table with diversification badges, and an auto-warning when ≥3 positions form a high-correlation cluster.** The tab is the second user-visible analytics surface (after A1's Performance) and the first consumer of `analytics.correlation_matrix` from A0.
