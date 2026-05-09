@@ -1129,3 +1129,56 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~40k
+
+---
+
+## 2026-05-09 14:00 — TICKET-013
+
+**Agent:** Claude Code (sonnet-4.6)
+**Duration:** ~90 min
+**Branch:** ticket-013-daily-nav-snapshot
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `DailyNavPoint` frozen Pydantic model in `app/domain/nav.py` with EUR-only and non-negative validators
+- Added `NavSnapshotRepository` Protocol in `app/ports/nav_repository.py`
+- Added `JsonNavSnapshotRepository` adapter in `app/adapters/repo_json/nav_repo.py` — atomic writes, schema v1, `clear()` deletes file
+- Added `get_nav_series` service in `app/services/nav.py` — reconstructs historical NAV from OHLC/FX history, caches in nav_repo, today's NAV computed live and never persisted
+- Added `clear_nav_cache(nav_repo)` service function called via `JsonTransactionRepository.save_all` on every save
+- Wired `JsonTransactionRepository` constructor to accept optional `nav_repo`; wiring module creates real repo with nav_repo injected
+- Added `FakeNavSnapshotRepository` in `tests/fakes/nav.py` for downstream analytics tests (A1–A5)
+
+### Files touched
+- `app/domain/nav.py` — new: DailyNavPoint model
+- `app/ports/nav_repository.py` — new: NavSnapshotRepository Protocol
+- `app/adapters/repo_json/nav_repo.py` — new: JsonNavSnapshotRepository
+- `app/services/nav.py` — new: get_nav_series, clear_nav_cache, helpers
+- `app/domain/__init__.py` — export DailyNavPoint
+- `app/ports/__init__.py` — export NavSnapshotRepository
+- `app/adapters/repo_json/__init__.py` — export JsonNavSnapshotRepository
+- `app/adapters/repo_json/json_repo.py` — optional nav_repo injection; clear on save_all
+- `app/config.py` — added nav_snapshots_json_path setting
+- `app/ui/wiring.py` — added get_nav_snapshot_repo(); get_repository() now injects it
+- `tests/fakes/nav.py` — new: FakeNavSnapshotRepository
+- `tests/fakes/__init__.py` — export FakeNavSnapshotRepository
+- `tests/unit/domain/test_nav.py` — new: 11 domain tests
+- `tests/unit/services/test_nav.py` — new: 17 service tests
+- `tests/integration/test_nav_repo.py` — new: 13 integration tests (skip without --run-integration)
+
+### Tests
+348 passing → 376 passing (28 new)
+
+### Decisions made during the session
+- `clear_nav_cache` takes a `NavSnapshotRepository` parameter (cleanest injectable design)
+- `clear()` deletes the file entirely (simpler than zeroing it; same effect on next load)
+- Trading days = union of all dates present in OHLC bars across all tickers in portfolio
+- `_period_covering` picks smallest ChartPeriod to cover start→today for OHLC fetches
+- `FlexibleFakeOhlcProvider` in tests ignores the period parameter (tests don't depend on internal period selection)
+- Logging is used in the service as an explicit exception to the no-logging rule; missing OHLC data would silently corrupt NAV if not surfaced
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~80k
