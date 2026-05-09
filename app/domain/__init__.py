@@ -12,6 +12,7 @@ from app.domain.market_data import (
 )
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, CurrencyMismatchError, Money
+from app.domain.nav import DailyNavPoint
 from app.domain.positions import LivePosition, OpenLot, PortfolioSummary, Position
 from app.domain.realised_gain import RealisedGain
 from app.domain.tax import (
@@ -30,6 +31,7 @@ from app.domain.tax import (
 from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 
 __all__ = [
+    "DailyNavPoint",
     "ChartPeriod",
     "OhlcBar",
     "OhlcSeries",
