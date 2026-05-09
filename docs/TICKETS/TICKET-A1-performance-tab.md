@@ -1,6 +1,6 @@
 # TICKET-A1 — Analytics: Performance tab v1
 
-**Status:** READY
+**Status:** IN_PROGRESS
 **Priority:** P1
 **Estimated session length:** 2.5 – 3 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-08)
