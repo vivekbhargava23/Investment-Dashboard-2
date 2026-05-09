@@ -82,11 +82,11 @@ def test_correlation_view_renders_heatmap_table_and_cluster_warning() -> None:
         mock_st.columns.return_value = _columns(2)
         analytics._render_correlation_view(_view())
 
-    mock_st.columns.assert_called_once_with([2, 1])
+    mock_st.columns.assert_called_once_with([10, 1])
     mock_heatmap.assert_called_once()
     assert mock_heatmap.call_args.kwargs["colorscale"] == CORRELATION_COLORSCALE_OPTIONS[0][1]
     mock_st.dataframe.assert_called_once()
-    mock_st.expander.assert_called_once_with("How to read this table", expanded=False)
+    mock_st.popover.assert_called_once_with("ⓘ", use_container_width=False)
     warning_text = mock_st.warning.call_args.args[0]
     assert "3 positions move together" in warning_text
     assert "A, B, C" in warning_text
@@ -111,19 +111,22 @@ def test_correlation_view_passes_selected_color_scheme_to_heatmap() -> None:
         mock_st.columns.return_value = _columns(2)
         analytics._render_correlation_view(
             _view(),
-            color_scheme="Option 4: Cool-to-Hot",
+            color_scheme="4",
         )
 
     mock_heatmap.assert_called_once()
     assert mock_heatmap.call_args.kwargs["colorscale"] == CORRELATION_COLORSCALE_OPTIONS[3][1]
 
 
-def test_correlation_table_help_text_explains_thresholds() -> None:
+def test_correlation_view_help_text_explains_thresholds() -> None:
+    """Popover inside _render_correlation_view explains all diversification thresholds."""
     with (
         patch("app.ui.pages.analytics.st") as mock_st,
+        patch("app.ui.pages.analytics.render_correlation_heatmap"),
         patch("app.ui.pages.analytics._render_correlation_table"),
     ):
-        analytics._render_correlation_side_panel(_view(), "Option 1: Diverging Classic")
+        mock_st.columns.return_value = _columns(2)
+        analytics._render_correlation_view(_view())
 
     help_text = mock_st.markdown.call_args.args[0]
     assert "self-correlation is excluded" in help_text

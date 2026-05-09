@@ -93,6 +93,15 @@ _SIZER_EMPTY_STATE = "No positions yet — add transactions in Manage Portfolio 
 _CORRELATION_EMPTY_STATE = (
     "Need at least 2 positions with sufficient history to compute correlations."
 )
+_CORRELATION_HELP_TEXT = (
+    "**Avg ρ** is the average pairwise correlation between this position and every "
+    "other included position in the selected window. The diagonal "
+    "self-correlation is excluded.\n\n"
+    "— Lower or negative → moves more independently (stronger diversifier)  \n"
+    "— Higher → moves with the rest of the portfolio (weaker diversifier)\n\n"
+    "**Thresholds:** <0.20 high, <0.40 moderate, <0.60 low, >=0.60 very low."
+)
+_SCHEME_CODES: dict[str, int] = {"1": 0, "2": 1, "3": 2, "4": 3}
 
 
 class _WiredNavSeriesProvider:
@@ -342,7 +351,9 @@ def _render_correlation_tab() -> None:
     if "correlation_window" not in st.session_state:
         st.session_state["correlation_window"] = 30
 
-    ctrl_left, ctrl_right = st.columns([3, 2])
+    st.subheader("Pairwise correlation")
+
+    ctrl_left, ctrl_right = st.columns([3, 1])
     with ctrl_left:
         window_days = st.radio(
             "Window",
@@ -352,10 +363,14 @@ def _render_correlation_tab() -> None:
             format_func=lambda value: f"{value}D",
         )
     with ctrl_right:
-        selected_color_scheme = st.selectbox(
+        selected_code = st.selectbox(
             "Color scheme",
-            [name for name, _ in CORRELATION_COLORSCALE_OPTIONS],
+            options=["1", "2", "3", "4"],
             key="correlation_color_scheme",
+            help=(
+                "1: Diverging Classic · 2: Financial Risk"
+                " · 3: High Contrast · 4: Cool-to-Hot"
+            ),
         )
 
     view = build_correlation_view(
@@ -369,9 +384,8 @@ def _render_correlation_tab() -> None:
 
     if len(view.included_tickers) >= 2:
         _render_correlation_kpis(view)
-        st.divider()
 
-    _render_correlation_view(view, color_scheme=str(selected_color_scheme))
+    _render_correlation_view(view, color_scheme=str(selected_code))
 
 
 def _render_correlation_kpis(view: CorrelationView) -> None:
@@ -438,14 +452,19 @@ def _render_correlation_view(
         st.info(_CORRELATION_EMPTY_STATE)
         return
 
-    heatmap_col, table_col = st.columns([2, 1])
-    with heatmap_col:
-        render_correlation_heatmap(
-            view.matrix,
-            colorscale=_correlation_colorscale(color_scheme),
-        )
-    with table_col:
-        _render_correlation_side_panel(view, color_scheme)
+    render_correlation_heatmap(
+        view.matrix,
+        colorscale=_correlation_colorscale(color_scheme),
+    )
+
+    heading_col, info_col = st.columns([10, 1])
+    with heading_col:
+        st.subheader("Average correlation to portfolio")
+    with info_col:
+        with st.popover("ⓘ", use_container_width=False):
+            st.markdown(_CORRELATION_HELP_TEXT)
+
+    _render_correlation_table(view)
 
     for cluster in view.clusters:
         members = ", ".join(cluster)
@@ -453,22 +472,6 @@ def _render_correlation_view(
             f"{len(cluster)} positions move together (avg corr > {CLUSTER_THRESHOLD}): "
             f"{members}. They may not be acting as independent diversifiers."
         )
-
-
-def _render_correlation_side_panel(
-    view: CorrelationView,
-    color_scheme: str | None,
-) -> None:
-    with st.expander("How to read this table", expanded=False):
-        st.markdown(
-            "**Avg ρ** is the average pairwise correlation between this position and every "
-            "other included position in the selected window. The diagonal "
-            "self-correlation is excluded.\n\n"
-            "— Lower or negative → moves more independently (stronger diversifier)  \n"
-            "— Higher → moves with the rest of the portfolio (weaker diversifier)\n\n"
-            "**Thresholds:** <0.20 high, <0.40 moderate, <0.60 low, >=0.60 very low."
-        )
-    _render_correlation_table(view)
 
 
 def _render_correlation_table(view: CorrelationView) -> None:
@@ -566,11 +569,9 @@ def _min_correlation_pair(view: CorrelationView) -> tuple[str, str, Decimal] | N
     return worst
 
 
-def _correlation_colorscale(name: str | None) -> list[list[float | str]]:
-    for option_name, colorscale in CORRELATION_COLORSCALE_OPTIONS:
-        if option_name == name:
-            return colorscale
-    return CORRELATION_COLORSCALE_OPTIONS[0][1]
+def _correlation_colorscale(code: str | None) -> list[list[float | str]]:
+    idx = _SCHEME_CODES.get(str(code) if code is not None else "", 0)
+    return CORRELATION_COLORSCALE_OPTIONS[idx][1]
 
 
 @st.cache_data(ttl=60, show_spinner=False)
