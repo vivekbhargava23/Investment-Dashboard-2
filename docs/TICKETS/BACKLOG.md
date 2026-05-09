@@ -66,6 +66,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | TICKET-A0 | Analytics page shell + analytics stats library | MERGED | P1 | 2 – 2.5 hr |
 | TICKET-A1 | Analytics: Performance tab v1 (KPIs, dual-line indexed chart, drawdown panel) | IN_REVIEW | P1 | 2.5 – 3 hr |
 | TICKET-A5 | Analytics: Concentration tab v1 (KPIs, weight bars, currency donut, table) | READY | P1 | 2 – 2.5 hr |
+| TICKET-A4 | Analytics: Position Sizer tab v1 (risk-based and weight-based calculator) | READY | P1 | 2.5 – 3 hr |
 
 ---
 
