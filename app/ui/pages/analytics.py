@@ -342,13 +342,22 @@ def _render_correlation_tab() -> None:
     if "correlation_window" not in st.session_state:
         st.session_state["correlation_window"] = 30
 
-    window_days = st.radio(
-        "Window",
-        [30, 60, 90],
-        horizontal=True,
-        key="correlation_window",
-        format_func=lambda value: f"{value}D",
-    )
+    ctrl_left, ctrl_right = st.columns([3, 2])
+    with ctrl_left:
+        window_days = st.radio(
+            "Window",
+            [30, 60, 90],
+            horizontal=True,
+            key="correlation_window",
+            format_func=lambda value: f"{value}D",
+        )
+    with ctrl_right:
+        selected_color_scheme = st.selectbox(
+            "Color scheme",
+            [name for name, _ in CORRELATION_COLORSCALE_OPTIONS],
+            key="correlation_color_scheme",
+        )
+
     view = build_correlation_view(
         repo=get_repository(),
         price_feed=get_price_provider(),
@@ -357,7 +366,59 @@ def _render_correlation_tab() -> None:
         as_of=date.today(),
         window_days=int(window_days),
     )
-    _render_correlation_view(view)
+
+    if len(view.included_tickers) >= 2:
+        _render_correlation_kpis(view)
+        st.divider()
+
+    _render_correlation_view(view, color_scheme=str(selected_color_scheme))
+
+
+def _render_correlation_kpis(view: CorrelationView) -> None:
+    mean_corr = _mean_pairwise_correlation(view)
+    max_pair = _max_correlation_pair(view)
+    min_pair = _min_correlation_pair(view)
+    cluster_count = len(view.clusters)
+
+    cols = st.columns(4)
+    with cols[0]:
+        render_metric_card(
+            "Mean ρ",
+            f"{float(mean_corr):.4f}" if mean_corr is not None else "—",
+            value_class=_corr_value_class(mean_corr),
+            tooltip="Average pairwise correlation across included positions (diagonal excluded)",
+        )
+    with cols[1]:
+        if max_pair:
+            a, b, val = max_pair
+            render_metric_card(
+                "Highest Pair",
+                f"{float(val):.2f}",
+                subtitle=f"{a} · {b}",
+                value_class="gain-negative" if val >= Decimal("0.6") else "gain-amber",
+                tooltip=f"Most correlated pair in the portfolio: {a} ↔ {b}",
+            )
+        else:
+            render_metric_card("Highest Pair", "—", value_class="gain-neutral")
+    with cols[2]:
+        if min_pair:
+            a, b, val = min_pair
+            render_metric_card(
+                "Lowest Pair",
+                f"{float(val):.2f}",
+                subtitle=f"{a} · {b}",
+                value_class="gain-positive" if val < Decimal("0.2") else "gain-neutral",
+                tooltip=f"Least correlated pair in the portfolio: {a} ↔ {b}",
+            )
+        else:
+            render_metric_card("Lowest Pair", "—", value_class="gain-neutral")
+    with cols[3]:
+        render_metric_card(
+            "Clusters",
+            "None" if cluster_count == 0 else str(cluster_count),
+            value_class="gain-positive" if cluster_count == 0 else "gain-negative",
+            tooltip=f"Groups of ≥3 positions with pairwise ρ > {CLUSTER_THRESHOLD}",
+        )
 
 
 def _render_correlation_view(
@@ -378,14 +439,13 @@ def _render_correlation_view(
         return
 
     heatmap_col, table_col = st.columns([2, 1])
-    with table_col:
-        selected_color_scheme = _render_correlation_side_panel(view, color_scheme)
     with heatmap_col:
         render_correlation_heatmap(
             view.matrix,
-            colorscale=_correlation_colorscale(selected_color_scheme),
-            title=selected_color_scheme,
+            colorscale=_correlation_colorscale(color_scheme),
         )
+    with table_col:
+        _render_correlation_side_panel(view, color_scheme)
 
     for cluster in view.clusters:
         members = ", ".join(cluster)
@@ -398,25 +458,17 @@ def _render_correlation_view(
 def _render_correlation_side_panel(
     view: CorrelationView,
     color_scheme: str | None,
-) -> str:
-    selected_color_scheme = color_scheme or str(
-        st.selectbox(
-            "Color scheme",
-            [name for name, _ in CORRELATION_COLORSCALE_OPTIONS],
-            key="correlation_color_scheme",
-        )
-    )
+) -> None:
     with st.expander("How to read this table", expanded=False):
         st.markdown(
-            "Avg Correlation is the average correlation between this position and "
-            "every other included position in the selected window. The diagonal "
-            "self-correlation is excluded. Lower values suggest the position moves "
-            "more independently; higher values suggest it moves more with the rest "
-            "of the portfolio. The diversification label is based on fixed "
-            "thresholds: <0.20 high, <0.40 moderate, <0.60 low, >=0.60 very low."
+            "**Avg ρ** is the average pairwise correlation between this position and every "
+            "other included position in the selected window. The diagonal "
+            "self-correlation is excluded.\n\n"
+            "— Lower or negative → moves more independently (stronger diversifier)  \n"
+            "— Higher → moves with the rest of the portfolio (weaker diversifier)\n\n"
+            "**Thresholds:** <0.20 high, <0.40 moderate, <0.60 low, >=0.60 very low."
         )
     _render_correlation_table(view)
-    return selected_color_scheme
 
 
 def _render_correlation_table(view: CorrelationView) -> None:
@@ -445,10 +497,14 @@ def _render_correlation_table(view: CorrelationView) -> None:
         column_config={
             "Ticker": st.column_config.TextColumn("Ticker"),
             "Avg Correlation": st.column_config.NumberColumn(
-                "Avg Correlation",
+                "Avg ρ",
                 format="%.4f",
+                help="Average pairwise correlation with all other positions (diagonal excluded)",
             ),
-            "Diversification": st.column_config.TextColumn("Diversification"),
+            "Diversification": st.column_config.TextColumn(
+                "Diversification",
+                help="<0.20 high · <0.40 moderate · <0.60 low · ≥0.60 very low",
+            ),
         },
     )
 
@@ -461,6 +517,53 @@ def _diversification_cell_style(value: object) -> str:
         "very low": "background-color: rgba(239, 68, 68, 0.14); color: #FCA5A5;",
     }
     return styles.get(str(value), "")
+
+
+def _corr_value_class(corr: Decimal | None) -> str:
+    if corr is None:
+        return "gain-neutral"
+    if corr < Decimal("0.2"):
+        return "gain-positive"
+    if corr < Decimal("0.6"):
+        return "gain-amber"
+    return "gain-negative"
+
+
+def _mean_pairwise_correlation(view: CorrelationView) -> Decimal | None:
+    tickers = view.included_tickers
+    if len(tickers) < 2:
+        return None
+    vals: list[Decimal] = []
+    for i, a in enumerate(tickers):
+        for b in tickers[i + 1 :]:
+            vals.append(view.matrix[a][b])
+    return sum(vals, Decimal("0")) / Decimal(len(vals))
+
+
+def _max_correlation_pair(view: CorrelationView) -> tuple[str, str, Decimal] | None:
+    tickers = view.included_tickers
+    if len(tickers) < 2:
+        return None
+    best: tuple[str, str, Decimal] | None = None
+    for i, a in enumerate(tickers):
+        for b in tickers[i + 1 :]:
+            val = view.matrix[a][b]
+            if best is None or val > best[2]:
+                best = (a, b, val)
+    return best
+
+
+def _min_correlation_pair(view: CorrelationView) -> tuple[str, str, Decimal] | None:
+    tickers = view.included_tickers
+    if len(tickers) < 2:
+        return None
+    worst: tuple[str, str, Decimal] | None = None
+    for i, a in enumerate(tickers):
+        for b in tickers[i + 1 :]:
+            val = view.matrix[a][b]
+            if worst is None or val < worst[2]:
+                worst = (a, b, val)
+    return worst
 
 
 def _correlation_colorscale(name: str | None) -> list[list[float | str]]:

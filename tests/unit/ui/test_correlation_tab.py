@@ -116,7 +116,6 @@ def test_correlation_view_passes_selected_color_scheme_to_heatmap() -> None:
 
     mock_heatmap.assert_called_once()
     assert mock_heatmap.call_args.kwargs["colorscale"] == CORRELATION_COLORSCALE_OPTIONS[3][1]
-    assert mock_heatmap.call_args.kwargs["title"] == "Option 4: Cool-to-Hot"
 
 
 def test_correlation_table_help_text_explains_thresholds() -> None:
