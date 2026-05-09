@@ -7,7 +7,7 @@ Fetches portfolio NAV and benchmark OHLC series, aligns them, indexes both to
 from __future__ import annotations
 
 from datetime import date, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from typing import Literal, Protocol
 
@@ -80,7 +80,11 @@ def get_performance_view(
         else resolved_today - timedelta(days=requested_days)
     )
     nav_points = sorted(
-        nav_service.get_nav_series(start, resolved_today),
+        (
+            point
+            for point in nav_service.get_nav_series(start, resolved_today)
+            if _valid_decimal(point.nav_eur.amount)
+        ),
         key=lambda point: point.snapshot_date,
     )
 
@@ -118,6 +122,10 @@ def get_performance_view(
 
     portfolio_indexed = _index_to_100(aligned_navs)
     benchmark_indexed = _index_to_100(benchmark_values) if benchmark_values is not None else None
+    if benchmark_indexed is not None and not (
+        len(aligned_dates) == len(portfolio_indexed) == len(benchmark_indexed)
+    ):
+        raise ValueError("aligned performance series must have equal length")
     returns = analytics.daily_returns(aligned_navs)
     period_return = (aligned_navs[-1] / aligned_navs[0] - Decimal("1")) * Decimal("100")
     benchmark_return = (
@@ -154,40 +162,40 @@ def _align_on_dates(
     """Align benchmark closes to portfolio NAV dates.
 
     The portfolio NAV date set is authoritative. Exact benchmark closes are used
-    when present. For short benchmark-market gaps, the previous benchmark close
-    is carried forward only when the gap between surrounding benchmark closes is
-    at most ``max_forward_fill_days``. Longer gaps are dropped from both series.
+    when present. Missing benchmark dates fall forward to the next available
+    benchmark close up to ``max_forward_fill_days`` calendar days. Dates that
+    cannot be aligned after that are dropped from both series.
     """
     benchmark_dates = sorted(benchmark_series)
     aligned: list[tuple[date, Decimal, Decimal]] = []
     for nav_date, nav_value in nav_series:
+        if not _valid_decimal(nav_value):
+            continue
         if nav_date in benchmark_series:
-            aligned.append((nav_date, nav_value, benchmark_series[nav_date]))
+            benchmark_value = benchmark_series[nav_date]
+            if _valid_decimal(benchmark_value):
+                aligned.append((nav_date, nav_value, benchmark_value))
             continue
 
-        previous_dates = [d for d in benchmark_dates if d < nav_date]
-        next_dates = [d for d in benchmark_dates if d > nav_date]
-        previous_date = previous_dates[-1] if previous_dates else None
-        next_date = next_dates[0] if next_dates else None
-
-        if previous_date is None:
-            if next_date is not None and (next_date - nav_date).days <= max_forward_fill_days:
-                aligned.append((nav_date, nav_value, benchmark_series[next_date]))
-            continue
-
-        if next_date is not None:
-            if (next_date - previous_date).days <= max_forward_fill_days:
-                aligned.append((nav_date, nav_value, benchmark_series[previous_date]))
-            continue
-
-        if (nav_date - previous_date).days <= max_forward_fill_days:
-            aligned.append((nav_date, nav_value, benchmark_series[previous_date]))
+        next_dates = [
+            d
+            for d in benchmark_dates
+            if nav_date < d <= nav_date + timedelta(days=max_forward_fill_days)
+        ]
+        if next_dates:
+            benchmark_value = benchmark_series[next_dates[0]]
+            if _valid_decimal(benchmark_value):
+                aligned.append((nav_date, nav_value, benchmark_value))
 
     return aligned
 
 
 def _benchmark_closes_by_date(series: OhlcSeries) -> dict[date, Decimal]:
-    return {bar.timestamp.date(): bar.close for bar in series.bars}
+    return {
+        bar.timestamp.date(): bar.close
+        for bar in series.bars
+        if _valid_decimal(bar.close)
+    }
 
 
 def _requested_days(period: PerformancePeriod) -> int:
@@ -215,6 +223,13 @@ def _chart_period(period: PerformancePeriod) -> ChartPeriod:
 def _index_to_100(values: list[Decimal]) -> list[Decimal]:
     first = values[0]
     return [(value / first) * Decimal("100") for value in values]
+
+
+def _valid_decimal(value: Decimal) -> bool:
+    try:
+        return value.is_finite()
+    except InvalidOperation:
+        return False
 
 
 def _maybe_volatility_pct(returns: list[Decimal]) -> Decimal | None:

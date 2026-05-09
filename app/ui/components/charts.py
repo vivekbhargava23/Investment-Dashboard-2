@@ -5,7 +5,7 @@ No fetching, no caching — the caller is responsible for those."""
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 import plotly.graph_objects as go
 import streamlit as st
@@ -36,6 +36,7 @@ class ChartSeries:
 
 
 LineChartSeries = OhlcSeries | ChartSeries
+YAxisMode = Literal["currency", "plain"]
 
 
 def _hex_to_rgba(hex_color: str, alpha: float) -> str:
@@ -138,6 +139,13 @@ def render_line_chart(
     height: int = 200,
     color: str | None = None,
     secondary_color: str = THEME_GREY,
+    y_axis_mode: YAxisMode = "currency",
+    y_axis_title: str | None = None,
+    primary_name: str | None = None,
+    secondary_name: str | None = None,
+    show_legend: bool | None = None,
+    chart_title: str | None = None,
+    fill_to_zero: bool = True,
 ) -> None:
     line_color = color or LINE_COLOR_DEFAULT
     timestamps = _chart_timestamps(series)
@@ -159,10 +167,12 @@ def render_line_chart(
             go.Scatter(
                 x=timestamps,
                 y=closes,
+                name=primary_name or series.ticker,
                 mode="lines",
                 line={"color": line_color, "width": 2},
-                fill="tozeroy",
-                fillcolor=_hex_to_rgba(line_color, 0.1),
+                fill="tozeroy" if fill_to_zero else None,
+                fillcolor=_hex_to_rgba(line_color, 0.1) if fill_to_zero else None,
+                connectgaps=True,
             )
         ]
     )
@@ -171,20 +181,45 @@ def render_line_chart(
             go.Scatter(
                 x=_chart_timestamps(secondary_series),
                 y=secondary_closes,
+                name=secondary_name or secondary_series.ticker,
                 mode="lines",
                 line={"color": secondary_color, "width": 2},
+                connectgaps=True,
             )
         )
     layout = base_layout(height=height, show_axes=True)
     layout["yaxis"]["range"] = [y_min, y_max]
-    layout["yaxis"]["tickprefix"] = f"{series.currency.value} "
+    if y_axis_mode == "currency":
+        layout["yaxis"]["tickprefix"] = f"{series.currency.value} "
+    else:
+        layout["yaxis"]["tickprefix"] = ""
+    if y_axis_title is not None:
+        layout["yaxis"]["title"] = {"text": y_axis_title}
+    if chart_title is not None:
+        layout["title"] = {"text": chart_title, "x": 0, "font": {"size": 13}}
+        layout["margin"]["t"] = 32
+    legend_visible = secondary_series is not None if show_legend is None else show_legend
+    layout["showlegend"] = legend_visible
+    if legend_visible:
+        layout["legend"] = {
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+        }
     if _needs_line_rangebreaks(series):
         layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks()
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
 
-def render_drawdown_chart(series: LineChartSeries, *, height: int = 180) -> None:
+def render_drawdown_chart(
+    series: LineChartSeries,
+    *,
+    height: int = 180,
+    chart_title: str | None = "Drawdown",
+) -> None:
     timestamps = _chart_timestamps(series)
     values = _chart_values(series)
     y_min, y_max = _dynamic_y_range(values + [0.0])
@@ -198,12 +233,17 @@ def render_drawdown_chart(series: LineChartSeries, *, height: int = 180) -> None
                 line={"color": CANDLE_DOWN, "width": 1.5},
                 fill="tozeroy",
                 fillcolor=_hex_to_rgba(CANDLE_DOWN, 0.22),
+                connectgaps=True,
+                name=series.ticker,
             )
         ]
     )
     layout = base_layout(height=height, show_axes=True)
     layout["yaxis"]["range"] = [y_min, min(y_max, 0.01)]
     layout["yaxis"]["tickformat"] = ".1%"
+    if chart_title is not None:
+        layout["title"] = {"text": chart_title, "x": 0, "font": {"size": 13}}
+        layout["margin"]["t"] = 32
     layout["shapes"] = [
         {
             "type": "line",

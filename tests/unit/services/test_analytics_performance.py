@@ -93,9 +93,13 @@ def test_happy_path_computes_indexed_series_and_kpis() -> None:
     )
 
     assert view.dates == days
+    assert len(view.dates) == len(view.portfolio_indexed)
     assert view.portfolio_indexed[0] == Decimal("100")
     assert view.benchmark_indexed is not None
+    assert len(view.dates) == len(view.benchmark_indexed)
     assert view.benchmark_indexed[0] == Decimal("100")
+    assert all(value is not None and value.is_finite() for value in view.portfolio_indexed)
+    assert all(value.is_finite() for value in view.benchmark_indexed)
     assert view.period_return_pct == Decimal("29.00")
     assert view.alpha_pct == Decimal("14.500")
     assert view.max_drawdown_pct <= Decimal("0")
@@ -205,7 +209,7 @@ def test_two_nav_points_make_volatility_uncomputable() -> None:
     assert view.sharpe is None
 
 
-def test_date_alignment_carries_previous_close_across_short_gap() -> None:
+def test_date_alignment_falls_forward_across_short_gap() -> None:
     mon = date(2025, 1, 6)
     tue = date(2025, 1, 7)
     wed = date(2025, 1, 8)
@@ -217,7 +221,7 @@ def test_date_alignment_carries_previous_close_across_short_gap() -> None:
 
     assert aligned == [
         (mon, Decimal("100"), Decimal("200")),
-        (tue, Decimal("101"), Decimal("200")),
+        (tue, Decimal("101"), Decimal("204")),
         (wed, Decimal("102"), Decimal("204")),
     ]
 
@@ -227,7 +231,7 @@ def test_date_alignment_drops_long_benchmark_gap() -> None:
     tue = date(2025, 1, 7)
     wed = date(2025, 1, 8)
     thu = date(2025, 1, 9)
-    fri = date(2025, 1, 10)
+    next_mon = date(2025, 1, 13)
 
     aligned = _align_on_dates(
         [
@@ -235,15 +239,41 @@ def test_date_alignment_drops_long_benchmark_gap() -> None:
             (tue, Decimal("101")),
             (wed, Decimal("102")),
             (thu, Decimal("103")),
-            (fri, Decimal("104")),
+            (next_mon, Decimal("104")),
         ],
-        {mon: Decimal("200"), fri: Decimal("208")},
+        {mon: Decimal("200"), next_mon: Decimal("208")},
     )
 
     assert aligned == [
         (mon, Decimal("100"), Decimal("200")),
-        (fri, Decimal("104"), Decimal("208")),
+        (next_mon, Decimal("104"), Decimal("208")),
     ]
+
+
+def test_performance_view_drops_unalignable_benchmark_dates_and_reindexes() -> None:
+    days = [
+        date(2025, 1, 6),
+        date(2025, 1, 7),
+        date(2025, 1, 8),
+        date(2025, 1, 9),
+        date(2025, 1, 13),
+    ]
+    navs = [_nav_point(day, str(100 + i)) for i, day in enumerate(days)]
+    spy = _series("SPY", [days[0], days[4]], ["200", "208"])
+
+    view = get_performance_view(
+        PerformancePeriod.ONE_MONTH,
+        "SPY",
+        nav_service=FakeNavSeriesProvider(navs),
+        ohlc_provider=FakeOhlcProvider({"SPY": spy}),
+        today=days[-1],
+    )
+
+    assert view.dates == [days[0], days[4]]
+    assert view.portfolio_indexed[0] == Decimal("100")
+    assert view.benchmark_indexed is not None
+    assert view.benchmark_indexed[0] == Decimal("100")
+    assert len(view.dates) == len(view.portfolio_indexed) == len(view.benchmark_indexed)
 
 
 def test_indexed_to_100_invariant() -> None:
