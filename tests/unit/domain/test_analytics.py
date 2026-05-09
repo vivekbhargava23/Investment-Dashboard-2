@@ -9,6 +9,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from app.domain.analytics import (
+    correlation_clusters,
     correlation_matrix,
     daily_returns,
     drawdown_series,
@@ -324,3 +325,81 @@ class TestCorrelationMatrix:
             assert result[a][a] == Decimal(1)
             for b in data:
                 assert result[a][b] == result[b][a]
+
+
+# ── TestCorrelationClusters ──────────────────────────────────────────────────
+
+
+class TestCorrelationClusters:
+    def test_happy_path(self) -> None:
+        matrix = {
+            "A": {"A": Decimal("1"), "B": Decimal("0.7"), "C": Decimal("0.8")},
+            "B": {"A": Decimal("0.7"), "B": Decimal("1"), "C": Decimal("0.75")},
+            "C": {"A": Decimal("0.8"), "B": Decimal("0.75"), "C": Decimal("1")},
+        }
+
+        assert correlation_clusters(matrix, Decimal("0.6"), min_size=3) == [["A", "B", "C"]]
+
+    def test_below_threshold(self) -> None:
+        matrix = {
+            "A": {"A": Decimal("1"), "B": Decimal("0.7"), "C": Decimal("0.8")},
+            "B": {"A": Decimal("0.7"), "B": Decimal("1"), "C": Decimal("0.75")},
+            "C": {"A": Decimal("0.8"), "B": Decimal("0.75"), "C": Decimal("1")},
+        }
+
+        assert correlation_clusters(matrix, Decimal("0.9"), min_size=3) == []
+
+    def test_two_disjoint_clusters_sort_by_size_then_first_member(self) -> None:
+        tickers = ["A", "B", "C", "D", "E", "F"]
+        matrix = {
+            left: {
+                right: (
+                    Decimal("1")
+                    if left == right
+                    else Decimal("0.8")
+                    if {left, right} <= {"A", "B", "C"}
+                    or {left, right} <= {"D", "E", "F"}
+                    else Decimal("0.1")
+                )
+                for right in tickers
+            }
+            for left in tickers
+        }
+
+        assert correlation_clusters(matrix, Decimal("0.6"), min_size=3) == [
+            ["A", "B", "C"],
+            ["D", "E", "F"],
+        ]
+
+    def test_min_size_two_allows_pair_but_three_excludes_it(self) -> None:
+        matrix = {
+            "A": {"A": Decimal("1"), "B": Decimal("0.7")},
+            "B": {"A": Decimal("0.7"), "B": Decimal("1")},
+        }
+
+        assert correlation_clusters(matrix, Decimal("0.6"), min_size=2) == [["A", "B"]]
+        assert correlation_clusters(matrix, Decimal("0.6"), min_size=3) == []
+
+    def test_empty_matrix(self) -> None:
+        assert correlation_clusters({}, Decimal("0.6")) == []
+
+    def test_single_ticker(self) -> None:
+        assert correlation_clusters({"T": {"T": Decimal("1")}}, Decimal("0.6")) == []
+
+    def test_threshold_is_strictly_greater_than(self) -> None:
+        matrix = {
+            "A": {"A": Decimal("1"), "B": Decimal("0.6"), "C": Decimal("0.1")},
+            "B": {"A": Decimal("0.6"), "B": Decimal("1"), "C": Decimal("0.7")},
+            "C": {"A": Decimal("0.1"), "B": Decimal("0.7"), "C": Decimal("1")},
+        }
+
+        assert correlation_clusters(matrix, Decimal("0.6"), min_size=3) == []
+
+    def test_connected_component_not_strict_clique(self) -> None:
+        matrix = {
+            "A": {"A": Decimal("1"), "B": Decimal("0.7"), "C": Decimal("0.3")},
+            "B": {"A": Decimal("0.7"), "B": Decimal("1"), "C": Decimal("0.7")},
+            "C": {"A": Decimal("0.3"), "B": Decimal("0.7"), "C": Decimal("1")},
+        }
+
+        assert correlation_clusters(matrix, Decimal("0.6"), min_size=3) == [["A", "B", "C"]]
