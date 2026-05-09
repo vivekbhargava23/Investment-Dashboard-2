@@ -25,6 +25,7 @@ def test_render_no_exception() -> None:
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics._render_performance_tab"),
         patch("app.ui.pages.analytics._render_correlation_tab"),
+        patch("app.ui.pages.analytics._render_technicals_tab"),
         patch("app.ui.pages.analytics._render_sizer_tab"),
         patch("app.ui.pages.analytics._render_concentration_tab"),
     ):
@@ -39,6 +40,7 @@ def test_five_tabs_with_expected_labels() -> None:
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics._render_performance_tab"),
         patch("app.ui.pages.analytics._render_correlation_tab"),
+        patch("app.ui.pages.analytics._render_technicals_tab"),
         patch("app.ui.pages.analytics._render_sizer_tab"),
         patch("app.ui.pages.analytics._render_concentration_tab"),
     ):
@@ -52,8 +54,8 @@ def test_five_tabs_with_expected_labels() -> None:
     )
 
 
-def test_non_performance_tabs_show_correct_info_message() -> None:
-    """Placeholder tabs still call st.info with their corresponding TICKET-AX message."""
+def test_no_placeholder_info_messages_remain() -> None:
+    """No tab should be calling st.info with a placeholder TICKET-AX message."""
     tabs = _make_tab_mocks(5)
     info_calls: list[str] = []
 
@@ -61,6 +63,7 @@ def test_non_performance_tabs_show_correct_info_message() -> None:
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics._render_performance_tab"),
         patch("app.ui.pages.analytics._render_correlation_tab"),
+        patch("app.ui.pages.analytics._render_technicals_tab"),
         patch("app.ui.pages.analytics._render_sizer_tab"),
         patch("app.ui.pages.analytics._render_concentration_tab"),
     ):
@@ -68,8 +71,8 @@ def test_non_performance_tabs_show_correct_info_message() -> None:
         mock_st.info.side_effect = lambda msg: info_calls.append(msg)
         analytics.render()
 
-    assert "Coming in TICKET-A3" in info_calls
-    assert len(info_calls) == 1
+    assert "Coming in TICKET-A3" not in info_calls
+    assert len(info_calls) == 0
 
 
 def test_performance_tab_body_is_called() -> None:
@@ -78,6 +81,7 @@ def test_performance_tab_body_is_called() -> None:
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics._render_performance_tab") as mock_perf,
         patch("app.ui.pages.analytics._render_correlation_tab"),
+        patch("app.ui.pages.analytics._render_technicals_tab"),
         patch("app.ui.pages.analytics._render_sizer_tab"),
         patch("app.ui.pages.analytics._render_concentration_tab"),
     ):
@@ -93,6 +97,7 @@ def test_correlation_tab_body_is_called() -> None:
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics._render_performance_tab"),
         patch("app.ui.pages.analytics._render_correlation_tab") as mock_corr,
+        patch("app.ui.pages.analytics._render_technicals_tab"),
         patch("app.ui.pages.analytics._render_sizer_tab"),
         patch("app.ui.pages.analytics._render_concentration_tab"),
     ):
@@ -100,6 +105,22 @@ def test_correlation_tab_body_is_called() -> None:
         analytics.render()
 
     mock_corr.assert_called_once()
+
+
+def test_technicals_tab_body_is_called() -> None:
+    tabs = _make_tab_mocks(5)
+    with (
+        patch("app.ui.pages.analytics.st") as mock_st,
+        patch("app.ui.pages.analytics._render_performance_tab"),
+        patch("app.ui.pages.analytics._render_correlation_tab"),
+        patch("app.ui.pages.analytics._render_technicals_tab") as mock_tech,
+        patch("app.ui.pages.analytics._render_sizer_tab"),
+        patch("app.ui.pages.analytics._render_concentration_tab"),
+    ):
+        mock_st.tabs.return_value = tabs
+        analytics.render()
+
+    mock_tech.assert_called_once()
 
 
 def test_page_header_uses_analytics_icon() -> None:
@@ -111,6 +132,7 @@ def test_page_header_uses_analytics_icon() -> None:
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics._render_performance_tab"),
         patch("app.ui.pages.analytics._render_correlation_tab"),
+        patch("app.ui.pages.analytics._render_technicals_tab"),
         patch("app.ui.pages.analytics._render_sizer_tab"),
         patch("app.ui.pages.analytics._render_concentration_tab"),
     ):

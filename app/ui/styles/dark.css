@@ -287,6 +287,7 @@ body {
 .badge-green { background: var(--green-bg); color: var(--green); }
 .badge-amber { background: var(--amber-bg); color: var(--amber); }
 .badge-red { background: var(--red-bg); color: var(--red); }
+.badge-grey { background: var(--surface2); color: var(--text3); }
 .diversification-badge.high     { background: var(--green-bg); color: var(--green); }
 .diversification-badge.moderate { background: var(--amber-bg); color: var(--amber); }
 .diversification-badge.low      { background: var(--orange-bg); color: var(--orange); }
