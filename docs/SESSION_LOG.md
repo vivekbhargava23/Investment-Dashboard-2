@@ -1182,3 +1182,59 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~80k
+
+---
+
+## 2026-05-09 — TICKET-A0
+
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~1 hr
+**Branch:** ticket-A0-analytics-shell
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created `app/domain/analytics.py` with eight pure stat primitives: `daily_returns`,
+  `volatility_annualised`, `drawdown_series`, `max_drawdown`, `sharpe`, `sma`, `rsi`
+  (Wilder smoothing), and `correlation_matrix`. Decimal arithmetic throughout; float
+  used only internally in `correlation_matrix` for efficiency, with Decimal boundary.
+- Created `app/ui/pages/analytics.py`: five-tab shell with `st.info` placeholders for
+  TICKET-A1 through A5. No data fetches, no service imports, no state writes.
+- Updated `app/ui/components/sidebar.py`: analytics entry relabelled to "📊 Analytics",
+  repositioned after Tax Dashboard and before Research.
+- Created `tests/unit/domain/test_analytics.py`: 46 tests covering happy paths,
+  edge cases (empty, single, mismatched), ValueError raises, hypothesis-based invariant
+  tests (drawdown ≤ 0, RSI in [0,100], correlation symmetry).
+- Created `tests/unit/ui/test_analytics_page.py`: 4 smoke tests verifying tab labels,
+  per-tab info messages, and header icon.
+- Marked TICKET-013 as MERGED (it had merged before this session started).
+
+### Files created
+- `app/domain/analytics.py`
+- `tests/unit/domain/test_analytics.py`
+- `tests/unit/ui/test_analytics_page.py`
+
+### Files modified
+- `app/ui/pages/analytics.py` — rewritten from stub
+- `app/ui/components/sidebar.py` — analytics entry updated + reordered
+- `docs/PROJECT_STATE.md` — TICKET-A0 → IN_REVIEW
+- `docs/SESSION_LOG.md` — this entry
+- `docs/TICKETS/BACKLOG.md` — TICKET-013 MERGED, TICKET-A0 IN_REVIEW
+- `docs/TICKETS/TICKET-A0-analytics-shell.md` — IN_REVIEW
+- `docs/TICKETS/TICKET-013-daily-nav-snapshot.md` — MERGED
+
+### Tests
+376 passing → 426 passing (50 new)
+
+### Decisions made during the session
+- `correlation_matrix` uses float arithmetic internally (documented in docstring).
+  Pure Decimal sqrt chains for matrix-scale inputs accumulate more error than a
+  single float→Decimal boundary conversion.
+- RSI returns `list[Decimal | None]` with first `period` entries as None (same
+  convention as `sma`), not a shorter list. `len(closes) < period+1` → `[]`.
+- Sidebar update: analytics moved after Tax Dashboard and before Research; all
+  other existing entries retained to avoid navigation regressions.
+
+### Out-of-scope items noticed
+- (none)
