@@ -941,6 +941,7 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~45k
+*** End of File
 
 ---
 
@@ -1394,3 +1395,46 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~45k
+
+---
+
+## 2026-05-09 21:24 — TICKET-A2
+
+**Agent:** GPT Codex (GPT-5)
+**Duration:** ~1.5 hr
+**Branch:** ticket-A2-analytics-correlation
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added pure connected-component correlation cluster detection to `app/domain/analytics.py`.
+- Added the Correlation service with frozen view models, live-position universe selection, insufficient-history skipping, trading-date intersection, average-correlation computation, and diversification buckets.
+- Implemented the Analytics Correlation tab with 30D/60D/90D window selector, skipped-history warning, Plotly heatmap, sortable average-correlation table, and cluster warnings.
+- Added the correlation heatmap renderer and diverging Plotly colorscale.
+- Marked TICKET-A4 as MERGED on `main` before starting A2, after confirming PR #45 had merged.
+
+### Files touched
+- `app/domain/analytics.py` — added `correlation_clusters`
+- `app/services/analytics_correlation.py` — new Correlation service and view models
+- `app/ui/pages/analytics.py` — Correlation tab implementation
+- `app/ui/components/charts.py` — correlation heatmap renderer
+- `app/ui/components/_chart_styles.py` — correlation colorscale
+- `tests/unit/domain/test_analytics.py` — cluster tests
+- `tests/unit/services/test_analytics_correlation.py` — service tests
+- `tests/unit/ui/test_correlation_tab.py` — tab tests
+- `tests/unit/ui/components/test_correlation_heatmap.py` — heatmap tests
+- `tests/unit/ui/test_analytics_page.py` — shell expectations updated
+
+### Tests
+523 passing → 547 passing (24 new)
+
+### Decisions made during the session
+- Used connected components for cluster warnings exactly as specified; the warning text stays conservative rather than implying strict cliques.
+- The service treats a single included ticker as a valid one-by-one matrix but leaves average correlation empty because there are no peers.
+- The heatmap colorscale uses Plotly's normalized `[-1, 1]` range, with correlation 0.5 anchored at the neutral point.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~55k
