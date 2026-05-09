@@ -1,6 +1,6 @@
 # TICKET-A5 — Analytics: Concentration tab v1
 
-**Status:** READY
+**Status:** IN_PROGRESS
 **Priority:** P1
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-09)

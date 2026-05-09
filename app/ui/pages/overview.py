@@ -14,6 +14,7 @@ from app.services.valuation import compute_live_positions, compute_portfolio_sum
 from app.ui.cache_keys import transactions_signature
 from app.ui.components.badges import render_thesis_badge
 from app.ui.components.charts import render_candlestick
+from app.ui.components.weight_bar import render_weight_bar
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
 from app.ui.wiring import (
@@ -125,17 +126,11 @@ def _build_positions_table_html(
 
         gain_class = "gain-neutral" if is_stale else ("gain-positive" if unrealised_gain_eur_amount > 0 else "gain-negative" if unrealised_gain_eur_amount < 0 else "gain-neutral")
 
-        weight_pct = 0.0
+        weight_pct = Decimal("0")
         if not is_stale and p.live_value_eur is not None and summary.total_value_eur.amount > 0:
-            weight_pct = float(p.live_value_eur.amount / summary.total_value_eur.amount) * 100
+            weight_pct = p.live_value_eur.amount / summary.total_value_eur.amount * Decimal("100")
 
-        weight_html = (
-            f'<div style="display: flex; align-items: center; gap: 4px;">'
-            f'<span>{weight_pct:.1f}%</span>'
-            f'<div style="width: 30px; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden;">'
-            f'<div style="width: {weight_pct}%; height: 100%; background: var(--blue);"></div>'
-            f'</div></div>'
-        )
+        weight_html = render_weight_bar(weight_pct, scale_max=Decimal("100"))
 
         sim_link = (
             f'<a href="/?page=simulator&ticker={ticker}" target="_self" '

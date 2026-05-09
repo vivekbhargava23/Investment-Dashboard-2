@@ -282,3 +282,90 @@ def render_sparkline(series: OhlcSeries, *, height: int = 40, width: int = 120) 
     layout["width"] = width
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=False, config={"displayModeBar": False})
+
+
+def render_weight_bar_chart(
+    weights: list[tuple[str, Decimal]],
+    *,
+    max_position_pct: Decimal,
+    height: int = 320,
+) -> go.Figure:
+    """Render current position weights as a horizontal bar chart."""
+    tickers = [ticker for ticker, _ in weights]
+    values = [float(weight) for _, weight in weights]
+    colors = [
+        CANDLE_DOWN if weight >= max_position_pct else LINE_COLOR_DEFAULT
+        for _, weight in weights
+    ]
+
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                x=values,
+                y=tickers,
+                orientation="h",
+                marker={"color": colors},
+                text=[f"{value:.1f}%" for value in values],
+                textposition="auto",
+                hovertemplate="%{y}: %{x:.1f}%<extra></extra>",
+            )
+        ]
+    )
+    layout = base_layout(height=height, show_axes=True)
+    layout["xaxis"]["title"] = {"text": "Portfolio weight"}
+    layout["xaxis"]["ticksuffix"] = "%"
+    layout["yaxis"]["autorange"] = "reversed"
+    layout["shapes"] = [
+        {
+            "type": "line",
+            "xref": "x",
+            "x0": float(max_position_pct),
+            "x1": float(max_position_pct),
+            "yref": "paper",
+            "y0": 0,
+            "y1": 1,
+            "line": {"color": CANDLE_DOWN, "width": 1, "dash": "dash"},
+        }
+    ]
+    fig.update_layout(**layout)
+    st.plotly_chart(fig, use_container_width=True)
+    return fig
+
+
+def render_currency_donut(
+    split: list[tuple[Currency, Decimal]],
+    *,
+    height: int = 320,
+) -> go.Figure:
+    """Render native-currency exposure by EUR market value."""
+    labels = [currency.value for currency, _ in split]
+    values = [float(value) for _, value in split]
+    fig = go.Figure(
+        data=[
+            go.Pie(
+                labels=labels,
+                values=values,
+                hole=0.58,
+                marker={"colors": [LINE_COLOR_DEFAULT, THEME_GREY, CANDLE_DOWN]},
+                textinfo="label+percent",
+                hovertemplate="%{label}: €%{value:,.0f}<extra></extra>",
+            )
+        ]
+    )
+    layout = base_layout(height=height, show_axes=False)
+    layout["showlegend"] = bool(split)
+    if not split:
+        layout["annotations"] = [
+            {
+                "text": "No currency data",
+                "xref": "paper",
+                "yref": "paper",
+                "x": 0.5,
+                "y": 0.5,
+                "showarrow": False,
+                "font": {"color": THEME_GREY, "size": 12},
+            }
+        ]
+    fig.update_layout(**layout)
+    st.plotly_chart(fig, use_container_width=True)
+    return fig

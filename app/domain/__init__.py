@@ -1,3 +1,4 @@
+from app.domain.analytics_views import ConcentrationRow, ConcentrationView
 from app.domain.fifo import (
     SellExceedsOpenSharesError,
     compute_positions,
@@ -32,6 +33,8 @@ from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticke
 
 __all__ = [
     "DailyNavPoint",
+    "ConcentrationRow",
+    "ConcentrationView",
     "ChartPeriod",
     "OhlcBar",
     "OhlcSeries",
