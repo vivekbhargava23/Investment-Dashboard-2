@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-09 by Claude Chat (drafted TICKET-A2 + TICKET-A3)
+**Last updated:** 2026-05-09 by GPT Codex (marked TICKET-A4 merged)
 
 ---
 
@@ -96,9 +96,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-A0 — Analytics page shell + analytics stats library (PR #41)
 - TICKET-A1 — Analytics: Performance tab v1 (PR #42)
 - TICKET-A5 — Analytics: Concentration tab v1 (PR #43)
+- TICKET-A4 — Analytics: Position Sizer tab v1 (PR #45)
 
 ### In review 👀
-- TICKET-A4 — Analytics: Position Sizer tab v1
+- (none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
