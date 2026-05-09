@@ -1,6 +1,6 @@
 # TICKET-013 — Daily NAV snapshot service
 
-**Status:** IN_REVIEW
+**Status:** MERGED
 **Priority:** P1
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-08)

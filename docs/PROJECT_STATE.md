@@ -92,9 +92,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-024 — Sell simulator cold-start performance (PR #29)
 - TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (PR #37)
 - TICKET-022b — Research page + Live Overview chart integration (PR #38)
+- TICKET-013 — Daily NAV snapshot service
 
 ### In review 👀
-- TICKET-013 — Daily NAV snapshot service
+
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
