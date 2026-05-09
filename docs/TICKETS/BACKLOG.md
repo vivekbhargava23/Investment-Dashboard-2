@@ -64,6 +64,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | TICKET-022a | Chart service + Plotly components (OHLC, line, sparkline) | DRAFT | P1 | 2 – 2.5 hr |
 | TICKET-022b | Research page + Live Overview chart integration | IN_REVIEW | P1 | 2 – 2.5 hr |
 | TICKET-A0 | Analytics page shell + analytics stats library | READY | P1 | 2 – 2.5 hr |
+| TICKET-A1 | Analytics: Performance tab v1 (KPIs, dual-line indexed chart, drawdown panel) | READY | P1 | 2.5 – 3 hr |
 
 ---
 
