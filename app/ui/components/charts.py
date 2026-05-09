@@ -3,9 +3,9 @@ renders a Plotly figure via st.plotly_chart, and returns None.
 No fetching, no caching — the caller is responsible for those."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 import plotly.graph_objects as go
 import streamlit as st
@@ -22,6 +22,15 @@ from app.ui.components._chart_styles import (
     THEME_GREY,
     base_layout,
 )
+
+
+class Overlay(TypedDict):
+    """Typed dict for a single SMA/indicator overlay on a candlestick chart."""
+
+    name: str
+    x: list[datetime]
+    y: list[Decimal | None]
+    style: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -105,7 +114,19 @@ def _dynamic_y_range(values: list[float], padding_pct: float = 0.05) -> list[flo
     return [lo - margin, hi + margin]
 
 
-def render_candlestick(series: OhlcSeries, *, height: int = 400) -> None:
+def render_candlestick(
+    series: OhlcSeries,
+    *,
+    height: int = 400,
+    overlays: list[Overlay] | None = None,
+) -> None:
+    """Render a candlestick chart, optionally with indicator overlays.
+
+    overlays: list of Overlay dicts, each with name/x/y/style. y may contain None
+    values (warm-up gaps) — these are passed to Plotly's connectgaps=False so the
+    line simply has a gap rather than interpolating across missing data.
+    Existing callers that pass no overlays are unaffected.
+    """
     timestamps = [bar.timestamp for bar in series.bars]
     opens = [float(bar.open) for bar in series.bars]
     highs = [float(bar.high) for bar in series.bars]
@@ -125,12 +146,103 @@ def render_candlestick(series: OhlcSeries, *, height: int = 400) -> None:
             )
         ]
     )
+    for overlay in overlays or []:
+        y_floats = [float(v) if v is not None else None for v in overlay["y"]]
+        fig.add_trace(
+            go.Scatter(
+                x=overlay["x"],
+                y=y_floats,
+                name=overlay["name"],
+                mode="lines",
+                line=overlay["style"],
+                connectgaps=False,
+            )
+        )
     layout = base_layout(height=height, show_axes=True)
     layout["xaxis"]["rangeslider"] = {"visible": False}
     layout["xaxis"]["tickformat"] = "%H:%M" if series.period.is_intraday else "%b %Y"
     layout["yaxis"]["tickprefix"] = f"{series.currency.value} "
+    if overlays:
+        layout["showlegend"] = True
+        layout["legend"] = {
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+        }
     if _needs_weekend_rangebreaks(series):
         layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks()
+    fig.update_layout(**layout)
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def render_rsi_panel(
+    dates: list[date],
+    rsi: list[Decimal],
+    *,
+    height: int = 80,
+) -> None:
+    """Render an RSI panel with dashed reference lines at 30 and 70 and a shaded neutral band.
+
+    dates and rsi must have equal length. Renders via st.plotly_chart.
+    """
+    x = [datetime(d.year, d.month, d.day) for d in dates]
+    y = [float(v) for v in rsi]
+
+    neutral_color = _hex_to_rgba(THEME_GREY, 0.12)
+    fig = go.Figure(
+        data=[
+            go.Scatter(
+                x=x,
+                y=y,
+                mode="lines",
+                line={"color": LINE_COLOR_DEFAULT, "width": 1.5},
+                showlegend=False,
+            )
+        ]
+    )
+    layout = base_layout(height=height, show_axes=True)
+    layout["yaxis"]["range"] = [0, 100]
+    layout["yaxis"]["tickvals"] = [30, 70]
+    layout["yaxis"]["ticktext"] = ["30", "70"]
+    layout["shapes"] = [
+        # shaded neutral band
+        {
+            "type": "rect",
+            "xref": "paper",
+            "x0": 0,
+            "x1": 1,
+            "yref": "y",
+            "y0": 30,
+            "y1": 70,
+            "fillcolor": neutral_color,
+            "line": {"width": 0},
+            "layer": "below",
+        },
+        # dashed reference at 30
+        {
+            "type": "line",
+            "xref": "paper",
+            "x0": 0,
+            "x1": 1,
+            "yref": "y",
+            "y0": 30,
+            "y1": 30,
+            "line": {"color": THEME_GREY, "width": 1, "dash": "dash"},
+        },
+        # dashed reference at 70
+        {
+            "type": "line",
+            "xref": "paper",
+            "x0": 0,
+            "x1": 1,
+            "yref": "y",
+            "y0": 70,
+            "y1": 70,
+            "line": {"color": THEME_GREY, "width": 1, "dash": "dash"},
+        },
+    ]
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 

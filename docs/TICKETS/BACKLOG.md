@@ -86,7 +86,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | TICKET-A4 | Analytics: Position Sizer tab v1 (risk-based and weight-based calculator) | MERGED | P1 | 2.5 – 3 hr |
 | TICKET-A5 | Analytics: Concentration tab v1 (KPIs, weight bars, currency donut, table) | MERGED | P1 | 2 – 2.5 hr |
 | TICKET-A2 | Analytics: Correlation tab v1 (heatmap, avg-corr table, cluster warnings) | MERGED | P1 | 2 – 2.5 hr |
-| TICKET-A3 | Analytics: Technicals tab v1 (per-ticker chart with MA + RSI signals) | READY | P1 | 2 – 2.5 hr |
+| TICKET-A3 | Analytics: Technicals tab v1 (per-ticker chart with MA + RSI signals) | IN_REVIEW | P1 | 2 – 2.5 hr |
 
 ---
 
@@ -114,9 +114,8 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 
 ## Next up (in execution order)
 
-1. TICKET-A3 — Analytics: Technicals tab v1
-2. TICKET-U1 — Sidebar and topbar visual polish
-3. *Panel framework brainstorm session*
+1. TICKET-U1 — Sidebar and topbar visual polish
+2. *Panel framework brainstorm session*
 
 ---
 

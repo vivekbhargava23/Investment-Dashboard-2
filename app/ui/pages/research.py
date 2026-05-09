@@ -10,20 +10,9 @@ from app.domain.market_data import ChartPeriod, OhlcUnavailableError
 from app.ports.ticker_resolver import TickerMatch
 from app.services.market_data import get_ohlc_history
 from app.ui.components.charts import render_candlestick
+from app.ui.components.period_selector import _PERIOD_LABELS, render_period_selector
 from app.ui.components.ticker_searchbox import render_ticker_searchbox
 from app.ui.wiring import get_ohlc_data_provider, get_ticker_resolver
-
-_PERIOD_LABELS: dict[ChartPeriod, str] = {
-    ChartPeriod.ONE_DAY: "1D",
-    ChartPeriod.FIVE_DAY: "5D",
-    ChartPeriod.ONE_MONTH: "1M",
-    ChartPeriod.THREE_MONTH: "3M",
-    ChartPeriod.SIX_MONTH: "6M",
-    ChartPeriod.ONE_YEAR: "1Y",
-    ChartPeriod.TWO_YEAR: "2Y",
-    ChartPeriod.FIVE_YEAR: "5Y",
-    ChartPeriod.YEAR_TO_DATE: "YTD",
-}
 
 _EXAMPLE_TICKERS = ["AAPL", "NVDA", "RHM.DE", "5631.T", "VWCE.DE"]
 
@@ -46,15 +35,7 @@ def render() -> None:
             key="research_ticker", resolver=resolver
         )
     with col_period:
-        period: ChartPeriod = st.radio(
-            "Period",
-            options=list(ChartPeriod),
-            horizontal=True,
-            key="research_period",
-            index=4,
-            format_func=lambda p: _PERIOD_LABELS[p],
-            label_visibility="collapsed",
-        )
+        period: ChartPeriod = render_period_selector("research_period", default="6M")
 
     # ── Empty state ───────────────────────────────────────────────────────────
     if match is None:
