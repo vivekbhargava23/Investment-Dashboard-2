@@ -85,6 +85,7 @@ def test_full_render_draws_kpis_and_charts() -> None:
     assert mock_line.call_args.kwargs["secondary_series"] is not None
     assert mock_line.call_args.kwargs["primary_name"] == "Portfolio"
     assert mock_line.call_args.kwargs["secondary_name"] == "SPY"
+    assert mock_line.call_args.kwargs["show_legend"] is True
     assert mock_line.call_args.kwargs["y_axis_mode"] == "plain"
     assert mock_line.call_args.kwargs["y_axis_title"] == "Index, start = 100"
     mock_drawdown.assert_called_once()
@@ -102,6 +103,8 @@ def test_benchmark_none_renders_alpha_placeholder() -> None:
         analytics._render_performance_view(view)
 
     assert mock_line.call_args.kwargs["secondary_series"] is None
+    assert mock_line.call_args.kwargs["primary_name"] == "Portfolio"
+    assert mock_line.call_args.kwargs["show_legend"] is True
     alpha_call = mock_card.call_args_list[1]
     assert alpha_call.args[1] == "—"
 
