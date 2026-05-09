@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-09 by GPT Codex (TICKET-A4 intake)
+**Last updated:** 2026-05-09 by GPT Codex (TICKET-A4 implementation)
 
 ---
 
@@ -98,7 +98,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-A5 — Analytics: Concentration tab v1 (PR #43)
 
 ### In review 👀
-- (none)
+- TICKET-A4 — Analytics: Position Sizer tab v1
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -107,8 +107,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-A4 — Analytics: Position Sizer tab v1 (READY, P1; depends on A5)
-2. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
+1. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 

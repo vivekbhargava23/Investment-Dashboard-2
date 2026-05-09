@@ -1351,3 +1351,46 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~65k
+
+---
+
+## 2026-05-09 14:49 — TICKET-A4
+
+**Agent:** GPT Codex (GPT-5)
+**Duration:** ~1 hr
+**Branch:** ticket-A4-position-sizer-tab
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added pure domain sizing formulas for risk-based and target-weight share calculations.
+- Extended analytics view models with frozen Position Sizer models.
+- Added a Position Sizer service that computes current-position, risk-based, weight-based, and post-trade weight preview results from live positions.
+- Implemented the Analytics Position Sizer tab with ticker/direction controls, sizing inputs, result cards, empty/degraded states, and A5 weight-bar reuse.
+- Marked TICKET-A5 as MERGED on `main` before starting A4, after confirming PR #43 had merged.
+
+### Files touched
+- `app/domain/sizing.py` — new pure sizing formulas
+- `app/domain/analytics_views.py` — added Sizer view models
+- `app/domain/__init__.py` — exported Sizer view models
+- `app/services/analytics_sizer.py` — new Position Sizer service and FX helper
+- `app/ui/pages/analytics.py` — Position Sizer tab implementation
+- `tests/unit/domain/test_sizing.py` — new domain sizing tests
+- `tests/unit/domain/test_analytics_views.py` — Sizer model tests
+- `tests/unit/services/test_analytics_sizer.py` — service tests
+- `tests/unit/ui/test_sizer_tab.py` — UI tab tests
+- `tests/unit/ui/test_analytics_page.py` — analytics shell expectations updated
+
+### Tests
+482 passing → 523 passing (41 new)
+
+### Decisions made during the session
+- Kept share math unrounded in domain/service models; display continues through `format_shares`.
+- Used `LivePosition.model_construct` only in one service test to exercise the planned stale-price warning path, because the current `LivePosition` model only validates fully live or missing-price states.
+- Reused A5's cached live-position helpers in the Analytics page rather than adding another Streamlit cache path.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~45k
