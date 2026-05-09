@@ -159,7 +159,7 @@ def _render_performance_view(view: PerformanceView) -> None:
         y_axis_title="Index, start = 100",
         primary_name="Portfolio",
         secondary_name=view.benchmark_label,
-        show_legend=benchmark_series is not None,
+        show_legend=True,
         fill_to_zero=False,
     )
 
