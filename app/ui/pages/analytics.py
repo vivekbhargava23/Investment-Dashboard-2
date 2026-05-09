@@ -13,7 +13,6 @@ from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from typing import Literal, cast
 
-import pandas as pd
 import streamlit as st
 
 from app.domain import analytics
@@ -64,7 +63,7 @@ from app.services.analytics_sizer import (
 from app.services.nav import get_nav_series
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
 from app.ui.cache_keys import transactions_signature
-from app.ui.components._chart_styles import CORRELATION_COLORSCALE_OPTIONS
+from app.ui.components._chart_styles import CORRELATION_COLORSCALES
 from app.ui.components.charts import (
     ChartPoint,
     ChartSeries,
@@ -101,7 +100,7 @@ _CORRELATION_HELP_TEXT = (
     "— Higher → moves with the rest of the portfolio (weaker diversifier)\n\n"
     "**Thresholds:** <0.20 high, <0.40 moderate, <0.60 low, >=0.60 very low."
 )
-_SCHEME_CODES: dict[str, int] = {"1": 0, "2": 1, "3": 2, "4": 3}
+_CORRELATION_COLORSCALE_DEFAULT = "Financial (red–neutral–green)"
 
 
 class _WiredNavSeriesProvider:
@@ -350,28 +349,20 @@ def _sharpe_class(value: Decimal | None) -> str:
 def _render_correlation_tab() -> None:
     if "correlation_window" not in st.session_state:
         st.session_state["correlation_window"] = 30
+    if (
+        "correlation_color_scheme" not in st.session_state
+        or st.session_state["correlation_color_scheme"] not in CORRELATION_COLORSCALES
+    ):
+        st.session_state["correlation_color_scheme"] = _CORRELATION_COLORSCALE_DEFAULT
 
     st.subheader("Pairwise correlation")
-
-    ctrl_left, ctrl_right = st.columns([3, 1])
-    with ctrl_left:
-        window_days = st.radio(
-            "Window",
-            [30, 60, 90],
-            horizontal=True,
-            key="correlation_window",
-            format_func=lambda value: f"{value}D",
-        )
-    with ctrl_right:
-        selected_code = st.selectbox(
-            "Color scheme",
-            options=["1", "2", "3", "4"],
-            key="correlation_color_scheme",
-            help=(
-                "1: Diverging Classic · 2: Financial Risk"
-                " · 3: High Contrast · 4: Cool-to-Hot"
-            ),
-        )
+    window_days = st.radio(
+        "Window",
+        [30, 60, 90],
+        horizontal=True,
+        key="correlation_window",
+        format_func=lambda value: f"{value}D",
+    )
 
     view = build_correlation_view(
         repo=get_repository(),
@@ -385,7 +376,7 @@ def _render_correlation_tab() -> None:
     if len(view.included_tickers) >= 2:
         _render_correlation_kpis(view)
 
-    _render_correlation_view(view, color_scheme=str(selected_code))
+    _render_correlation_view(view)
 
 
 def _render_correlation_kpis(view: CorrelationView) -> None:
@@ -452,10 +443,23 @@ def _render_correlation_view(
         st.info(_CORRELATION_EMPTY_STATE)
         return
 
+    active_scheme = color_scheme if color_scheme is not None else st.session_state.get(
+        "correlation_color_scheme", _CORRELATION_COLORSCALE_DEFAULT
+    )
     render_correlation_heatmap(
         view.matrix,
-        colorscale=_correlation_colorscale(color_scheme),
+        colorscale=_correlation_colorscale(active_scheme),
     )
+
+    _, scheme_col = st.columns([10, 1])
+    with scheme_col:
+        with st.popover("🎨"):
+            st.radio(
+                "Color scheme",
+                options=list(CORRELATION_COLORSCALES.keys()),
+                key="correlation_color_scheme",
+                label_visibility="collapsed",
+            )
 
     heading_col, info_col = st.columns([10, 1])
     with heading_col:
@@ -474,52 +478,51 @@ def _render_correlation_view(
         )
 
 
-def _render_correlation_table(view: CorrelationView) -> None:
-    rows: list[dict[str, object]] = []
+def _build_correlation_table_html(view: CorrelationView) -> str:
+    table_style = (
+        "width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;"
+    )
+    header_style = (
+        "border-bottom: 1px solid var(--border); color: var(--text3); "
+        "text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em;"
+    )
+    rows: list[str] = []
     for ticker, avg_corr in sorted(
         view.avg_correlation.items(),
         key=lambda item: (-item[1], item[0]),
     ):
         bucket_label, _ = diversification_bucket(avg_corr)
-        rows.append(
-            {
-                "Ticker": ticker,
-                "Avg Correlation": float(avg_corr.quantize(Decimal("0.0001"))),
-                "Diversification": bucket_label,
-            }
+        css_class = bucket_label.replace(" ", "-")
+        badge_html = (
+            f'<span class="badge diversification-badge {css_class}">'
+            f"{html.escape(bucket_label)}</span>"
         )
-    table = pd.DataFrame(rows, columns=["Ticker", "Avg Correlation", "Diversification"])
-    styled_table = table.style.map(
-        _diversification_cell_style,
-        subset=["Diversification"],
-    )
-    st.dataframe(
-        styled_table,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Ticker": st.column_config.TextColumn("Ticker"),
-            "Avg Correlation": st.column_config.NumberColumn(
-                "Avg ρ",
-                format="%.4f",
-                help="Average pairwise correlation with all other positions (diagonal excluded)",
-            ),
-            "Diversification": st.column_config.TextColumn(
-                "Diversification",
-                help="<0.20 high · <0.40 moderate · <0.60 low · ≥0.60 very low",
-            ),
-        },
+        corr_str = f"{float(avg_corr.quantize(Decimal('0.0001'))):.4f}"
+        rows.append(
+            "<tr>"
+            f"<td><strong>{html.escape(ticker)}</strong></td>"
+            f'<td class="font-mono text-right">{corr_str}</td>'
+            f"<td>{badge_html}</td>"
+            "</tr>"
+        )
+    return (
+        '<div class="metric-card" style="padding: 0; overflow-x: auto;">'
+        f'<table class="positions-table" style="{table_style}">'
+        "<thead>"
+        f'<tr style="{header_style}">'
+        '<th style="padding: 8px 4px;">Ticker</th>'
+        '<th style="padding: 8px 4px; text-align: right;">Avg ρ</th>'
+        '<th style="padding: 8px 4px;">Diversification</th>'
+        "</tr>"
+        "</thead>"
+        "<tbody>"
+        + "".join(rows)
+        + "</tbody></table></div>"
     )
 
 
-def _diversification_cell_style(value: object) -> str:
-    styles = {
-        "high": "background-color: rgba(20, 184, 166, 0.14); color: #99F6E4;",
-        "moderate": "background-color: rgba(245, 158, 11, 0.14); color: #FCD34D;",
-        "low": "background-color: rgba(249, 115, 22, 0.14); color: #FDBA74;",
-        "very low": "background-color: rgba(239, 68, 68, 0.14); color: #FCA5A5;",
-    }
-    return styles.get(str(value), "")
+def _render_correlation_table(view: CorrelationView) -> None:
+    render_html(_build_correlation_table_html(view))
 
 
 def _corr_value_class(corr: Decimal | None) -> str:
@@ -569,9 +572,11 @@ def _min_correlation_pair(view: CorrelationView) -> tuple[str, str, Decimal] | N
     return worst
 
 
-def _correlation_colorscale(code: str | None) -> list[list[float | str]]:
-    idx = _SCHEME_CODES.get(str(code) if code is not None else "", 0)
-    return CORRELATION_COLORSCALE_OPTIONS[idx][1]
+def _correlation_colorscale(scheme: str | None) -> list[list[float | str]]:
+    return CORRELATION_COLORSCALES.get(
+        scheme or "",
+        CORRELATION_COLORSCALES[_CORRELATION_COLORSCALE_DEFAULT],
+    )
 
 
 @st.cache_data(ttl=60, show_spinner=False)

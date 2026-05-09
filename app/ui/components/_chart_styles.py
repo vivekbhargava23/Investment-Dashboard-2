@@ -7,53 +7,31 @@ ColorScale: TypeAlias = list[list[float | str]]
 CHART_BG = "rgba(0,0,0,0)"
 GRID_COLOR = "rgba(255,255,255,0.05)"
 AXIS_COLOR = "rgba(255,255,255,0.4)"
+CHART_AXIS_LABEL_COLOR = "#374151"
 CANDLE_UP = "#26a69a"
 CANDLE_DOWN = "#ef5350"
 THEME_GREY = "#8a93a3"
 LINE_COLOR_DEFAULT = "#26a69a"
-CORRELATION_COLORSCALE_OPTIONS: tuple[tuple[str, ColorScale], ...] = (
-    (
-        "Option 1: Diverging Classic",
-        [
-            [0.0, "#2563EB"],
-            [0.25, "#06B6D4"],
-            [0.5, "#F8FAFC"],
-            [0.75, "#F97316"],
-            [1.0, "#DC2626"],
-        ],
-    ),
-    (
-        "Option 2: Financial Risk",
-        [
-            [0.0, "#10B981"],
-            [0.25, "#14B8A6"],
-            [0.5, "#E5E7EB"],
-            [0.75, "#F59E0B"],
-            [1.0, "#EF4444"],
-        ],
-    ),
-    (
-        "Option 3: High Contrast Scientific",
-        [
-            [0.0, "#7C3AED"],
-            [0.25, "#0EA5E9"],
-            [0.5, "#FFFFFF"],
-            [0.75, "#FACC15"],
-            [1.0, "#E11D48"],
-        ],
-    ),
-    (
-        "Option 4: Cool-to-Hot",
-        [
-            [0.0, "#4F46E5"],
-            [0.25, "#22D3EE"],
-            [0.5, "#F1F5F9"],
-            [0.75, "#FB923C"],
-            [1.0, "#DB2777"],
-        ],
-    ),
-)
-CORRELATION_COLORSCALE = CORRELATION_COLORSCALE_OPTIONS[0][1]
+
+CORRELATION_COLORSCALES: dict[str, ColorScale] = {
+    "Diverging (red–white–blue)": [
+        [0.0, "#1E40AF"],
+        [0.5, "#F1F5F9"],
+        [1.0, "#DC2626"],
+    ],
+    "Financial (red–neutral–green)": [
+        [0.0, "#15803D"],
+        [0.5, "#E5E7EB"],
+        [1.0, "#DC2626"],
+    ],
+    "Sequential (white–orange–red)": [
+        [0.0, "#FFF7ED"],
+        [0.5, "#F97316"],
+        [1.0, "#991B1B"],
+    ],
+}
+CORRELATION_COLORSCALE: ColorScale = CORRELATION_COLORSCALES["Financial (red–neutral–green)"]
+
 CORRELATION_BUCKET_COLORS = {
     "high": "#14B8A6",
     "moderate": "#F59E0B",

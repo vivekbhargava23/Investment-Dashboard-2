@@ -15,6 +15,7 @@ from app.domain.money import Currency
 from app.ui.components._chart_styles import (
     CANDLE_DOWN,
     CANDLE_UP,
+    CHART_AXIS_LABEL_COLOR,
     CORRELATION_BUCKET_COLORS,
     CORRELATION_COLORSCALE,
     LINE_COLOR_DEFAULT,
@@ -315,12 +316,12 @@ def render_correlation_heatmap(
         layout["title"] = {"text": title, "x": 0, "font": {"size": 13}}
     layout["hovermode"] = "closest"
     layout["xaxis"]["side"] = "top"
-    layout["xaxis"]["tickangle"] = -45
-    layout["xaxis"]["tickfont"] = {"size": 11, "color": "#E5E7EB"}
+    layout["xaxis"]["tickangle"] = -30
+    layout["xaxis"]["tickfont"] = {"size": 12, "color": CHART_AXIS_LABEL_COLOR}
     layout["xaxis"]["showline"] = True
     layout["xaxis"]["linecolor"] = "rgba(229,231,235,0.35)"
     layout["yaxis"]["autorange"] = "reversed"
-    layout["yaxis"]["tickfont"] = {"size": 11, "color": "#E5E7EB"}
+    layout["yaxis"]["tickfont"] = {"size": 12, "color": CHART_AXIS_LABEL_COLOR}
     layout["yaxis"]["showline"] = True
     layout["yaxis"]["linecolor"] = "rgba(229,231,235,0.35)"
     layout["shapes"] = _correlation_bucket_strip_shapes(tickers, bucket_colors)
