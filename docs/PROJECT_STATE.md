@@ -96,7 +96,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-A0 — Analytics page shell + analytics stats library (PR #41)
 
 ### In review 👀
-- (none)
+- TICKET-A1 — Analytics: Performance tab v1
 
 
 ### Closed without merging ⊘
@@ -106,9 +106,8 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-A1 — Analytics: Performance tab v1 (READY, P1)
-2. TICKET-A5 — Analytics: Concentration tab v1 (READY, P1)
-3. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
+1. TICKET-A5 — Analytics: Concentration tab v1 (READY, P1)
+2. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
