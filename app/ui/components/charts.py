@@ -2,19 +2,41 @@
 renders a Plotly figure via st.plotly_chart, and returns None.
 No fetching, no caching — the caller is responsible for those."""
 
+from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 import plotly.graph_objects as go
 import streamlit as st
 
-from app.domain.market_data import OhlcSeries
+from app.domain.market_data import ChartPeriod, OhlcSeries
+from app.domain.money import Currency
 from app.ui.components._chart_styles import (
     CANDLE_DOWN,
     CANDLE_UP,
     LINE_COLOR_DEFAULT,
+    THEME_GREY,
     base_layout,
 )
+
+
+@dataclass(frozen=True)
+class ChartPoint:
+    timestamp: datetime
+    value: Decimal
+
+
+@dataclass(frozen=True)
+class ChartSeries:
+    ticker: str
+    currency: Currency
+    period: ChartPeriod
+    points: tuple[ChartPoint, ...]
+
+
+LineChartSeries = OhlcSeries | ChartSeries
+YAxisMode = Literal["currency", "plain"]
 
 
 def _hex_to_rgba(hex_color: str, alpha: float) -> str:
@@ -42,6 +64,34 @@ def _needs_weekend_rangebreaks(series: OhlcSeries) -> bool:
         return False
     total_s = (series.bars[-1].timestamp - series.bars[0].timestamp).total_seconds()
     avg_h = total_s / (len(series.bars) - 1) / 3600
+    return 8.0 <= avg_h < 100.0
+
+
+def _chart_timestamps(series: LineChartSeries) -> list[datetime]:
+    if isinstance(series, OhlcSeries):
+        return [bar.timestamp for bar in series.bars]
+    return [point.timestamp for point in series.points]
+
+
+def _chart_values(series: LineChartSeries) -> list[float]:
+    if isinstance(series, OhlcSeries):
+        return [float(bar.close) for bar in series.bars]
+    return [float(point.value) for point in series.points]
+
+
+def _chart_len(series: LineChartSeries) -> int:
+    if isinstance(series, OhlcSeries):
+        return len(series.bars)
+    return len(series.points)
+
+
+def _needs_line_rangebreaks(series: LineChartSeries) -> bool:
+    if isinstance(series, OhlcSeries):
+        return _needs_weekend_rangebreaks(series)
+    if len(series.points) < 2:
+        return False
+    total_s = (series.points[-1].timestamp - series.points[0].timestamp).total_seconds()
+    avg_h = total_s / (len(series.points) - 1) / 3600
     return 8.0 <= avg_h < 100.0
 
 
@@ -83,32 +133,130 @@ def render_candlestick(series: OhlcSeries, *, height: int = 400) -> None:
 
 
 def render_line_chart(
-    series: OhlcSeries, *, height: int = 200, color: str | None = None
+    series: LineChartSeries,
+    *,
+    secondary_series: LineChartSeries | None = None,
+    height: int = 200,
+    color: str | None = None,
+    secondary_color: str = THEME_GREY,
+    y_axis_mode: YAxisMode = "currency",
+    y_axis_title: str | None = None,
+    primary_name: str | None = None,
+    secondary_name: str | None = None,
+    show_legend: bool | None = None,
+    chart_title: str | None = None,
+    fill_to_zero: bool = True,
 ) -> None:
     line_color = color or LINE_COLOR_DEFAULT
-    timestamps = [bar.timestamp for bar in series.bars]
-    closes = [float(bar.close) for bar in series.bars]
+    timestamps = _chart_timestamps(series)
+    closes = _chart_values(series)
+    if secondary_series is not None and _chart_len(series) != _chart_len(secondary_series):
+        raise ValueError("primary and secondary series must have equal length")
 
     # Dynamic y-range: price movements visible regardless of absolute price level.
     # fill="tozeroy" on a $800 stock collapses the visible change to a sliver.
-    y_min, y_max = _dynamic_y_range(closes)
+    secondary_closes = (
+        _chart_values(secondary_series)
+        if secondary_series is not None
+        else []
+    )
+    y_min, y_max = _dynamic_y_range(closes + secondary_closes)
 
     fig = go.Figure(
         data=[
             go.Scatter(
                 x=timestamps,
                 y=closes,
+                name=primary_name or series.ticker,
                 mode="lines",
                 line={"color": line_color, "width": 2},
+                fill="tozeroy" if fill_to_zero else None,
+                fillcolor=_hex_to_rgba(line_color, 0.1) if fill_to_zero else None,
+                connectgaps=True,
+            )
+        ]
+    )
+    if secondary_series is not None:
+        fig.add_trace(
+            go.Scatter(
+                x=_chart_timestamps(secondary_series),
+                y=secondary_closes,
+                name=secondary_name or secondary_series.ticker,
+                mode="lines",
+                line={"color": secondary_color, "width": 2},
+                connectgaps=True,
+            )
+        )
+    layout = base_layout(height=height, show_axes=True)
+    layout["yaxis"]["range"] = [y_min, y_max]
+    if y_axis_mode == "currency":
+        layout["yaxis"]["tickprefix"] = f"{series.currency.value} "
+    else:
+        layout["yaxis"]["tickprefix"] = ""
+    if y_axis_title is not None:
+        layout["yaxis"]["title"] = {"text": y_axis_title}
+    if chart_title is not None:
+        layout["title"] = {"text": chart_title, "x": 0, "font": {"size": 13}}
+        layout["margin"]["t"] = 32
+    legend_visible = secondary_series is not None if show_legend is None else show_legend
+    layout["showlegend"] = legend_visible
+    if legend_visible:
+        layout["legend"] = {
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+        }
+    if _needs_line_rangebreaks(series):
+        layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks()
+    fig.update_layout(**layout)
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def render_drawdown_chart(
+    series: LineChartSeries,
+    *,
+    height: int = 180,
+    chart_title: str | None = "Drawdown",
+) -> None:
+    timestamps = _chart_timestamps(series)
+    values = _chart_values(series)
+    y_min, y_max = _dynamic_y_range(values + [0.0])
+
+    fig = go.Figure(
+        data=[
+            go.Scatter(
+                x=timestamps,
+                y=values,
+                mode="lines",
+                line={"color": CANDLE_DOWN, "width": 1.5},
                 fill="tozeroy",
-                fillcolor=_hex_to_rgba(line_color, 0.1),
+                fillcolor=_hex_to_rgba(CANDLE_DOWN, 0.22),
+                connectgaps=True,
+                name=series.ticker,
             )
         ]
     )
     layout = base_layout(height=height, show_axes=True)
-    layout["yaxis"]["range"] = [y_min, y_max]
-    layout["yaxis"]["tickprefix"] = f"{series.currency.value} "
-    if _needs_weekend_rangebreaks(series):
+    layout["yaxis"]["range"] = [y_min, min(y_max, 0.01)]
+    layout["yaxis"]["tickformat"] = ".1%"
+    if chart_title is not None:
+        layout["title"] = {"text": chart_title, "x": 0, "font": {"size": 13}}
+        layout["margin"]["t"] = 32
+    layout["shapes"] = [
+        {
+            "type": "line",
+            "xref": "paper",
+            "x0": 0,
+            "x1": 1,
+            "yref": "y",
+            "y0": 0,
+            "y1": 0,
+            "line": {"color": THEME_GREY, "width": 1, "dash": "dash"},
+        }
+    ]
+    if _needs_line_rangebreaks(series):
         layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks()
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)

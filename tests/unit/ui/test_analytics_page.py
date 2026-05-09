@@ -21,7 +21,10 @@ def _make_tab_mocks(n: int) -> list[MagicMock]:
 def test_render_no_exception() -> None:
     """Page renders without raising when called with no positions."""
     tabs = _make_tab_mocks(5)
-    with patch("app.ui.pages.analytics.st") as mock_st:
+    with (
+        patch("app.ui.pages.analytics.st") as mock_st,
+        patch("app.ui.pages.analytics._render_performance_tab"),
+    ):
         mock_st.tabs.return_value = tabs
         analytics.render()
 
@@ -29,7 +32,10 @@ def test_render_no_exception() -> None:
 def test_five_tabs_with_expected_labels() -> None:
     """st.tabs is called once with the exact five-label list."""
     tabs = _make_tab_mocks(5)
-    with patch("app.ui.pages.analytics.st") as mock_st:
+    with (
+        patch("app.ui.pages.analytics.st") as mock_st,
+        patch("app.ui.pages.analytics._render_performance_tab"),
+    ):
         mock_st.tabs.return_value = tabs
         analytics.render()
 
@@ -38,22 +44,36 @@ def test_five_tabs_with_expected_labels() -> None:
     )
 
 
-def test_each_tab_shows_correct_info_message() -> None:
-    """Each tab body calls st.info with its corresponding TICKET-AX placeholder."""
+def test_non_performance_tabs_show_correct_info_message() -> None:
+    """Placeholder tabs still call st.info with their corresponding TICKET-AX message."""
     tabs = _make_tab_mocks(5)
     info_calls: list[str] = []
 
-    with patch("app.ui.pages.analytics.st") as mock_st:
+    with (
+        patch("app.ui.pages.analytics.st") as mock_st,
+        patch("app.ui.pages.analytics._render_performance_tab"),
+    ):
         mock_st.tabs.return_value = tabs
         mock_st.info.side_effect = lambda msg: info_calls.append(msg)
         analytics.render()
 
-    assert "Coming in TICKET-A1" in info_calls
     assert "Coming in TICKET-A2" in info_calls
     assert "Coming in TICKET-A3" in info_calls
     assert "Coming in TICKET-A4" in info_calls
     assert "Coming in TICKET-A5" in info_calls
-    assert len(info_calls) == 5
+    assert len(info_calls) == 4
+
+
+def test_performance_tab_body_is_called() -> None:
+    tabs = _make_tab_mocks(5)
+    with (
+        patch("app.ui.pages.analytics.st") as mock_st,
+        patch("app.ui.pages.analytics._render_performance_tab") as mock_perf,
+    ):
+        mock_st.tabs.return_value = tabs
+        analytics.render()
+
+    mock_perf.assert_called_once()
 
 
 def test_page_header_uses_analytics_icon() -> None:
@@ -61,7 +81,10 @@ def test_page_header_uses_analytics_icon() -> None:
     tabs = _make_tab_mocks(5)
     markdown_calls: list[str] = []
 
-    with patch("app.ui.pages.analytics.st") as mock_st:
+    with (
+        patch("app.ui.pages.analytics.st") as mock_st,
+        patch("app.ui.pages.analytics._render_performance_tab"),
+    ):
         mock_st.tabs.return_value = tabs
         mock_st.markdown.side_effect = lambda s, **kw: markdown_calls.append(str(s))
         analytics.render()

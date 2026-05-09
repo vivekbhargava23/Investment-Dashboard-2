@@ -56,6 +56,7 @@ def test_render_line_chart_produces_scatter_lines_trace() -> None:
         assert len(fig.data) == 1
         assert fig.data[0].type == "scatter"
         assert fig.data[0].mode == "lines"
+        assert fig.layout.yaxis.tickprefix == "USD "
 
 
 def test_render_sparkline_hides_axes() -> None:
