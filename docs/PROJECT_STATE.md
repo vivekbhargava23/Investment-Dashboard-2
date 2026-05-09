@@ -94,9 +94,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-022b — Research page + Live Overview chart integration (PR #38)
 - TICKET-013 — Daily NAV snapshot service
 - TICKET-A0 — Analytics page shell + analytics stats library (PR #41)
+- TICKET-A1 — Analytics: Performance tab v1 (PR #42)
 
 ### In review 👀
-- TICKET-A1 — Analytics: Performance tab v1
+(none)
 
 
 ### Closed without merging ⊘
