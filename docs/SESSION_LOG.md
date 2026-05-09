@@ -1438,3 +1438,14 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~55k
+
+### Follow-up (2026-05-09) — layout cleanup on same PR
+Post-review layout fixes applied to `ticket-A2-analytics-correlation` (no new ticket):
+- Vertical full-width stack: heatmap → avg-correlation table. Removed two-column layout.
+- Section headings: `st.subheader("Pairwise correlation")` above controls; `st.subheader("Average correlation to portfolio")` above table.
+- Controls row: window radio (3/4 width) + compact color-scheme selectbox (1/4 width, labels "1"–"4", full names in `help=` tooltip).
+- Expander replaced with `st.popover("ⓘ")` next to the avg-correlation table heading.
+- KPI strip (Mean ρ, Highest Pair, Lowest Pair, Clusters) stays between controls and heatmap.
+- Deleted `_render_correlation_side_panel`; help text promoted to module-level `_CORRELATION_HELP_TEXT` constant.
+- Updated `_correlation_colorscale` to use short code lookup ("1"→"4") instead of full name strings.
+- Updated three UI unit tests to match new layout (popover instead of expander, `[10,1]` columns, code-based color scheme).
