@@ -86,6 +86,7 @@ def test_correlation_view_renders_heatmap_table_and_cluster_warning() -> None:
     mock_heatmap.assert_called_once()
     assert mock_heatmap.call_args.kwargs["colorscale"] == CORRELATION_COLORSCALE_OPTIONS[0][1]
     mock_st.dataframe.assert_called_once()
+    mock_st.expander.assert_called_once_with("How to read this table", expanded=False)
     warning_text = mock_st.warning.call_args.args[0]
     assert "3 positions move together" in warning_text
     assert "A, B, C" in warning_text
@@ -95,9 +96,11 @@ def test_correlation_table_sorts_by_avg_correlation_descending() -> None:
     with patch("app.ui.pages.analytics.st") as mock_st:
         analytics._render_correlation_table(_view())
 
-    rows = mock_st.dataframe.call_args.args[0]
-    assert [row["Ticker"] for row in rows] == ["B", "A", "C"]
-    assert rows[0]["Bucket"] == "very low"
+    table = mock_st.dataframe.call_args.args[0].data
+    assert list(table.columns) == ["Ticker", "Avg Correlation", "Diversification"]
+    assert list(table["Ticker"]) == ["B", "A", "C"]
+    assert table.iloc[0]["Diversification"] == "very low"
+    assert "Name" not in table.columns
 
 
 def test_correlation_view_passes_selected_color_scheme_to_heatmap() -> None:
@@ -114,3 +117,18 @@ def test_correlation_view_passes_selected_color_scheme_to_heatmap() -> None:
     mock_heatmap.assert_called_once()
     assert mock_heatmap.call_args.kwargs["colorscale"] == CORRELATION_COLORSCALE_OPTIONS[3][1]
     assert mock_heatmap.call_args.kwargs["title"] == "Option 4: Cool-to-Hot"
+
+
+def test_correlation_table_help_text_explains_thresholds() -> None:
+    with (
+        patch("app.ui.pages.analytics.st") as mock_st,
+        patch("app.ui.pages.analytics._render_correlation_table"),
+    ):
+        analytics._render_correlation_side_panel(_view(), "Option 1: Diverging Classic")
+
+    help_text = mock_st.markdown.call_args.args[0]
+    assert "self-correlation is excluded" in help_text
+    assert "<0.20 high" in help_text
+    assert "<0.40 moderate" in help_text
+    assert "<0.60 low" in help_text
+    assert ">=0.60 very low" in help_text

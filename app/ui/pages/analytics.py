@@ -13,6 +13,7 @@ from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from typing import Literal, cast
 
+import pandas as pd
 import streamlit as st
 
 from app.domain import analytics
@@ -341,21 +342,13 @@ def _render_correlation_tab() -> None:
     if "correlation_window" not in st.session_state:
         st.session_state["correlation_window"] = 30
 
-    window_col, color_col = st.columns([0.45, 0.55])
-    with window_col:
-        window_days = st.radio(
-            "Window",
-            [30, 60, 90],
-            horizontal=True,
-            key="correlation_window",
-            format_func=lambda value: f"{value}D",
-        )
-    with color_col:
-        color_scheme = st.selectbox(
-            "Color scheme",
-            [name for name, _ in CORRELATION_COLORSCALE_OPTIONS],
-            key="correlation_color_scheme",
-        )
+    window_days = st.radio(
+        "Window",
+        [30, 60, 90],
+        horizontal=True,
+        key="correlation_window",
+        format_func=lambda value: f"{value}D",
+    )
     view = build_correlation_view(
         repo=get_repository(),
         price_feed=get_price_provider(),
@@ -364,7 +357,7 @@ def _render_correlation_tab() -> None:
         as_of=date.today(),
         window_days=int(window_days),
     )
-    _render_correlation_view(view, color_scheme=str(color_scheme))
+    _render_correlation_view(view)
 
 
 def _render_correlation_view(
@@ -385,15 +378,14 @@ def _render_correlation_view(
         return
 
     heatmap_col, table_col = st.columns([2, 1])
+    with table_col:
+        selected_color_scheme = _render_correlation_side_panel(view, color_scheme)
     with heatmap_col:
-        colorscale = _correlation_colorscale(color_scheme)
         render_correlation_heatmap(
             view.matrix,
-            colorscale=colorscale,
-            title=color_scheme,
+            colorscale=_correlation_colorscale(selected_color_scheme),
+            title=selected_color_scheme,
         )
-    with table_col:
-        _render_correlation_table(view)
 
     for cluster in view.clusters:
         members = ", ".join(cluster)
@@ -403,8 +395,32 @@ def _render_correlation_view(
         )
 
 
+def _render_correlation_side_panel(
+    view: CorrelationView,
+    color_scheme: str | None,
+) -> str:
+    selected_color_scheme = color_scheme or str(
+        st.selectbox(
+            "Color scheme",
+            [name for name, _ in CORRELATION_COLORSCALE_OPTIONS],
+            key="correlation_color_scheme",
+        )
+    )
+    with st.expander("How to read this table", expanded=False):
+        st.markdown(
+            "Avg Correlation is the average correlation between this position and "
+            "every other included position in the selected window. The diagonal "
+            "self-correlation is excluded. Lower values suggest the position moves "
+            "more independently; higher values suggest it moves more with the rest "
+            "of the portfolio. The diversification label is based on fixed "
+            "thresholds: <0.20 high, <0.40 moderate, <0.60 low, >=0.60 very low."
+        )
+    _render_correlation_table(view)
+    return selected_color_scheme
+
+
 def _render_correlation_table(view: CorrelationView) -> None:
-    rows = []
+    rows: list[dict[str, object]] = []
     for ticker, avg_corr in sorted(
         view.avg_correlation.items(),
         key=lambda item: (-item[1], item[0]),
@@ -413,12 +429,38 @@ def _render_correlation_table(view: CorrelationView) -> None:
         rows.append(
             {
                 "Ticker": ticker,
-                "Name": ticker,
-                "Avg Correlation": float(avg_corr),
-                "Bucket": bucket_label,
+                "Avg Correlation": float(avg_corr.quantize(Decimal("0.0001"))),
+                "Diversification": bucket_label,
             }
         )
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    table = pd.DataFrame(rows, columns=["Ticker", "Avg Correlation", "Diversification"])
+    styled_table = table.style.map(
+        _diversification_cell_style,
+        subset=["Diversification"],
+    )
+    st.dataframe(
+        styled_table,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Ticker": st.column_config.TextColumn("Ticker"),
+            "Avg Correlation": st.column_config.NumberColumn(
+                "Avg Correlation",
+                format="%.4f",
+            ),
+            "Diversification": st.column_config.TextColumn("Diversification"),
+        },
+    )
+
+
+def _diversification_cell_style(value: object) -> str:
+    styles = {
+        "high": "background-color: rgba(20, 184, 166, 0.14); color: #99F6E4;",
+        "moderate": "background-color: rgba(245, 158, 11, 0.14); color: #FCD34D;",
+        "low": "background-color: rgba(249, 115, 22, 0.14); color: #FDBA74;",
+        "very low": "background-color: rgba(239, 68, 68, 0.14); color: #FCA5A5;",
+    }
+    return styles.get(str(value), "")
 
 
 def _correlation_colorscale(name: str | None) -> list[list[float | str]]:

@@ -1,6 +1,8 @@
 """Plotly layout constants and factory for the dashboard's dark chart theme."""
 
-from typing import Any
+from typing import Any, TypeAlias
+
+ColorScale: TypeAlias = list[list[float | str]]
 
 CHART_BG = "rgba(0,0,0,0)"
 GRID_COLOR = "rgba(255,255,255,0.05)"
@@ -9,7 +11,7 @@ CANDLE_UP = "#26a69a"
 CANDLE_DOWN = "#ef5350"
 THEME_GREY = "#8a93a3"
 LINE_COLOR_DEFAULT = "#26a69a"
-CORRELATION_COLORSCALE_OPTIONS = (
+CORRELATION_COLORSCALE_OPTIONS: tuple[tuple[str, ColorScale], ...] = (
     (
         "Option 1: Diverging Classic",
         [
