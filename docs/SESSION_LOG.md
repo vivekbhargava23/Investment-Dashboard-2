@@ -1459,3 +1459,38 @@ Further polish applied to `ticket-A2-analytics-correlation` (same branch, no new
 - Avg-correlation table: `st.dataframe` + pandas Styler replaced with `render_html()` HTML table using CSS badge classes `.diversification-badge.high|moderate|low|very-low`.
 - CSS: added `--orange` / `--orange-bg` variables and `.diversification-badge.*` rules to `dark.css`.
 - Updated 3 UI unit tests: import changed to `CORRELATION_COLORSCALES`, `render_html` patched in place of `st.dataframe`, sort-order test rewired to assert HTML content ordering.
+
+---
+
+## Session 2026-05-09 — TICKET-A3: Analytics: Technicals tab v1
+
+**Branch:** `ticket-A3-analytics-technicals`
+**Commit:** `606ebe9`
+
+### What was implemented
+
+**Domain layer:**
+- `detect_recent_cross(sma_short, sma_long, *, lookback=90)` added to `app/domain/analytics.py`. Collects all valid (non-None) pairs, takes the last `lookback`, scans for sign changes in the diff series. Returns `("golden"|"death"|"none", days_ago|None)`. Raises `ValueError` for empty, mismatched, or insufficient input.
+
+**Service layer:**
+- `app/services/analytics_technicals.py` (new). `build_technicals_view(ticker, period, repo, price_feed, ohlc, as_of)` — validates ticker is in open universe, fetches 5Y OHLC via port (raw daily bars, no aggregation), computes SMA(50/200) and RSI(14) over full history, slices to visible window, computes signal badges, returns `TechnicalsView` (frozen Pydantic model). `OhlcUnavailable` exception wraps `OhlcUnavailableError` from the port.
+
+**UI components:**
+- `app/ui/components/period_selector.py` (new). `render_period_selector(key, *, options, default)` shared component, second consumer triggered extraction. `_PERIOD_LABELS` dict exported.
+- `app/ui/components/_chart_styles.py` — `SMA_50_STYLE` (amber dashed) and `SMA_200_STYLE` (blue dashed) added.
+- `app/ui/components/charts.py` — `Overlay` TypedDict added; `render_candlestick` extended with optional `overlays` parameter; `render_rsi_panel(dates, rsi)` added.
+- `app/ui/styles/dark.css` — `.badge-grey` added.
+- `app/ui/pages/research.py` — migrated from inline period radio to `render_period_selector`.
+
+**Analytics page — Technicals tab:**
+- `_render_technicals_tab()` — ticker selectbox + period selector, calls `build_technicals_view`, handles `OhlcUnavailable`.
+- `_render_technicals_badges(view)` — 5-badge strip: SMA50 trend, SMA200 trend, cross (golden/death/none + days ago), RSI level + value, live Δ%.
+- `_render_technicals_charts(view)` — reconstructs `OhlcSeries`, builds SMA overlays, calls `render_candlestick`, renders RSI panel.
+
+**Tests:**
+- `tests/unit/domain/test_analytics.py` — `TestDetectRecentCross` with 9 cases including the mathematically verified golden/death cross sequences.
+- `tests/unit/services/test_analytics_technicals.py` (new) — `TestBuildTechnicalsView` with 9 cases covering insufficient history, error propagation, SMA seeding, cross detection (300-bar pattern `[200]*100+[50]*100+[126]*100` → golden cross at days_ago=60), currency inference.
+- `tests/unit/ui/test_analytics_page.py` — replaced A3 placeholder assertion with `test_technicals_tab_body_is_called`; added `_render_technicals_tab` patch to all tests.
+
+### Gate check result
+572 passed, 81 skipped | ruff: all clear | mypy: 79 files clean | lint-imports: 4 kept, 0 broken
