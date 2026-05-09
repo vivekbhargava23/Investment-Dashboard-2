@@ -95,10 +95,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-013 — Daily NAV snapshot service
 - TICKET-A0 — Analytics page shell + analytics stats library (PR #41)
 - TICKET-A1 — Analytics: Performance tab v1 (PR #42)
+- TICKET-A5 — Analytics: Concentration tab v1 (PR #43)
 
 ### In review 👀
-- TICKET-A5 — Analytics: Concentration tab v1
-
+- (none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
