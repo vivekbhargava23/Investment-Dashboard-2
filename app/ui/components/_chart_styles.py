@@ -12,10 +12,10 @@ LINE_COLOR_DEFAULT = "#26a69a"
 # Plotly normalises colorscale anchors across zmin=-1 and zmax=1, so
 # correlation 0.5 sits at 0.75 on the scale.
 CORRELATION_COLORSCALE = [
-    [0.0, CANDLE_UP],
-    [0.5, CANDLE_UP],
-    [0.75, THEME_GREY],
-    [1.0, CANDLE_DOWN],
+    [0.0, "#5cff9d"],
+    [0.5, "#5cff9d"],
+    [0.75, "#f7fafc"],
+    [1.0, "#e0004d"],
 ]
 
 
