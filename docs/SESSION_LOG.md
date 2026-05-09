@@ -1294,3 +1294,60 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~70k
+
+---
+
+## 2026-05-09 14:34 — TICKET-A5
+
+**Agent:** GPT Codex (GPT-5)
+**Duration:** ~1.5 hr
+**Branch:** ticket-A5-concentration-tab
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added Herfindahl concentration analytics and frozen Concentration view models.
+- Added a Concentration service that computes Top-1, Top-3, HHI, sorted weights,
+  native-currency exposure, rows, and stale-position handling from live positions.
+- Implemented the Analytics Concentration tab with KPI cards, weight bar chart,
+  currency donut, stale-data banner, empty state, and per-position table.
+- Extracted the Live Overview weight bar into a shared component and migrated
+  Overview to use it.
+- Updated analytics shell tests to no-op the now-real A5 tab while keeping
+  dedicated A5 coverage.
+- Marked TICKET-A1 as MERGED on `main` before starting A5, after confirming PR #42
+  was merged.
+
+### Files touched
+- `app/domain/analytics.py` — added `herfindahl_index`
+- `app/domain/analytics_views.py` — new Concentration view models
+- `app/services/analytics_concentration.py` — new Concentration service and constants
+- `app/ui/pages/analytics.py` — Concentration tab implementation
+- `app/ui/components/charts.py` — weight bar chart and currency donut renderers
+- `app/ui/components/weight_bar.py` — shared weight-bar HTML component
+- `app/ui/pages/overview.py` — migrated weight bar to shared component
+- `tests/fixtures/concentration_fixtures.py` — reusable concentration fixtures
+- `tests/unit/domain/test_herfindahl.py` — new domain tests
+- `tests/unit/domain/test_analytics_views.py` — new view-model tests
+- `tests/unit/services/test_analytics_concentration.py` — new service tests
+- `tests/unit/ui/test_weight_bar_component.py` — new component tests
+- `tests/unit/ui/components/test_concentration_charts.py` — new chart tests
+- `tests/unit/ui/test_concentration_tab.py` — new tab tests
+- `tests/unit/ui/test_analytics_page.py` — shell tests adjusted for real A5 tab
+
+### Tests
+449 passing → 482 passing (33 new)
+
+### Decisions made during the session
+- Kept `MAX_POSITION_WEIGHT_PCT` and related KPI thresholds in
+  `analytics_concentration.py` as specified, so A4 can import them.
+- Stale positions are retained in Concentration rows but contribute zero to
+  weights and currency split.
+- Generic analytics shell tests patch `_render_concentration_tab`; dedicated A5
+  tests cover the real Concentration layout.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~65k
