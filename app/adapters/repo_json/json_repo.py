@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import json
 import os
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
@@ -12,6 +15,9 @@ from app.ports.repository import (
     TransactionNotFoundError,
     TransactionRepository,
 )
+
+if TYPE_CHECKING:
+    from app.ports.nav_repository import NavSnapshotRepository
 
 
 class LegacyDataError(Exception):
@@ -38,12 +44,17 @@ class JsonTransactionRepository(TransactionRepository):
     """
     JSON-based implementation of TransactionRepository.
     Stores transactions in a single JSON file.
+
+    If nav_repo is provided, save_all calls nav_repo.clear() after every
+    successful write so the NAV snapshot cache stays consistent with
+    the transaction history (TICKET-013 decision #6).
     """
 
     SCHEMA_VERSION = 1
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, nav_repo: NavSnapshotRepository | None = None) -> None:
         self.path = path
+        self._nav_repo = nav_repo
 
     def load_all(self) -> list[Transaction]:
         if not self.path.exists():
@@ -119,6 +130,9 @@ class JsonTransactionRepository(TransactionRepository):
             if tmp_path.exists():
                 tmp_path.unlink(missing_ok=True)
             raise
+
+        if self._nav_repo is not None:
+            self._nav_repo.clear()
 
     def add(self, transaction: Transaction) -> None:
         txs = self.load_all()

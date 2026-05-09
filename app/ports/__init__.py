@@ -4,6 +4,7 @@ from app.ports.fx_feed import (
     UnsupportedCurrencyPairError,
 )
 from app.ports.market_data import OhlcDataProvider
+from app.ports.nav_repository import NavSnapshotRepository
 from app.ports.price_feed import (
     PriceProvider,
     PriceUnavailableError,
@@ -17,6 +18,7 @@ from app.ports.repository import (
 from app.ports.ticker_resolver import TickerMatch, TickerResolver
 
 __all__ = [
+    "NavSnapshotRepository",
     "OhlcDataProvider",
     "TransactionRepository",
     "TransactionNotFoundError",

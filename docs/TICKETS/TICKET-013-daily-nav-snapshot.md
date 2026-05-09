@@ -1,10 +1,10 @@
 # TICKET-013 — Daily NAV snapshot service
 
-**Status:** READY
+**Status:** IN_REVIEW
 **Priority:** P1
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-08)
-**Implemented by:** _pending_
+**Implemented by:** Claude Code (2026-05-09)
 **Depends on:** TICKETs 001 (domain models), 002 (FIFO engine), 003 (JSON repository), 004-005 (yfinance prices + FX), 006 (valuation service)
 
 > **After this ticket merges, the dashboard has a daily portfolio NAV time series.** A new domain model (`DailyNavPoint`), a new port (`NavSnapshotRepository`), a JSON-backed adapter, and a service that, given a date range, returns the portfolio's EUR NAV per trading day — reconstructing missing days from historical OHLC + transaction history, and persisting the result so the next call is fast. This is the data foundation for the Performance, Risk, and Concentration analytics tabs.
