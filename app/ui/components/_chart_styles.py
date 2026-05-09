@@ -9,6 +9,14 @@ CANDLE_UP = "#26a69a"
 CANDLE_DOWN = "#ef5350"
 THEME_GREY = "#8a93a3"
 LINE_COLOR_DEFAULT = "#26a69a"
+# Plotly normalises colorscale anchors across zmin=-1 and zmax=1, so
+# correlation 0.5 sits at 0.75 on the scale.
+CORRELATION_COLORSCALE = [
+    [0.0, CANDLE_UP],
+    [0.5, CANDLE_UP],
+    [0.75, THEME_GREY],
+    [1.0, CANDLE_DOWN],
+]
 
 
 def base_layout(*, height: int, show_axes: bool = True) -> dict[str, Any]:

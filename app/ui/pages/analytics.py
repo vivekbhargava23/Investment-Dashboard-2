@@ -35,6 +35,12 @@ from app.services.analytics_concentration import (
     TOP_3_RED_GTE_PCT,
     compute_concentration_view,
 )
+from app.services.analytics_correlation import (
+    CLUSTER_THRESHOLD,
+    CorrelationView,
+    build_correlation_view,
+    diversification_bucket,
+)
 from app.services.analytics_performance import (
     BenchmarkLabel,
     NavSeriesProvider,
@@ -60,6 +66,7 @@ from app.ui.cache_keys import transactions_signature
 from app.ui.components.charts import (
     ChartPoint,
     ChartSeries,
+    render_correlation_heatmap,
     render_currency_donut,
     render_drawdown_chart,
     render_line_chart,
@@ -81,6 +88,9 @@ _BENCHMARK_OPTIONS: list[BenchmarkLabel] = ["SPY", "EUNL", "None"]
 _EMPTY_STATE = "Performance data is being collected. Check back after the next NAV snapshot."
 _CONCENTRATION_EMPTY_STATE = "No positions yet — add transactions in Manage Portfolio."
 _SIZER_EMPTY_STATE = "No positions yet — add transactions in Manage Portfolio to enable sizing."
+_CORRELATION_EMPTY_STATE = (
+    "Need at least 2 positions with sufficient history to compute correlations."
+)
 
 
 class _WiredNavSeriesProvider:
@@ -119,7 +129,7 @@ def render() -> None:
     with perf_tab:
         _render_performance_tab()
     with corr_tab:
-        st.info("Coming in TICKET-A2")
+        _render_correlation_tab()
     with tech_tab:
         st.info("Coming in TICKET-A3")
     with sizing_tab:
@@ -315,6 +325,73 @@ def _sharpe_class(value: Decimal | None) -> str:
     if value <= Decimal("1"):
         return "gain-amber"
     return "gain-positive"
+
+
+def _render_correlation_tab() -> None:
+    if "correlation_window" not in st.session_state:
+        st.session_state["correlation_window"] = 30
+
+    window_days = st.radio(
+        "Window",
+        [30, 60, 90],
+        horizontal=True,
+        key="correlation_window",
+        format_func=lambda value: f"{value}D",
+    )
+    view = build_correlation_view(
+        repo=get_repository(),
+        price_feed=get_price_provider(),
+        fx_feed=get_fx_provider(),
+        ohlc=get_ohlc_data_provider(),
+        as_of=date.today(),
+        window_days=int(window_days),
+    )
+    _render_correlation_view(view)
+
+
+def _render_correlation_view(view: CorrelationView) -> None:
+    if view.skipped:
+        skipped = "; ".join(
+            f"{item.ticker} ({item.available_days} days available, "
+            f"window requires {item.required_days})"
+            for item in view.skipped
+        )
+        st.warning(f"Skipped: {skipped}")
+
+    if len(view.included_tickers) < 2:
+        st.info(_CORRELATION_EMPTY_STATE)
+        return
+
+    heatmap_col, table_col = st.columns([2, 1])
+    with heatmap_col:
+        render_correlation_heatmap(view.matrix)
+    with table_col:
+        _render_correlation_table(view)
+
+    for cluster in view.clusters:
+        members = ", ".join(cluster)
+        st.warning(
+            f"{len(cluster)} positions move together (avg corr > {CLUSTER_THRESHOLD}): "
+            f"{members}. They may not be acting as independent diversifiers."
+        )
+
+
+def _render_correlation_table(view: CorrelationView) -> None:
+    rows = []
+    for ticker, avg_corr in sorted(
+        view.avg_correlation.items(),
+        key=lambda item: (-item[1], item[0]),
+    ):
+        bucket_label, _ = diversification_bucket(avg_corr)
+        rows.append(
+            {
+                "Ticker": ticker,
+                "Name": ticker,
+                "Avg Correlation": float(avg_corr),
+                "Bucket": bucket_label,
+            }
+        )
+    st.dataframe(rows, use_container_width=True, hide_index=True)
 
 
 @st.cache_data(ttl=60, show_spinner=False)

@@ -15,6 +15,7 @@ from app.domain.money import Currency
 from app.ui.components._chart_styles import (
     CANDLE_DOWN,
     CANDLE_UP,
+    CORRELATION_COLORSCALE,
     LINE_COLOR_DEFAULT,
     THEME_GREY,
     base_layout,
@@ -258,6 +259,49 @@ def render_drawdown_chart(
     ]
     if _needs_line_rangebreaks(series):
         layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks()
+    fig.update_layout(**layout)
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def render_correlation_heatmap(
+    matrix: dict[str, dict[str, Decimal]],
+    *,
+    height: int = 500,
+) -> None:
+    tickers = sorted(matrix)
+    z_values: list[list[float]] = []
+    labels: list[list[str]] = []
+    for row_ticker in tickers:
+        z_row: list[float] = []
+        label_row: list[str] = []
+        for col_ticker in tickers:
+            value = matrix[row_ticker][col_ticker]
+            z_row.append(float(value))
+            label_row.append("—" if row_ticker == col_ticker else f"{value:.2f}")
+        z_values.append(z_row)
+        labels.append(label_row)
+
+    fig = go.Figure(
+        data=[
+            go.Heatmap(
+                z=z_values,
+                x=tickers,
+                y=tickers,
+                zmin=-1,
+                zmax=1,
+                colorscale=CORRELATION_COLORSCALE,
+                text=labels,
+                texttemplate="%{text}",
+                hovertemplate="%{y} vs %{x}: %{z:.2f}<extra></extra>",
+                colorbar={"title": "Corr"},
+            )
+        ]
+    )
+    layout = base_layout(height=height, show_axes=True)
+    layout["hovermode"] = "closest"
+    layout["xaxis"]["side"] = "top"
+    layout["xaxis"]["tickangle"] = -45
+    layout["yaxis"]["autorange"] = "reversed"
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
