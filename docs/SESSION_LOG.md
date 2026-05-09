@@ -941,6 +941,7 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~45k
+*** End of File
 
 ---
 
@@ -1394,3 +1395,67 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Tokens used (rough)
 ~45k
+
+---
+
+## 2026-05-09 21:24 — TICKET-A2
+
+**Agent:** GPT Codex (GPT-5)
+**Duration:** ~1.5 hr
+**Branch:** ticket-A2-analytics-correlation
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added pure connected-component correlation cluster detection to `app/domain/analytics.py`.
+- Added the Correlation service with frozen view models, live-position universe selection, insufficient-history skipping, trading-date intersection, average-correlation computation, and diversification buckets.
+- Implemented the Analytics Correlation tab with 30D/60D/90D window selector, skipped-history warning, Plotly heatmap, sortable average-correlation table, and cluster warnings.
+- Added the correlation heatmap renderer and diverging Plotly colorscale.
+- Marked TICKET-A4 as MERGED on `main` before starting A2, after confirming PR #45 had merged.
+
+### Files touched
+- `app/domain/analytics.py` — added `correlation_clusters`
+- `app/services/analytics_correlation.py` — new Correlation service and view models
+- `app/ui/pages/analytics.py` — Correlation tab implementation
+- `app/ui/components/charts.py` — correlation heatmap renderer
+- `app/ui/components/_chart_styles.py` — correlation colorscale
+- `tests/unit/domain/test_analytics.py` — cluster tests
+- `tests/unit/services/test_analytics_correlation.py` — service tests
+- `tests/unit/ui/test_correlation_tab.py` — tab tests
+- `tests/unit/ui/components/test_correlation_heatmap.py` — heatmap tests
+- `tests/unit/ui/test_analytics_page.py` — shell expectations updated
+
+### Tests
+523 passing → 547 passing (24 new)
+
+### Decisions made during the session
+- Used connected components for cluster warnings exactly as specified; the warning text stays conservative rather than implying strict cliques.
+- The service treats a single included ticker as a valid one-by-one matrix but leaves average correlation empty because there are no peers.
+- The heatmap colorscale uses Plotly's normalized `[-1, 1]` range, with correlation 0.5 anchored at the neutral point.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~55k
+
+### Follow-up (2026-05-09) — layout cleanup on same PR
+Post-review layout fixes applied to `ticket-A2-analytics-correlation` (no new ticket):
+- Vertical full-width stack: heatmap → avg-correlation table. Removed two-column layout.
+- Section headings: `st.subheader("Pairwise correlation")` above controls; `st.subheader("Average correlation to portfolio")` above table.
+- Controls row: window radio (3/4 width) + compact color-scheme selectbox (1/4 width, labels "1"–"4", full names in `help=` tooltip).
+- Expander replaced with `st.popover("ⓘ")` next to the avg-correlation table heading.
+- KPI strip (Mean ρ, Highest Pair, Lowest Pair, Clusters) stays between controls and heatmap.
+- Deleted `_render_correlation_side_panel`; help text promoted to module-level `_CORRELATION_HELP_TEXT` constant.
+- Updated `_correlation_colorscale` to use short code lookup ("1"→"4") instead of full name strings.
+- Updated three UI unit tests to match new layout (popover instead of expander, `[10,1]` columns, code-based color scheme).
+
+### Follow-up (2026-05-09) — polish round 2 on same PR
+Further polish applied to `ticket-A2-analytics-correlation` (same branch, no new ticket):
+- Color scheme picker relocated: selectbox removed from controls row; replaced with a `st.popover("🎨")` icon below the heatmap, containing a `st.radio` keyed to `correlation_color_scheme` session state.
+- Color schemes consolidated: replaced the 4-option code-based list with a 3-entry `CORRELATION_COLORSCALES` dict in `_chart_styles.py` (Diverging, Financial, Sequential). Default is "Financial (red–neutral–green)".
+- `CHART_AXIS_LABEL_COLOR = "#374151"` added to `_chart_styles.py` for readable dark-text axis labels.
+- Heatmap axis labels: `tickfont` updated to `{"size": 12, "color": CHART_AXIS_LABEL_COLOR}` on both axes; `tickangle` changed from -45° to -30°.
+- Avg-correlation table: `st.dataframe` + pandas Styler replaced with `render_html()` HTML table using CSS badge classes `.diversification-badge.high|moderate|low|very-low`.
+- CSS: added `--orange` / `--orange-bg` variables and `.diversification-badge.*` rules to `dark.css`.
+- Updated 3 UI unit tests: import changed to `CORRELATION_COLORSCALES`, `render_html` patched in place of `st.dataframe`, sort-order test rewired to assert HTML content ordering.

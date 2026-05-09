@@ -12,6 +12,7 @@ Functions:
   sma                  – simple moving average with None padding for warm-up
   rsi                  – Wilder's smoothed RSI with None padding for warm-up period
   correlation_matrix   – Pearson correlation matrix for a set of return series
+  correlation_clusters – connected components above a correlation threshold
   herfindahl_index     – concentration score from percent weights
 """
 from decimal import Decimal, getcontext
@@ -256,6 +257,64 @@ def correlation_matrix(
             else:
                 result[a][b] = Decimal(str(round(cov / denom, 10)))
     return result
+
+
+# ── correlation_clusters ─────────────────────────────────────────────────────
+
+
+def correlation_clusters(
+    matrix: dict[str, dict[str, Decimal]],
+    threshold: Decimal,
+    min_size: int = 3,
+) -> list[list[str]]:
+    """
+    Return connected ticker clusters whose pairwise edges exceed ``threshold``.
+
+    Input shape: square nested dict where ``matrix[A][B]`` is the correlation
+    between tickers A and B. Off-diagonal edges are included only when the
+    correlation is strictly greater than ``threshold`` (``>``, not ``>=``).
+    Components with fewer than ``min_size`` tickers are omitted.
+
+    Edge cases: empty matrix -> ``[]``; single ticker -> ``[]``; no edges above
+    threshold -> ``[]``. Tickers inside each cluster are sorted alphabetically.
+    Output clusters are sorted by descending size, then alphabetically by the
+    first ticker.
+    """
+    if len(matrix) < min_size or min_size < 1:
+        return []
+
+    tickers = sorted(matrix)
+    parent = {ticker: ticker for ticker in tickers}
+
+    def find(ticker: str) -> str:
+        root = parent[ticker]
+        if root != ticker:
+            parent[ticker] = find(root)
+        return parent[ticker]
+
+    def union(left: str, right: str) -> None:
+        left_root = find(left)
+        right_root = find(right)
+        if left_root == right_root:
+            return
+        if left_root < right_root:
+            parent[right_root] = left_root
+        else:
+            parent[left_root] = right_root
+
+    for index, left in enumerate(tickers):
+        row = matrix.get(left, {})
+        for right in tickers[index + 1 :]:
+            if row.get(right, Decimal("-Infinity")) > threshold:
+                union(left, right)
+
+    components: dict[str, list[str]] = {}
+    for ticker in tickers:
+        root = find(ticker)
+        components.setdefault(root, []).append(ticker)
+
+    clusters = [sorted(group) for group in components.values() if len(group) >= min_size]
+    return sorted(clusters, key=lambda group: (-len(group), group[0]))
 
 
 # ── herfindahl_index ──────────────────────────────────────────────────────────
