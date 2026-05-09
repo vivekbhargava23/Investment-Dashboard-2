@@ -1238,3 +1238,59 @@ Full gate: `pytest && ruff check . && mypy app/ && lint-imports`
 
 ### Out-of-scope items noticed
 - (none)
+
+---
+
+## 2026-05-09 — TICKET-A1
+
+**Agent:** GPT Codex (GPT-5)
+**Duration:** ~2 hr
+**Branch:** ticket-A1-performance-tab
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `app/services/analytics_performance.py` with `PerformancePeriod`,
+  `PerformanceView`, benchmark mapping, NAV/benchmark date alignment, indexing to
+  100, and KPI computation.
+- Filled the Analytics Performance tab with period/benchmark selectors, KPI strip,
+  indexed portfolio-vs-benchmark line chart, benchmark failure warning, empty state,
+  and drawdown area chart.
+- Extended chart components with `ChartSeries`, optional secondary line support,
+  and `render_drawdown_chart`.
+- Updated `render_metric_card` to apply value classes, support tooltips, and route
+  HTML through `render_html`.
+- Marked TICKET-A0 as MERGED on `main` before starting A1, after confirming PR #41
+  was merged.
+
+### Files touched
+- `app/services/analytics_performance.py` — new performance-tab service/view model
+- `app/ui/pages/analytics.py` — Performance tab implementation
+- `app/ui/components/charts.py` — secondary line + drawdown chart support
+- `app/ui/components/_chart_styles.py` — grey chart constant
+- `app/ui/components/metric_card.py` — value classes, tooltips, render helper
+- `tests/unit/services/test_analytics_performance.py` — new service tests
+- `tests/unit/ui/test_performance_tab.py` — new Performance tab smoke tests
+- `tests/unit/ui/components/test_charts_extension.py` — new chart extension tests
+- `tests/unit/ui/test_analytics_page.py` — analytics shell expectations updated
+- `docs/TICKETS/TICKET-A1-performance-tab.md` — IN_REVIEW
+
+### Tests
+426 passing → 449 passing (23 new)
+
+### Decisions made during the session
+- Current NAV service is a function, not a `NavService` class; A1 uses a small
+  `NavSeriesProvider` Protocol and UI wiring wrapper instead of modifying the
+  locked TICKET-013 surface.
+- Added a lightweight `ChartSeries`/`ChartPoint` render model in the chart
+  component because drawdown values can be zero or negative and cannot be modeled
+  as `OhlcSeries` bars.
+- Date alignment carries the previous benchmark close across short benchmark gaps
+  only when the surrounding benchmark gap is at most 3 calendar days; longer gaps
+  are dropped from both series.
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~70k
