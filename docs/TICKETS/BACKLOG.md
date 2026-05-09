@@ -73,3 +73,10 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 **Total estimated foundation work (Phase 0 + 1):** ~12 hours of Claude Code time across ~8 sessions.
 
 **Workflow reminder:** Tickets in DRAFT need to be detailed in Claude Chat before they move to READY. Only READY tickets are picked up by Claude Code.
+
+## Phase 6 — Analytics
+
+| ID | Title | Status | Priority | Depends on |
+|---|---|---|---|---|
+| A2 | Analytics: Correlation tab v1 (heatmap, avg-corr table, cluster warnings) | READY | P1 | A0, 022a, 006 |
+| A3 | Analytics: Technicals tab v1 (per-ticker chart with MA + RSI signals) | READY | P1 | A0, 022a, 006 |
