@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
@@ -57,3 +58,116 @@ class ConcentrationView(BaseModel):
         if self.top_3_pct < self.top_1_pct:
             raise ValueError("top_3_pct must be greater than or equal to top_1_pct")
         return self
+
+
+class CurrentPositionCard(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    ticker: str
+    name: str
+    weight_pct: Decimal
+    market_value_eur: Money
+    last_price_native: Money
+    last_price_eur: Money
+    open_lot_count: int
+    staleness: str | None = None
+
+    @field_validator("weight_pct")
+    @classmethod
+    def validate_weight_pct(cls, value: Decimal) -> Decimal:
+        if value < 0:
+            raise ValueError("weight_pct must be non-negative")
+        return value
+
+    @field_validator("market_value_eur", "last_price_eur")
+    @classmethod
+    def validate_eur_money(cls, value: Money) -> Money:
+        if value.currency != Currency.EUR:
+            raise ValueError("EUR money fields must be EUR-denominated")
+        return value
+
+    @field_validator("market_value_eur", "last_price_native", "last_price_eur")
+    @classmethod
+    def validate_non_negative_money(cls, value: Money) -> Money:
+        if value.amount < 0:
+            raise ValueError("money amounts must be non-negative")
+        return value
+
+    @field_validator("open_lot_count")
+    @classmethod
+    def validate_open_lot_count(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("open_lot_count must be non-negative")
+        return value
+
+
+class RiskBasedResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    shares: Decimal
+    trade_value_eur: Money
+    risk_eur: Money
+    risk_pct_input: Decimal
+    stop_price_native: Money
+
+    @field_validator("trade_value_eur", "risk_eur")
+    @classmethod
+    def validate_eur_money(cls, value: Money) -> Money:
+        if value.currency != Currency.EUR:
+            raise ValueError("EUR money fields must be EUR-denominated")
+        return value
+
+    @field_validator("trade_value_eur", "risk_eur", "stop_price_native")
+    @classmethod
+    def validate_non_negative_money(cls, value: Money) -> Money:
+        if value.amount < 0:
+            raise ValueError("money amounts must be non-negative")
+        return value
+
+
+class WeightBasedResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    shares: Decimal
+    delta_eur: Money
+    current_weight_pct: Decimal
+    target_weight_pct: Decimal
+
+    @field_validator("delta_eur")
+    @classmethod
+    def validate_delta_eur(cls, value: Money) -> Money:
+        if value.currency != Currency.EUR:
+            raise ValueError("delta_eur must be EUR-denominated")
+        return value
+
+    @field_validator("current_weight_pct", "target_weight_pct")
+    @classmethod
+    def validate_weight_pct(cls, value: Decimal) -> Decimal:
+        if value < 0:
+            raise ValueError("weight values must be non-negative")
+        return value
+
+
+class PostTradeWeightPreview(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    current_weight_pct: Decimal
+    new_weight_pct: Decimal
+    bucket: Literal["green", "amber", "red"]
+
+    @field_validator("current_weight_pct", "new_weight_pct")
+    @classmethod
+    def validate_weight_pct(cls, value: Decimal) -> Decimal:
+        if value < 0:
+            raise ValueError("weight values must be non-negative")
+        return value
+
+
+class SizerView(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    current: CurrentPositionCard
+    risk_based: RiskBasedResult | None
+    weight_based: WeightBasedResult | None
+    post_trade: PostTradeWeightPreview | None
+    degraded_reason: str | None = None

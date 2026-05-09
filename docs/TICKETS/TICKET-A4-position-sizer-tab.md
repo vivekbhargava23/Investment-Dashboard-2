@@ -1,10 +1,10 @@
 # TICKET-A4 — Analytics: Position Sizer tab v1
 
-**Status:** READY
+**Status:** IN_REVIEW
 **Priority:** P1
 **Estimated session length:** 2.5 – 3 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-09)
-**Implemented by:** _pending_
+**Implemented by:** GPT Codex (GPT-5, session 2026-05-09)
 **Depends on:** TICKET-006 (`compute_live_positions`, `compute_portfolio_summary`), TICKET-A0 (page shell + `app/domain/analytics.py`), TICKET-A5 (`MAX_POSITION_WEIGHT_PCT` / `BAR_SCALE_MAX_PCT` constants, `render_weight_bar` component), TICKET-007 (`MetricCard`, card patterns)
 
 > **After this ticket merges, the Position Sizer sub-tab on the Analytics page is fully functional.** It is a two-column calculator: inputs on the left (ticker + Buy/Sell + risk-based and weight-based parameters), results on the right (two result cards + a post-trade weight-bar preview). The tab is **a calculator, not an executor** — it computes target trade sizes and surfaces them, but recording an actual trade still happens through Manage Portfolio. No persistence, no history, no handoff in v1.
