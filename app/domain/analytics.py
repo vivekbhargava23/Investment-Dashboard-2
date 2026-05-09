@@ -11,11 +11,13 @@ Functions:
   sharpe               – annualised Sharpe ratio from daily returns
   sma                  – simple moving average with None padding for warm-up
   rsi                  – Wilder's smoothed RSI with None padding for warm-up period
+  detect_recent_cross  – find most recent golden/death cross in an SMA pair
   correlation_matrix   – Pearson correlation matrix for a set of return series
   correlation_clusters – connected components above a correlation threshold
   herfindahl_index     – concentration score from percent weights
 """
 from decimal import Decimal, getcontext
+from typing import Literal
 
 getcontext().prec = 28
 
@@ -194,6 +196,83 @@ def rsi(closes: list[Decimal], period: int = 14) -> list[Decimal | None]:
         result.append(_rsi_value(avg_gain, avg_loss))
 
     return result
+
+
+# ── detect_recent_cross ───────────────────────────────────────────────────────
+
+
+def detect_recent_cross(
+    sma_short: list[Decimal | None],
+    sma_long: list[Decimal | None],
+    *,
+    lookback: int = 90,
+) -> tuple[Literal["golden", "death", "none"], int | None]:
+    """Find the most recent golden/death cross within the last *lookback* valid index pairs.
+
+    Input shape: two equal-length lists; entries may be None during SMA warm-up.
+    lookback: only the last *lookback* valid (non-None in both inputs) pairs are scanned.
+    "Days ago" = index distance from the last element of the input lists (not valid-pair count).
+
+    Returns:
+      ("golden", days_ago) — most recent cross was sma_short crossing above sma_long
+      ("death",  days_ago) — most recent cross was sma_short crossing below sma_long
+      ("none",   None)     — no cross found in the lookback window
+
+    A cross is detected when consecutive valid pairs (i-1 → i) show:
+      golden: diff[i-1] < 0 and diff[i] > 0  (short crossed above long)
+      death:  diff[i-1] > 0 and diff[i] < 0  (short crossed below long)
+
+    Raises ValueError:
+      - sma_short and sma_long have different lengths (message names both lengths)
+      - fewer than 2 valid pairs exist across the entire input
+      - both inputs are empty
+    """
+    if len(sma_short) != len(sma_long):
+        raise ValueError(
+            f"sma_short and sma_long must have equal length; "
+            f"got {len(sma_short)} and {len(sma_long)}"
+        )
+    n = len(sma_short)
+    if n == 0:
+        raise ValueError("sma_short and sma_long must not be empty")
+
+    # Collect all valid pairs across the full input
+    valid_pairs: list[tuple[int, Decimal]] = []
+    for i in range(n):
+        s, lo = sma_short[i], sma_long[i]
+        if s is not None and lo is not None:
+            valid_pairs.append((i, s - lo))
+
+    if len(valid_pairs) < 2:
+        raise ValueError(
+            f"insufficient SMA history for cross detection: "
+            f"need at least 2 valid pairs, got {len(valid_pairs)}"
+        )
+
+    # Consider only the last *lookback* valid pairs
+    window = valid_pairs[-lookback:]
+
+    # Walk forward to find the most recent cross (last cross wins)
+    most_recent_kind: Literal["golden", "death"] | None = None
+    most_recent_days_ago: int | None = None
+
+    for j in range(1, len(window)):
+        _, prev_diff = window[j - 1]
+        curr_raw_idx, curr_diff = window[j]
+
+        if prev_diff < Decimal(0) and curr_diff > Decimal(0):
+            kind: Literal["golden", "death"] = "golden"
+        elif prev_diff > Decimal(0) and curr_diff < Decimal(0):
+            kind = "death"
+        else:
+            continue
+
+        most_recent_kind = kind
+        most_recent_days_ago = (n - 1) - curr_raw_idx
+
+    if most_recent_kind is None:
+        return ("none", None)
+    return (most_recent_kind, most_recent_days_ago)
 
 
 # ── correlation_matrix ────────────────────────────────────────────────────────

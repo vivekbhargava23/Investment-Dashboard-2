@@ -12,6 +12,7 @@ from app.domain.analytics import (
     correlation_clusters,
     correlation_matrix,
     daily_returns,
+    detect_recent_cross,
     drawdown_series,
     max_drawdown,
     rsi,
@@ -403,3 +404,123 @@ class TestCorrelationClusters:
         }
 
         assert correlation_clusters(matrix, Decimal("0.6"), min_size=3) == [["A", "B", "C"]]
+
+
+# ── TestDetectRecentCross ──────────────────────────────────────────────────────
+
+
+def _build_sma_pair(
+    n: int,
+    cross_kind: str | None,
+    cross_days_ago: int | None,
+) -> tuple[list[Decimal | None], list[Decimal | None]]:
+    """Build a synthetic SMA pair with a clean cross at the specified position.
+
+    cross_kind: 'golden' | 'death' | None (no cross)
+    cross_days_ago: index distance from the last element where the cross happens.
+    Before the cross: short < long (for golden) or short > long (for death).
+    """
+    short = [Decimal("100")] * n
+    longg = [Decimal("100")] * n
+    if cross_kind is None or cross_days_ago is None:
+        if cross_kind == "golden":
+            # short always above long — no cross
+            for i in range(n):
+                short[i] = Decimal("110")
+        elif cross_kind == "death":
+            # short always below long — no cross
+            for i in range(n):
+                short[i] = Decimal("90")
+        return short, longg  # type: ignore[return-value]
+
+    cross_idx = (n - 1) - cross_days_ago
+    if cross_kind == "golden":
+        # Before cross_idx: short below long; from cross_idx: short above long
+        for i in range(cross_idx):
+            short[i] = Decimal("90")
+        for i in range(cross_idx, n):
+            short[i] = Decimal("110")
+    else:  # death
+        for i in range(cross_idx):
+            short[i] = Decimal("110")
+        for i in range(cross_idx, n):
+            short[i] = Decimal("90")
+
+    return short, longg  # type: ignore[return-value]
+
+
+class TestDetectRecentCross:
+    def test_golden_cross(self) -> None:
+        n = 100
+        short, longg = _build_sma_pair(n, "golden", 5)
+        kind, days = detect_recent_cross(short, longg)  # type: ignore[arg-type]
+        assert kind == "golden"
+        assert days == 5
+
+    def test_death_cross(self) -> None:
+        n = 100
+        short, longg = _build_sma_pair(n, "death", 12)
+        kind, days = detect_recent_cross(short, longg)  # type: ignore[arg-type]
+        assert kind == "death"
+        assert days == 12
+
+    def test_no_cross_in_lookback_short_above(self) -> None:
+        # short always above long — no cross anywhere
+        n = 100
+        short = [Decimal("110")] * n
+        longg = [Decimal("100")] * n
+        kind, days = detect_recent_cross(short, longg)  # type: ignore[arg-type]
+        assert kind == "none"
+        assert days is None
+
+    def test_cross_outside_lookback(self) -> None:
+        # cross at days_ago=100, lookback=90 → not found
+        n = 200
+        short, longg = _build_sma_pair(n, "golden", 100)
+        kind, days = detect_recent_cross(short, longg, lookback=90)  # type: ignore[arg-type]
+        assert kind == "none"
+        assert days is None
+
+    def test_most_recent_cross_wins(self) -> None:
+        # Two crosses: golden at days_ago=50, death at days_ago=10
+        # short < long for [0..148], short > long for [149..188], short < long for [189..199]
+        n = 200
+        short = [Decimal("100")] * n
+        longg = [Decimal("100")] * n
+        # Golden cross at index 149 (days_ago = 199-149 = 50)
+        for i in range(149):
+            short[i] = Decimal("90")
+        for i in range(149, 189):  # keep above all the way to 188 (no zero-diff gap)
+            short[i] = Decimal("110")
+        # Death cross at index 189 (days_ago = 199-189 = 10)
+        for i in range(189, n):
+            short[i] = Decimal("90")
+        kind, days = detect_recent_cross(short, longg)  # type: ignore[arg-type]
+        assert kind == "death"
+        assert days == 10
+
+    def test_none_values_in_input_ignored(self) -> None:
+        # Leading None entries before SMAs are valid — must be ignored
+        short: list[Decimal | None] = [None] * 20 + [Decimal("90")] * 15 + [Decimal("110")] * 15
+        longg: list[Decimal | None] = [None] * 20 + [Decimal("100")] * 30
+        kind, days = detect_recent_cross(short, longg, lookback=90)
+        assert kind == "golden"
+        # Cross happens at index 35 (first element of [110...]) → days_ago = (49-35) = 14
+        assert days == 14
+
+    def test_fewer_than_two_valid_pairs_raises(self) -> None:
+        short: list[Decimal | None] = [None, None, Decimal("100")]
+        longg: list[Decimal | None] = [None, None, None]
+        with pytest.raises(ValueError, match="insufficient"):
+            detect_recent_cross(short, longg)
+
+    def test_empty_lists_raise(self) -> None:
+        with pytest.raises(ValueError, match="empty"):
+            detect_recent_cross([], [])
+
+    def test_mismatched_lengths_raise_naming_both(self) -> None:
+        short: list[Decimal | None] = [Decimal("1"), Decimal("2")]
+        longg: list[Decimal | None] = [Decimal("1")]
+        with pytest.raises(ValueError, match="2") as exc_info:
+            detect_recent_cross(short, longg)
+        assert "1" in str(exc_info.value)  # both lengths named

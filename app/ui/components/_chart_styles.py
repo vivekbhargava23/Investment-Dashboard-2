@@ -41,6 +41,13 @@ CORRELATION_BUCKET_COLORS = {
 }
 
 
+# SMA overlay styles for the Technicals tab candlestick chart.
+# Amber (#F59E0B) matches the existing "moderate" bucket in CORRELATION_BUCKET_COLORS.
+# Blue (#3B82F6, Tailwind blue-500) is visible on both light and dark chart backgrounds.
+SMA_50_STYLE: dict[str, Any] = {"color": "#F59E0B", "dash": "dash", "width": 1.5}
+SMA_200_STYLE: dict[str, Any] = {"color": "#3B82F6", "dash": "dash", "width": 1.5}
+
+
 def base_layout(*, height: int, show_axes: bool = True) -> dict[str, Any]:
     """Return a Plotly figure layout dict for the dark dashboard theme."""
     margin = {"l": 20, "r": 10, "t": 10, "b": 20} if show_axes else {"l": 0, "r": 0, "t": 0, "b": 0}
