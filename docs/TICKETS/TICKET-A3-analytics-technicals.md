@@ -1,10 +1,10 @@
 # TICKET-A3 — Analytics: Technicals tab v1
 
-**Status:** READY
+**Status:** IN_REVIEW
 **Priority:** P1
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-09)
-**Implemented by:** _pending_
+**Implemented by:** Claude Code (2026-05-09)
 **Depends on:** TICKET-A0 (analytics page shell + `app/domain/analytics.py` with `sma` and `rsi`), TICKET-022a (`render_candlestick`, `OhlcDataProvider` port + adapter, `_chart_styles.py`), TICKET-006 (live positions for the ticker selector universe)
 
 > **After this ticket merges, the Technicals sub-tab on the Analytics page renders a per-position candlestick chart with 50/200-day moving average overlays, an RSI panel below it, a signal badge strip, and a live-price badge.** This is the third user-visible analytics surface and the first consumer of `analytics.sma` and `analytics.rsi` from A0.
