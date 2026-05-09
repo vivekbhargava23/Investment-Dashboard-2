@@ -15,6 +15,7 @@ from app.domain.money import Currency
 from app.ui.components._chart_styles import (
     CANDLE_DOWN,
     CANDLE_UP,
+    CORRELATION_BUCKET_COLORS,
     CORRELATION_COLORSCALE,
     LINE_COLOR_DEFAULT,
     THEME_GREY,
@@ -276,10 +277,19 @@ def render_correlation_heatmap(
         label_row: list[str] = []
         for col_ticker in tickers:
             value = matrix[row_ticker][col_ticker]
-            z_row.append(float(value))
-            label_row.append("—" if row_ticker == col_ticker else f"{value:.2f}")
+            if row_ticker == col_ticker:
+                z_row.append(0.5)
+                label_row.append("—")
+            else:
+                z_row.append(float(value))
+                label_row.append(f"{value:.2f}")
         z_values.append(z_row)
         labels.append(label_row)
+
+    bucket_colors = [
+        _correlation_bucket_color(_avg_off_diagonal(matrix, ticker))
+        for ticker in tickers
+    ]
 
     fig = go.Figure(
         data=[
@@ -298,12 +308,75 @@ def render_correlation_heatmap(
         ]
     )
     layout = base_layout(height=height, show_axes=True)
+    layout["margin"] = {"l": 58, "r": 10, "t": 68, "b": 20}
     layout["hovermode"] = "closest"
     layout["xaxis"]["side"] = "top"
     layout["xaxis"]["tickangle"] = -45
+    layout["xaxis"]["tickfont"] = {"size": 11, "color": "#E5E7EB"}
+    layout["xaxis"]["showline"] = True
+    layout["xaxis"]["linecolor"] = "rgba(229,231,235,0.35)"
     layout["yaxis"]["autorange"] = "reversed"
+    layout["yaxis"]["tickfont"] = {"size": 11, "color": "#E5E7EB"}
+    layout["yaxis"]["showline"] = True
+    layout["yaxis"]["linecolor"] = "rgba(229,231,235,0.35)"
+    layout["shapes"] = _correlation_bucket_strip_shapes(tickers, bucket_colors)
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
+
+
+def _avg_off_diagonal(
+    matrix: dict[str, dict[str, Decimal]],
+    ticker: str,
+) -> Decimal | None:
+    peers = [value for peer, value in matrix[ticker].items() if peer != ticker]
+    if not peers:
+        return None
+    return sum(peers, Decimal("0")) / Decimal(len(peers))
+
+
+def _correlation_bucket_color(avg_corr: Decimal | None) -> str:
+    if avg_corr is None:
+        return CORRELATION_BUCKET_COLORS["neutral"]
+    if avg_corr < Decimal("0.2"):
+        return CORRELATION_BUCKET_COLORS["high"]
+    if avg_corr < Decimal("0.4"):
+        return CORRELATION_BUCKET_COLORS["moderate"]
+    if avg_corr < Decimal("0.6"):
+        return CORRELATION_BUCKET_COLORS["low"]
+    return CORRELATION_BUCKET_COLORS["very low"]
+
+
+def _correlation_bucket_strip_shapes(
+    tickers: list[str],
+    bucket_colors: list[str],
+) -> list[dict[str, Any]]:
+    shapes: list[dict[str, Any]] = []
+    for ticker, color in zip(tickers, bucket_colors):
+        shapes.append(
+            {
+                "type": "line",
+                "xref": "paper",
+                "x0": -0.018,
+                "x1": -0.018,
+                "yref": "y",
+                "y0": ticker,
+                "y1": ticker,
+                "line": {"color": color, "width": 7},
+            }
+        )
+        shapes.append(
+            {
+                "type": "line",
+                "xref": "x",
+                "x0": ticker,
+                "x1": ticker,
+                "yref": "paper",
+                "y0": 1.018,
+                "y1": 1.018,
+                "line": {"color": color, "width": 7},
+            }
+        )
+    return shapes
 
 
 def render_sparkline(series: OhlcSeries, *, height: int = 40, width: int = 120) -> None:
