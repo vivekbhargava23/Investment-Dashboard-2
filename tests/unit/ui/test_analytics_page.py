@@ -46,7 +46,9 @@ def test_five_tabs_with_expected_labels() -> None:
         analytics.render()
 
     mock_st.tabs.assert_called_once_with(
-        ["Performance", "Correlation", "Technicals", "Position Sizer", "Concentration"]
+        ["Performance", "Correlation", "Technicals", "Position Sizer", "Concentration"],
+        key="analytics_tabs",
+        default="Performance",
     )
 
 

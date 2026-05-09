@@ -9,14 +9,49 @@ CANDLE_UP = "#26a69a"
 CANDLE_DOWN = "#ef5350"
 THEME_GREY = "#8a93a3"
 LINE_COLOR_DEFAULT = "#26a69a"
-# Plotly normalises colorscale anchors across zmin=-1 and zmax=1, so
-# correlation 0.5 sits at 0.75 on the scale.
-CORRELATION_COLORSCALE = [
-    [0.0, "#5cff9d"],
-    [0.5, "#5cff9d"],
-    [0.75, "#f7fafc"],
-    [1.0, "#e0004d"],
-]
+CORRELATION_COLORSCALE_OPTIONS = (
+    (
+        "Option 1: Diverging Classic",
+        [
+            [0.0, "#2563EB"],
+            [0.25, "#06B6D4"],
+            [0.5, "#F8FAFC"],
+            [0.75, "#F97316"],
+            [1.0, "#DC2626"],
+        ],
+    ),
+    (
+        "Option 2: Financial Risk",
+        [
+            [0.0, "#10B981"],
+            [0.25, "#14B8A6"],
+            [0.5, "#E5E7EB"],
+            [0.75, "#F59E0B"],
+            [1.0, "#EF4444"],
+        ],
+    ),
+    (
+        "Option 3: High Contrast Scientific",
+        [
+            [0.0, "#7C3AED"],
+            [0.25, "#0EA5E9"],
+            [0.5, "#FFFFFF"],
+            [0.75, "#FACC15"],
+            [1.0, "#E11D48"],
+        ],
+    ),
+    (
+        "Option 4: Cool-to-Hot",
+        [
+            [0.0, "#4F46E5"],
+            [0.25, "#22D3EE"],
+            [0.5, "#F1F5F9"],
+            [0.75, "#FB923C"],
+            [1.0, "#DB2777"],
+        ],
+    ),
+)
+CORRELATION_COLORSCALE = CORRELATION_COLORSCALE_OPTIONS[0][1]
 CORRELATION_BUCKET_COLORS = {
     "high": "#14B8A6",
     "moderate": "#F59E0B",

@@ -63,6 +63,7 @@ from app.services.analytics_sizer import (
 from app.services.nav import get_nav_series
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
 from app.ui.cache_keys import transactions_signature
+from app.ui.components._chart_styles import CORRELATION_COLORSCALE_OPTIONS
 from app.ui.components.charts import (
     ChartPoint,
     ChartSeries,
@@ -122,8 +123,17 @@ def render() -> None:
         " position sizing, concentration."
     )
 
+    tab_labels = [
+        "Performance",
+        "Correlation",
+        "Technicals",
+        "Position Sizer",
+        "Concentration",
+    ]
     perf_tab, corr_tab, tech_tab, sizing_tab, conc_tab = st.tabs(
-        ["Performance", "Correlation", "Technicals", "Position Sizer", "Concentration"]
+        tab_labels,
+        key="analytics_tabs",
+        default="Performance",
     )
 
     with perf_tab:
@@ -331,13 +341,21 @@ def _render_correlation_tab() -> None:
     if "correlation_window" not in st.session_state:
         st.session_state["correlation_window"] = 30
 
-    window_days = st.radio(
-        "Window",
-        [30, 60, 90],
-        horizontal=True,
-        key="correlation_window",
-        format_func=lambda value: f"{value}D",
-    )
+    window_col, color_col = st.columns([0.45, 0.55])
+    with window_col:
+        window_days = st.radio(
+            "Window",
+            [30, 60, 90],
+            horizontal=True,
+            key="correlation_window",
+            format_func=lambda value: f"{value}D",
+        )
+    with color_col:
+        color_scheme = st.selectbox(
+            "Color scheme",
+            [name for name, _ in CORRELATION_COLORSCALE_OPTIONS],
+            key="correlation_color_scheme",
+        )
     view = build_correlation_view(
         repo=get_repository(),
         price_feed=get_price_provider(),
@@ -346,10 +364,14 @@ def _render_correlation_tab() -> None:
         as_of=date.today(),
         window_days=int(window_days),
     )
-    _render_correlation_view(view)
+    _render_correlation_view(view, color_scheme=str(color_scheme))
 
 
-def _render_correlation_view(view: CorrelationView) -> None:
+def _render_correlation_view(
+    view: CorrelationView,
+    *,
+    color_scheme: str | None = None,
+) -> None:
     if view.skipped:
         skipped = "; ".join(
             f"{item.ticker} ({item.available_days} days available, "
@@ -364,7 +386,12 @@ def _render_correlation_view(view: CorrelationView) -> None:
 
     heatmap_col, table_col = st.columns([2, 1])
     with heatmap_col:
-        render_correlation_heatmap(view.matrix)
+        colorscale = _correlation_colorscale(color_scheme)
+        render_correlation_heatmap(
+            view.matrix,
+            colorscale=colorscale,
+            title=color_scheme,
+        )
     with table_col:
         _render_correlation_table(view)
 
@@ -392,6 +419,13 @@ def _render_correlation_table(view: CorrelationView) -> None:
             }
         )
     st.dataframe(rows, use_container_width=True, hide_index=True)
+
+
+def _correlation_colorscale(name: str | None) -> list[list[float | str]]:
+    for option_name, colorscale in CORRELATION_COLORSCALE_OPTIONS:
+        if option_name == name:
+            return colorscale
+    return CORRELATION_COLORSCALE_OPTIONS[0][1]
 
 
 @st.cache_data(ttl=60, show_spinner=False)
