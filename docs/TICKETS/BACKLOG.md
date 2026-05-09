@@ -23,7 +23,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 | ID | Title | Status | Priority | Est |
 |---|---|---|---|---|
 | TICKET-007 | Streamlit shell refactor + light theme | MERGED | P1 | 2 – 2.5 hr |
-| TICKET-008 — Live Overview — MERGED | P1 | 2 – 2.5 hr |
+| TICKET-008 | Live Overview | MERGED | P1 | 2 – 2.5 hr |
 | TICKET-009 | Manage Portfolio page (original spec — superseded by 009-revised) | CLOSED | P1 | 2 hr |
 | TICKET-008c | Currency-correctness audit + JPY support + data migration | MERGED | P0 | 1.5 – 2 hr |
 | TICKET-020 | TickerResolver port + yfinance adapter | MERGED | P1 | 1.5 – 2 hr |

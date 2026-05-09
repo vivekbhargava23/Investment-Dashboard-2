@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-08 by Claude Code (TICKET-022b merged)
+**Last updated:** 2026-05-09 by Vivek (Next up pointer fix; 013/A0/A1 added)
 
 ---
 
@@ -103,7 +103,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
+1. TICKET-013 — Daily NAV snapshot service (READY, P1)
+2. TICKET-A0 — Analytics page shell + analytics stats library (READY, P1)
+3. TICKET-A1 — Analytics: Performance tab v1 (READY, P1)
+4. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
@@ -128,7 +131,7 @@ See `docs/DECISIONS/` for full ADRs.
 
 - **Investment Panel framework** — schema-first design pending in a dedicated brainstorm session. See `docs/PANEL_BRAINSTORM_HANDOFF.md`. Old TICKET-016 / 017 / 018 (Thesis state, Decision Gates, Behavioural Ledger) likely get replaced by Panel-driven equivalents once the schema lands.
 - **Hardcoded `_PLACEHOLDER_THESIS_STATUS` / `_PLACEHOLDER_HORIZON` dicts in `app/ui/pages/overview.py`** — still 12-ticker fixed. Adding a 13th ticker via Manage Portfolio defaults silently. Slated to migrate to Panel-managed JSON once schema lands; not blocking.
-- **TICKET-013 (Daily NAV cache)** — purpose overlaps with the future Panel "portfolio snapshot" idea. Holding off until Panel design is settled.
+- **TICKET-013 (Daily NAV cache)** — drafted as READY (2026-05-08). Decided to proceed independently of the Panel design; the snapshot table is foundational enough that Panel work can layer on top later if needed.
 
 ---
 
