@@ -155,11 +155,17 @@ def _render_performance_view(view: PerformanceView) -> None:
         portfolio_series,
         secondary_series=benchmark_series,
         height=360,
+        y_axis_mode="plain",
+        y_axis_title="Index, start = 100",
+        primary_name="Portfolio",
+        secondary_name=view.benchmark_label,
+        show_legend=benchmark_series is not None,
+        fill_to_zero=False,
     )
 
     drawdowns = analytics.drawdown_series(view.portfolio_navs_raw)
     drawdown_series = _series_from_dates("Drawdown", view.dates, drawdowns)
-    render_drawdown_chart(drawdown_series, height=180)
+    render_drawdown_chart(drawdown_series, height=180, chart_title="Drawdown")
 
 
 def _render_kpis(view: PerformanceView) -> None:
