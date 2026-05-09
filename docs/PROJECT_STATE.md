@@ -94,7 +94,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-022b — Research page + Live Overview chart integration (PR #38)
 
 ### In review 👀
-- (none)
+- TICKET-013 — Daily NAV snapshot service
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -103,8 +103,8 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - (none)
 
 ### Next up 📋 (in order)
-1. TICKET-013 — Daily NAV snapshot service (READY, P1)
-2. TICKET-A0 — Analytics page shell + analytics stats library (READY, P1)
+1. TICKET-A0 — Analytics page shell + analytics stats library (READY, P1)
+2. TICKET-A1 — Analytics: Performance tab v1 (READY, P1)
 3. TICKET-A1 — Analytics: Performance tab v1 (READY, P1)
 4. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 

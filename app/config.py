@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     portfolio_json_path: str = "data/portfolio.json"
     tax_profile_json_path: str = "data/tax_profile.json"
     ticker_cache_json_path: Path = Path("data/ticker_cache.json")
+    nav_snapshots_json_path: Path = Path("data/nav_snapshots.json")
 
 
 def get_settings() -> Settings:
