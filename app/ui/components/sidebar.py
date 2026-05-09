@@ -6,14 +6,9 @@ import streamlit as st
 
 NAV_ITEMS: list[dict[str, Any]] = [
     {"id": "overview",    "label": "Live Overview",      "icon": "◉", "badge": None},
-    {
-        "id": "analytics",
-        "label": "Analytics & Risk",
-        "icon": "⬡",
-        "badge": {"text": "new", "color": "amber"}
-    },
     {"id": "performance", "label": "Performance",        "icon": "↗", "badge": None},
     {"id": "tax",         "label": "Tax Dashboard",      "icon": "§", "badge": None},
+    {"id": "analytics",   "label": "📊 Analytics",       "icon": "",   "badge": None},
     {"id": "research",    "label": "Research",           "icon": "📈", "badge": None},
     {
         "id": "decision",

@@ -44,7 +44,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 
 | ID | Title | Status | Priority | Est |
 |---|---|---|---|---|
-| TICKET-013 | Daily NAV snapshot service | IN_REVIEW | P1 | 2 – 2.5 hr |
+| TICKET-013 | Daily NAV snapshot service | MERGED | P1 | 2 – 2.5 hr |
 | TICKET-014 | Performance page with timeframe toggle | DRAFT | P2 | 1.5 hr |
 | TICKET-015 | Lot Ledger page with edit-in-place | DRAFT | P2 | 2 hr |
 
@@ -63,7 +63,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 |---|---|---|---|---|
 | TICKET-022a | Chart service + Plotly components (OHLC, line, sparkline) | DRAFT | P1 | 2 – 2.5 hr |
 | TICKET-022b | Research page + Live Overview chart integration | IN_REVIEW | P1 | 2 – 2.5 hr |
-| TICKET-A0 | Analytics page shell + analytics stats library | READY | P1 | 2 – 2.5 hr |
+| TICKET-A0 | Analytics page shell + analytics stats library | IN_REVIEW | P1 | 2 – 2.5 hr |
 | TICKET-A1 | Analytics: Performance tab v1 (KPIs, dual-line indexed chart, drawdown panel) | READY | P1 | 2.5 – 3 hr |
 
 ---
