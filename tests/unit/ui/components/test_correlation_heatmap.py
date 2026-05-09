@@ -22,12 +22,32 @@ def test_render_correlation_heatmap_uses_labels_hover_and_neutral_diagonal() -> 
     assert list(trace.y) == ["A", "B"]
     assert trace.text[0][0] == "—"
     assert trace.text[0][1] == "0.42"
-    assert trace.z[0][0] == 0.5
-    assert trace.z[1][1] == 0.5
+    assert trace.z[0][0] == 0.0
+    assert trace.z[1][1] == 0.0
     assert trace.z[0][1] == 0.42
     assert trace.hovertemplate == "%{y} vs %{x}: %{z:.2f}<extra></extra>"
     assert trace.zmin == -1
     assert trace.zmax == 1
+
+
+def test_render_correlation_heatmap_uses_selected_palette_title() -> None:
+    colorscale = [
+        [0.0, "#111111"],
+        [0.5, "#FFFFFF"],
+        [1.0, "#999999"],
+    ]
+    with patch("app.ui.components.charts.st") as mock_st:
+        render_correlation_heatmap(
+            {"A": {"A": Decimal("1")}},
+            colorscale=colorscale,
+            title="Selected",
+        )
+
+    fig = mock_st.plotly_chart.call_args.args[0]
+    assert fig.layout.title.text == "Selected"
+    assert fig.data[0].colorscale == tuple(
+        (anchor, color) for anchor, color in colorscale
+    )
 
 
 def test_render_correlation_heatmap_respects_height() -> None:

@@ -4,6 +4,7 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from app.services.analytics_correlation import CorrelationView, SkippedTicker
+from app.ui.components._chart_styles import CORRELATION_COLORSCALE_OPTIONS
 from app.ui.pages import analytics
 
 
@@ -83,6 +84,7 @@ def test_correlation_view_renders_heatmap_table_and_cluster_warning() -> None:
 
     mock_st.columns.assert_called_once_with([2, 1])
     mock_heatmap.assert_called_once()
+    assert mock_heatmap.call_args.kwargs["colorscale"] == CORRELATION_COLORSCALE_OPTIONS[0][1]
     mock_st.dataframe.assert_called_once()
     warning_text = mock_st.warning.call_args.args[0]
     assert "3 positions move together" in warning_text
@@ -96,3 +98,19 @@ def test_correlation_table_sorts_by_avg_correlation_descending() -> None:
     rows = mock_st.dataframe.call_args.args[0]
     assert [row["Ticker"] for row in rows] == ["B", "A", "C"]
     assert rows[0]["Bucket"] == "very low"
+
+
+def test_correlation_view_passes_selected_color_scheme_to_heatmap() -> None:
+    with (
+        patch("app.ui.pages.analytics.st") as mock_st,
+        patch("app.ui.pages.analytics.render_correlation_heatmap") as mock_heatmap,
+    ):
+        mock_st.columns.return_value = _columns(2)
+        analytics._render_correlation_view(
+            _view(),
+            color_scheme="Option 4: Cool-to-Hot",
+        )
+
+    mock_heatmap.assert_called_once()
+    assert mock_heatmap.call_args.kwargs["colorscale"] == CORRELATION_COLORSCALE_OPTIONS[3][1]
+    assert mock_heatmap.call_args.kwargs["title"] == "Option 4: Cool-to-Hot"

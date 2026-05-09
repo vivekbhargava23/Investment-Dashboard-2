@@ -268,6 +268,8 @@ def render_correlation_heatmap(
     matrix: dict[str, dict[str, Decimal]],
     *,
     height: int = 500,
+    colorscale: list[list[float | str]] | None = None,
+    title: str | None = None,
 ) -> None:
     tickers = sorted(matrix)
     z_values: list[list[float]] = []
@@ -278,7 +280,7 @@ def render_correlation_heatmap(
         for col_ticker in tickers:
             value = matrix[row_ticker][col_ticker]
             if row_ticker == col_ticker:
-                z_row.append(0.5)
+                z_row.append(0.0)
                 label_row.append("—")
             else:
                 z_row.append(float(value))
@@ -299,7 +301,7 @@ def render_correlation_heatmap(
                 y=tickers,
                 zmin=-1,
                 zmax=1,
-                colorscale=CORRELATION_COLORSCALE,
+                colorscale=colorscale or CORRELATION_COLORSCALE,
                 text=labels,
                 texttemplate="%{text}",
                 hovertemplate="%{y} vs %{x}: %{z:.2f}<extra></extra>",
@@ -309,6 +311,8 @@ def render_correlation_heatmap(
     )
     layout = base_layout(height=height, show_axes=True)
     layout["margin"] = {"l": 58, "r": 10, "t": 68, "b": 20}
+    if title is not None:
+        layout["title"] = {"text": title, "x": 0, "font": {"size": 13}}
     layout["hovermode"] = "closest"
     layout["xaxis"]["side"] = "top"
     layout["xaxis"]["tickangle"] = -45
