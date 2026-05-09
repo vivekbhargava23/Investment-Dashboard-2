@@ -1,10 +1,10 @@
 # TICKET-A5 — Analytics: Concentration tab v1
 
-**Status:** READY
+**Status:** IN_REVIEW
 **Priority:** P1
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-09)
-**Implemented by:** _pending_
+**Implemented by:** GPT Codex (GPT-5, session 2026-05-09)
 **Depends on:** TICKET-006 (`compute_live_positions`, `compute_portfolio_summary`), TICKET-A0 (page shell + `app/domain/analytics.py`), TICKET-007 (`MetricCard`), TICKET-008 (positions table weight-bar pattern — to be extracted)
 
 > **After this ticket merges, the Concentration sub-tab on the Analytics page is fully functional.** It shows three KPI cards (Top-1 %, Top-3 %, Herfindahl Index), a horizontal bar chart of position weights with a 35% reference line, a donut chart of currency exposure, and a sortable per-position table that reuses the same weight-bar pattern from Live Overview. No historical data, no NAV reconstruction, no OHLC — purely a slice of `compute_live_positions` output. This is the simplest of the five analytics sub-tabs and the right place to start.

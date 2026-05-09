@@ -12,6 +12,7 @@ Functions:
   sma                  – simple moving average with None padding for warm-up
   rsi                  – Wilder's smoothed RSI with None padding for warm-up period
   correlation_matrix   – Pearson correlation matrix for a set of return series
+  herfindahl_index     – concentration score from percent weights
 """
 from decimal import Decimal, getcontext
 
@@ -255,3 +256,26 @@ def correlation_matrix(
             else:
                 result[a][b] = Decimal(str(round(cov / denom, 10)))
     return result
+
+
+# ── herfindahl_index ──────────────────────────────────────────────────────────
+
+
+def herfindahl_index(weights_pct: list[Decimal]) -> Decimal:
+    """
+    Return the Herfindahl-Hirschman Index from weights expressed in percent.
+
+    Input: weights on a 0-100 scale, e.g. [35, 25, 10, 30].
+    Formula: sum(w_i ** 2).
+
+    A fully diversified 10-position portfolio at 10% each returns 1000.
+    A single-position portfolio at 100% returns 10000.
+
+    Empty input raises ValueError. Negative weights raise ValueError.
+    Weights need not sum to 100; callers own normalisation.
+    """
+    if not weights_pct:
+        raise ValueError("weights_pct must not be empty")
+    if any(weight < 0 for weight in weights_pct):
+        raise ValueError("weights_pct must be non-negative")
+    return sum((weight * weight for weight in weights_pct), Decimal("0"))
