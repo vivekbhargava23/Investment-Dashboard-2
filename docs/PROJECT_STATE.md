@@ -93,9 +93,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (PR #37)
 - TICKET-022b — Research page + Live Overview chart integration (PR #38)
 - TICKET-013 — Daily NAV snapshot service
+- TICKET-A0 — Analytics page shell + analytics stats library (PR #41)
 
 ### In review 👀
-- TICKET-A0 — Analytics page shell + analytics stats library
+- (none)
 
 
 ### Closed without merging ⊘
