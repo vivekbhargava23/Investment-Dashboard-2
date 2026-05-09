@@ -1,4 +1,12 @@
-from app.domain.analytics_views import ConcentrationRow, ConcentrationView
+from app.domain.analytics_views import (
+    ConcentrationRow,
+    ConcentrationView,
+    CurrentPositionCard,
+    PostTradeWeightPreview,
+    RiskBasedResult,
+    SizerView,
+    WeightBasedResult,
+)
 from app.domain.fifo import (
     SellExceedsOpenSharesError,
     compute_positions,
@@ -35,6 +43,11 @@ __all__ = [
     "DailyNavPoint",
     "ConcentrationRow",
     "ConcentrationView",
+    "CurrentPositionCard",
+    "RiskBasedResult",
+    "WeightBasedResult",
+    "PostTradeWeightPreview",
+    "SizerView",
     "ChartPeriod",
     "OhlcBar",
     "OhlcSeries",

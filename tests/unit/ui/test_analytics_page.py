@@ -24,6 +24,7 @@ def test_render_no_exception() -> None:
     with (
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics._render_performance_tab"),
+        patch("app.ui.pages.analytics._render_sizer_tab"),
         patch("app.ui.pages.analytics._render_concentration_tab"),
     ):
         mock_st.tabs.return_value = tabs
@@ -36,6 +37,7 @@ def test_five_tabs_with_expected_labels() -> None:
     with (
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics._render_performance_tab"),
+        patch("app.ui.pages.analytics._render_sizer_tab"),
         patch("app.ui.pages.analytics._render_concentration_tab"),
     ):
         mock_st.tabs.return_value = tabs
@@ -54,6 +56,7 @@ def test_non_performance_tabs_show_correct_info_message() -> None:
     with (
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics._render_performance_tab"),
+        patch("app.ui.pages.analytics._render_sizer_tab"),
         patch("app.ui.pages.analytics._render_concentration_tab"),
     ):
         mock_st.tabs.return_value = tabs
@@ -62,8 +65,7 @@ def test_non_performance_tabs_show_correct_info_message() -> None:
 
     assert "Coming in TICKET-A2" in info_calls
     assert "Coming in TICKET-A3" in info_calls
-    assert "Coming in TICKET-A4" in info_calls
-    assert len(info_calls) == 3
+    assert len(info_calls) == 2
 
 
 def test_performance_tab_body_is_called() -> None:
@@ -71,6 +73,7 @@ def test_performance_tab_body_is_called() -> None:
     with (
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics._render_performance_tab") as mock_perf,
+        patch("app.ui.pages.analytics._render_sizer_tab"),
         patch("app.ui.pages.analytics._render_concentration_tab"),
     ):
         mock_st.tabs.return_value = tabs
@@ -87,6 +90,7 @@ def test_page_header_uses_analytics_icon() -> None:
     with (
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics._render_performance_tab"),
+        patch("app.ui.pages.analytics._render_sizer_tab"),
         patch("app.ui.pages.analytics._render_concentration_tab"),
     ):
         mock_st.tabs.return_value = tabs
