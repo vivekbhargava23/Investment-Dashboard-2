@@ -1449,3 +1449,13 @@ Post-review layout fixes applied to `ticket-A2-analytics-correlation` (no new ti
 - Deleted `_render_correlation_side_panel`; help text promoted to module-level `_CORRELATION_HELP_TEXT` constant.
 - Updated `_correlation_colorscale` to use short code lookup ("1"→"4") instead of full name strings.
 - Updated three UI unit tests to match new layout (popover instead of expander, `[10,1]` columns, code-based color scheme).
+
+### Follow-up (2026-05-09) — polish round 2 on same PR
+Further polish applied to `ticket-A2-analytics-correlation` (same branch, no new ticket):
+- Color scheme picker relocated: selectbox removed from controls row; replaced with a `st.popover("🎨")` icon below the heatmap, containing a `st.radio` keyed to `correlation_color_scheme` session state.
+- Color schemes consolidated: replaced the 4-option code-based list with a 3-entry `CORRELATION_COLORSCALES` dict in `_chart_styles.py` (Diverging, Financial, Sequential). Default is "Financial (red–neutral–green)".
+- `CHART_AXIS_LABEL_COLOR = "#374151"` added to `_chart_styles.py` for readable dark-text axis labels.
+- Heatmap axis labels: `tickfont` updated to `{"size": 12, "color": CHART_AXIS_LABEL_COLOR}` on both axes; `tickangle` changed from -45° to -30°.
+- Avg-correlation table: `st.dataframe` + pandas Styler replaced with `render_html()` HTML table using CSS badge classes `.diversification-badge.high|moderate|low|very-low`.
+- CSS: added `--orange` / `--orange-bg` variables and `.diversification-badge.*` rules to `dark.css`.
+- Updated 3 UI unit tests: import changed to `CORRELATION_COLORSCALES`, `render_html` patched in place of `st.dataframe`, sort-order test rewired to assert HTML content ordering.
