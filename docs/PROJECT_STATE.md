@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-09 by Vivek (Next up pointer fix; 013/A0/A1 added)
+**Last updated:** 2026-05-09 by GPT Codex (TICKET-A4 intake)
 
 ---
 
@@ -107,7 +107,8 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### Next up 📋 (in order)
 1. TICKET-A5 — Analytics: Concentration tab v1 (READY, P1)
-2. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
+2. TICKET-A4 — Analytics: Position Sizer tab v1 (READY, P1; depends on A5)
+3. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
