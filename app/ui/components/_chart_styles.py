@@ -17,6 +17,13 @@ CORRELATION_COLORSCALE = [
     [0.75, "#f7fafc"],
     [1.0, "#e0004d"],
 ]
+CORRELATION_BUCKET_COLORS = {
+    "high": "#14B8A6",
+    "moderate": "#F59E0B",
+    "low": "#F97316",
+    "very low": "#EF4444",
+    "neutral": "#E5E7EB",
+}
 
 
 def base_layout(*, height: int, show_axes: bool = True) -> dict[str, Any]:
