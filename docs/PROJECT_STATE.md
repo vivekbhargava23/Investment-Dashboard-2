@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-10 by Claude Code (TICKET-M1 merged, TICKET-M2 in review)
+**Last updated:** 2026-05-10 by Claude Code (TICKET-M2 in review)
 
 ---
 

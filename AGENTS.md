@@ -7,6 +7,8 @@
 
 ---
 
+This file is for the implementation agent. Vivek's day-to-day workflow lives in `docs/WORKFLOW.md` and is not your concern.
+
 ## Required reading (every session, in this order)
 
 1. `docs/PROJECT_STATE.md` — current status of the project
