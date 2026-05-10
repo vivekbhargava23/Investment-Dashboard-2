@@ -94,7 +94,7 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 
 | ID | Title | Status | Priority | Est |
 |---|---|---|---|---|
-| TICKET-U1 | Sidebar and topbar visual polish | READY | P1 | 90 min |
+| TICKET-U1 | Sidebar and topbar visual polish | IN_REVIEW | P1 | 90 min |
 
 ---
 

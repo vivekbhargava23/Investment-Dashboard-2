@@ -1494,3 +1494,69 @@ Further polish applied to `ticket-A2-analytics-correlation` (same branch, no new
 
 ### Gate check result
 572 passed, 81 skipped | ruff: all clear | mypy: 79 files clean | lint-imports: 4 kept, 0 broken
+
+---
+
+## 2026-05-10 — TICKET-U1
+
+**Agent:** Claude Code (sonnet-4.6)
+**Duration:** ~60 min
+**Branch:** ticket-U1-sidebar-topbar-polish
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- `app/ui/components/sidebar.py` — rewrote: NAV_ITEMS reordered into PORTFOLIO/TOOLS/SETTINGS
+  sections (simulator+lots+decision+behaviour in TOOLS, correct order per spec); analytics icon
+  changed from `""` to `"⬡"`, label to "Analytics & Risk"; render_sidebar() now calls
+  render_html() directly (per CLAUDE.md) instead of returning a raw string; compact inline
+  HTML with no whitespace text-node flex children (eliminates ghost-row source)
+- Brand block: removed `<div class="sub">Scalable Capital · DE</div>` subtitle
+- `app/ui/main.py` — updated call from `st.markdown(render_sidebar(), ...)` to just `render_sidebar()`
+- `app/ui/styles/dark.css` — added `.nav-section-label--after { margin-top: 12px }` for 2nd/3rd
+  section labels
+- `app/ui/components/topbar.py` — removed redundant `st.markdown` for border-bottom div
+  (CSS already handles topbar border; the extra call created a ghost Streamlit element)
+- Removed duplicate h1/h2 page headers from 8 pages:
+  `analytics.py` (`# 📊 Analytics`), `research.py` (`# 📈 Research`), `performance.py`,
+  `behaviour.py`, `lots.py`, `decision.py`, `manage.py`, `simulator.py` (title div only;
+  subtitle muted text preserved). Tax Dashboard and Live Overview had no duplicate headers.
+- `tests/unit/ui/test_sidebar_structure.py` — new (14 tests): ghost-row count, three section
+  labels in order, section membership, active state, no underlines, brand block, footer,
+  date determinism, badge rendering, section coverage
+- `tests/unit/ui/test_analytics_page.py` — renamed `test_page_header_uses_analytics_icon` to
+  `test_no_duplicate_page_header`; asserts the duplicate header is NOT present
+
+### Files touched
+- `app/ui/components/sidebar.py` — rewritten
+- `app/ui/components/topbar.py` — ghost element removed
+- `app/ui/styles/dark.css` — .nav-section-label--after added
+- `app/ui/main.py` — sidebar call updated
+- `app/ui/pages/analytics.py` — duplicate header removed
+- `app/ui/pages/research.py` — duplicate header removed
+- `app/ui/pages/performance.py` — duplicate header removed
+- `app/ui/pages/behaviour.py` — duplicate header removed
+- `app/ui/pages/lots.py` — duplicate header removed
+- `app/ui/pages/decision.py` — duplicate header removed
+- `app/ui/pages/manage.py` — duplicate header removed
+- `app/ui/pages/simulator.py` — duplicate title div removed
+- `tests/unit/ui/test_sidebar_structure.py` — new (14 tests)
+- `tests/unit/ui/test_analytics_page.py` — updated assertion
+
+### Tests
+572 passing → 586 passing (14 new)
+
+### Decisions made during the session
+- Ghost rows root cause: the old sidebar used `st.markdown(render_sidebar(), ...)` bypassing
+  `render_html()`. Internal `textwrap.dedent` template whitespace also created empty text nodes
+  in flex containers. Fix: compact inline HTML, `render_html()` as the single exit point.
+- `render_sidebar()` signature changed to `render_sidebar(*, today: date | None = None)` for
+  testability (date injection instead of `date.today()` call).
+- Decision Gates badge kept with the same "3 flags" placeholder; badge color="" uses default
+  red from CSS (no new colour class needed).
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~40k
