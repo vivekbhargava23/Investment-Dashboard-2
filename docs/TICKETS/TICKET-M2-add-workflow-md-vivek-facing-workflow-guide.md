@@ -1,6 +1,6 @@
 # TICKET-M2 — Add WORKFLOW.md (Vivek-facing workflow guide)
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Estimated session length:** 45 – 60 min
 **Drafted by:** Vivek + Claude (chat 2026-05-10, immediately post-M1 merge)

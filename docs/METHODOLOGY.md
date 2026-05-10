@@ -1,5 +1,7 @@
 # METHODOLOGY.md
 
+For the day-to-day Vivek-facing workflow, see `docs/WORKFLOW.md`. This file documents the why and the conventions.
+
 How we work on this project. Read once, then refer back when in doubt.
 
 ---
