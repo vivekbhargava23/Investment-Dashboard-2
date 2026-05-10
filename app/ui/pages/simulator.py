@@ -10,9 +10,6 @@ from app.ui.render import render_html
 
 def render() -> None:
     render_html("""
-        <div style="font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 4px;">
-            Pre-trade Sell Simulator
-        </div>
         <div style="font-size: 13px; color: var(--text3); margin-bottom: 20px;">
             Preview the FIFO lot consumption, realised gain, and marginal tax impact of a
             hypothetical sell before recording it.
