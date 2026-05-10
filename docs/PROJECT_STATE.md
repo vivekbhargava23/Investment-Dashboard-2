@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-09 by Claude Code (TICKET-A3 in review)
+**Last updated:** 2026-05-10 by Claude Code (TICKET-A3 merged; TICKET-U1 in progress)
 
 ---
 
@@ -98,9 +98,9 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-A5 — Analytics: Concentration tab v1 (PR #43)
 - TICKET-A4 — Analytics: Position Sizer tab v1 (PR #45)
 - TICKET-A2 — Analytics: Correlation tab v1 (PR #46)
+- TICKET-A3 — Analytics: Technicals tab v1 (PR #47)
 
 ### In review 👀
-- TICKET-A3 — Analytics: Technicals tab v1
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
