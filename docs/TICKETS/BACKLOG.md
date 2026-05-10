@@ -112,6 +112,14 @@ The single index of all tickets. Status flows: DRAFT → READY → IN_PROGRESS �
 
 ---
 
+## Workflow & tooling
+
+| ID | Title | Status | Priority | Est |
+|---|---|---|---|---|
+| TICKET-M1 | Workflow vocabulary cleanup + GitHub Issues integration | READY | P1 | 2 – 2.5 hr |
+
+---
+
 ## Next up (in execution order)
 
 1. TICKET-U1 — Sidebar and topbar visual polish
