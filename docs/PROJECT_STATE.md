@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-10 by Claude Code (TICKET-M1 in review)
+**Last updated:** 2026-05-10 by Claude Code (TICKET-M1 merged, TICKET-M2 in review)
 
 ---
 
@@ -70,14 +70,14 @@ See `docs/ARCHITECTURE.md` for the full rules.
 **Milestone:** Workflow & tooling
 
 ### Done ✓ (last 5; full history in BACKLOG.md)
-- TICKET-A5 — Analytics: Concentration tab v1 (PR #43)
 - TICKET-A4 — Analytics: Position Sizer tab v1 (PR #45)
 - TICKET-A2 — Analytics: Correlation tab v1 (PR #46)
 - TICKET-A3 — Analytics: Technicals tab v1 (PR #47)
 - TICKET-U1 — Sidebar and topbar visual polish (PR #48)
+- TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration (PR #50)
 
 ### In review 👀
-- TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration
+- TICKET-M2 — Add WORKFLOW.md (Vivek-facing workflow guide)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -86,8 +86,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 (none)
 
 ### Next up 📋
-1. TICKET-M2 — Add WORKFLOW.md (Vivek-facing workflow guide)
-2. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
+1. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
