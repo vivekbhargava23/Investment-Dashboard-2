@@ -22,7 +22,6 @@ def _format_price(amount: Decimal, currency_symbol: str) -> str:
 
 
 def render() -> None:
-    st.markdown("# 📈 Research")
     st.caption("Type any ticker to see its chart, regardless of whether you own it.")
 
     resolver = get_ticker_resolver()

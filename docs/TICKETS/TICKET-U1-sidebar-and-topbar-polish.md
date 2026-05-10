@@ -1,6 +1,6 @@
 # TICKET-U1 — Sidebar and topbar visual polish
 
-**Status:** READY
+**Status:** IN_REVIEW
 **Priority:** P1
 **Estimated session length:** 90 min
 **Drafted by:** Vivek + Claude (chat session 2026-05-09)

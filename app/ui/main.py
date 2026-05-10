@@ -65,7 +65,7 @@ if "current_page" not in st.session_state:
 col_sidebar, col_main = st.columns([0.18, 0.82], gap="small")
 
 with col_sidebar:
-    st.markdown(render_sidebar(), unsafe_allow_html=True)
+    render_sidebar()
 
 with col_main:
     render_topbar()
