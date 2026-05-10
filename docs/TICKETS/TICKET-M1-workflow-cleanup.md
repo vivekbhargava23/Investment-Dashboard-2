@@ -1,10 +1,10 @@
 # TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration
 
-**Status:** IN_PROGRESS
+**Status:** IN_REVIEW
 **Priority:** HIGH
 **Estimated session length:** 2 – 2.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-10)
-**Implemented by:** <agent name> (session YYYY-MM-DD)
+**Implemented by:** Claude Code (sonnet-4.6) (session 2026-05-10)
 
 ## Problem
 

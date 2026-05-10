@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-10 by Claude Code (TICKET-M1 in progress)
+**Last updated:** 2026-05-10 by Claude Code (TICKET-M1 in review)
 
 ---
 
@@ -77,13 +77,13 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-U1 — Sidebar and topbar visual polish (PR #48)
 
 ### In review 👀
-(none)
+- TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
 
 ### In progress 🚧
-- TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration
+(none)
 
 ### Next up 📋
 1. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*

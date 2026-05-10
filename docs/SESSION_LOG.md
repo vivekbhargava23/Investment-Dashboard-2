@@ -1560,3 +1560,67 @@ Further polish applied to `ticket-A2-analytics-correlation` (same branch, no new
 
 ### Tokens used (rough)
 ~40k
+
+---
+
+## 2026-05-10 — TICKET-M1
+
+**Agent:** Claude Code (sonnet-4.6)
+**Duration:** ~60 min
+**Branch:** ticket-M1-workflow-cleanup
+**PR:** (opening this session)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- AGENTS.md: "Phase 1–9" → "Step 1–9"; added Step 0 for `gh issue list --label next-up`
+  resolution; Step 2 now detects merged state via `gh issue view <N> --json state`
+  instead of relying on Vivek's message; Step 5 adds `gh issue edit` label update;
+  Step 9 requires `Closes #N` in PR body
+- METHODOLOGY.md: Phase→Milestone, READY→QUEUED, P0-P3→CRITICAL/HIGH/MEDIUM/LOW,
+  DRAFT removed throughout; added Priority levels, Ticket lifecycle states, Milestones,
+  and "Chat handoff protocol" sections; "ticket-drafting checklist" updated for new vocab
+- ARCHITECTURE.md: `app/ui/pages/` listing updated to reflect actual current files
+  (overview.py, manage.py, tax.py, simulator.py, research.py, analytics.py, etc.)
+- ADR-005: status Proposed → Accepted; added `Accepted:` date line
+- BACKLOG.md: Phase N headers → Milestone headers; P0-P3 → CRITICAL-LOW; READY → QUEUED;
+  status legend updated; DRAFT removed from legend; Investment Panel placeholder ticket
+  Status column fixed
+- PROJECT_STATE.md: Phase/Sprint fields → Milestone; Done list trimmed to last 5 entries;
+  stale TICKET-013 parking-lot item removed; TICKET-M1 moved to In progress
+- tools/setup_github.sh: idempotent script creates 9 labels and 8 milestones (6 closed)
+- tools/draft_ticket.sh: reads spec from stdin, writes ticket file, updates BACKLOG.md
+  and PROJECT_STATE.md, creates GitHub issue with labels + milestone, commits + pushes
+- tools/update_backlog.py: appends ticket row to named Milestone table, optionally
+  updates Next up section
+- tools/update_state.py: prepends item to PROJECT_STATE.md Next up list
+- GitHub: labels and milestones created and verified (gh label list / milestones API)
+- TICKET-M1 housekeeping: TICKET-U1 (PR #48) marked MERGED at session start
+
+### Files touched
+- `AGENTS.md` — full ritual rewrite (Phase→Step, new Step 0, gh integration)
+- `docs/METHODOLOGY.md` — full vocabulary migration + new sections
+- `docs/ARCHITECTURE.md` — pages list updated
+- `docs/DECISIONS/ADR-005-eur-native-input.md` — status update
+- `docs/TICKETS/BACKLOG.md` — full vocabulary migration
+- `docs/PROJECT_STATE.md` — Milestone field, slim Done, update Next up
+- `docs/TICKETS/TICKET-M1-workflow-cleanup.md` — status IN_PROGRESS → IN_REVIEW
+- `tools/setup_github.sh` — new
+- `tools/draft_ticket.sh` — new
+- `tools/update_backlog.py` — new
+- `tools/update_state.py` — new
+
+### Tests
+586 passing → 586 passing (0 new — documentation-only ticket)
+
+### Decisions made during the session
+- `draft_ticket.sh` skips milestone assignment if milestone is closed (gh cli
+  only supports adding issues to open milestones); emits a warning instead of failing
+- Test of draft_ticket.sh was done from the feature branch by running update_backlog.py
+  directly (not via full script push to main) to avoid polluting main; gh issue creation
+  tested separately and verified — TICKET-MTEST #49 created with correct labels and closed
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~80k
