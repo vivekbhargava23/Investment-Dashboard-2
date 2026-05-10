@@ -1,5 +1,9 @@
 # Investment Dashboard
 
+## Working on this project
+
+If you're Vivek (or any future maintainer), start with [`docs/WORKFLOW.md`](docs/WORKFLOW.md). It walks through the four touchpoints end-to-end: drafting a ticket in chat, filing it with one shell block, saying `next` to Claude Code, and reviewing the PR.
+
 Personal investment dashboard for tracking a Scalable Capital portfolio — German tax-aware (FIFO, Sparerpauschbetrag), FX-aware, with live valuations and decision-support tooling.
 
 ## Setup
