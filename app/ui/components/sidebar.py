@@ -1,91 +1,85 @@
-import textwrap
 from datetime import date
 from typing import Any
 
 import streamlit as st
 
+from app.ui.render import render_html
+
 NAV_ITEMS: list[dict[str, Any]] = [
-    {"id": "overview",    "label": "Live Overview",      "icon": "◉", "badge": None},
-    {"id": "performance", "label": "Performance",        "icon": "↗", "badge": None},
-    {"id": "tax",         "label": "Tax Dashboard",      "icon": "§", "badge": None},
-    {"id": "analytics",   "label": "📊 Analytics",       "icon": "",   "badge": None},
+    # PORTFOLIO
+    {"id": "overview",    "label": "Live Overview",      "icon": "◉",  "badge": None},
+    {"id": "performance", "label": "Performance",        "icon": "↗",  "badge": None},
+    {"id": "tax",         "label": "Tax Dashboard",      "icon": "§",  "badge": None},
+    {"id": "analytics",   "label": "Analytics & Risk",   "icon": "⬡",  "badge": None},
     {"id": "research",    "label": "Research",           "icon": "📈", "badge": None},
+    # TOOLS
+    {"id": "simulator",   "label": "Sell Simulator",     "icon": "⚡", "badge": None},
+    {"id": "lots",        "label": "Lot Ledger",         "icon": "≡",  "badge": None},
     {
         "id": "decision",
         "label": "Decision Gates",
         "icon": "▲",
-        "badge": {"text": "3 flags", "color": ""}
+        "badge": {"text": "3 flags", "color": ""},
     },
-    {"id": "behaviour",   "label": "Behavioural Ledger", "icon": "◎", "badge": None},
-    {"id": "lots",        "label": "Lot Ledger",         "icon": "≡", "badge": None},
-    {"id": "simulator",   "label": "Sell Simulator",     "icon": "⚡", "badge": None},
-    {"id": "manage",      "label": "Manage Portfolio",   "icon": "⚙", "badge": None},
+    {"id": "behaviour",   "label": "Behavioural Ledger", "icon": "◎",  "badge": None},
+    # SETTINGS
+    {"id": "manage",      "label": "Manage Portfolio",   "icon": "⚙",  "badge": None},
 ]
 
-def render_sidebar() -> str:
-    """
-    Returns the HTML string for the sidebar.
-    The routing is handled via query params in the <a> tags.
-    """
+_SECTIONS: list[tuple[str, int, int]] = [
+    ("PORTFOLIO", 0, 5),
+    ("TOOLS",     5, 9),
+    ("SETTINGS",  9, 10),
+]
+
+
+def _nav_item_html(item: dict[str, Any], *, active: bool) -> str:
+    active_class = " active" if active else ""
+    badge = ""
+    if item["badge"]:
+        badge = f'<span class="nav-badge {item["badge"]["color"]}">{item["badge"]["text"]}</span>'
+    return (
+        f'<a href="/?page={item["id"]}" target="_self" class="nav-item-link{active_class}">'
+        f'<span class="nav-icon">{item["icon"]}</span>'
+        f'<span>{item["label"]}</span>'
+        f'{badge}'
+        f'</a>'
+    )
+
+
+def render_sidebar(*, today: date | None = None) -> None:
     current_page = st.session_state.get("current_page", "overview")
-    
-    # Brand block
-    brand_html = textwrap.dedent("""
-        <div class="sidebar-logo">
-            <div class="mark">
-                <div class="icon">📈</div>
-                <div class="name">Investment Panel</div>
-            </div>
-            <div class="sub">Scalable Capital · DE</div>
-        </div>
-    """).strip()
-    
-    # Nav items
-    nav_html = '<div class="sidebar-nav">'
-    
-    # Portfolio section
-    nav_html += '<div class="nav-section-label">Portfolio</div>'
-    for item in NAV_ITEMS[:-1]: # All except manage
-        active_class = "active" if current_page == item["id"] else ""
-        badge_html = ""
-        if item["badge"]:
-            badge_class = f"nav-badge {item['badge']['color']}"
-            badge_html = f'<span class="{badge_class}">{item["badge"]["text"]}</span>'
-        
-        nav_html += textwrap.dedent(f"""
-            <a href="/?page={item['id']}" target="_self" class="nav-item-link {active_class}">
-                <span class="nav-icon">{item['icon']}</span>
-                <span>{item['label']}</span>
-                {badge_html}
-            </a>
-        """).strip()
-    
-    # Settings section
-    nav_html += '<div class="nav-section-label">Settings</div>'
-    manage_item = NAV_ITEMS[-1]
-    active_class = "active" if current_page == manage_item["id"] else ""
-    nav_html += textwrap.dedent(f"""
-        <a href="/?page={manage_item['id']}" target="_self" class="nav-item-link {active_class}">
-            <span class="nav-icon">{manage_item['icon']}</span>
-            <span>{manage_item['label']}</span>
-        </a>
-    """).strip()
-    nav_html += '</div>' # close sidebar-nav
-    
-    # Footer
-    today = date.today().isoformat()
-    footer_html = textwrap.dedent(f"""
-        <div class="sidebar-footer">
-            <div><span class="live-dot"></span>Live prices</div>
-            <div>{today}</div>
-        </div>
-    """).strip()
-    
-    sidebar_html = textwrap.dedent(f"""
-        <div class="custom-sidebar">
-            {brand_html}
-            {nav_html}
-            {footer_html}
-        </div>
-    """).strip()
-    return sidebar_html
+    as_of = today or date.today()
+
+    brand_html = (
+        '<div class="sidebar-logo">'
+        '<div class="mark">'
+        '<div class="icon">📈</div>'
+        '<div class="name">Investment Panel</div>'
+        '</div>'
+        '</div>'
+    )
+
+    nav_parts: list[str] = ['<div class="sidebar-nav">']
+    for i, (label, start, end) in enumerate(_SECTIONS):
+        extra = " nav-section-label--after" if i > 0 else ""
+        nav_parts.append(f'<div class="nav-section-label{extra}">{label}</div>')
+        for item in NAV_ITEMS[start:end]:
+            nav_parts.append(_nav_item_html(item, active=current_page == item["id"]))
+    nav_parts.append('</div>')
+    nav_html = "".join(nav_parts)
+
+    footer_html = (
+        f'<div class="sidebar-footer">'
+        f'<div><span class="live-dot"></span>Live prices</div>'
+        f'<div>{as_of.isoformat()}</div>'
+        f'</div>'
+    )
+
+    render_html(
+        f'<div class="custom-sidebar">'
+        f'{brand_html}'
+        f'{nav_html}'
+        f'{footer_html}'
+        f'</div>'
+    )

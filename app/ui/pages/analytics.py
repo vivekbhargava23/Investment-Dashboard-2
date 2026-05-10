@@ -139,7 +139,6 @@ class _WiredNavSeriesProvider:
 
 
 def render() -> None:
-    st.markdown("# 📊 Analytics")
     st.caption(
         "Five lenses on your portfolio: performance, correlation, technicals,"
         " position sizing, concentration."

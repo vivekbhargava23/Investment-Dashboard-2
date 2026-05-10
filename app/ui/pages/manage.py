@@ -815,8 +815,6 @@ def render() -> None:
     _init_state(st.session_state)
     _apply_simulator_handoff(st.session_state)
 
-    st.markdown("<h2>Manage Portfolio</h2>", unsafe_allow_html=True)
-
     feedback = st.session_state.manage_feedback
     if feedback:
         level, msg = feedback

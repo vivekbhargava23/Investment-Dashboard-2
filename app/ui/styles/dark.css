@@ -149,6 +149,10 @@ body {
   text-transform: uppercase;
   color: var(--text3);
   padding: 10px 10px 4px;
+  margin-top: 0;
+}
+.nav-section-label--after {
+  margin-top: 12px;
 }
 
 /* Style for the custom <a> based navigation items */

@@ -123,8 +123,8 @@ def test_technicals_tab_body_is_called() -> None:
     mock_tech.assert_called_once()
 
 
-def test_page_header_uses_analytics_icon() -> None:
-    """st.markdown is called with '# 📊 Analytics' for the page header."""
+def test_no_duplicate_page_header() -> None:
+    """render() must not emit a duplicate h1/h2 page header (topbar owns the title)."""
     tabs = _make_tab_mocks(5)
     markdown_calls: list[str] = []
 
@@ -140,4 +140,6 @@ def test_page_header_uses_analytics_icon() -> None:
         mock_st.markdown.side_effect = lambda s, **kw: markdown_calls.append(str(s))
         analytics.render()
 
-    assert any("# 📊 Analytics" in s for s in markdown_calls)
+    assert not any("# 📊 Analytics" in s for s in markdown_calls), (
+        "Duplicate '# 📊 Analytics' header found — topbar already shows the page title"
+    )
