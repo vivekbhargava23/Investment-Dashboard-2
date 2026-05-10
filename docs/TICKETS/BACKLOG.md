@@ -101,7 +101,7 @@ The single index of all tickets. Status flows: QUEUED → IN_PROGRESS → IN_REV
 
 | ID | Title | Status | Priority | Est |
 |---|---|---|---|---|
-| TICKET-M1 | Workflow vocabulary cleanup + GitHub Issues integration | IN_PROGRESS | HIGH | 2 – 2.5 hr |
+| TICKET-M1 | Workflow vocabulary cleanup + GitHub Issues integration | IN_REVIEW | HIGH | 2 – 2.5 hr |
 
 ---
 
@@ -121,7 +121,7 @@ The single index of all tickets. Status flows: QUEUED → IN_PROGRESS → IN_REV
 
 ## Next up (in execution order)
 
-1. TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration *(in progress)*
+1. TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration *(in review)*
 2. *Panel framework brainstorm session*
 
 ---
