@@ -99,9 +99,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-A4 — Analytics: Position Sizer tab v1 (PR #45)
 - TICKET-A2 — Analytics: Correlation tab v1 (PR #46)
 - TICKET-A3 — Analytics: Technicals tab v1 (PR #47)
+- TICKET-U1 — Sidebar and topbar visual polish (PR #48)
 
 ### In review 👀
-- TICKET-U1 — Sidebar and topbar visual polish
+(none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
