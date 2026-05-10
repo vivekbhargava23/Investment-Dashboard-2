@@ -53,20 +53,42 @@ context and constraints. Read them even if your CLI does not auto-load them.
 
 When Vivek says "implement TICKET-XXX" (or any variation like "do TICKET-XXX",
 "work on TICKET-XXX", "start TICKET-XXX"), that is a **complete instruction**.
-Execute all nine phases below, in this exact order, with no skips and no reordering.
-Each phase depends on the previous one. Do not ask for confirmation between phases.
+Execute all ten steps below, in this exact order, with no skips and no reordering.
+Each step depends on the previous one. Do not ask for confirmation between steps.
 
-### Phase 1 — Verify clean main
+When Vivek says **"implement next ticket"** or just **"next"**, resolve the ticket
+via Step 0 below, then proceed from Step 1.
+
+### Step 0 — Resolve "next ticket" (only when not given an explicit ticket ID)
+
+```bash
+gh issue list --label next-up --state open --json number,title --limit 1
+```
+
+- **Exactly one result:** use that ticket. Announce it to Vivek before proceeding.
+- **Zero results:** stop and ask Vivek which ticket to pick up.
+- **Multiple results:** stop and report the inconsistency — only one issue should carry `next-up` at a time.
+
+If an explicit ticket ID was given (e.g. "implement TICKET-M1"), skip this step entirely.
+
+### Step 1 — Verify clean main
 
 ```bash
 git status                       # must be clean
 git checkout main && git pull    # sync with remote
 ```
 
-### Phase 2 — Housekeeping from previous ticket (if applicable)
+### Step 2 — Housekeeping from previous ticket (if applicable)
 
-Check whether the most recent ticket in `docs/PROJECT_STATE.md` under "In review"
-has already been merged (its PR is closed/merged on GitHub). If yes:
+Detect whether the previous ticket's issue has been merged by querying GitHub:
+
+```bash
+gh issue view <N> --json state -q .state
+```
+
+Where `<N>` is the issue number of the ticket listed under "In review 👀" in
+`docs/PROJECT_STATE.md`. If the output is `"CLOSED"`, the PR was merged — perform
+housekeeping:
 
 ```bash
 # Update the old ticket file: Status: IN_REVIEW → Status: MERGED
@@ -76,9 +98,13 @@ git commit -m "docs: mark TICKET-YYY as merged"
 git push origin main
 ```
 
-If no previous ticket is in review, or it hasn't been merged yet, skip this phase.
+If the "In review 👀" section is empty, or if `gh issue view` returns `"OPEN"`,
+skip this step.
 
-### Phase 3 — Confirm tests on main are green
+**Note:** The housekeeping signal is the GitHub issue state, not a message from
+Vivek. Do not rely on Vivek saying "I merged it" — query GitHub instead.
+
+### Step 3 — Confirm tests on main are green
 
 ```bash
 pytest -q
@@ -88,7 +114,7 @@ If `pytest` fails, **stop the entire session**. Tell Vivek:
 "main is broken before I started — this is a bug in a previously merged PR.
 I will not start TICKET-XXX until main is green." Open a hotfix ticket if needed.
 
-### Phase 4 — Read required files
+### Step 4 — Read required files
 
 Read the four files listed under "Required reading" above, plus the ticket file:
 
@@ -98,20 +124,28 @@ cat docs/TICKETS/TICKET-XXX-*.md
 
 If the ticket touches a specific module, also read that module's instruction file.
 
-### Phase 5 — Branch and mark in-progress
+### Step 5 — Branch and mark in-progress
 
 ```bash
 git checkout -b ticket-XXX-short-name
 ```
 
-Update the ticket file: `Status: READY` → `Status: IN_PROGRESS`
+Update the ticket file: `Status: QUEUED` → `Status: IN_PROGRESS`
 
-### Phase 6 — Implement
+Then update the GitHub issue labels:
 
-Write the code. Write the tests. This is the only phase where you create or edit
+```bash
+gh issue edit <N> --remove-label queued,next-up --add-label in-progress
+```
+
+(Where `<N>` is the GitHub issue number for this ticket.)
+
+### Step 6 — Implement
+
+Write the code. Write the tests. This is the only step where you create or edit
 source files under `app/` and `tests/`.
 
-### Phase 7 — Gate check (must pass before ANY commit)
+### Step 7 — Gate check (must pass before ANY commit)
 
 ```bash
 pytest && ruff check . && mypy app/ && lint-imports
@@ -120,7 +154,7 @@ pytest && ruff check . && mypy app/ && lint-imports
 If **any** check fails: **STOP**. See "Stop conditions" below.
 Do not commit. Do not push. Do not open a PR. Report the failure to Vivek.
 
-### Phase 8 — Commit, update docs, push (this exact order)
+### Step 8 — Commit, update docs, push (this exact order)
 
 ```bash
 # 8a. Commit the implementation
@@ -143,10 +177,18 @@ git push -u origin ticket-XXX-short-name
 They land on `main` when Vivek merges. There is no separate "doc update" step
 after the PR. If you push first and update docs later, they won't be in the PR.
 
-### Phase 9 — Open the PR and stop
+### Step 9 — Open the PR and stop
+
+The PR body **must** include `Closes #<N>` (where `<N>` is the GitHub issue number)
+so the issue auto-closes when Vivek merges:
 
 ```bash
-gh pr create --fill --base main
+gh pr create --base main --title "<title>" --body "$(cat <<'EOF'
+<description>
+
+Closes #<N>
+EOF
+)"
 ```
 
 Print a summary for Vivek:
@@ -163,7 +205,7 @@ Ready for your review.
 
 ---
 
-## Hard stop rules (after Phase 9)
+## Hard stop rules (after Step 9)
 
 After printing the PR URL:
 
@@ -184,12 +226,12 @@ You do not need to do anything else.
 
 - Do NOT update any files.
 - Do NOT commit or push.
-- Do NOT update the ticket status to MERGED — that happens in Phase 2 of the *next* session.
+- Do NOT update the ticket status to MERGED — that happens in Step 2 of the *next* session.
 - Do NOT write to `main`.
 
-The merge itself landed all your branch commits (including the doc updates from Phase 8b)
-onto `main`. The MERGED status bookkeeping is handled automatically when the next ticket
-starts (Phase 2). Your session is over.
+The merge itself landed all your branch commits (including the doc updates from Step 8b)
+onto `main`. The MERGED status bookkeeping happens automatically at the start of the next
+session (Step 2) by querying `gh issue view <N> --json state`. Your session is over.
 
 ---
 
@@ -226,4 +268,4 @@ Do not attempt heroic recovery. Stopping early is cheap; a bad merge is expensiv
 - ❌ Disable a failing test to make CI pass. If a test is wrong, fix the test in a separate commit with explanation. If it's flaky, open a ticket.
 - ❌ `git push --force` on a branch with an open PR without saying so explicitly in your next message to Vivek.
 - ❌ Write to `main` after Vivek says he merged the PR. The session is over. See "When Vivek says 'I merged it'" above.
-- ❌ Treat doc updates (SESSION_LOG, PROJECT_STATE, ticket status) as post-PR housekeeping. They are Phase 8b — before push, before PR. Always.
+- ❌ Treat doc updates (SESSION_LOG, PROJECT_STATE, ticket status) as post-PR housekeeping. They are Step 8b — before push, before PR. Always.
