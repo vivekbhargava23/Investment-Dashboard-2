@@ -50,14 +50,5 @@ def render_topbar() -> None:
         """).strip(), unsafe_allow_html=True)
     
     with col2:
-        # Streamlit buttons have their own styling, but we'll try to match the mockup
         if st.button("Refresh", key="topbar_refresh", use_container_width=False, on_click=_handle_refresh):  # noqa: E501
-            pass # rerunning is handled in _handle_refresh
-
-    # Add a horizontal line to complete the topbar look if needed, 
-    # though the .topbar class in CSS already has a border-bottom.
-    # Since we split into columns, we might need a wrapper.
-    st.markdown(
-        '<div style="margin-top: -10px; border-bottom: 1px solid var(--border);"></div>',
-        unsafe_allow_html=True
-    )
+            pass
