@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-10 by Claude Code (TICKET-U1 in review)
+**Last updated:** 2026-05-10 by Claude Code (TICKET-M1 in progress)
 
 ---
 
@@ -67,34 +67,9 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ## Current status
 
-**Phase:** 0 — Foundation
-**Sprint:** Sprint 0 — Repo setup and architecture scaffolding
+**Milestone:** Workflow & tooling
 
-### Done ✓
-- TICKET-000 — Repo scaffolding and CI setup
-- TICKET-001 — Domain models (Lot, Transaction, Position, Money, Currency)
-- TICKET-002 — FIFO engine with replay-on-edit
-- TICKET-003 — JSON Transaction Repository (port + adapter)
-- TICKET-004-005 — yfinance adapter (prices + FX)
-- TICKET-006 — Valuation service (lots × prices × FX → positions)
-- TICKET-007 — Streamlit shell refactor + light theme
-- TICKET-008 — Live Overview page (KPI tiles + positions table)
-- TICKET-008b — Positions table HTML leak fix + render_html helper
-  (also: fixed pre-existing test import break: test_html_helper.py referenced app.ui.html instead of app.ui.render)
-- TICKET-008c — Currency enum JPY, ticker↔currency validator, LegacyDataError, migration script (PR #19)
-- TICKET-020 — TickerResolver port + yfinance adapter (PR #20)
-- TICKET-009-revised — Manage Portfolio page (EUR-native input, two-step form) (PR #21)
-- TICKET-010 — Tax engine (Sparerpauschbetrag, Verlustverrechnungstöpfe, Teilfreistellung, Abgeltungsteuer) (PR #22)
-- TICKET-011 — Tax Dashboard page (YTD tiles, harvest opportunity, tax exposure, profile editor) (PR #23)
-- TICKET-012 — Pre-trade sell simulator (FIFO lot preview, marginal tax, portfolio impact, Manage Portfolio handoff) (PR #26)
-- TICKET-021 — Smooth ticker autocomplete (disk cache + streamlit-searchbox) (PR #27)
-- TICKET-023 — EUR-denominated & unsupported-suffix price check + Add form UX (price-per-share input, shares step=1, back-navigation state restore) (PR #28)
-- TICKET-024 — Sell simulator cold-start performance (PR #29)
-- TICKET-022a — Chart service + Plotly components (OHLC, line, sparkline) (PR #37)
-- TICKET-022b — Research page + Live Overview chart integration (PR #38)
-- TICKET-013 — Daily NAV snapshot service
-- TICKET-A0 — Analytics page shell + analytics stats library (PR #41)
-- TICKET-A1 — Analytics: Performance tab v1 (PR #42)
+### Done ✓ (last 5; full history in BACKLOG.md)
 - TICKET-A5 — Analytics: Concentration tab v1 (PR #43)
 - TICKET-A4 — Analytics: Position Sizer tab v1 (PR #45)
 - TICKET-A2 — Analytics: Correlation tab v1 (PR #46)
@@ -108,12 +83,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
 
 ### In progress 🚧
-- (none)
+- TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration
 
-
-### Next up 📋 (in order)
-1. TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration
-2. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
+### Next up 📋
+1. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
@@ -138,7 +111,6 @@ See `docs/DECISIONS/` for full ADRs.
 
 - **Investment Panel framework** — schema-first design pending in a dedicated brainstorm session. See `docs/PANEL_BRAINSTORM_HANDOFF.md`. Old TICKET-016 / 017 / 018 (Thesis state, Decision Gates, Behavioural Ledger) likely get replaced by Panel-driven equivalents once the schema lands.
 - **Hardcoded `_PLACEHOLDER_THESIS_STATUS` / `_PLACEHOLDER_HORIZON` dicts in `app/ui/pages/overview.py`** — still 12-ticker fixed. Adding a 13th ticker via Manage Portfolio defaults silently. Slated to migrate to Panel-managed JSON once schema lands; not blocking.
-- **TICKET-013 (Daily NAV cache)** — drafted as READY (2026-05-08). Decided to proceed independently of the Panel design; the snapshot table is foundational enough that Panel work can layer on top later if needed.
 
 ---
 

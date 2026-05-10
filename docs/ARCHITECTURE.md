@@ -137,13 +137,16 @@ investment-dashboard/
 │   └── ui/
 │       ├── app.py            # Streamlit entry
 │       ├── pages/
-│       │   ├── 01_live_overview.py
-│       │   ├── 02_performance.py
-│       │   ├── 03_tax_dashboard.py
-│       │   ├── 04_decision_gates.py
-│       │   ├── 05_behavioural_ledger.py
-│       │   ├── 06_lot_ledger.py
-│       │   └── 07_manage_portfolio.py
+│       │   ├── overview.py        # Live Overview (KPI tiles + positions table + sparklines)
+│       │   ├── manage.py          # Manage Portfolio (add/edit/delete transactions)
+│       │   ├── tax.py             # Tax Dashboard (Sparerpauschbetrag tracker, harvest)
+│       │   ├── simulator.py       # Pre-trade sell simulator
+│       │   ├── research.py        # Research page (OHLC chart, fundamentals)
+│       │   ├── analytics.py       # Analytics & Risk (Performance, Concentration, Correlation, Technicals, Position Sizer tabs)
+│       │   ├── lots.py            # Lot Ledger
+│       │   ├── performance.py     # Performance page
+│       │   ├── behaviour.py       # Behavioural Ledger
+│       │   └── decision.py        # Decision Gates
 │       ├── components/       # Reusable UI bits
 │       ├── format.py
 │       └── styles/dark.css

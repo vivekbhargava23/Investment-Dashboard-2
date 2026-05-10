@@ -49,32 +49,71 @@ How you switch models depends on your CLI (e.g. Claude Code: `/model opus`; Code
 ## The ticket lifecycle
 
 ```
-DRAFT (chat surface) → READY (file in TICKETS/) → IN_PROGRESS (implementation agent) →
-IN_REVIEW (PR open) → MERGED (next session housekeeping) → SHIPPED (in main)
+QUEUED → IN_PROGRESS → IN_REVIEW → MERGED
 ```
 
 **Who sets each status:**
 
 | Transition | Who does it | When |
 |---|---|---|
-| DRAFT → READY | Vivek (after chat drafting session) | Ticket file committed to `docs/TICKETS/` |
-| READY → IN_PROGRESS | Implementation agent | Phase 5 of the ritual (branching) |
-| IN_PROGRESS → IN_REVIEW | Implementation agent | Phase 8b of the ritual (pre-push doc commit) |
-| IN_REVIEW → MERGED | Implementation agent | Phase 2 of the *next* ticket's ritual (housekeeping) |
-| MERGED → SHIPPED | Vivek (optional) | Ticket file archived or deleted |
+| (chat draft) → QUEUED | Vivek (after chat drafting session) | Ticket file committed to `docs/TICKETS/`; GitHub issue created |
+| QUEUED → IN_PROGRESS | Implementation agent | Step 5 of the ritual (branching) |
+| IN_PROGRESS → IN_REVIEW | Implementation agent | Step 8b of the ritual (pre-push doc commit) |
+| IN_REVIEW → MERGED | Implementation agent | Step 2 of the *next* ticket's ritual (housekeeping) |
 
 **Note:** The agent does NOT update status to MERGED in the same session it opens the PR.
-The MERGED transition happens at the start of the next session, after confirming the PR
-was actually merged. This prevents the failure mode where an agent writes to `main` after
-being told "I merged it."
+The MERGED transition happens at the start of the next session, after confirming via
+`gh issue view <N> --json state -q .state` that the issue is CLOSED. This prevents the
+failure mode where an agent writes to `main` after being told "I merged it."
+
+## Ticket lifecycle states
+
+- **QUEUED** — spec is complete and committed to `docs/TICKETS/`. GitHub issue exists with label `queued`. Waiting to be picked up. (Note: "queued" intentionally avoids "ready" because "ready" reads as an instruction; "queued" is a state.)
+- **IN_PROGRESS** — branch open, work happening. Issue label `in-progress`.
+- **IN_REVIEW** — PR open, awaiting Vivek's merge. Implicit (no label needed) when issue has a linked open PR.
+- **MERGED** — landed on main. Implicit (issue is closed by `Closes #N` in PR body).
+
+Edge cases:
+- **CLOSED** — abandoned without merging. Issue closed manually with reason "not planned".
+- **SUPERSEDED** — replaced by a later ticket. Label `superseded`, issue closed.
+
+There is no DRAFT status. Tickets are drafted in chat; they only land in `docs/TICKETS/` once they are QUEUED.
+
+---
+
+## Priority levels
+
+- **CRITICAL** — data correctness, security, or blocks active work. Drop everything.
+- **HIGH** — core feature for the current Milestone.
+- **MEDIUM** — polish or quality-of-life on shipped work.
+- **LOW** — speculative, or contingent on a design decision not yet made.
+
+---
+
+## Milestones
+
+Milestones group tickets by feature theme. A Milestone is "open" while it has unmerged tickets in it; "shipped" once all its tickets are MERGED. Milestones don't have deadlines — they're organizing buckets, not deliverable targets.
+
+Current Milestones (mirrored as GitHub Milestones):
+- **Foundation** (data model, FIFO, repository) — shipped
+- **UI core** (shell, Live Overview, Manage Portfolio) — shipped
+- **Tax engine** (engine, dashboard, simulator) — shipped
+- **Charts & research** — shipped
+- **Analytics & Risk** — shipped
+- **UI polish** — shipped
+- **Investment Panel** — pending design
+
+Each ticket is assigned to exactly one Milestone via the GitHub issue's `milestone` field, mirroring the BACKLOG.md grouping.
+
+---
 
 ### A ticket file looks like this
 
 ```markdown
 # TICKET-XXX — Short title
 
-**Status:** READY | IN_PROGRESS | IN_REVIEW | MERGED
-**Priority:** P0 | P1 | P2
+**Status:** QUEUED | IN_PROGRESS | IN_REVIEW | MERGED
+**Priority:** CRITICAL | HIGH | MEDIUM | LOW
 **Estimated session length:** 30 min | 1 hr | 2 hr
 **Drafted by:** Vivek + AI (chat session YYYY-MM-DD)
 **Implemented by:** <agent name> (session YYYY-MM-DD)
@@ -107,17 +146,50 @@ Any context the implementation agent needs that isn't in the architecture docs.
 
 ## Ticket-drafting checklist (chat surface)
 
-Before a ticket moves from DRAFT → READY, walk this list. Each item is a real lesson from a session that went sideways.
+Before a ticket moves from chat draft → QUEUED, walk this list. Each item is a real lesson from a session that went sideways.
 
 - [ ] **Bench-test the spec against the real workflow.** Open the actual application or service the user will use, and trace the spec against what they actually see and have. *Lesson from TICKET-009 (2026-05-04):* the original form spec was internally consistent and demanded fields (native price, FX rate) that Scalable Capital's confirmations don't surface. The user couldn't fill those fields without inventing data, and the form happily accepted invented data. Three silent-corruption bugs followed. A 5-minute thought experiment of "what would I actually type into this form when looking at a Scalable confirmation?" would have caught the mismatch before any code was written.
 - [ ] **No "documented approximation" placeholders.** If the spec says "use X as approximation; Y not supported in v1" that is a future bug. Approximations marked TODO have a way of staying. Either properly support what is needed, or leave it out entirely with no half-implementation. *Lesson from TICKET-008c (2026-05-04):* the seed CSV's `5631.T,...,USD,...,Japan Steel Works (use USD as approximation; KRW/JPY not supported in v1)` produced €4,000 of fake gain on Live Overview that the user only caught months later because the absolute number happened to be implausible.
 - [ ] **No module names that collide with Python stdlib.** `html`, `email`, `string`, `io`, `time`, `json`, `logging`, `csv`, `tokenize`, `code` — any of these as a filename in your package will shadow the stdlib in unpredictable contexts. *Lesson from TICKET-008b (2026-05-04):* `app/ui/html.py` shadowed `html` in Streamlit's import context, breaking the bs4 → yfinance import chain on app startup.
 - [ ] **No silent fallback to a default value without surfacing it.** If the form's "FX rate auto-fill" can quietly fall back to `1.0` when yfinance is offline, that is silent corruption waiting to happen. Every fallback path either (a) surfaces a banner the user must acknowledge, or (b) refuses to submit. *Lesson from TICKET-009 (2026-05-04).*
 - [ ] **Test cases include at least one that would catch the real-world failure mode.** "Tests pass" is necessary, not sufficient — a test that asserts the form *constructs a Transaction* says nothing about whether the form *records the right values*. Aim for one acceptance test per spec rule that would observably fail if the rule were violated.
-- [ ] **Update `PROJECT_STATE.md`'s "Next up" list when marking a ticket READY.** When a ticket's status moves DRAFT → READY, add it to the ordered "Next up" list in the position it should run in, and demote/remove any items it supersedes. The implementation agent reads "Next up" before BACKLOG; if the pointer is stale, the wrong ticket gets picked. *Lesson from 2026-05-09:* TICKET-013, A0, and A1 all moved DRAFT → READY in successive chat sessions, but "Next up" still pointed to the Panel brainstorm. Claude Code was told "implement the next ticket," looked at READY tickets, and picked A0 instead of 013.
+- [ ] **Update `PROJECT_STATE.md`'s "Next up" list when marking a ticket QUEUED.** When a ticket's status moves from chat draft → QUEUED, add it to the ordered "Next up" list in the position it should run in, and demote/remove any items it supersedes. The implementation agent reads "Next up" before BACKLOG; if the pointer is stale, the wrong ticket gets picked. *Lesson from 2026-05-09:* TICKET-013, A0, and A1 all moved to QUEUED in successive chat sessions, but "Next up" still pointed to the Panel brainstorm. Claude Code was told "implement the next ticket," looked at QUEUED tickets, and picked A0 instead of 013.
 - [ ] **Re-check the parking lot.** If the new ticket resolves an item in `PROJECT_STATE.md`'s "Open questions / parking lot," remove or update that bullet in the same commit.
 
 The first two items are about the *spec*; the last three are about the *implementation*. Both can be checked at draft time. None of them require running code.
+
+---
+
+## The chat handoff protocol
+
+When Claude Chat (or any chat surface) drafts a ticket, the final response **must** be structured as a **Standard Handoff Bundle**:
+
+1. **Ticket file content** — delivered as a `.md` file (not pasted inline in chat), ready to write to `docs/TICKETS/TICKET-<N>-<slug>.md`.
+2. **Milestone assignment** — which Milestone in BACKLOG.md the ticket goes into.
+3. **Whether it should be marked `next-up`** — true or false.
+4. **ADR file content** — if any architectural decision was made, also as a `.md` file for `docs/DECISIONS/`.
+5. **One shell block** invoking `tools/draft_ticket.sh` with the spec on stdin.
+
+**If Vivek runs the shell block, the entire repo state update is one paste.** He never edits BACKLOG.md or PROJECT_STATE.md by hand. The script:
+- Writes the ticket file to `docs/TICKETS/`
+- Updates BACKLOG.md (appends the row to the correct Milestone table)
+- Updates `PROJECT_STATE.md` "Next up" pointer if `next-up=true`
+- Creates the GitHub issue with labels matching priority + `queued` (+ `next-up` if applicable)
+- Commits with `docs: draft TICKET-<N> <title>`
+- Pushes to main
+
+The spec format piped to `tools/draft_ticket.sh`:
+
+```
+ID: TICKET-<NNN>
+TITLE: <one-line title>
+MILESTONE: <name, must match an existing Milestone>
+PRIORITY: CRITICAL | HIGH | MEDIUM | LOW
+ESTIMATE: <free text, e.g. "1 – 1.5 hr">
+NEXT_UP: true | false
+---
+<full markdown ticket body, including the Status/Priority/etc. header lines>
+```
 
 ---
 
@@ -159,7 +231,7 @@ The complete ritual is in `AGENTS.md`. Summary:
 5. Update the ticket file's `Status:` line.
 6. Commit the doc updates (step 3–5) as a separate `docs:` commit **on the branch, before pushing**.
 7. Push branch.
-8. Open PR with `gh pr create --fill --base main`.
+8. Open PR with `gh pr create --base main` — body must include `Closes #<N>`.
 9. Print PR URL for Vivek.
 10. **Stop. Do not do anything else.**
 
@@ -244,6 +316,6 @@ Vivek commits all three in one commit: `docs: ADR-XXX <title>`. Or — better �
 - ❌ Open-ended fix instructions like "reconcile X and Y" or "consolidate the implementation" → Scope-expansion verbs license agents to rewrite far beyond the actual bug. Bug-fix tickets get explicit "Files NOT to modify" sections. *Lesson from TICKET-008b debugging (2026-05-04):* "fix the problem" produced a sprawling consolidated diff; the targeted fix was 30 lines.
 - ❌ Documented approximations in seed data ("use X as proxy; Y not supported v1") → File a real ticket or omit. The TODO will not get done before it bites.
 - ❌ Silent fallbacks to default values when an upstream lookup fails → Either show the user, or refuse to proceed. Never both fail and continue.
-- ❌ Doc updates after the PR is opened → Doc updates are Phase 8b, committed on the branch before push. Never after.
-- ❌ Writing to `main` after Vivek says "merged" → The session is over. MERGED status is set in the next session's Phase 2.
-- ❌ Drafting new READY tickets without updating `PROJECT_STATE.md`'s "Next up" pointer → The agent reads "Next up" first. Stale pointers cause the wrong ticket to be picked up. Drafting a ticket and updating the pointer are one atomic chat-session output, not two.
+- ❌ Doc updates after the PR is opened → Doc updates are Step 8b, committed on the branch before push. Never after.
+- ❌ Writing to `main` after Vivek says "merged" → The session is over. MERGED status is set in the next session's Step 2.
+- ❌ Drafting new QUEUED tickets without updating `PROJECT_STATE.md`'s "Next up" pointer → The agent reads "Next up" first. Stale pointers cause the wrong ticket to be picked up. Drafting a ticket and updating the pointer are one atomic chat-session output, not two.
