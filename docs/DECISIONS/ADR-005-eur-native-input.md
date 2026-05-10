@@ -1,8 +1,9 @@
 # ADR-005 — User input is EUR-native; currency and FX are inferred
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-05-04
 **Drafted by:** Vivek + Claude (chat 2026-05-04)
+**Accepted:** 2026-05-04 (TICKET-009-revised, TICKET-008c, TICKET-020 all merged).
 **Supersedes / amends:** None (extends ADR-004)
 
 ---
