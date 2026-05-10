@@ -1624,3 +1624,39 @@ Further polish applied to `ticket-A2-analytics-correlation` (same branch, no new
 
 ### Tokens used (rough)
 ~80k
+
+---
+
+## 2026-05-10 — TICKET-M2
+
+**Agent:** Claude Code (sonnet-4.6)
+**Duration:** ~20 min
+**Branch:** ticket-M2-add-workflow-md
+**PR:** pending
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created `docs/WORKFLOW.md`: Vivek-facing, second-person, recipe-style guide
+  covering the four touchpoints, vocabulary cheatsheet, edge-case recipes,
+  M1 transitional section, and footer cross-reference table
+- `README.md`: added "Working on this project" section with link to WORKFLOW.md
+- `docs/METHODOLOGY.md`: added cross-link line at top
+- `AGENTS.md`: added cross-link line near top clarifying file is for the agent
+
+### Files touched
+- `docs/WORKFLOW.md` — new
+- `README.md` — one section added
+- `docs/METHODOLOGY.md` — one line added at top
+- `AGENTS.md` — one line added near top
+
+### Tests
+586 passing → 586 passing (0 new — documentation-only ticket)
+
+### Decisions made during the session
+- No architectural decisions made
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~20k
