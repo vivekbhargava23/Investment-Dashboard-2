@@ -86,7 +86,8 @@ See `docs/ARCHITECTURE.md` for the full rules.
 (none)
 
 ### Next up 📋
-1. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
+1. TICKET-M2 — Add WORKFLOW.md (Vivek-facing workflow guide)
+2. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
