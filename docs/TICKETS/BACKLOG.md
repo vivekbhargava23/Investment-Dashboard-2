@@ -106,6 +106,13 @@ The single index of all tickets. Status flows: QUEUED → IN_PROGRESS → IN_REV
 
 ---
 
+## Milestone — Company Deep Dive
+
+| ID | Title | Status | Priority | Est |
+|---|---|---|---|---|
+
+---
+
 ## Milestone — Investment Panel framework (pending design)
 
 > See `docs/PANEL_BRAINSTORM_HANDOFF.md`. Schema-first design pending. The tickets below are placeholders from the original plan; they will likely be replaced by Panel-driven equivalents once the schema lands.
