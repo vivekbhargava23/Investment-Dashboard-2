@@ -137,6 +137,7 @@ cython_debug/
 # Local application data
 data/*
 !data/.gitkeep
+data/companies/
 data/*.json.pre-tx-migration
 data/*.backup-*
 data/tax_profile.json
