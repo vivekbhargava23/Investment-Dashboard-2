@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-12 by Claude Code (TICKET-025 in review)
+**Last updated:** 2026-05-13 by Claude Code (TICKET-025 merged; TICKET-M3 starting)
 
 ---
 
@@ -74,9 +74,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-U1 — Sidebar and topbar visual polish (PR #48)
 - TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration (PR #50)
 - TICKET-M2 — Add WORKFLOW.md (Vivek-facing workflow guide) (PR #52)
+- TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL (PR #53)
 
 ### In review 👀
-- TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL
+(none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.

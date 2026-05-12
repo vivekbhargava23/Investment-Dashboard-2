@@ -1,6 +1,6 @@
 # TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL
 
-**Status:** IN_REVIEW
+**Status:** MERGED
 **Priority:** HIGH
 **Estimated session length:** 1.5 – 2 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-12)
