@@ -86,7 +86,8 @@ See `docs/ARCHITECTURE.md` for the full rules.
 (none)
 
 ### Next up 📋
-1. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
+1. TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL
+2. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
 
