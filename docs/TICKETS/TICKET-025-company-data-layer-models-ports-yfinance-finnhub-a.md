@@ -1,10 +1,10 @@
 # TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL
 
-**Status:** QUEUED
+**Status:** IN_REVIEW
 **Priority:** HIGH
 **Estimated session length:** 1.5 – 2 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-12)
-**Implemented by:** _pending_
+**Implemented by:** Claude Code (sonnet-4.6) (session 2026-05-12)
 **Depends on:** TICKET-001 (domain Money), TICKET-020 (TickerResolver port — for ticker validation conventions), TICKET-022a (`OhlcDataProvider` — reuse the price history adapter)
 
 > **After this ticket merges, the dashboard can fetch and cache a full company profile.** A new `app/domain/company.py` defines `CompanyData` and its sub-models (profile, latest quote, price history pointer, fundamentals, multiples, dividends, ownership, insider transactions). A `CompanyDataProvider` Port is added under `app/ports/`. Two adapters ship: a `company_yfinance` adapter that fills what yfinance can fill, and a `company_finnhub` adapter that fills the rest (next earnings, insider transactions, institutional holders). A third decorator adapter `company_cache` wraps either real adapter with per-section JSON caching at `data/companies/`. **No UI in this ticket.** Tabs and pages come in C2–C7.

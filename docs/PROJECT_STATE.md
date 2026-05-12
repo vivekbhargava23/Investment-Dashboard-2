@@ -4,7 +4,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-12 by Claude Code (TICKET-M2 merged, starting TICKET-025)
+**Last updated:** 2026-05-12 by Claude Code (TICKET-025 in review)
 
 ---
 
@@ -67,7 +67,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ## Current status
 
-**Milestone:** Workflow & tooling
+**Milestone:** Company Deep Dive
 
 ### Done ✓ (last 5; full history in BACKLOG.md)
 - TICKET-A3 — Analytics: Technicals tab v1 (PR #47)
@@ -76,7 +76,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-M2 — Add WORKFLOW.md (Vivek-facing workflow guide) (PR #52)
 
 ### In review 👀
-(none)
+- TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -85,7 +85,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 (none)
 
 ### Next up 📋
-1. TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL
+1. *C2 — Company Deep Dive page and Snapshot tab (depends on TICKET-025 merging)*
 2. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
