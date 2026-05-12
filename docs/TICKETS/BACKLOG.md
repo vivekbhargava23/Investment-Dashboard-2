@@ -109,6 +109,7 @@ The single index of all tickets. Status flows: QUEUED → IN_PROGRESS → IN_REV
 ## Milestone — Company Deep Dive
 
 | ID | Title | Status | Priority | Est |
+| TICKET-025 | Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL | QUEUED | HIGH | 1.5 – 2 hr |
 |---|---|---|---|---|
 
 ---
@@ -129,6 +130,7 @@ The single index of all tickets. Status flows: QUEUED → IN_PROGRESS → IN_REV
 
 ## Next up (in execution order)
 
+1. TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL
 1. TICKET-M2 — Add WORKFLOW.md (Vivek-facing workflow guide)
 1. TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration *(in review)*
 2. *Panel framework brainstorm session*
