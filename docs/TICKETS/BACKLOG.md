@@ -110,7 +110,7 @@ The single index of all tickets. Status flows: QUEUED → IN_PROGRESS → IN_REV
 ## Milestone — Company Deep Dive
 
 | ID | Title | Status | Priority | Est |
-| TICKET-025 | Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL | QUEUED | HIGH | 1.5 – 2 hr |
+| TICKET-025 | Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL | IN_REVIEW | HIGH | 1.5 – 2 hr |
 |---|---|---|---|---|
 
 ---
