@@ -1660,3 +1660,57 @@ Further polish applied to `ticket-A2-analytics-correlation` (same branch, no new
 
 ### Tokens used (rough)
 ~20k
+
+---
+
+## 2026-05-12 — TICKET-025
+
+**Agent:** Claude Code (sonnet-4.6)
+**Duration:** ~90 min
+**Branch:** ticket-025-company-data-layer
+**PR:** pending
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created `app/domain/company.py` — all 12 domain models (CompanyProfile, LatestQuote, PriceHistoryPoint, QuarterlyFundamentals, AnnualFundamentals, CurrentMultiples, DividendEvent, InstitutionalHolder, InsiderTransaction, OwnershipSnapshot, NextCatalyst, CompanyData), all frozen Pydantic v2
+- Created `app/ports/company_data.py` — CompanyDataProvider runtime_checkable Protocol + CompanyDataError
+- Created `app/adapters/company_yfinance/` — fills profile, quote, price history, fundamentals (quarterly + annual), multiples, dividends from yfinance
+- Created `app/adapters/company_finnhub/` — fills next_catalyst and ownership (institutional holders, insider transactions) from Finnhub REST API
+- Created `app/adapters/company_composite/` — merges two providers; yfinance wins for all sections except ownership/next_catalyst where Finnhub wins
+- Created `app/adapters/company_cache/` — per-section JSON cache (profile.json/prices.json/financials.json), TTL logic, atomic writes via os.replace, corrupt-file recovery
+- Created `app/adapters/company_cache/ttl.py` — NYSE-hours-aware prices_ttl() function
+- Created `app/adapters/company_factory.py` — build_company_provider() wiring
+- Created `app/services/company.py` — get_company() and refresh_company_section() thin services
+- Updated `.gitignore` — added data/companies/
+- 46 new unit tests across domain, adapters (cache, composite, TTL), and services
+- 2 integration tests (yfinance + Finnhub, gated behind @pytest.mark.integration)
+
+### Files touched
+- `app/domain/company.py` — new
+- `app/ports/company_data.py` — new
+- `app/adapters/company_yfinance/__init__.py`, `adapter.py` — new
+- `app/adapters/company_finnhub/__init__.py`, `adapter.py` — new
+- `app/adapters/company_composite/__init__.py`, `adapter.py` — new
+- `app/adapters/company_cache/__init__.py`, `adapter.py`, `ttl.py` — new
+- `app/adapters/company_factory.py` — new
+- `app/services/company.py` — new
+- `tests/unit/domain/test_company_models.py` — new (18 tests)
+- `tests/unit/adapters/test_company_cache.py` — new (11 tests)
+- `tests/unit/adapters/test_company_ttl.py` — new (7 tests)
+- `tests/unit/adapters/test_company_composite.py` — new (7 tests)
+- `tests/unit/services/test_company_service.py` — new (4 tests)
+- `tests/integration/test_company_yfinance.py` — new (2 tests, integration-gated)
+- `tests/integration/test_company_finnhub.py` — new (2 tests, integration-gated)
+- `.gitignore` — appended data/companies/
+
+### Tests
+586 passing → 632 passing (46 new unit tests; 4 integration tests skipped in offline CI)
+
+### Decisions made during the session
+- No new architectural decisions; all design was pre-settled in the ticket spec
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~90k
