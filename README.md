@@ -2,7 +2,7 @@
 
 ## Working on this project
 
-If you're Vivek (or any future maintainer), start with [`docs/WORKFLOW.md`](docs/WORKFLOW.md). It walks through the four touchpoints end-to-end: drafting a ticket in chat, filing it with one shell block, saying `next` to Claude Code, and reviewing the PR.
+If you're Vivek (or any future maintainer), start with [`docs/VIVEK.md`](docs/VIVEK.md). It's a one-page reference covering the entire workflow.
 
 ### For chat sessions
 
@@ -66,7 +66,6 @@ lint-imports
 
 ## Docs
 
-- [Project state](docs/PROJECT_STATE.md)
+- [Project state](docs/STATE.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Methodology](docs/METHODOLOGY.md)
-- [Session log](docs/SESSION_LOG.md)
