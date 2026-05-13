@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Update PROJECT_STATE.md "Next up 📋" section.
+Update STATE.md "Next up 📋" section.
 
 Usage:
     python tools/update_state.py --id TICKET-042 --title "My ticket title"
@@ -12,7 +12,7 @@ always fully rebuilt from GitHub Issues (not prepended).
 import argparse
 from pathlib import Path
 
-STATE = Path("docs/PROJECT_STATE.md")
+STATE = Path("docs/STATE.md")
 
 
 def update_next_up(ticket_id: str, title: str) -> None:  # noqa: ARG001 (backwards compat args)

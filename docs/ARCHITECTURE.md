@@ -108,7 +108,7 @@ investment-dashboard/
 │   ├── PULL_REQUEST_TEMPLATE.md
 │   └── workflows/ci.yml
 ├── docs/
-│   ├── PROJECT_STATE.md
+│   ├── STATE.md
 │   ├── METHODOLOGY.md
 │   ├── ARCHITECTURE.md
 │   ├── SESSION_LOG.md
