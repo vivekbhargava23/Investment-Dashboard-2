@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from app.domain.money import Money
@@ -62,6 +62,30 @@ def format_date(value: date) -> str:
     ISO "2026-05-02".
     """
     return value.isoformat()
+
+
+def format_relative_time(dt: datetime | None) -> str:
+    if dt is None:
+        return "unknown"
+
+    now = datetime.now(UTC)
+    comparable = dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+    elapsed = max(now - comparable, now - now)
+    seconds = int(elapsed.total_seconds())
+
+    if seconds < 60:
+        return "just now"
+
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes}m ago"
+
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours}h ago"
+
+    days = hours // 24
+    return f"{days}d ago"
 
 
 def gain_class(value: Decimal) -> str:

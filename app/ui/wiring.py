@@ -1,10 +1,14 @@
 from functools import lru_cache
 from pathlib import Path
 
+import streamlit as st
+
+from app.adapters.company_factory import build_company_provider
 from app.adapters.repo_json import JsonNavSnapshotRepository, JsonTransactionRepository
 from app.adapters.repo_json.tax_profile_repo import JsonTaxProfileRepository
 from app.adapters.yfinance_feed import YfinanceAdapter
 from app.config import get_settings
+from app.ports.company_data import CompanyDataProvider
 from app.ports.fx_feed import FxProvider
 from app.ports.market_data import OhlcDataProvider
 from app.ports.nav_repository import NavSnapshotRepository
@@ -60,3 +64,8 @@ def get_ticker_resolver() -> TickerResolver:
 @lru_cache(maxsize=1)
 def get_ohlc_data_provider() -> OhlcDataProvider:
     return get_price_provider()  # type: ignore[return-value]
+
+
+@st.cache_resource
+def get_company_provider() -> CompanyDataProvider:
+    return build_company_provider()

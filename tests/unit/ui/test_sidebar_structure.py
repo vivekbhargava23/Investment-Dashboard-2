@@ -48,13 +48,13 @@ def test_three_section_labels_in_order() -> None:
 
 
 def test_portfolio_section_items() -> None:
-    """PORTFOLIO section contains exactly: overview, performance, tax, analytics, research."""
+    """PORTFOLIO section contains the dashboard portfolio pages in order."""
     html = _capture_sidebar_html()
     port_start = html.index("PORTFOLIO")
     tools_start = html.index("TOOLS")
     portfolio_block = html[port_start:tools_start]
 
-    expected_ids = ["overview", "performance", "tax", "analytics", "research"]
+    expected_ids = ["overview", "performance", "tax", "analytics", "research", "company"]
     for page_id in expected_ids:
         assert f'href="/?page={page_id}"' in portfolio_block, (
             f"Expected {page_id} in PORTFOLIO section"
@@ -143,12 +143,12 @@ def test_no_badge_renders_no_nav_badge_span() -> None:
 
 
 def test_nav_items_total_count() -> None:
-    """NAV_ITEMS still has exactly 10 entries (regression guard)."""
-    assert len(NAV_ITEMS) == 10
+    """NAV_ITEMS still has exactly 11 entries (regression guard)."""
+    assert len(NAV_ITEMS) == 11
 
 
 def test_sections_cover_all_items() -> None:
-    """_SECTIONS covers all 10 NAV_ITEMS with no gaps or overlaps."""
+    """_SECTIONS covers all NAV_ITEMS with no gaps or overlaps."""
     covered: set[int] = set()
     for _, start, end in _SECTIONS:
         for i in range(start, end):
