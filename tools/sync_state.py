@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Reconcile PROJECT_STATE.md and BACKLOG.md against GitHub Issues ground truth.
+Reconcile STATE.md against GitHub Issues ground truth.
 
 Usage:
     python3 tools/sync_state.py
-        Rebuild Next up lists, In review, and In progress sections.
+        Rebuild In review and In progress sections from GitHub.
 
     python3 tools/sync_state.py --mark-merged TICKET-XXX --pr N
-        Move TICKET-XXX from "In review" to "Done" (with PR #N), update
-        BACKLOG.md row to MERGED, update "Last updated:", then reconcile.
+        Move TICKET-XXX from "In review" to "Done" (with PR #N), append to
+        "Recent activity", update "Last updated:", then reconcile.
 
 Does NOT commit. Edits files in place. Idempotent.
 Exit 0 on success, 1 on failure.
@@ -23,7 +23,7 @@ from pathlib import Path
 
 from tools._next_up import BACKLOG_PATH, NextUpEntry, extract_freeform_entries, rebuild_next_up_list
 
-STATE_PATH = Path("docs/PROJECT_STATE.md")
+STATE_PATH = Path("docs/STATE.md")
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +146,7 @@ def _extract_numbered_items(section_content: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# PROJECT_STATE.md updates
+# STATE.md updates
 # ---------------------------------------------------------------------------
 
 def _update_last_updated(text: str) -> str:
@@ -263,11 +263,11 @@ def mark_merged(
     ticket_id: str,
     pr_num: int,
     state_path: Path = STATE_PATH,
-    backlog_path: Path = BACKLOG_PATH,
+    backlog_path: Path = BACKLOG_PATH,  # kept for backwards compat; no longer used
 ) -> None:
-    """Move ticket_id from 'In review' to 'Done' in PROJECT_STATE.md.
+    """Move ticket_id from 'In review' to 'Done' in STATE.md.
 
-    Also updates BACKLOG.md row status to MERGED and bumps 'Last updated:'.
+    Also appends to 'Recent activity' and bumps 'Last updated:'.
     Then runs the standard reconciliation.
     """
     text = state_path.read_text()
@@ -298,10 +298,9 @@ def mark_merged(
     text = _replace_section(text, "### In review 👀", new_in_review_content)
 
     # Append to Done ✓
-    done_header = "### Done ✓ (last 5; full history in BACKLOG.md)"
+    done_header = "### Done ✓ (last 5)"
     done_content = _section_content(text, done_header)
     new_entry = f"- {ticket_id} — {title} (PR #{pr_num})"
-    # Append before trailing blank lines
     stripped = done_content.rstrip("\n")
     new_done_content = stripped + "\n" + new_entry + "\n"
     text = _replace_section(text, done_header, new_done_content)
@@ -311,9 +310,50 @@ def mark_merged(
     state_path.write_text(text)
     print(f"  {ticket_id}: moved In review → Done ✓ (PR #{pr_num})")
 
-    # Update BACKLOG.md row
-    _mark_merged_backlog(backlog_path, ticket_id)
-    print(f"  {ticket_id}: BACKLOG.md row → MERGED")
+    # Append to Recent activity (create section if missing)
+    text = state_path.read_text()
+    today = date.today().isoformat()
+    activity_header = "### Recent activity 📅"
+    activity_entry = f"- {today} — {ticket_id} merged (PR #{pr_num})"
+    if activity_header not in text:
+        # Create section before "## Key decisions" or at end
+        key_decisions = "## Key decisions"
+        if key_decisions in text:
+            insert_pos = text.index(key_decisions)
+            new_section = f"{activity_header}\n\n{activity_entry}\n\n---\n\n"
+            text = text[:insert_pos] + new_section + text[insert_pos:]
+        else:
+            text = text.rstrip("\n") + f"\n\n{activity_header}\n\n{activity_entry}\n"
+    else:
+        ra_start, ra_end = _section_bounds(text, activity_header)
+        old_content = text[ra_start:ra_end]
+        existing = [ln for ln in old_content.splitlines() if ln.strip().startswith("-")]
+        all_entries = [activity_entry] + existing
+        all_entries = all_entries[:10]  # keep newest 10
+        new_content = "\n" + "\n".join(all_entries) + "\n"
+        text = text[:ra_start] + new_content + text[ra_end:]
+    state_path.write_text(text)
+    print(f"  {ticket_id}: Recent activity updated")
+
+    # Remove from Up next if still present (defense in depth)
+    text = state_path.read_text()
+    up_next_header = "### Next up 📋"
+    if up_next_header in text:
+        up_start, up_end = _section_bounds(text, up_next_header)
+        old_up = text[up_start:up_end]
+        new_up_lines = [
+            ln for ln in old_up.splitlines()
+            if ticket_id not in ln
+        ]
+        new_up = "\n".join(new_up_lines)
+        if not new_up.strip():
+            new_up = "\n(none)\n"
+        elif not new_up.startswith("\n"):
+            new_up = "\n" + new_up
+        if not new_up.endswith("\n"):
+            new_up = new_up + "\n"
+        text = text[:up_start] + new_up + text[up_end:]
+        state_path.write_text(text)
 
     # Standard reconciliation
     _sync_all(state_path, backlog_path)
@@ -325,25 +365,9 @@ def mark_merged(
 
 def _sync_all(
     state_path: Path = STATE_PATH,
-    backlog_path: Path = BACKLOG_PATH,
+    backlog_path: Path = BACKLOG_PATH,  # kept for backwards compat; no longer used
 ) -> None:
-    # Rebuild Next up in PROJECT_STATE.md
-    try:
-        text = _rebuild_next_up_state(state_path, backlog_path)
-        state_path.write_text(text)
-        entries = rebuild_next_up_list(backlog_path)
-        print(f"  Next up (PROJECT_STATE.md): {len(entries)} entries")
-    except RuntimeError as e:
-        print(f"  Warning: could not rebuild Next up (PROJECT_STATE.md): {e}", file=sys.stderr)
-
-    # Rebuild Next up in BACKLOG.md
-    try:
-        backlog_path.write_text(_rebuild_next_up_backlog(backlog_path))
-        print("  Next up (BACKLOG.md): rebuilt")
-    except RuntimeError as e:
-        print(f"  Warning: could not rebuild Next up (BACKLOG.md): {e}", file=sys.stderr)
-
-    # Rebuild In review in PROJECT_STATE.md
+    # Rebuild In review in STATE.md
     try:
         text, old, new = _rebuild_in_review(state_path)
         state_path.write_text(text)
@@ -352,7 +376,7 @@ def _sync_all(
     except RuntimeError as e:
         print(f"  Warning: could not rebuild In review: {e}", file=sys.stderr)
 
-    # Rebuild In progress in PROJECT_STATE.md
+    # Rebuild In progress in STATE.md
     try:
         text, old, new = _rebuild_in_progress(state_path)
         state_path.write_text(text)

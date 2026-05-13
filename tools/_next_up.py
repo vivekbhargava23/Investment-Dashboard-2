@@ -19,6 +19,8 @@ class NextUpEntry:
 
 
 def _get_milestone_order(backlog_path: Path = BACKLOG_PATH) -> dict[str, int]:
+    if not backlog_path.exists():
+        return {}
     text = backlog_path.read_text()
     milestones = re.findall(r"^## Milestone — (.+)$", text, re.MULTILINE)
     return {name.strip(): i for i, name in enumerate(milestones)}

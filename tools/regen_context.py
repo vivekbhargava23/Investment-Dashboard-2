@@ -21,7 +21,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_PATH = REPO_ROOT / "docs" / "CONTEXT.md"
-STATE_PATH = REPO_ROOT / "docs" / "PROJECT_STATE.md"
+STATE_PATH = REPO_ROOT / "docs" / "STATE.md"
 DECISIONS_DIR = REPO_ROOT / "docs" / "DECISIONS"
 APP_DIR = REPO_ROOT / "app"
 TESTS_DIR = REPO_ROOT / "tests"
@@ -84,7 +84,7 @@ def _file_tree(roots: list[Path], ignore_patterns: set[str]) -> str:
 
 def section_state_driver() -> str:
     if not STATE_PATH.exists():
-        return "## State driver\n\n<PROJECT_STATE.md not found>\n"
+        return "## State driver\n\n<STATE.md not found>\n"
     content = STATE_PATH.read_text(encoding="utf-8")
     return f"## State driver\n\n{content.strip()}\n"
 
