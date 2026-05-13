@@ -167,10 +167,9 @@ The first two items are about the *spec*; the last three are about the *implemen
 When Claude Chat (or any chat surface) drafts a ticket, the final response **must** be structured as a **Standard Handoff Bundle**:
 
 1. **Ticket file content** — delivered as a `.md` file (not pasted inline in chat), ready to write to `docs/TICKETS/TICKET-<N>-<slug>.md`.
-2. **Milestone assignment** — which Milestone in BACKLOG.md the ticket goes into.
-3. **Whether it should be marked `next-up`** — true or false.
-4. **ADR file content** — if any architectural decision was made, also as a `.md` file for `docs/DECISIONS/`.
-5. **One shell block** invoking `tools/draft_ticket.sh` with the spec on stdin.
+2. **Milestone assignment** — which Milestone the ticket belongs to (for GitHub milestone tagging).
+3. **ADR file content** — if any architectural decision was made, also as a `.md` file for `docs/DECISIONS/`.
+4. **One shell block** invoking `tools/draft_ticket.sh` with the spec on stdin.
 
 **If Vivek runs the shell block, the entire repo state update is one paste.** He never edits `STATE.md` or ticket files by hand. The script:
 - Writes the ticket file to `docs/TICKETS/`
