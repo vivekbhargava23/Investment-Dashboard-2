@@ -1,6 +1,6 @@
 # METHODOLOGY.md
 
-For the day-to-day Vivek-facing workflow, see `docs/WORKFLOW.md`. This file documents the why and the conventions.
+For the day-to-day Vivek-facing workflow, see `docs/VIVEK.md`. This file documents the why and the conventions.
 
 How we work on this project. Read once, then refer back when in doubt.
 
@@ -105,7 +105,7 @@ Current Milestones (mirrored as GitHub Milestones):
 - **UI polish** — shipped
 - **Investment Panel** — pending design
 
-Each ticket is assigned to exactly one Milestone via the GitHub issue's `milestone` field, mirroring the BACKLOG.md grouping.
+Each ticket is assigned to exactly one Milestone via the GitHub issue's `milestone` field.
 
 ---
 
@@ -237,7 +237,7 @@ If all four pass, merge. If any fail, comment on the PR with the specific findin
 
 Vivek does **not** write code. Vivek does:
 
-1. **Picks the next ticket** from `BACKLOG.md`.
+1. **Picks the next ticket** from the execution-time menu (says `next` in Claude Code).
 2. **Tells the implementation agent:** "Implement TICKET-XXX." That's the entire instruction.
 3. **Reviews the PR** when the agent opens it. Reads the diff, reads the ticket, reads the test results.
 4. **Merges or requests changes.** If changes needed, comments on the PR — the agent picks up the comments in the next session.

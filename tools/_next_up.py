@@ -13,7 +13,6 @@ BACKLOG_PATH = Path("docs/TICKETS/BACKLOG.md")
 class NextUpEntry:
     ticket_id: str
     title: str
-    is_next_up: bool
     issue_number: int
     milestone_name: str | None
 
@@ -39,12 +38,9 @@ def _run_gh(*args: str) -> list[dict]:  # type: ignore[type-arg]
 def rebuild_next_up_list(
     backlog_path: Path = BACKLOG_PATH,
 ) -> list[NextUpEntry]:
-    """Query GitHub Issues and return the ordered Next-up list.
+    """Query GitHub Issues and return the ordered queued list.
 
-    Ordering:
-    1. The issue labelled `next-up` goes first (should be exactly one).
-    2. Remaining QUEUED issues sorted by (milestone order in BACKLOG.md, issue number asc).
-
+    Ordering: QUEUED issues sorted by (milestone order if available, issue number asc).
     Issues labelled `superseded` or `blocked` are excluded.
     """
     issues = _run_gh(
@@ -64,8 +60,6 @@ def rebuild_next_up_list(
         if excluded_labels & label_names:
             continue
 
-        is_next_up = "next-up" in label_names
-
         milestone = issue.get("milestone")
         milestone_name = milestone["title"] if milestone else None
 
@@ -81,17 +75,16 @@ def rebuild_next_up_list(
             NextUpEntry(
                 ticket_id=ticket_id,
                 title=title,
-                is_next_up=is_next_up,
                 issue_number=issue["number"],
                 milestone_name=milestone_name,
             )
         )
 
-    def sort_key(e: NextUpEntry) -> tuple[int, int, int]:
+    def sort_key(e: NextUpEntry) -> tuple[int, int]:
         milestone_idx = (
             milestone_order.get(e.milestone_name, 999) if e.milestone_name else 999
         )
-        return (0 if e.is_next_up else 1, milestone_idx, e.issue_number)
+        return (milestone_idx, e.issue_number)
 
     entries.sort(key=sort_key)
     return entries

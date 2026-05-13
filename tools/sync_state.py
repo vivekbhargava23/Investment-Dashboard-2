@@ -21,7 +21,12 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from tools._next_up import BACKLOG_PATH, NextUpEntry, extract_freeform_entries, rebuild_next_up_list
+from tools._next_up import (  # noqa: F401 (backwards compat)
+    BACKLOG_PATH,
+    NextUpEntry,
+    extract_freeform_entries,
+    rebuild_next_up_list,
+)
 
 STATE_PATH = Path("docs/STATE.md")
 
@@ -170,7 +175,7 @@ def _rebuild_next_up_state(state_path: Path, backlog_path: Path) -> str:
     entries = rebuild_next_up_list(backlog_path)
     new_lines = _build_next_up_lines(entries, freeform)
 
-    # Preserve the trailing "See BACKLOG.md..." line that follows the section
+    # Preserve trailing content after the section
     new_content = "\n" + new_lines if new_lines else "\n"
     text = _replace_section(text, header, new_content)
     return text
@@ -225,7 +230,7 @@ def _rebuild_in_progress(state_path: Path) -> tuple[str, int, int]:
 
 
 # ---------------------------------------------------------------------------
-# BACKLOG.md updates
+# Legacy operations (kept for backwards compat; the old backlog file was removed in M4b)
 # ---------------------------------------------------------------------------
 
 def _rebuild_next_up_backlog(backlog_path: Path) -> str:
