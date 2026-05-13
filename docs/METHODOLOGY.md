@@ -195,6 +195,34 @@ NEXT_UP: true | false
 
 ---
 
+## Ticket drafting in chat — the verification protocol
+
+### Required reads
+
+Before drafting any ticket, chat must have access to `docs/CONTEXT.md` (auto-generated, current with main). `PROJECT_STATE.md` alone is insufficient — it contains project state but not code signatures or the current UI surface. `CONTEXT.md` provides both.
+
+`CONTEXT.md` is committed to main on every merge (via the `update-context.yml` GitHub Action) and is included in the Projects folder automatically. No manual paste required.
+
+### Mandatory verification before drafting
+
+Chat must perform these four checks before writing a ticket spec:
+
+1. **Locate the affected code in CONTEXT.md.** If the ticket touches `function_name` or `ClassName`, find it in the `Public interfaces` section and confirm its current signature and field set. If chat cannot locate what it is about to modify, ask Vivek before drafting — do not invent a signature.
+
+2. **For UI tickets, require a screenshot or page description from Vivek.** CONTEXT.md's `UI surface` section lists page filenames and docstrings, not what the rendered page actually looks like. Chat must say: *"Please share a screenshot or describe what's currently on the [page] page before I draft this."*
+
+3. **State assumptions explicitly in the ticket's Notes section.** Every assumption that could not be verified from CONTEXT.md gets written down. Example: *"Assumes `OpenLot.split()` does not exist and will be created. Confirm before implementing."* This gives the agent a chance to catch a wrong assumption before writing code, rather than discovering the mismatch mid-implementation.
+
+4. **Check for conflicts.** Scan `Open issues` and `Recent merges` in CONTEXT.md. If something equivalent is already in flight or was just merged, flag it to Vivek before drafting.
+
+### The agent's recourse when an assumption is wrong
+
+If the agent encounters an assumption in a ticket's Notes section that turns out to be wrong — for example, a function chat assumed did not exist actually does, with a different signature — the agent stops at Step 7 (gate check) and reports the discrepancy. This is the existing Stop Conditions rule applied to spec assumptions. The correct response is a targeted fix in the same session, not heroic rewriting: if the scope is small, fix it; if it requires architectural reconsideration, open a follow-up ticket.
+
+Anti-pattern: ❌ Proceeding past a wrong assumption on the theory that "the tests will catch it." They will not, if the wrong assumption propagated into the tests themselves.
+
+---
+
 ## Reviewing PRs
 
 When the implementation agent opens a PR, Vivek's review walks four checks:

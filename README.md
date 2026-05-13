@@ -4,6 +4,10 @@
 
 If you're Vivek (or any future maintainer), start with [`docs/WORKFLOW.md`](docs/WORKFLOW.md). It walks through the four touchpoints end-to-end: drafting a ticket in chat, filing it with one shell block, saying `next` to Claude Code, and reviewing the PR.
 
+### For chat sessions
+
+Chat surfaces in the Projects folder have `docs/CONTEXT.md` automatically available. It contains the current project state, code interfaces, UI surface, and GitHub activity (open issues, open PRs, recent merges). No manual paste required — open a chat and start drafting.
+
 Personal investment dashboard for tracking a Scalable Capital portfolio — German tax-aware (FIFO, Sparerpauschbetrag), FX-aware, with live valuations and decision-support tooling.
 
 ## Setup
