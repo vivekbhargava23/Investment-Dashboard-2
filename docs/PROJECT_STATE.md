@@ -73,15 +73,14 @@ See `docs/ARCHITECTURE.md` for the full rules.
 **Milestone:** Company Deep Dive
 
 ### Done ✓ (last 5; full history in BACKLOG.md)
-- TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration (PR #50)
-- TICKET-M2 — Add WORKFLOW.md (Vivek-facing workflow guide) (PR #52)
 - TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL (PR #53)
 - TICKET-M3 — Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping (PR #56)
 - TICKET-WFTEST — Housekeeping workflow smoke test (PR #58)
+- TICKET-M4a — Auto-generated CONTEXT.md + chat verification protocol (PR #61)
 
 ### In review 👀
 
-- TICKET-M4a — Auto-generated CONTEXT.md + chat verification protocol (PR pending)
+(none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -92,9 +91,10 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### Next up 📋
 
-1. *C2 — Company Deep Dive page and Snapshot tab*
+1. TICKET-M4b — Consolidate workflow files, execution-time menu, Vivek quick-reference
 2. *C2 — Company Deep Dive page and Snapshot tab*
-3. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
+3. *C2 — Company Deep Dive page and Snapshot tab*
+4. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 ### Blocked 🚫
 - (none)
