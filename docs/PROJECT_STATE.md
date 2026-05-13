@@ -1,4 +1,7 @@
- # PROJECT_STATE.md
+# PROJECT_STATE.md
+
+<!-- The section headers below are matched by tools/sync_state.py regexes.
+     If you rename or reorder them, update sync_state.py in the same PR. -->
 
 > **This is the single source of truth for project state.**
 > Paste this file at the start of any new Claude chat.
