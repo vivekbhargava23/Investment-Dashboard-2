@@ -79,7 +79,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### In review 👀
 
-(none)
+- TICKET-M4b — Consolidate workflow files, execution-time menu, Vivek quick-reference (PR pending)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
