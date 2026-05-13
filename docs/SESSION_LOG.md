@@ -1780,7 +1780,7 @@ Further polish applied to `ticket-A2-analytics-correlation` (same branch, no new
 **Agent:** Claude Code (sonnet-4.6)
 **Duration:** ~45 min
 **Branch:** ticket-m4a-context-bundle
-**PR:** pending
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/61
 **Status at session end:** IN_REVIEW
 
 ### What got done
