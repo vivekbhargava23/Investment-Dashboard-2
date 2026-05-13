@@ -79,23 +79,6 @@ def test_milestone_order_returns_correct_indices(tmp_path: Path) -> None:
 # rebuild_next_up_list — ordering
 # ---------------------------------------------------------------------------
 
-def test_next_up_labelled_issue_goes_first(tmp_path: Path) -> None:
-    backlog = tmp_path / "BACKLOG.md"
-    backlog.write_text(BACKLOG_SAMPLE)
-
-    issues = [
-        _make_issue(10, "TICKET-010 — Some ticket", ["queued", "high"], "UI core"),
-        _make_issue(5, "TICKET-005 — First ticket", ["queued", "next-up", "high"], "Foundation"),
-    ]
-    with patch("tools._next_up.subprocess.run", return_value=_fake_issues(*issues)):
-        entries = rebuild_next_up_list(backlog)
-
-    assert len(entries) == 2
-    assert entries[0].is_next_up is True
-    assert entries[0].ticket_id == "TICKET-005"
-    assert entries[1].ticket_id == "TICKET-010"
-
-
 def test_ordering_by_milestone_then_issue_number(tmp_path: Path) -> None:
     backlog = tmp_path / "BACKLOG.md"
     backlog.write_text(BACKLOG_SAMPLE)

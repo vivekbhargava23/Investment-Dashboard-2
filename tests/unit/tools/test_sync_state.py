@@ -16,7 +16,7 @@ from tools.sync_state import (
 # ---------------------------------------------------------------------------
 
 STATE_TEMPLATE = """\
-# PROJECT_STATE.md
+# STATE.md
 
 **Last updated:** 2026-01-01 by Claude Code
 
@@ -24,7 +24,7 @@ STATE_TEMPLATE = """\
 
 ## Current status
 
-### Done ✓ (last 5; full history in BACKLOG.md)
+### Done ✓ (last 5)
 - TICKET-001 — Old ticket (PR #1)
 
 ### In review 👀
@@ -39,7 +39,9 @@ STATE_TEMPLATE = """\
 ### Next up 📋
 1. *Panel framework brainstorm session*
 
-See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.
+### Recent activity 📅
+
+- 2026-01-01 — TICKET-001 merged (PR #1)
 """
 
 BACKLOG_TEMPLATE = """\
@@ -124,16 +126,6 @@ def test_mark_merged_sets_last_updated(tmp_path: Path) -> None:
     today = date.today().isoformat()
     assert today in state.read_text()
 
-
-def test_mark_merged_updates_backlog_row(tmp_path: Path) -> None:
-    state, backlog = _write_fixtures(tmp_path)
-    with patch("tools.sync_state.subprocess.run", side_effect=_no_gh):
-        with patch("tools._next_up.subprocess.run", side_effect=_no_gh):
-            mark_merged("TICKET-M3", 99, state_path=state, backlog_path=backlog)
-
-    backlog_text = backlog.read_text()
-    assert "MERGED" in backlog_text
-    assert "IN_REVIEW" not in backlog_text
 
 
 def test_mark_merged_fails_when_ticket_not_in_review(tmp_path: Path) -> None:

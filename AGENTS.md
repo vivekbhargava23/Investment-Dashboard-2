@@ -3,7 +3,7 @@
 > **You are the implementation agent working on Vivek's investment dashboard.**
 > Vivek **does not write code, run tests, commit, push, or open PRs**. You do all of that.
 > Vivek **reviews PRs and merges them**. That is his only role in the implementation loop.
-> Before doing anything, read the five files listed under "Required reading" below.
+> Before doing anything, read the four files listed under "Required reading" below.
 
 ---
 
@@ -11,11 +11,10 @@ This file is for the implementation agent. Vivek's day-to-day workflow lives in 
 
 ## Required reading (every session, in this order)
 
-1. `docs/PROJECT_STATE.md` — current status of the project
+1. `docs/STATE.md` — current status of the project
 2. `docs/CONTEXT.md` — auto-generated repo snapshot: code interfaces, UI surface, GitHub state. Gives a complete picture without re-exploring the codebase every session.
 3. `docs/METHODOLOGY.md` — how we work
 4. `docs/ARCHITECTURE.md` — the architecture rules (non-negotiable)
-5. `docs/SESSION_LOG.md` — last 3 entries, for recent context
 
 If the work touches a specific module, also read that module's instruction file
 (e.g. `app/domain/fifo/CLAUDE.md`). These per-module files contain module-specific
@@ -35,8 +34,7 @@ context and constraints. Read them even if your CLI does not auto-load them.
 | | Commits with conventional commit messages |
 | | Pushes the branch |
 | | Opens the PR via `gh pr create` |
-| | Updates `docs/SESSION_LOG.md` |
-| | Updates `docs/PROJECT_STATE.md` |
+| | Updates `docs/STATE.md` |
 | | Updates the ticket's `Status:` field |
 
 ---
@@ -64,15 +62,44 @@ via Step 0 below, then proceed from Step 1.
 
 ### Step 0 — Resolve "next ticket" (only when not given an explicit ticket ID)
 
-```bash
-gh issue list --label next-up --state open --json number,title --limit 1
+**Trigger:** Vivek says `next` (or `implement next ticket`).
+
+**Action:** Read `docs/STATE.md` "Up next" section. Parse the ordered list. Present it to Vivek as a numbered menu:
+
+```
+Up next (N tickets queued):
+
+1. TICKET-XXX — Short title [HIGH]
+2. TICKET-YYY — Another title [MEDIUM]
+
+Reply with:
+  <number>           pick a ticket and start implementing
+  reorder N,M,K      rearrange the list (I'll re-present)
+  drop N             close that ticket (marks issue "not planned", removes from list)
+  cancel             do nothing
 ```
 
-- **Exactly one result:** use that ticket. Announce it to Vivek before proceeding.
-- **Zero results:** stop and ask Vivek which ticket to pick up.
-- **Multiple results:** stop and report the inconsistency — only one issue should carry `next-up` at a time.
+**On `<number>`:** proceed to Step 1 with that ticket. Step 5 removes it from STATE.md "Up next."
 
-If an explicit ticket ID was given (e.g. "implement TICKET-M1"), skip this step entirely.
+**On `reorder N,M,K`:** rewrite STATE.md "Up next" in the new order. Commit directly to main with `chore: reorder Up next per Vivek`. Push. Re-present the menu.
+
+**On `drop N`:** confirm with Vivek ("Drop TICKET-XXX? This closes the issue and removes it from Up next."). On confirmation:
+1. `gh issue close <issue-number> --reason "not planned"`
+2. Remove from STATE.md "Up next"
+3. Update the ticket file's `Status:` to `CLOSED`
+4. Commit to main: `chore: drop TICKET-XXX per Vivek`
+5. Push
+6. Re-present the menu.
+
+**On `cancel`:** stop. No state changes.
+
+**Edge case — "Up next" is empty:**
+> "No tickets in Up next. Run `gh issue list --label queued --state open` to see queued tickets, or draft a new ticket in chat."
+Stop.
+
+**Edge case — an entry references an issue that is CLOSED or doesn't exist:** Flag it as `[INVALID — issue closed/missing]` in the menu but still allow other selections. It remains for Vivek to clean up via `drop`.
+
+**Override:** If Vivek says `implement TICKET-XXX` (explicit ID), skip this step entirely. Step 5 still removes the ticket from "Up next" if present.
 
 ### Step 1 — Verify clean main
 
@@ -84,8 +111,7 @@ git checkout main && git pull    # sync with remote
 ### Step 2 — Verify housekeeping from previous ticket (if applicable)
 
 GitHub Actions runs `post-merge-housekeeping.yml` within seconds of every merge.
-By the time you start the next session, `PROJECT_STATE.md`, `BACKLOG.md`, and
-the ticket file should already reflect `MERGED` status.
+By the time you start the next session, `STATE.md` and the ticket file should already reflect `MERGED` status.
 
 Verify by querying GitHub and reading the files:
 
@@ -94,17 +120,17 @@ gh issue view <N> --json state -q .state
 ```
 
 Where `<N>` is the issue number of the ticket that was last "In review 👀" in
-`docs/PROJECT_STATE.md`. If the output is `"CLOSED"`:
+`docs/STATE.md`. If the output is `"CLOSED"`:
 
-- **If `PROJECT_STATE.md` "In review 👀" section is already empty and "Done ✓"
+- **If `STATE.md` "In review 👀" section is already empty and "Done ✓"
   contains the ticket:** the GitHub Actions workflow succeeded. No action needed.
 
-- **If `PROJECT_STATE.md` still shows the ticket in "In review 👀"** (i.e. the
+- **If `STATE.md` still shows the ticket in "In review 👀"** (i.e. the
   workflow failed for any reason): reconcile manually:
 
   ```bash
-  python3 tools/sync_state.py --mark-merged TICKET-YYY --pr <PR-N>
-  git add -A
+  PYTHONPATH=. python3 tools/sync_state.py --mark-merged TICKET-YYY --pr <PR-N>
+  git add docs/STATE.md docs/TICKETS/
   git commit -m "chore: reconcile state for TICKET-YYY"
   git push origin main
   ```
@@ -127,7 +153,7 @@ I will not start TICKET-XXX until main is green." Open a hotfix ticket if needed
 
 ### Step 4 — Read required files
 
-Read the five files listed under "Required reading" above, plus the ticket file:
+Read the four files listed under "Required reading" above, plus the ticket file:
 
 ```bash
 cat docs/TICKETS/TICKET-XXX-*.md
@@ -146,10 +172,53 @@ Update the ticket file: `Status: QUEUED` → `Status: IN_PROGRESS`
 Then update the GitHub issue labels:
 
 ```bash
-gh issue edit <N> --remove-label queued,next-up --add-label in-progress
+gh issue edit <N> --remove-label queued --add-label in-progress
 ```
 
 (Where `<N>` is the GitHub issue number for this ticket.)
+
+Then remove this ticket from STATE.md "Up next" and commit directly to main:
+
+```bash
+# Switch to main, edit STATE.md Up next, commit, push, return to branch
+git stash
+git checkout main
+# Remove the matching "N. TICKET-XXX — ..." line from STATE.md "### Next up 📋" section,
+# renumber remaining items.
+python3 -c "
+import re
+from pathlib import Path
+state = Path('docs/STATE.md')
+text = state.read_text()
+header = '### Next up 📋'
+m = re.search(re.escape(header) + r'\n', text)
+if not m:
+    exit(0)
+start = m.end()
+rest = text[start:]
+next_sec = re.search(r'\n(###|---)', rest)
+end = start + (next_sec.start() if next_sec else len(rest))
+section = text[start:end]
+lines = [ln for ln in section.splitlines() if 'TICKET-XXX' not in ln]
+n = 1
+renumbered = []
+for ln in lines:
+    if re.match(r'^\d+\.', ln.strip()):
+        renumbered.append(re.sub(r'^\d+', str(n), ln.strip()))
+        n += 1
+    elif ln.strip():
+        renumbered.append(ln)
+new_section = '\n' + '\n'.join(renumbered) + '\n' if renumbered else '\n(none)\n'
+state.write_text(text[:start] + new_section + text[end:])
+"
+git add docs/STATE.md
+git commit -m "chore: pick TICKET-XXX, remove from Up next"
+git push origin main
+git checkout -   # return to feature branch
+git stash pop
+```
+
+If branch protection rejects the push to main, stop and report to Vivek — do not proceed.
 
 ### Step 6 — Implement
 
@@ -174,8 +243,7 @@ git commit -m "feat: <one-line summary in imperative mood>"
 # (Multiple commits OK if there were multiple logical changes)
 
 # 8b. Update docs — THIS HAPPENS HERE, BEFORE THE PUSH, ON THE BRANCH
-#   - Append a new entry to docs/SESSION_LOG.md (see template in METHODOLOGY.md)
-#   - In docs/PROJECT_STATE.md: move ticket from "In progress 🚧" to "In review 👀"
+#   - In docs/STATE.md: move ticket from "In progress 🚧" to "In review 👀"
 #   - In the ticket file: Status: IN_PROGRESS → Status: IN_REVIEW
 git add -A
 git commit -m "docs: update session log and project state for TICKET-XXX"
@@ -241,8 +309,7 @@ You do not need to do anything else.
 - Do NOT write to `main`.
 
 The merge itself landed all your branch commits (including the doc updates from Step 8b)
-onto `main`. GitHub Actions handles the MERGED status bookkeeping (ticket file, PROJECT_STATE.md,
-BACKLOG.md) within seconds of the merge. Step 2 of the next session verifies it landed; in
+onto `main`. GitHub Actions handles the MERGED status bookkeeping (ticket file, STATE.md "Recent activity", STATE.md "Done ✓") within seconds of the merge. Step 2 of the next session verifies it landed; in
 the rare case the workflow failed, Step 2 reconciles manually via `tools/sync_state.py`.
 Your session is over.
 
@@ -281,4 +348,4 @@ Do not attempt heroic recovery. Stopping early is cheap; a bad merge is expensiv
 - ❌ Disable a failing test to make CI pass. If a test is wrong, fix the test in a separate commit with explanation. If it's flaky, open a ticket.
 - ❌ `git push --force` on a branch with an open PR without saying so explicitly in your next message to Vivek.
 - ❌ Write to `main` after Vivek says he merged the PR. The session is over. See "When Vivek says 'I merged it'" above.
-- ❌ Treat doc updates (SESSION_LOG, PROJECT_STATE, ticket status) as post-PR housekeeping. They are Step 8b — before push, before PR. Always.
+- ❌ Treat doc updates (STATE.md, ticket status) as post-PR housekeeping. They are Step 8b — before push, before PR. Always.
