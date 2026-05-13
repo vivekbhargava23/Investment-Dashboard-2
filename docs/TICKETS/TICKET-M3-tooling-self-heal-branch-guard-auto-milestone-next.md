@@ -1,6 +1,6 @@
 # TICKET-M3 — Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping
 
-**Status:** IN_PROGRESS
+**Status:** IN_REVIEW
 **Priority:** HIGH
 **Estimated session length:** 1.5 – 2 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-12)
