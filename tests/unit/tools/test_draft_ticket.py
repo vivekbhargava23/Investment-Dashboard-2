@@ -13,7 +13,6 @@ SPEC = textwrap.dedent("""\
     MILESTONE: Foundation
     PRIORITY: HIGH
     ESTIMATE: 1 hr
-    NEXT_UP: false
     ---
     # TICKET-999 — Test ticket
 
@@ -40,8 +39,7 @@ def _setup_git_repo(tmp_path: Path) -> Path:
 
     (repo / "docs").mkdir()
     (repo / "docs" / "TICKETS").mkdir()
-    (repo / "docs" / "TICKETS" / "BACKLOG.md").write_text("# BACKLOG\n")
-    (repo / "docs" / "PROJECT_STATE.md").write_text("# STATE\n")
+    (repo / "docs" / "STATE.md").write_text("### Next up 📋\n\n")
 
     # Initial commit so HEAD exists and we're on main
     _git(repo, "add", ".")

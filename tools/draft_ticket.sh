@@ -5,10 +5,10 @@
 # Header format:
 #   ID: TICKET-<NNN>
 #   TITLE: <one-line title>
-#   MILESTONE: <name, must match an existing Milestone in BACKLOG.md>
+#   MILESTONE: <name, used for GitHub milestone assignment>
 #   PRIORITY: CRITICAL | HIGH | MEDIUM | LOW
 #   ESTIMATE: <free text, e.g. "1 – 1.5 hr">
-#   NEXT_UP: true | false
+#   POSITION: <optional integer; insert at position N in Up next; default: append>
 #   ---
 #   <full markdown ticket body>
 #
@@ -35,8 +35,8 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 # --- Reconcile state against GitHub before touching anything ---
-echo "Reconciling Next-up lists against GitHub..."
-python3 tools/sync_state.py
+echo "Reconciling state against GitHub..."
+PYTHONPATH=. python3 tools/sync_state.py
 echo ""
 
 # --- Read stdin ---
@@ -55,7 +55,7 @@ TITLE="$(parse_field TITLE)"
 MILESTONE="$(parse_field MILESTONE)"
 PRIORITY="$(parse_field PRIORITY)"
 ESTIMATE="$(parse_field ESTIMATE)"
-NEXT_UP="$(parse_field NEXT_UP)"
+POSITION="$(parse_field POSITION)"
 
 # --- Validate ---
 if [ -z "$ID" ] || [ -z "$TITLE" ] || [ -z "$MILESTONE" ] || [ -z "$PRIORITY" ]; then
@@ -70,21 +70,6 @@ FILENAME="docs/TICKETS/${ID}-${SLUG}.md"
 # --- Write ticket file ---
 echo "$BODY" > "$FILENAME"
 echo "Wrote ticket file: $FILENAME"
-
-# --- Update BACKLOG.md ---
-NEXT_UP_FLAG=""
-[ "$NEXT_UP" = "true" ] && NEXT_UP_FLAG="--next-up"
-python3 tools/update_backlog.py \
-  --id "$ID" \
-  --title "$TITLE" \
-  --milestone "$MILESTONE" \
-  --priority "$PRIORITY" \
-  --estimate "$ESTIMATE" \
-  $NEXT_UP_FLAG
-
-# --- Update PROJECT_STATE.md Next up pointer ---
-# Always rebuild (--id/--title args kept for backwards compat but now redundant)
-python3 tools/update_state.py --id "$ID" --title "$TITLE"
 
 # --- Map priority to GitHub label ---
 case "$PRIORITY" in
@@ -102,7 +87,6 @@ OPEN_MILESTONE="$(gh api "repos/$REPO/milestones?state=open" \
 
 # --- Create GitHub issue ---
 GH_LABELS="queued,$GH_PRIORITY_LABEL"
-[ "$NEXT_UP" = "true" ] && GH_LABELS="$GH_LABELS,next-up"
 
 ISSUE_BODY="Ticket file: \`$FILENAME\`
 
@@ -123,8 +107,62 @@ else
 fi
 echo "Created GitHub issue: $ISSUE_URL"
 
+# --- Append to STATE.md "Up next" ---
+PYTHONPATH=. python3 - <<PYEOF
+import re, sys
+from pathlib import Path
+
+state = Path("docs/STATE.md")
+text = state.read_text()
+
+header = "### Next up 📋"
+m = re.search(re.escape(header) + r"\n", text)
+if not m:
+    print("Warning: 'Next up 📋' section not found in STATE.md — skipping Up next update", flush=True)
+    sys.exit(0)
+
+start = m.end()
+rest = text[start:]
+next_sec = re.search(r"\n(###|---)", rest)
+end = start + (next_sec.start() if next_sec else len(rest))
+section = text[start:end]
+
+numbers = [int(n) for n in re.findall(r"^(\d+)\.", section, re.MULTILINE)]
+next_num = (max(numbers) if numbers else 0) + 1
+
+ticket_id = "$ID"
+title = "$TITLE"
+priority = "$PRIORITY"
+position_raw = "$POSITION"
+new_line = f"{next_num}. {ticket_id} — {title} [{priority}]"
+
+# Re-number if POSITION is given
+if position_raw.strip().isdigit():
+    pos = int(position_raw.strip())
+    existing = [ln for ln in section.splitlines() if re.match(r"^\d+\.", ln.strip())]
+    existing.insert(pos - 1, f"X. {ticket_id} — {title} [{priority}]")
+    renumbered = []
+    n = 1
+    for ln in existing:
+        if re.match(r"^\d+\.", ln.strip()):
+            renumbered.append(re.sub(r"^\d+", str(n), ln.strip()))
+            n += 1
+    freeform = [ln for ln in section.splitlines() if ln.strip().startswith("*") and ln.strip().endswith("*")]
+    for ff in freeform:
+        renumbered.append(f"{n}. {ff.strip()}")
+        n += 1
+    new_section = "\n" + "\n".join(renumbered) + "\n"
+else:
+    stripped = section.rstrip("\n")
+    new_section = stripped + "\n" + new_line + "\n"
+
+new_text = text[:start] + new_section + text[end:]
+state.write_text(new_text)
+print(f"Appended to STATE.md 'Up next': {new_line}", flush=True)
+PYEOF
+
 # --- Commit and push ---
-git add "$FILENAME" docs/TICKETS/BACKLOG.md docs/PROJECT_STATE.md
+git add "$FILENAME" docs/STATE.md
 git commit -m "docs: draft $ID $TITLE"
 git push origin main
 echo "Committed and pushed."
