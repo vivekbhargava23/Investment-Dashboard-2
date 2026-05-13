@@ -7,7 +7,7 @@
 > Paste this file at the start of any new Claude chat.
 > Claude Code updates this at the end of every session.
 
-**Last updated:** 2026-05-13 by Claude Code (TICKET-025 merged; TICKET-M3 starting)
+**Last updated:** 2026-05-13 by Claude Code (TICKET-M3 in review)
 
 ---
 
@@ -80,7 +80,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL (PR #53)
 
 ### In review 👀
-(none)
+- TICKET-M3 — Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -88,8 +88,9 @@ See `docs/ARCHITECTURE.md` for the full rules.
 ### In progress 🚧
 (none)
 
+
 ### Next up 📋
-1. *C2 — Company Deep Dive page and Snapshot tab (depends on TICKET-025 merging)*
+1. *C2 — Company Deep Dive page and Snapshot tab*
 2. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 See `docs/TICKETS/BACKLOG.md` for the full ticket list with statuses.

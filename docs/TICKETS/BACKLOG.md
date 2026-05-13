@@ -103,7 +103,7 @@ The single index of all tickets. Status flows: QUEUED → IN_PROGRESS → IN_REV
 |---|---|---|---|---|
 | TICKET-M1 | Workflow vocabulary cleanup + GitHub Issues integration | MERGED | HIGH | 2 – 2.5 hr |
 | TICKET-M2 | Add WORKFLOW.md (Vivek-facing workflow guide) | MERGED | HIGH | 45 – 60 min |
-| TICKET-M3 | Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping | IN_PROGRESS | HIGH | 1.5 – 2 hr |
+| TICKET-M3 | Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping | IN_REVIEW | HIGH | 1.5 – 2 hr |
 
 ---
 
