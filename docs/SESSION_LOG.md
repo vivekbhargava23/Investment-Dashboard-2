@@ -1772,3 +1772,46 @@ Further polish applied to `ticket-A2-analytics-correlation` (same branch, no new
 
 ### Tokens used (rough)
 ~120k
+
+---
+
+## 2026-05-13 — TICKET-M4a
+
+**Agent:** Claude Code (sonnet-4.6)
+**Duration:** ~45 min
+**Branch:** ticket-m4a-context-bundle
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/61
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created `tools/regen_context.py`: generates `docs/CONTEXT.md` with 10 sections (state driver, ADRs, file tree, public interfaces via AST, UI surface, data shape, open issues, open PRs, recent merges, test inventory). Graceful degradation if `gh` CLI unavailable. Idempotent (only timestamp differs on re-run).
+- Created `.github/workflows/update-context.yml`: triggers on push to main; bot-author guard (`github.actor != 'github-actions[bot]'`) prevents recursion with housekeeping workflow; commits with `[skip ci]` if CONTEXT.md changed.
+- Committed `docs/CONTEXT.md`: first auto-generated version (2371 lines).
+- Created `tests/unit/tools/test_regen_context.py`: 7 smoke tests verifying AST extraction returns core domain models, compute_positions, Protocol ports, and non-empty ADR/UI/test inventory sections.
+- Updated `AGENTS.md`: added `docs/CONTEXT.md` as Required Reading item 2; updated "four files" → "five files" references.
+- Updated `docs/METHODOLOGY.md`: added "Ticket drafting in chat — the verification protocol" section after "The chat handoff protocol".
+- Updated `README.md`: added "For chat sessions" subsection under "Working on this project".
+
+### Files touched
+- `tools/regen_context.py` — new
+- `.github/workflows/update-context.yml` — new
+- `docs/CONTEXT.md` — new (auto-generated)
+- `tests/unit/tools/test_regen_context.py` — new (7 tests)
+- `AGENTS.md` — CONTEXT.md added to Required Reading; count updated
+- `docs/METHODOLOGY.md` — new verification protocol section
+- `README.md` — "For chat sessions" subsection
+- `docs/TICKETS/TICKET-M4a-context-bundle-and-verification-protocol.md` — status IN_REVIEW
+
+### Tests
+660 passing → 667 passing (7 new smoke tests)
+
+### Decisions made during the session
+- Excluded `CONTEXT.md` from the file tree (would break idempotency on second run)
+- Used `pathlib`-native tree walker (no `tree` CLI dependency)
+- Smoke test added for AST extraction (7 tests cover key invariants cheaply)
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~60k
