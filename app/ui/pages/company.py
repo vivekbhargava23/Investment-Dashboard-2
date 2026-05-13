@@ -101,18 +101,33 @@ def _refresh_all_sections(ticker: str) -> None:
         refresh_company_section(ticker, section, provider=provider)
 
 
+_SAMPLE_QUARTERS = (
+    "FY23 Q1",
+    "FY23 Q2",
+    "FY23 Q3",
+    "FY23 Q4",
+    "FY24 Q1",
+    "FY24 Q2",
+    "FY24 Q3",
+    "FY24 Q4",
+    "FY25 Q1",
+    "FY25 Q2",
+    "FY25 Q3",
+    "FY25 Q4",
+)
+
+
 def _sample_chart(style: ChartStyle) -> go.Figure:
-    quarters = ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10", "Q11", "Q12"]
     revenue = [91, 95, 102, 107, 112, 118, 126, 132, 141, 148, 157, 166]
     margin = [18, 19, 19, 20, 21, 20, 22, 23, 23, 24, 25, 26]
 
     fig = go.Figure()
-    fig.add_trace(styled_bar_trace(style, 0, x=quarters, y=revenue, name="Revenue"))
+    fig.add_trace(styled_bar_trace(style, 0, x=_SAMPLE_QUARTERS, y=revenue, name="Revenue"))
     fig.add_trace(
         styled_line_trace(
             style,
             1,
-            x=quarters,
+            x=_SAMPLE_QUARTERS,
             y=margin,
             name="Margin",
             yaxis="y2",
