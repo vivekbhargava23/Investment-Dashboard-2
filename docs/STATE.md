@@ -80,7 +80,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### In review 👀
 
-- TICKET-026 — Company Deep Dive page shell: ticker search, tab structure, chart style sampler, cache-age banner, refresh button (PR pending)
+(none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -91,8 +91,9 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### Next up 📋
 
-1. *C2 — Company Deep Dive page and Snapshot tab*
-2. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
+1. TICKET-027 — Snapshot tab: header strip, 5Y price chart, KPI tiles with sparklines, valuation band, next catalyst
+2. *C2 — Company Deep Dive page and Snapshot tab*
+3. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 ### Blocked 🚫
 - (none)
