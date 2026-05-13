@@ -26,7 +26,6 @@ create_label "medium"   "fbca04" "Polish or quality-of-life on shipped work"
 create_label "low"      "c5def5" "Speculative or contingent on a design decision"
 
 echo "Creating coordination labels..."
-create_label "next-up"    "0e8a16" "Exactly one issue carries this at a time — next to implement"
 create_label "blocked"    "b60205" "Blocked by an external dependency or decision"
 create_label "superseded" "cccccc" "Replaced by a later ticket"
 
