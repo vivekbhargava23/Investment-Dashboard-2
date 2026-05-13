@@ -73,14 +73,13 @@ See `docs/ARCHITECTURE.md` for the full rules.
 **Milestone:** Company Deep Dive
 
 ### Done ✓ (last 5; full history in BACKLOG.md)
-- TICKET-A3 — Analytics: Technicals tab v1 (PR #47)
-- TICKET-U1 — Sidebar and topbar visual polish (PR #48)
 - TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration (PR #50)
 - TICKET-M2 — Add WORKFLOW.md (Vivek-facing workflow guide) (PR #52)
 - TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL (PR #53)
+- TICKET-M3 — Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping (PR #56)
 
 ### In review 👀
-- TICKET-M3 — Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping
+- TICKET-WFTEST — Housekeeping workflow smoke test
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
