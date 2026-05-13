@@ -1,6 +1,6 @@
 # TICKET-026 — Company Deep Dive page shell: ticker search, tab structure, chart style sampler, cache-age banner, refresh button
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Estimated session length:** 1.5 – 2 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-13)
