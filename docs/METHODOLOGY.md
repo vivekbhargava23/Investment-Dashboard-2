@@ -31,7 +31,7 @@ This build prevents all four:
 1. **Per-module instruction files** keep context small. A 30-line file in `app/domain/fifo/CLAUDE.md` is worth more than a 500-line root file. (These are named `CLAUDE.md` by convention because Claude Code auto-loads them; other agents should read them when directed by `AGENTS.md`.)
 2. **Tickets are written in chat first.** The implementation agent receives complete tickets and executes. No thinking happens in implementation sessions.
 3. **One ticket per session.** When the ticket is done, the session ends. Next ticket = next session.
-4. **`PROJECT_STATE.md` is paste-able.** No re-explaining anything when starting a new chat.
+4. **`CONTEXT.md` is auto-available.** Chat in the Projects folder sees `docs/CONTEXT.md` automatically — no manual paste required.
 
 ---
 
@@ -155,8 +155,8 @@ Before a ticket moves from chat draft → QUEUED, walk this list. Each item is a
 - [ ] **No module names that collide with Python stdlib.** `html`, `email`, `string`, `io`, `time`, `json`, `logging`, `csv`, `tokenize`, `code` — any of these as a filename in your package will shadow the stdlib in unpredictable contexts. *Lesson from TICKET-008b (2026-05-04):* `app/ui/html.py` shadowed `html` in Streamlit's import context, breaking the bs4 → yfinance import chain on app startup.
 - [ ] **No silent fallback to a default value without surfacing it.** If the form's "FX rate auto-fill" can quietly fall back to `1.0` when yfinance is offline, that is silent corruption waiting to happen. Every fallback path either (a) surfaces a banner the user must acknowledge, or (b) refuses to submit. *Lesson from TICKET-009 (2026-05-04).*
 - [ ] **Test cases include at least one that would catch the real-world failure mode.** "Tests pass" is necessary, not sufficient — a test that asserts the form *constructs a Transaction* says nothing about whether the form *records the right values*. Aim for one acceptance test per spec rule that would observably fail if the rule were violated.
-- [ ] **Update `PROJECT_STATE.md`'s "Next up" list when marking a ticket QUEUED.** When a ticket's status moves from chat draft → QUEUED, add it to the ordered "Next up" list in the position it should run in, and demote/remove any items it supersedes. The implementation agent reads "Next up" before BACKLOG; if the pointer is stale, the wrong ticket gets picked. *Lesson from 2026-05-09:* TICKET-013, A0, and A1 all moved to QUEUED in successive chat sessions, but "Next up" still pointed to the Panel brainstorm. Claude Code was told "implement the next ticket," looked at QUEUED tickets, and picked A0 instead of 013.
-- [ ] **Re-check the parking lot.** If the new ticket resolves an item in `PROJECT_STATE.md`'s "Open questions / parking lot," remove or update that bullet in the same commit.
+- [ ] **`tools/draft_ticket.sh` appends to `STATE.md` "Up next" automatically.** The agent reads "Up next" for the execution-time menu; if a ticket is filed but not in "Up next", it won't appear in the menu.
+- [ ] **Re-check the parking lot.** If the new ticket resolves an item in `STATE.md`'s "Open questions / parking lot," remove or update that bullet in the same commit.
 
 The first two items are about the *spec*; the last three are about the *implementation*. Both can be checked at draft time. None of them require running code.
 
@@ -172,11 +172,10 @@ When Claude Chat (or any chat surface) drafts a ticket, the final response **mus
 4. **ADR file content** — if any architectural decision was made, also as a `.md` file for `docs/DECISIONS/`.
 5. **One shell block** invoking `tools/draft_ticket.sh` with the spec on stdin.
 
-**If Vivek runs the shell block, the entire repo state update is one paste.** He never edits BACKLOG.md or PROJECT_STATE.md by hand. The script:
+**If Vivek runs the shell block, the entire repo state update is one paste.** He never edits `STATE.md` or ticket files by hand. The script:
 - Writes the ticket file to `docs/TICKETS/`
-- Updates BACKLOG.md (appends the row to the correct Milestone table)
-- Updates `PROJECT_STATE.md` "Next up" pointer if `next-up=true`
-- Creates the GitHub issue with labels matching priority + `queued` (+ `next-up` if applicable)
+- Appends to `STATE.md` "Up next" section
+- Creates the GitHub issue with labels matching priority + `queued`
 - Commits with `docs: draft TICKET-<N> <title>`
 - Pushes to main
 
@@ -188,7 +187,6 @@ TITLE: <one-line title>
 MILESTONE: <name, must match an existing Milestone>
 PRIORITY: CRITICAL | HIGH | MEDIUM | LOW
 ESTIMATE: <free text, e.g. "1 – 1.5 hr">
-NEXT_UP: true | false
 ---
 <full markdown ticket body, including the Status/Priority/etc. header lines>
 ```
@@ -199,7 +197,7 @@ NEXT_UP: true | false
 
 ### Required reads
 
-Before drafting any ticket, chat must have access to `docs/CONTEXT.md` (auto-generated, current with main). `PROJECT_STATE.md` alone is insufficient — it contains project state but not code signatures or the current UI surface. `CONTEXT.md` provides both.
+Before drafting any ticket, chat must have access to `docs/CONTEXT.md` (auto-generated, current with main). `STATE.md` alone is insufficient — it contains project state but not code signatures or the current UI surface. `CONTEXT.md` provides both.
 
 `CONTEXT.md` is committed to main on every merge (via the `update-context.yml` GitHub Action) and is included in the Projects folder automatically. No manual paste required.
 
@@ -256,67 +254,13 @@ The complete ritual is in `AGENTS.md`. Summary:
 
 1. Run `pytest && ruff check . && mypy app/ && lint-imports`. If any fail, **stop**.
 2. Commit with conventional commits.
-3. Append to `docs/SESSION_LOG.md` (template below).
-4. Update `docs/PROJECT_STATE.md` if any ticket status changed.
-5. Update the ticket file's `Status:` line.
-6. Commit the doc updates (step 3–5) as a separate `docs:` commit **on the branch, before pushing**.
-7. Push branch.
-8. Open PR with `gh pr create --base main` — body must include `Closes #<N>`.
-9. Print PR URL for Vivek.
-10. **Stop. Do not do anything else.**
-
-### SESSION_LOG.md entry template
-
-```markdown
-## YYYY-MM-DD HH:MM — TICKET-XXX
-
-**Agent:** <agent name and version, e.g. "Claude Code (sonnet-4.6)", "GPT Codex (GPT-5)", "Gemini CLI">
-**Duration:** ~XX min
-**Branch:** ticket-XXX-short-name
-**PR:** https://github.com/<user>/<repo>/pull/N
-**Status at session end:** IN_REVIEW
-
-### What got done
-- Bullet of concrete change 1
-- Bullet of concrete change 2
-
-### Files touched
-- `app/domain/fifo.py` — added replay-on-edit logic
-- `tests/unit/test_fifo.py` — added 4 new test cases
-
-### Tests
-48 passing → 52 passing (4 new)
-
-### Decisions made during the session
-- Chose to raise `LotEditConflict` instead of silent recompute — see ADR-XXX
-- (Or: "no architectural decisions made")
-
-### Out-of-scope items noticed
-- Open ticket: TICKET-YYY (noticed but didn't fix)
-
-### Tokens used (rough)
-~XXk
-```
-
----
-
-## Starting a new chat session (the handoff)
-
-Paste this into the new chat:
-
-```
-I'm continuing work on my investment dashboard. Here is the current state:
-
-[paste contents of docs/PROJECT_STATE.md]
-
-And the last 3 session log entries:
-
-[paste last 3 entries from docs/SESSION_LOG.md]
-
-[Then your actual question/request]
-```
-
-That's it. The new chat now has full context.
+3. Update `docs/STATE.md` if any ticket status changed (In progress, In review sections).
+4. Update the ticket file's `Status:` line.
+5. Commit the doc updates (step 3–4) as a separate `docs:` commit **on the branch, before pushing**.
+6. Push branch.
+7. Open PR with `gh pr create --base main` — body must include `Closes #<N>`.
+8. Print PR URL for Vivek.
+9. **Stop. Do not do anything else.**
 
 ---
 
@@ -324,7 +268,7 @@ That's it. The new chat now has full context.
 
 If a chat session produces a real architectural decision (e.g. "we're switching from JSON to SQLite"), the chat ends with three deliverables:
 
-1. **Updated `PROJECT_STATE.md`** (in a code block ready to copy)
+1. **Updated `STATE.md`** (in a code block ready to copy)
 2. **A new ADR file** in `docs/DECISIONS/` (in a code block)
 3. **A new or updated ticket** if implementation work follows
 
@@ -346,6 +290,6 @@ Vivek commits all three in one commit: `docs: ADR-XXX <title>`. Or — better �
 - ❌ Open-ended fix instructions like "reconcile X and Y" or "consolidate the implementation" → Scope-expansion verbs license agents to rewrite far beyond the actual bug. Bug-fix tickets get explicit "Files NOT to modify" sections. *Lesson from TICKET-008b debugging (2026-05-04):* "fix the problem" produced a sprawling consolidated diff; the targeted fix was 30 lines.
 - ❌ Documented approximations in seed data ("use X as proxy; Y not supported v1") → File a real ticket or omit. The TODO will not get done before it bites.
 - ❌ Silent fallbacks to default values when an upstream lookup fails → Either show the user, or refuse to proceed. Never both fail and continue.
-- ❌ Doc updates after the PR is opened → Doc updates are Step 8b, committed on the branch before push. Never after.
+- ❌ Doc updates after the PR is opened → Doc updates are on the branch before push. Never after.
 - ❌ Writing to `main` after Vivek says "merged" → The session is over. MERGED status is set in the next session's Step 2.
-- ❌ Drafting new QUEUED tickets without updating `PROJECT_STATE.md`'s "Next up" pointer → The agent reads "Next up" first. Stale pointers cause the wrong ticket to be picked up. Drafting a ticket and updating the pointer are one atomic chat-session output, not two.
+- ❌ Drafting new QUEUED tickets without appending to `STATE.md`'s "Up next" section → `tools/draft_ticket.sh` does this automatically. If you draft a ticket file manually, you must also update "Up next". Stale pointers cause the wrong ticket to appear in the menu.
