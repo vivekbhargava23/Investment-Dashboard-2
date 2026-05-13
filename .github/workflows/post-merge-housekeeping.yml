@@ -82,7 +82,7 @@ jobs:
         run: |
           TICKET_ID="${{ steps.find_ticket.outputs.ticket_id }}"
           PR_NUM="${{ github.event.pull_request.number }}"
-          python3 tools/sync_state.py --mark-merged "$TICKET_ID" --pr "$PR_NUM"
+          PYTHONPATH=. python3 tools/sync_state.py --mark-merged "$TICKET_ID" --pr "$PR_NUM"
 
       - name: Commit and push housekeeping
         run: |
