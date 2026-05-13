@@ -5,8 +5,13 @@ Run: python tools/regen_context.py
 Writes: docs/CONTEXT.md
 
 Sections emitted (in order):
-  State driver · ADRs · File tree · Public interfaces · UI surface ·
+  Up next · In progress · In review · Recently done ·
+  ADRs · File tree · Public interfaces · UI surface ·
   Data file shape · Open issues · Open PRs · Recent merges · Tests inventory
+
+Up next, In progress, In review, Recently done are sourced from the GitHub
+Projects board (project #2). All other sections come from the local repo and
+the GitHub Issues/PRs API.
 """
 from __future__ import annotations
 
@@ -21,12 +26,13 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_PATH = REPO_ROOT / "docs" / "CONTEXT.md"
-STATE_PATH = REPO_ROOT / "docs" / "STATE.md"
 DECISIONS_DIR = REPO_ROOT / "docs" / "DECISIONS"
 APP_DIR = REPO_ROOT / "app"
 TESTS_DIR = REPO_ROOT / "tests"
 PAGES_DIR = REPO_ROOT / "app" / "ui" / "pages"
 DATA_JSON = REPO_ROOT / "data" / "portfolio.json"
+
+PROJECT_NUMBER = 2
 
 
 # ---------------------------------------------------------------------------
@@ -79,15 +85,100 @@ def _file_tree(roots: list[Path], ignore_patterns: set[str]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Section generators
+# Board sections
 # ---------------------------------------------------------------------------
 
-def section_state_driver() -> str:
-    if not STATE_PATH.exists():
-        return "## State driver\n\n<STATE.md not found>\n"
-    content = STATE_PATH.read_text(encoding="utf-8")
-    return f"## State driver\n\n{content.strip()}\n"
+def _board_items_by_status() -> dict[str, list[dict]] | str:
+    """Return board items grouped by status column name, or an error string."""
+    raw = _run_gh(
+        "project", "item-list", str(PROJECT_NUMBER),
+        "--owner", "@me",
+        "--format", "json",
+        "--limit", "100",
+    )
+    if raw.startswith("<"):
+        return raw
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return "<could not parse gh project output>"
 
+    grouped: dict[str, list[dict]] = {}
+    for item in data.get("items", []):
+        status = item.get("status", "")
+        grouped.setdefault(status, []).append(item)
+    return grouped
+
+
+def _format_board_item(item: dict) -> str:
+    content = item.get("content", {})
+    number = content.get("number", "?")
+    title = content.get("title", "(no title)")
+    # Extract priority label from issue title if possible, or leave blank
+    priority = ""
+    for part in title.split("["):
+        if len(part) > 0 and part.rstrip("]").upper() in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+            priority = f" [{part.rstrip(']').upper()}]"
+            break
+    # Try to extract ticket ID from title
+    return f"- {title} (issue #{number}){priority}"
+
+
+def section_board() -> str:
+    """Emit Up next, In progress, In review, Recently done from the project board."""
+    result = _board_items_by_status()
+    if isinstance(result, str):
+        lines = [
+            "## Up next\n\n<project board unavailable at generation time — section skipped>",
+            "## In progress\n\n<project board unavailable at generation time — section skipped>",
+            "## In review\n\n<project board unavailable at generation time — section skipped>",
+            "## Recently done\n\n<project board unavailable at generation time — section skipped>",
+        ]
+        return "\n\n---\n\n".join(lines) + "\n"
+
+    grouped = result
+
+    def _section(header: str, status_key: str, limit: int | None = None) -> str:
+        items = grouped.get(status_key, [])
+        if limit is not None:
+            items = sorted(items, key=lambda x: x.get("updatedAt", ""), reverse=True)[:limit]
+        if not items:
+            return f"## {header}\n\n(none)"
+        body = "\n".join(_format_board_item(i) for i in items)
+        return f"## {header}\n\n{body}"
+
+    # Up next: Ready first, then Backlog
+    ready_items = grouped.get("Ready", [])
+    backlog_items = grouped.get("Backlog", [])
+
+    up_next_lines = []
+    if ready_items:
+        up_next_lines.append("Ready (vetted):")
+        up_next_lines.extend(f"  {_format_board_item(i)}" for i in ready_items)
+    if backlog_items:
+        up_next_lines.append("Backlog:")
+        up_next_lines.extend(f"  {_format_board_item(i)}" for i in backlog_items)
+
+    if up_next_lines:
+        up_next_section = "## Up next\n\n" + "\n".join(up_next_lines)
+    else:
+        up_next_section = "## Up next\n\n(none)"
+
+    in_progress_section = _section("In progress", "In progress")
+    in_review_section = _section("In review", "In review")
+    recently_done_section = _section("Recently done", "Done", limit=10)
+
+    return "\n\n---\n\n".join([
+        up_next_section,
+        in_progress_section,
+        in_review_section,
+        recently_done_section,
+    ]) + "\n"
+
+
+# ---------------------------------------------------------------------------
+# Existing section generators (unchanged)
+# ---------------------------------------------------------------------------
 
 def section_adrs() -> str:
     if not DECISIONS_DIR.exists():
@@ -392,10 +483,12 @@ def generate() -> str:
         "It gives the chat surface a complete snapshot of the repo: project state, "
         "ADRs, file layout, public Python interfaces, Streamlit page inventory, "
         "data shape, and GitHub activity. No manual paste required.\n\n"
+        "Up next, In progress, In review, Recently done are sourced from the GitHub "
+        f"Projects board (project #{PROJECT_NUMBER}).\n\n"
         "---\n\n"
     )
     sections = [
-        section_state_driver(),
+        section_board(),
         section_adrs(),
         section_file_tree(),
         section_public_interfaces(),

@@ -6,12 +6,13 @@ on:
 
 jobs:
   housekeeping:
-    if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       issues: read
       pull-requests: read
+      repository-projects: write
 
     steps:
       - name: Checkout main
@@ -20,81 +21,67 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       - name: Verify gh CLI available
         run: gh --version
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Find ticket issue number from PR body
-        id: find_issue
+      - name: Move linked issues to Done on the project board
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_BODY="$(gh pr view ${{ github.event.pull_request.number }} --json body -q .body)"
-          ISSUE_NUM="$(echo "$PR_BODY" | grep -oP '(?i)closes\s+#\K\d+' | head -1)"
-          if [ -z "$ISSUE_NUM" ]; then
-            echo "Error: PR body contains no 'Closes #N' line. Cannot identify ticket." >&2
-            exit 1
-          fi
-          echo "issue_num=$ISSUE_NUM" >> "$GITHUB_OUTPUT"
-          echo "Found issue number: $ISSUE_NUM"
-
-      - name: Find ticket file path from issue body
-        id: find_ticket
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          ISSUE_NUM="${{ steps.find_issue.outputs.issue_num }}"
-          ISSUE_BODY="$(gh issue view "$ISSUE_NUM" --json body -q .body)"
-          TICKET_FILE="$(echo "$ISSUE_BODY" | grep -oP 'Ticket file: `\K[^`]+')"
-          if [ -z "$TICKET_FILE" ]; then
-            echo "Error: issue body has no 'Ticket file: \`path\`' line." >&2
-            exit 1
-          fi
-          # Extract ticket ID from the file path (e.g. docs/TICKETS/TICKET-M3-slug.md → TICKET-M3)
-          TICKET_ID="$(basename "$TICKET_FILE" | grep -oP '^TICKET-[^-]+')"
-          echo "ticket_file=$TICKET_FILE" >> "$GITHUB_OUTPUT"
-          echo "ticket_id=$TICKET_ID" >> "$GITHUB_OUTPUT"
-          echo "Found ticket file: $TICKET_FILE (ID: $TICKET_ID)"
-
-      - name: Update ticket file status IN_REVIEW → MERGED
-        run: |
-          TICKET_FILE="${{ steps.find_ticket.outputs.ticket_file }}"
-          if [ ! -f "$TICKET_FILE" ]; then
-            echo "Error: ticket file '$TICKET_FILE' not found in checkout." >&2
-            exit 1
-          fi
-          sed -i 's/^\*\*Status:\*\* IN_REVIEW/**Status:** MERGED/' "$TICKET_FILE"
-          if ! grep -q '^\*\*Status:\*\* MERGED' "$TICKET_FILE"; then
-            echo "Error: status update did not take effect in $TICKET_FILE." >&2
-            exit 1
-          fi
-          echo "Updated $TICKET_FILE: IN_REVIEW → MERGED"
-
-      - name: Move ticket to Done, append to Recent activity, reconcile state
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TICKET_ID="${{ steps.find_ticket.outputs.ticket_id }}"
           PR_NUM="${{ github.event.pull_request.number }}"
-          PYTHONPATH=. python3 tools/sync_state.py --mark-merged "$TICKET_ID" --pr "$PR_NUM"
+          PR_BODY="$(gh pr view "$PR_NUM" --json body -q .body)"
 
-      - name: Commit and push housekeeping
-        run: |
-          TICKET_ID="${{ steps.find_ticket.outputs.ticket_id }}"
-          PR_NUM="${{ github.event.pull_request.number }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/TICKETS/ docs/STATE.md
-          if git diff --cached --quiet; then
-            echo "No changes to commit — housekeeping already up to date."
-          else
-            git commit -m "chore: post-merge housekeeping for ${TICKET_ID} (#${PR_NUM}) [skip ci]"
-            git push origin main
-            echo "Pushed housekeeping commit."
+          # Extract all issue numbers from Closes/Fixes/Resolves lines
+          ISSUE_NUMS="$(echo "$PR_BODY" | grep -oP '(?i)(closes|fixes|resolves)\s+#\K\d+' || true)"
+
+          if [ -z "$ISSUE_NUMS" ]; then
+            echo "No 'Closes #N' lines found in PR body. Nothing to move."
+            exit 0
           fi
+
+          # Resolve board identifiers via name lookup
+          PROJECT_NUMBER=2
+          PROJECT_ID="$(gh project list --owner @me --format json | jq -r --argjson n "$PROJECT_NUMBER" '.projects[] | select(.number==$n) | .id')"
+          STATUS_FIELD_ID="$(gh project field-list "$PROJECT_NUMBER" --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .id')"
+          DONE_OPTION_ID="$(gh project field-list "$PROJECT_NUMBER" --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="Done") | .id')"
+
+          if [ -z "$PROJECT_ID" ] || [ -z "$STATUS_FIELD_ID" ] || [ -z "$DONE_OPTION_ID" ]; then
+            echo "Error: could not resolve project board IDs. Board may have changed."
+            exit 1
+          fi
+
+          for ISSUE_NUM in $ISSUE_NUMS; do
+            echo "Processing issue #$ISSUE_NUM..."
+            ITEM_ID="$(gh project item-list "$PROJECT_NUMBER" --owner @me --format json --limit 200 | jq -r --argjson n "$ISSUE_NUM" '.items[] | select(.content.number==$n) | .id' | head -1)"
+
+            if [ -z "$ITEM_ID" ]; then
+              echo "  Issue #$ISSUE_NUM not found on the board — adding it now..."
+              ISSUE_URL="$(gh issue view "$ISSUE_NUM" --json url -q .url 2>/dev/null || true)"
+              if [ -n "$ISSUE_URL" ]; then
+                ITEM_ID="$(gh project item-add "$PROJECT_NUMBER" --owner @me --url "$ISSUE_URL" --format json | jq -r '.id')"
+              fi
+            fi
+
+            if [ -n "$ITEM_ID" ]; then
+              gh project item-edit \
+                --project-id "$PROJECT_ID" \
+                --id "$ITEM_ID" \
+                --field-id "$STATUS_FIELD_ID" \
+                --single-select-option-id "$DONE_OPTION_ID" \
+                --format json > /dev/null
+              echo "  Moved issue #$ISSUE_NUM to Done (item $ITEM_ID)."
+            else
+              echo "  Warning: could not find or create board item for issue #$ISSUE_NUM."
+            fi
+          done
+
+      - name: Commit message (housekeeping marker)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUM="${{ github.event.pull_request.number }}"
+          PR_TITLE="$(gh pr view "$PR_NUM" --json title -q .title)"
+          echo "Housekeeping complete for PR #$PR_NUM: $PR_TITLE"
+          echo "Board updated. CONTEXT.md will regenerate via update-context.yml on the next push."
