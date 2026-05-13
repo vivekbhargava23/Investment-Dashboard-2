@@ -80,7 +80,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### In review 👀
 
-(none)
+- TICKET-026 — Company Deep Dive page shell: ticker search, tab structure, chart style sampler, cache-age banner, refresh button (PR pending)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.

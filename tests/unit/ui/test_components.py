@@ -2,6 +2,7 @@ import pytest
 
 import app.ui.pages.analytics as analytics
 import app.ui.pages.behaviour as behaviour
+import app.ui.pages.company as company
 import app.ui.pages.decision as decision
 import app.ui.pages.lots as lots
 import app.ui.pages.manage as manage
@@ -30,7 +31,7 @@ def test_render_severity_badge():
         render_severity_badge("invalid") # type: ignore
 
 def test_nav_items_consistency():
-    assert len(NAV_ITEMS) == 10
+    assert len(NAV_ITEMS) == 11
     for item in NAV_ITEMS:
         assert "id" in item
         assert "label" in item
@@ -45,6 +46,7 @@ def test_page_registry_presence():
     assert callable(analytics.render)
     assert callable(performance.render)
     assert callable(tax.render)
+    assert callable(company.render)
     assert callable(decision.render)
     assert callable(behaviour.render)
     assert callable(lots.render)

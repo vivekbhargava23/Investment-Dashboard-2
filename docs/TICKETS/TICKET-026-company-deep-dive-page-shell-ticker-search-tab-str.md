@@ -1,10 +1,10 @@
 # TICKET-026 — Company Deep Dive page shell: ticker search, tab structure, chart style sampler, cache-age banner, refresh button
 
-**Status:** QUEUED
+**Status:** IN_REVIEW
 **Priority:** HIGH
 **Estimated session length:** 1.5 – 2 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-13)
-**Implemented by:** Claude Code (session TBD)
+**Implemented by:** Codex (session 2026-05-13)
 **Depends on:** TICKET-025 (CompanyData model, CompanyDataProvider port, all adapters, services — merged)
 
 > **After this ticket merges, the Company Deep Dive page exists in the sidebar, loads company data for any ticker, and presents six tabs (four empty, two stubs).** It also introduces a chart theme module with 3 style options rendered as a sampler so Vivek picks the visual direction for the entire milestone before any tab content is built.

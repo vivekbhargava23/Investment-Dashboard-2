@@ -12,6 +12,7 @@ NAV_ITEMS: list[dict[str, Any]] = [
     {"id": "tax",         "label": "Tax Dashboard",      "icon": "§",  "badge": None},
     {"id": "analytics",   "label": "Analytics & Risk",   "icon": "⬡",  "badge": None},
     {"id": "research",    "label": "Research",           "icon": "📈", "badge": None},
+    {"id": "company",     "label": "Company",            "icon": "🏢", "badge": None},
     # TOOLS
     {"id": "simulator",   "label": "Sell Simulator",     "icon": "⚡", "badge": None},
     {"id": "lots",        "label": "Lot Ledger",         "icon": "≡",  "badge": None},
@@ -27,9 +28,9 @@ NAV_ITEMS: list[dict[str, Any]] = [
 ]
 
 _SECTIONS: list[tuple[str, int, int]] = [
-    ("PORTFOLIO", 0, 5),
-    ("TOOLS",     5, 9),
-    ("SETTINGS",  9, 10),
+    ("PORTFOLIO", 0, 6),
+    ("TOOLS",     6, 10),
+    ("SETTINGS",  10, 11),
 ]
 
 
