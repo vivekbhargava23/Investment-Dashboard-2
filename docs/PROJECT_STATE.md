@@ -81,7 +81,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### In review 👀
 
-(none)
+- TICKET-M4a — Auto-generated CONTEXT.md + chat verification protocol (PR pending)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -92,7 +92,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### Next up 📋
 
-1. TICKET-M4a — Auto-generated CONTEXT.md + chat verification protocol (issue #59)
+1. *C2 — Company Deep Dive page and Snapshot tab*
 2. *C2 — Company Deep Dive page and Snapshot tab*
 3. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
