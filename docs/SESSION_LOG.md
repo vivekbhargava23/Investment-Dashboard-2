@@ -1714,3 +1714,61 @@ Further polish applied to `ticket-A2-analytics-correlation` (same branch, no new
 
 ### Tokens used (rough)
 ~90k
+
+---
+
+## 2026-05-13 — TICKET-M3
+
+**Agent:** Claude Code (sonnet-4.6)
+**Duration:** ~90 min
+**Branch:** ticket-M3-tooling-self-heal
+**PR:** pending
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added branch guard + clean-tree guard to `tools/draft_ticket.sh` (hard-fail before any side effects)
+- Added `python3 tools/sync_state.py` call at start of `draft_ticket.sh` to reconcile state on every ticket filing
+- Rewrote `tools/update_backlog.py`: auto-create missing Milestone sections, fixed separator placement bug (row now goes after `|---|` not after a stray trailing separator), and uses `_next_up` helper to rebuild Next up instead of prepending
+- Rewrote `tools/update_state.py`: full rebuild from GitHub instead of prepend; kept --id/--title args for backwards compat
+- Created `tools/_next_up.py`: shared `rebuild_next_up_list()` (queries GitHub, sorts by next-up → milestone order → issue number) and `extract_freeform_entries()` (preserves italic placeholder lines)
+- Created `tools/sync_state.py`: standalone reconciliation (Next up, In review, In progress rebuilt from GitHub); `--mark-merged TICKET-XXX --pr N` flag moves ticket from In review to Done and updates BACKLOG row
+- Created `.github/workflows/post-merge-housekeeping.yml`: triggers on PR merge to main, updates ticket file (IN_REVIEW→MERGED), calls sync_state --mark-merged, commits with `[skip ci]`
+- Updated `AGENTS.md` Step 2: now a verification step (check Actions landed) with fallback to manual sync_state call
+- Updated `docs/WORKFLOW.md` Sections 4, 5; added new Section 9 documenting M3 self-heal behaviour
+- Fixed malformed Company Deep Dive section in BACKLOG.md (separator was after data row)
+- Fixed stale statuses in BACKLOG.md (M1, M2, TICKET-025 → MERGED)
+- Added sync_state.py regex comment to PROJECT_STATE.md
+- 28 new unit tests covering _next_up, sync_state, update_backlog, and draft_ticket.sh guard behaviour
+
+### Files touched
+- `tools/__init__.py` — new (package marker)
+- `tools/_next_up.py` — new
+- `tools/sync_state.py` — new
+- `tools/draft_ticket.sh` — branch guard, clean-tree guard, sync call
+- `tools/update_backlog.py` — auto-create milestone, fix separator, use _next_up
+- `tools/update_state.py` — use _next_up for full rebuild
+- `.github/workflows/post-merge-housekeeping.yml` — new
+- `AGENTS.md` — Step 2 rewritten as verification step
+- `docs/WORKFLOW.md` — Sections 4, 5 updated; Section 9 added
+- `docs/TICKETS/BACKLOG.md` — fixed Company Deep Dive section; stale statuses corrected
+- `docs/PROJECT_STATE.md` — sync_state regex comment; TICKET-M3 IN_REVIEW
+- `docs/TICKETS/TICKET-M3-*.md` — status IN_REVIEW
+- `tests/unit/tools/__init__.py` — new
+- `tests/unit/tools/test_next_up.py` — new (11 tests)
+- `tests/unit/tools/test_sync_state.py` — new (8 tests)
+- `tests/unit/tools/test_update_backlog.py` — new (6 tests)
+- `tests/unit/tools/test_draft_ticket.py` — new (5 tests)
+
+### Tests
+632 passing → 660 passing (28 new)
+
+### Decisions made during the session
+- No new architectural decisions; all design was pre-settled in the ticket spec
+- Used pytest+subprocess for draft_ticket.sh tests (no bats dependency)
+- sync_state.py --mark-merged calls standard reconciliation internally (idempotent if workflow also calls sync_state standalone)
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~120k

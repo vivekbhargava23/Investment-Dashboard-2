@@ -100,13 +100,14 @@ You do not need to police the format — just expect it. If the chat surface doe
 
 1. Download the `.md` ticket file the chat produced (or copy it out of the chat).
 2. Save it where the shell block expects it — usually the script writes it for you, so you may only need the shell block itself.
-3. Paste the shell block into your terminal and press Enter.
+3. Paste the shell block into your terminal and press Enter. If you're not on `main` or your working tree is dirty, the script will refuse to run with a clear error — fix and retry.
 
 **What the script does (`tools/draft_ticket.sh`):**
 
+- Reconciles the "Next up" lists in both `PROJECT_STATE.md` and `BACKLOG.md` against GitHub Issues (no more stale entries)
 - Writes the ticket file to `docs/TICKETS/`
-- Adds a row to the correct Milestone table in `docs/TICKETS/BACKLOG.md`
-- Updates `docs/PROJECT_STATE.md`'s "Next up" pointer if `NEXT_UP=true`
+- Adds a row to the correct Milestone table in `docs/TICKETS/BACKLOG.md` (auto-creates the section if the Milestone is new)
+- Updates `docs/PROJECT_STATE.md`'s "Next up" list (rebuilt from GitHub, not just prepended)
 - Creates the GitHub issue with labels `queued` + the priority level (+ `next-up` if applicable)
 - Commits with `docs: draft TICKET-<N> <title>`
 - Pushes to `main`
@@ -125,7 +126,7 @@ That is the entire instruction. Optionally: `implement TICKET-XXX` if you want t
 
 **What the agent does:** It reads `gh issue list --label next-up --state open` to find the correct ticket, then executes a 9-step ritual: reads the ticket, branches, implements, runs all checks, commits, updates docs, pushes, and opens a PR.
 
-**What you do during the session:** Nothing. The agent does not need your input between steps.
+**What you do during the session:** Nothing. The agent does not need your input between steps. Housekeeping for the previous ticket happens automatically on merge via GitHub Actions; the agent's Step 2 verifies it landed.
 
 **What you see:** File edits, test runs, lint runs, commit messages, a push, and finally a PR URL printed to the terminal.
 
@@ -183,6 +184,20 @@ TICKET-M1 (merged 2026-05-10) made these changes to the workflow:
 - **Chat handoff protocol formalized.** Chat surfaces always produce a Standard Handoff Bundle (ticket file + shell block). See METHODOLOGY.md.
 
 This section can be deleted once the new flow is fully internalized (approximately 30–60 days after TICKET-M1 merged). File a cleanup ticket when ready — suggest naming it TICKET-MX-remove-m1-transitional-note.
+
+---
+
+## Section 9 — Tooling self-heal (added in TICKET-M3)
+
+TICKET-M3 (merged 2026-05-13) made these changes to the tooling:
+
+- **Branch guard in `draft_ticket.sh`.** The script refuses to run unless you are on `main` with a clean working tree. If you're on a feature branch, it prints an explicit error and exits before writing anything.
+- **Auto-create Milestone sections.** `tools/update_backlog.py` no longer errors if the named Milestone section doesn't exist in BACKLOG.md — it creates the section automatically, then inserts the row with correct separator placement.
+- **Next-up rebuild from GitHub (not prepend).** `tools/update_state.py` and `tools/update_backlog.py` now fully rebuild the "Next up" lists by querying GitHub Issues on every run. This eliminates the stale `1.`, `1.`, `1.` duplicate entries that appeared when multiple tickets were filed between sessions.
+- **`tools/sync_state.py` standalone reconciliation.** Run `python3 tools/sync_state.py` at any time to reconcile both Next-up lists, In-review, and In-progress sections against GitHub ground truth. It does not commit.
+- **GitHub Actions post-merge housekeeping.** When a PR merges to `main`, the `post-merge-housekeeping` workflow automatically updates the ticket file (`IN_REVIEW → MERGED`), moves the ticket from "In review 👀" to "Done ✓" in `PROJECT_STATE.md`, updates the BACKLOG.md row to `MERGED`, and reconciles the Next-up lists — all within seconds of the merge. The agent's Step 2 verifies this landed; if the workflow failed for any reason, Step 2 reconciles with `tools/sync_state.py --mark-merged`.
+
+**One manual step required:** for the GitHub Actions workflow to push directly to the branch-protected `main`, Vivek must add `github-actions[bot]` to the "Allow specified actors to bypass required pull requests" list in GitHub → Settings → Branches → main.
 
 ---
 

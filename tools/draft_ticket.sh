@@ -18,6 +18,27 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
+# --- Branch guard: must run from main ---
+CURRENT_BRANCH="$(git branch --show-current)"
+if [ "$CURRENT_BRANCH" != "main" ]; then
+  echo "Error: tools/draft_ticket.sh must be run from main." >&2
+  echo "  You are on: $CURRENT_BRANCH" >&2
+  echo "  Run: git checkout main && git pull" >&2
+  exit 1
+fi
+
+# --- Clean-tree guard: no uncommitted changes ---
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Error: working tree is dirty. Commit or stash before drafting a ticket." >&2
+  git status --short >&2
+  exit 1
+fi
+
+# --- Reconcile state against GitHub before touching anything ---
+echo "Reconciling Next-up lists against GitHub..."
+python3 tools/sync_state.py
+echo ""
+
 # --- Read stdin ---
 INPUT="$(cat)"
 
@@ -62,9 +83,8 @@ python3 tools/update_backlog.py \
   $NEXT_UP_FLAG
 
 # --- Update PROJECT_STATE.md Next up pointer ---
-if [ "$NEXT_UP" = "true" ]; then
-  python3 tools/update_state.py --id "$ID" --title "$TITLE"
-fi
+# Always rebuild (--id/--title args kept for backwards compat but now redundant)
+python3 tools/update_state.py --id "$ID" --title "$TITLE"
 
 # --- Map priority to GitHub label ---
 case "$PRIORITY" in

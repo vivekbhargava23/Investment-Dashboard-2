@@ -101,17 +101,17 @@ The single index of all tickets. Status flows: QUEUED → IN_PROGRESS → IN_REV
 
 | ID | Title | Status | Priority | Est |
 |---|---|---|---|---|
-| TICKET-M1 | Workflow vocabulary cleanup + GitHub Issues integration | IN_REVIEW | HIGH | 2 – 2.5 hr |
-| TICKET-M2 | Add WORKFLOW.md (Vivek-facing workflow guide) | QUEUED | HIGH | 45 – 60 min |
-| TICKET-M3 | Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping | QUEUED | HIGH | 1.5 – 2 hr |
+| TICKET-M1 | Workflow vocabulary cleanup + GitHub Issues integration | MERGED | HIGH | 2 – 2.5 hr |
+| TICKET-M2 | Add WORKFLOW.md (Vivek-facing workflow guide) | MERGED | HIGH | 45 – 60 min |
+| TICKET-M3 | Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping | IN_REVIEW | HIGH | 1.5 – 2 hr |
 
 ---
 
 ## Milestone — Company Deep Dive
 
 | ID | Title | Status | Priority | Est |
-| TICKET-025 | Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL | IN_REVIEW | HIGH | 1.5 – 2 hr |
 |---|---|---|---|---|
+| TICKET-025 | Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL | MERGED | HIGH | 1.5 – 2 hr |
 
 ---
 
@@ -131,10 +131,7 @@ The single index of all tickets. Status flows: QUEUED → IN_PROGRESS → IN_REV
 
 ## Next up (in execution order)
 
-1. TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL
-1. TICKET-M2 — Add WORKFLOW.md (Vivek-facing workflow guide)
-1. TICKET-M1 — Workflow vocabulary cleanup + GitHub Issues integration *(in review)*
-2. *Panel framework brainstorm session*
+1. *Panel framework brainstorm session*
 
 ---
 

@@ -1,0 +1,100 @@
+name: Post-merge housekeeping
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  housekeeping:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify gh CLI available
+        run: gh --version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find ticket issue number from PR body
+        id: find_issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_BODY="$(gh pr view ${{ github.event.pull_request.number }} --json body -q .body)"
+          ISSUE_NUM="$(echo "$PR_BODY" | grep -oP '(?i)closes\s+#\K\d+' | head -1)"
+          if [ -z "$ISSUE_NUM" ]; then
+            echo "Error: PR body contains no 'Closes #N' line. Cannot identify ticket." >&2
+            exit 1
+          fi
+          echo "issue_num=$ISSUE_NUM" >> "$GITHUB_OUTPUT"
+          echo "Found issue number: $ISSUE_NUM"
+
+      - name: Find ticket file path from issue body
+        id: find_ticket
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUM="${{ steps.find_issue.outputs.issue_num }}"
+          ISSUE_BODY="$(gh issue view "$ISSUE_NUM" --json body -q .body)"
+          TICKET_FILE="$(echo "$ISSUE_BODY" | grep -oP 'Ticket file: `\K[^`]+')"
+          if [ -z "$TICKET_FILE" ]; then
+            echo "Error: issue body has no 'Ticket file: \`path\`' line." >&2
+            exit 1
+          fi
+          # Extract ticket ID from the file path (e.g. docs/TICKETS/TICKET-M3-slug.md → TICKET-M3)
+          TICKET_ID="$(basename "$TICKET_FILE" | grep -oP '^TICKET-[^-]+')"
+          echo "ticket_file=$TICKET_FILE" >> "$GITHUB_OUTPUT"
+          echo "ticket_id=$TICKET_ID" >> "$GITHUB_OUTPUT"
+          echo "Found ticket file: $TICKET_FILE (ID: $TICKET_ID)"
+
+      - name: Update ticket file status IN_REVIEW → MERGED
+        run: |
+          TICKET_FILE="${{ steps.find_ticket.outputs.ticket_file }}"
+          if [ ! -f "$TICKET_FILE" ]; then
+            echo "Error: ticket file '$TICKET_FILE' not found in checkout." >&2
+            exit 1
+          fi
+          sed -i 's/^\*\*Status:\*\* IN_REVIEW/**Status:** MERGED/' "$TICKET_FILE"
+          if ! grep -q '^\*\*Status:\*\* MERGED' "$TICKET_FILE"; then
+            echo "Error: status update did not take effect in $TICKET_FILE." >&2
+            exit 1
+          fi
+          echo "Updated $TICKET_FILE: IN_REVIEW → MERGED"
+
+      - name: Move ticket to Done and reconcile state
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TICKET_ID="${{ steps.find_ticket.outputs.ticket_id }}"
+          PR_NUM="${{ github.event.pull_request.number }}"
+          python3 tools/sync_state.py --mark-merged "$TICKET_ID" --pr "$PR_NUM"
+
+      - name: Commit and push housekeeping
+        run: |
+          TICKET_ID="${{ steps.find_ticket.outputs.ticket_id }}"
+          PR_NUM="${{ github.event.pull_request.number }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/TICKETS/ docs/PROJECT_STATE.md docs/TICKETS/BACKLOG.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit — housekeeping already up to date."
+          else
+            git commit -m "chore: post-merge housekeeping for ${TICKET_ID} (#${PR_NUM}) [skip ci]"
+            git push origin main
+            echo "Pushed housekeeping commit."
+          fi
