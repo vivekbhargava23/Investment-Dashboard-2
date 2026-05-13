@@ -105,6 +105,8 @@ The single index of all tickets. Status flows: QUEUED → IN_PROGRESS → IN_REV
 | TICKET-M2 | Add WORKFLOW.md (Vivek-facing workflow guide) | MERGED | HIGH | 45 – 60 min |
 | TICKET-M3 | Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping | MERGED | HIGH | 1.5 – 2 hr |
 | TICKET-WFTEST | Housekeeping workflow smoke test | MERGED | LOW | 5 min |
+| TICKET-M4a | Auto-generated CONTEXT.md + chat verification protocol | MERGED | HIGH | 2 – 2.5 hr |
+| TICKET-M4b | Consolidate workflow files, execution-time menu, Vivek quick-reference | QUEUED | HIGH | 3 – 3.5 hr |
 
 ---
 
@@ -132,7 +134,8 @@ The single index of all tickets. Status flows: QUEUED → IN_PROGRESS → IN_REV
 
 ## Next up (in execution order)
 
-1. *Panel framework brainstorm session*
+1. TICKET-M4b — Consolidate workflow files, execution-time menu, Vivek quick-reference
+2. *Panel framework brainstorm session*
 
 ---
 
