@@ -92,8 +92,9 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### Next up 📋
 
-1. *C2 — Company Deep Dive page and Snapshot tab*
-2. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
+1. TICKET-M4a — Auto-generated CONTEXT.md + chat verification protocol (issue #59)
+2. *C2 — Company Deep Dive page and Snapshot tab*
+3. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
 
 ### Blocked 🚫
 - (none)
