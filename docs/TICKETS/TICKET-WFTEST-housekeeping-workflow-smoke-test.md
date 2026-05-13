@@ -1,6 +1,6 @@
 # TICKET-WFTEST — Housekeeping workflow smoke test
 
-**Status:** IN_REVIEW
+**Status:** MERGED
 **Priority:** LOW
 **Estimated session length:** 5 min
 **Drafted by:** Claude Code (2026-05-13) — test-only ticket, delete after workflow verified
