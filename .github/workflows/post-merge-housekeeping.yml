@@ -76,7 +76,7 @@ jobs:
           fi
           echo "Updated $TICKET_FILE: IN_REVIEW → MERGED"
 
-      - name: Move ticket to Done and reconcile state
+      - name: Move ticket to Done, append to Recent activity, reconcile state
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -90,7 +90,7 @@ jobs:
           PR_NUM="${{ github.event.pull_request.number }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/TICKETS/ docs/PROJECT_STATE.md docs/TICKETS/BACKLOG.md
+          git add docs/TICKETS/ docs/STATE.md
           if git diff --cached --quiet; then
             echo "No changes to commit — housekeeping already up to date."
           else

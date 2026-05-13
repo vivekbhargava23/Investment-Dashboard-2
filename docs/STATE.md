@@ -1,11 +1,10 @@
-# PROJECT_STATE.md
+# STATE.md
 
 <!-- The section headers below are matched by tools/sync_state.py regexes.
      If you rename or reorder them, update sync_state.py in the same PR. -->
 
 > **This is the single source of truth for project state.**
-> Paste this file at the start of any new Claude chat.
-> Claude Code updates this at the end of every session.
+> For chat sessions, `docs/CONTEXT.md` (auto-generated) contains this file plus code interfaces, UI surface, and GitHub activity — no manual paste required.
 
 **Last updated:** 2026-05-13 by GitHub Actions (post-merge housekeeping)
 
@@ -72,7 +71,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 **Milestone:** Company Deep Dive
 
-### Done ✓ (last 5; full history in BACKLOG.md)
+### Done ✓ (last 5)
 - TICKET-025 — Company data layer: models, ports, yfinance + Finnhub adapters, JSON cache with TTL (PR #53)
 - TICKET-M3 — Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping (PR #56)
 - TICKET-WFTEST — Housekeeping workflow smoke test (PR #58)
@@ -80,7 +79,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### In review 👀
 
-(none)
+- TICKET-M4b — Consolidate workflow files, execution-time menu, Vivek quick-reference (PR pending)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -98,6 +97,14 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### Blocked 🚫
 - (none)
+
+### Recent activity 📅
+
+- 2026-05-13 — TICKET-M4a merged (PR #61)
+- 2026-05-13 — TICKET-WFTEST merged (PR #58)
+- 2026-05-13 — TICKET-M3 merged (PR #56)
+- 2026-05-13 — TICKET-025 merged (PR #53)
+- 2026-05-13 — TICKET-M2 merged (PR #52)
 
 ---
 
@@ -122,6 +129,6 @@ See `docs/DECISIONS/` for full ADRs.
 
 ## How this file gets maintained
 
-- **Claude Code** updates the "Done", "In progress", "Next up", and "Blocked" sections at every session end as part of the session-end ritual.
-- **Claude Chat (Vivek + Claude)** updates the "Stack", "Architecture", "Key decisions", and "Open questions" sections after architectural conversations.
-- All changes go through PRs. Both AI surfaces propose changes via diffs, never silent edits.
+- **Claude Code** updates "In progress", "Next up", "In review", and "Done" sections as part of the implementation ritual (Steps 5, 8b).
+- **GitHub Actions** (`post-merge-housekeeping.yml`) updates "Recent activity", "In review → Done", and the ticket file status on every merge.
+- **Claude Chat (Vivek + Claude)** updates "Stack", "Architecture", "Key decisions", and "Open questions" after architectural conversations.
