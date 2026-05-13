@@ -108,7 +108,6 @@ investment-dashboard/
 │   ├── PULL_REQUEST_TEMPLATE.md
 │   └── workflows/ci.yml
 ├── docs/
-│   ├── STATE.md
 │   ├── VIVEK.md
 │   ├── METHODOLOGY.md
 │   ├── ARCHITECTURE.md
