@@ -80,28 +80,36 @@ git status                       # must be clean
 git checkout main && git pull    # sync with remote
 ```
 
-### Step 2 — Housekeeping from previous ticket (if applicable)
+### Step 2 — Verify housekeeping from previous ticket (if applicable)
 
-Detect whether the previous ticket's issue has been merged by querying GitHub:
+GitHub Actions runs `post-merge-housekeeping.yml` within seconds of every merge.
+By the time you start the next session, `PROJECT_STATE.md`, `BACKLOG.md`, and
+the ticket file should already reflect `MERGED` status.
+
+Verify by querying GitHub and reading the files:
 
 ```bash
 gh issue view <N> --json state -q .state
 ```
 
-Where `<N>` is the issue number of the ticket listed under "In review 👀" in
-`docs/PROJECT_STATE.md`. If the output is `"CLOSED"`, the PR was merged — perform
-housekeeping:
+Where `<N>` is the issue number of the ticket that was last "In review 👀" in
+`docs/PROJECT_STATE.md`. If the output is `"CLOSED"`:
 
-```bash
-# Update the old ticket file: Status: IN_REVIEW → Status: MERGED
-# Move the ticket from "In review 👀" to "Done ✓" in docs/PROJECT_STATE.md
-git add -A
-git commit -m "docs: mark TICKET-YYY as merged"
-git push origin main
-```
+- **If `PROJECT_STATE.md` "In review 👀" section is already empty and "Done ✓"
+  contains the ticket:** the GitHub Actions workflow succeeded. No action needed.
 
-If the "In review 👀" section is empty, or if `gh issue view` returns `"OPEN"`,
-skip this step.
+- **If `PROJECT_STATE.md` still shows the ticket in "In review 👀"** (i.e. the
+  workflow failed for any reason): reconcile manually:
+
+  ```bash
+  python3 tools/sync_state.py --mark-merged TICKET-YYY --pr <PR-N>
+  git add -A
+  git commit -m "chore: reconcile state for TICKET-YYY"
+  git push origin main
+  ```
+
+If the "In review 👀" section is already empty, or if `gh issue view` returns
+`"OPEN"`, skip this step entirely.
 
 **Note:** The housekeeping signal is the GitHub issue state, not a message from
 Vivek. Do not rely on Vivek saying "I merged it" — query GitHub instead.
@@ -232,8 +240,10 @@ You do not need to do anything else.
 - Do NOT write to `main`.
 
 The merge itself landed all your branch commits (including the doc updates from Step 8b)
-onto `main`. The MERGED status bookkeeping happens automatically at the start of the next
-session (Step 2) by querying `gh issue view <N> --json state`. Your session is over.
+onto `main`. GitHub Actions handles the MERGED status bookkeeping (ticket file, PROJECT_STATE.md,
+BACKLOG.md) within seconds of the merge. Step 2 of the next session verifies it landed; in
+the rare case the workflow failed, Step 2 reconciles manually via `tools/sync_state.py`.
+Your session is over.
 
 ---
 

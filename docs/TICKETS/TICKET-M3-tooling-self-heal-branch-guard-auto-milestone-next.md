@@ -1,10 +1,10 @@
 # TICKET-M3 — Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Estimated session length:** 1.5 – 2 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-12)
-**Implemented by:** _pending_
+**Implemented by:** Claude Code (sonnet-4.6) (session 2026-05-13)
 **Depends on:** TICKET-M1 (existing GitHub label/milestone setup), TICKET-M2 (WORKFLOW.md — minor cross-reference touch-ups in scope)
 
 > **After this ticket merges, the ticket-filing flow is self-healing.** `tools/draft_ticket.sh` refuses to run from any branch other than `main`. Missing Milestone sections in `BACKLOG.md` are created automatically instead of erroring. The "Next up" lists in both `PROJECT_STATE.md` and `BACKLOG.md` are reconciled against GitHub Issues on every run — no more stale `1.`, `1.`, `1.` artifacts. A new GitHub Actions workflow does the "MERGED" bookkeeping the moment Vivek merges a PR — no waiting for the next implementation session. AGENTS.md Step 2 becomes a verification step instead of the primary path.
