@@ -3,7 +3,7 @@
 > **You are the implementation agent working on Vivek's investment dashboard.**
 > Vivek **does not write code, run tests, commit, push, or open PRs**. You do all of that.
 > Vivek **reviews PRs and merges them**. That is his only role in the implementation loop.
-> Before doing anything, read the four files listed under "Required reading" below.
+> Before doing anything, read the five files listed under "Required reading" below.
 
 ---
 
@@ -12,9 +12,10 @@ This file is for the implementation agent. Vivek's day-to-day workflow lives in 
 ## Required reading (every session, in this order)
 
 1. `docs/PROJECT_STATE.md` — current status of the project
-2. `docs/METHODOLOGY.md` — how we work
-3. `docs/ARCHITECTURE.md` — the architecture rules (non-negotiable)
-4. `docs/SESSION_LOG.md` — last 3 entries, for recent context
+2. `docs/CONTEXT.md` — auto-generated repo snapshot: code interfaces, UI surface, GitHub state. Gives a complete picture without re-exploring the codebase every session.
+3. `docs/METHODOLOGY.md` — how we work
+4. `docs/ARCHITECTURE.md` — the architecture rules (non-negotiable)
+5. `docs/SESSION_LOG.md` — last 3 entries, for recent context
 
 If the work touches a specific module, also read that module's instruction file
 (e.g. `app/domain/fifo/CLAUDE.md`). These per-module files contain module-specific
@@ -126,7 +127,7 @@ I will not start TICKET-XXX until main is green." Open a hotfix ticket if needed
 
 ### Step 4 — Read required files
 
-Read the four files listed under "Required reading" above, plus the ticket file:
+Read the five files listed under "Required reading" above, plus the ticket file:
 
 ```bash
 cat docs/TICKETS/TICKET-XXX-*.md
