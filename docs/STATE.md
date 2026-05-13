@@ -76,10 +76,11 @@ See `docs/ARCHITECTURE.md` for the full rules.
 - TICKET-M3 — Tooling self-heal: branch guard, auto-milestone, Next-up reconciliation, GitHub Actions post-merge housekeeping (PR #56)
 - TICKET-WFTEST — Housekeeping workflow smoke test (PR #58)
 - TICKET-M4a — Auto-generated CONTEXT.md + chat verification protocol (PR #61)
+- TICKET-M4b — Consolidate workflow files, execution-time menu, Vivek quick-reference (PR pending) (PR #63)
 
 ### In review 👀
 
-- TICKET-M4b — Consolidate workflow files, execution-time menu, Vivek quick-reference (PR pending)
+(none)
 
 ### Closed without merging ⊘
 - TICKET-009 — Manage Portfolio page (original spec) — superseded by TICKET-009-revised. See ADR-005 and PR #14.
@@ -90,7 +91,6 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### Next up 📋
 
-1. TICKET-M4b — Consolidate workflow files, execution-time menu, Vivek quick-reference
 2. *C2 — Company Deep Dive page and Snapshot tab*
 3. *C2 — Company Deep Dive page and Snapshot tab*
 4. *Panel framework brainstorm session (see PANEL_BRAINSTORM_HANDOFF.md)*
@@ -100,6 +100,7 @@ See `docs/ARCHITECTURE.md` for the full rules.
 
 ### Recent activity 📅
 
+- 2026-05-13 — TICKET-M4b merged (PR #63)
 - 2026-05-13 — TICKET-M4a merged (PR #61)
 - 2026-05-13 — TICKET-WFTEST merged (PR #58)
 - 2026-05-13 — TICKET-M3 merged (PR #56)

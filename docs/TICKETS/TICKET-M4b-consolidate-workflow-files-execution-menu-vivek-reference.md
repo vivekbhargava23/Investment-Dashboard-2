@@ -1,6 +1,6 @@
 # TICKET-M4b — Consolidate workflow files, execution-time menu, Vivek quick-reference
 
-**Status:** IN_REVIEW
+**Status:** MERGED
 **Priority:** HIGH
 **Estimated session length:** 3 – 3.5 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-13)
