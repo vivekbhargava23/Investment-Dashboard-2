@@ -187,7 +187,7 @@ for i in "${!VALID_FILES[@]}"; do
 
   # Check if milestone exists and is open
   milestone_arg=""
-  ms_state="$(gh api repos/{owner}/{repo}/milestones --jq ".[] | select(.title==\"$milestone\") | .state" 2>/dev/null | head -1 || true)"
+  ms_state="$(gh api 'repos/{owner}/{repo}/milestones' --jq ".[] | select(.title==\"$milestone\") | .state" 2>/dev/null | head -1 || true)"
   if [ "$ms_state" = "open" ]; then
     milestone_arg="--milestone $milestone"
   elif [ -z "$ms_state" ]; then
