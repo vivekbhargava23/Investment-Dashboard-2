@@ -1,6 +1,6 @@
 # TICKET-M7 — Make tools/ scripts portable to macOS/BSD userland
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Estimated session length:** 1–1.5 hr
 **Drafted by:** Vivek + Claude Chat (2026-05-14)
