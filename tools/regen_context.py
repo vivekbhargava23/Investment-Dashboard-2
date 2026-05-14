@@ -7,7 +7,7 @@ Writes: docs/CONTEXT.md
 Sections emitted (in order):
   Up next · In progress · In review · Recently done ·
   ADRs · File tree · Public interfaces · UI surface ·
-  Data file shape · Open issues · Open PRs · Recent merges · Tests inventory
+  Data file shape · Open issues · Open PRs · Recent merges · Recent sessions
 
 Up next, In progress, In review, Recently done are sourced from the GitHub
 Projects board (project #2). All other sections come from the local repo and
@@ -200,7 +200,7 @@ def section_file_tree() -> str:
         "__pycache__", ".git", ".mypy_cache", ".ruff_cache",
         "*.pyc", ".pytest_cache", "CONTEXT.md",
     }
-    roots = [APP_DIR, TESTS_DIR, REPO_ROOT / "docs"]
+    roots = [APP_DIR, REPO_ROOT / "docs"]
     tree = _file_tree(roots, ignore)
     return f"## File tree\n\n```\n{tree}\n```\n"
 
@@ -443,30 +443,26 @@ def section_recent_merges() -> str:
     return "## Recent merges (last 10)\n\n" + "\n".join(lines) + "\n"
 
 
-def section_tests_inventory() -> str:
-    if not TESTS_DIR.exists():
-        return "## Tests inventory\n\n<tests/ not found>\n"
-    parts: list[str] = []
-    for py_file in sorted(TESTS_DIR.rglob("*.py")):
-        if py_file.name == "__init__.py":
-            continue
-        rel = py_file.relative_to(REPO_ROOT)
-        try:
-            source = py_file.read_text(encoding="utf-8")
-            tree = ast.parse(source, filename=str(rel))
-        except SyntaxError:
-            continue
-        test_names: list[str] = []
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if node.name.startswith("test_"):
-                    test_names.append(node.name)
-        if test_names:
-            block = "\n".join(f"    {n}" for n in test_names)
-            parts.append(f"- `{rel}`\n{block}")
-    if not parts:
-        return "## Tests inventory\n\n<no test functions found>\n"
-    return "## Tests inventory\n\n" + "\n".join(parts) + "\n"
+def section_recent_sessions() -> str:
+    import re
+    log_path = REPO_ROOT / "docs" / "SESSION_LOG.md"
+    if not log_path.exists():
+        return "## Recent sessions\n\n<no entries>\n"
+    text = log_path.read_text(encoding="utf-8")
+    heading_re = re.compile(r"^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) — (TICKET-\S+)", re.MULTILINE)
+    pr_re = re.compile(r"\*\*PR:\*\* https?://\S+/pull/(\d+)")
+    entries: list[str] = []
+    for m in heading_re.finditer(text):
+        date_time = m.group(1)
+        ticket = m.group(2)
+        # Search for a PR line within the next 300 chars of this heading
+        window = text[m.start(): m.start() + 300]
+        pr_match = pr_re.search(window)
+        pr_part = f" (PR #{pr_match.group(1)})" if pr_match else ""
+        entries.append(f"- {date_time} — {ticket}{pr_part}")
+    if not entries:
+        return "## Recent sessions\n\n<no entries>\n"
+    return "## Recent sessions\n\n" + "\n".join(entries[:10]) + "\n"
 
 
 # ---------------------------------------------------------------------------
@@ -497,7 +493,7 @@ def generate() -> str:
         section_open_issues(),
         section_open_prs(),
         section_recent_merges(),
-        section_tests_inventory(),
+        section_recent_sessions(),
     ]
     return header + "\n---\n\n".join(s.rstrip() + "\n" for s in sections)
 
