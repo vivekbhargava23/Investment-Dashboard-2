@@ -202,7 +202,7 @@ pytest && ruff check . && mypy app/ && lint-imports
 If **any** check fails: **STOP**. See "Stop conditions" below.
 Do not commit. Do not push. Do not open a PR. Report the failure to Vivek.
 
-### Step 8 — Commit and push
+### Step 8 — Commit, log, and push
 
 ```bash
 # 8a. Commit the implementation
@@ -210,10 +210,15 @@ git add -A
 git commit -m "feat: <one-line summary in imperative mood>"
 # (Multiple commits OK if there were multiple logical changes)
 
-# 8b. Push the branch
+# 8b. Append session log entry to docs/SESSION_LOG.md, then commit
+# Prepend a new entry (matching the template in docs/SESSION_LOG.md) under ## Active log
+git add docs/SESSION_LOG.md
+git commit -m "docs: session log for TICKET-XXX"
+
+# 8c. Push the branch
 git push -u origin ticket-XXX-short-name
 
-# 8c. Move the board item to In review
+# 8d. Move the board item to In review
 PROJECT_ID=$(gh project list --owner @me --format json | jq -r '.projects[] | select(.number==2) | .id')
 STATUS_FIELD_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .id')
 IN_REVIEW_OPTION_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="In review") | .id')
