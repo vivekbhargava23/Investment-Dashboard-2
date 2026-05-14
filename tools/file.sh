@@ -277,6 +277,6 @@ for i in "${!CREATED_IDS[@]}"; do
   if [ "${#title_short}" -gt 50 ]; then
     title_short="${title_short:0:47}..."
   fi
-  echo "  ${CREATED_IDS[$i]:-unknown}  — $title_short → issue #${CREATED_NUMS[$i]}, added to Backlog"
+  echo "  ${CREATED_IDS[$i]:-unknown}  — $title_short -> issue #${CREATED_NUMS[$i]}, added to Backlog"
 done
 echo "Commit pushed: $pushed_sha"
