@@ -44,6 +44,43 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-14 22:00 — TICKET-M7
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~30 min
+**Branch:** ticket-m7-tools-portable-macos-bsd
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/74
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Chose Strategy 1 (portable rewrite): 6 GNU-isms in tools/file.sh, all with clean POSIX equivalents, well under the 10-occurrence threshold
+- Replaced `mapfile` with `while IFS= read -r` loop (bash 3.2-compatible)
+- Replaced 3× `grep -oP` (Perl-compat regex) with `sed -nE` capture groups (POSIX)
+- Replaced `${var,,}` case conversion with `tr '[:upper:]' '[:lower:]'` (POSIX)
+- Added comment block at top of file.sh documenting portability, tested-on, and macOS invocation
+- Created `tools/README.md` documenting toolchain requirements and forbidden constructs
+- Added "Local environment" section to `AGENTS.md` (stock macOS bash 3.2 is sufficient)
+- Created `.github/workflows/ci.yml` with pytest/ruff/mypy/lint-imports and shellcheck jobs
+
+### Files touched
+- `tools/file.sh` — 6 GNU-isms replaced with POSIX equivalents
+- `tools/README.md` — created; documents toolchain and forbidden constructs
+- `AGENTS.md` — added Local environment section
+- `.github/workflows/ci.yml` — created; pytest + shellcheck jobs
+- `docs/TICKETS/TICKET-M7-tools-portable-macos-bsd.md` — status → IN_PROGRESS
+
+### Tests
+649 passing, 85 skipped (unchanged — no Python changes)
+
+### Decisions made during the session
+- Strategy 1 chosen over Strategy 2: only 6 GNU-isms, all having clean one-line POSIX equivalents. Rewriting preserves script readability and avoids runtime dependency on brew. Strategy 2 (preamble guard) would still require Vivek to install tools; Strategy 1 removes that requirement entirely.
+
+### Out-of-scope items noticed
+- None
+
+### Tokens used (rough)
+~25k
+
 ## 2026-05-14 21:30 — TICKET-M6
 **Surface:** Claude Code
 **Model:** sonnet-4.6
