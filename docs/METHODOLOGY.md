@@ -246,11 +246,12 @@ The complete ritual is in `AGENTS.md`. Summary:
 
 1. Run `pytest && ruff check . && mypy app/ && lint-imports`. If any fail, **stop**.
 2. Commit with conventional commits.
-3. Push branch.
-4. Move the board item to `In review` (Step 8c — API call, no file changes).
-5. Open PR with `gh pr create --base main` — body must include `Closes #<N>`.
-6. Print PR URL for Vivek.
-7. **Stop. Do not do anything else.**
+3. Append a session log entry to `docs/SESSION_LOG.md` (Step 8b) and commit it on the branch.
+4. Push branch.
+5. Move the board item to `In review` (Step 8d — API call, no file changes).
+6. Open PR with `gh pr create --base main` — body must include `Closes #<N>`.
+7. Print PR URL for Vivek.
+8. **Stop. Do not do anything else.**
 
 ---
 

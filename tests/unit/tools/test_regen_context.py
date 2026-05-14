@@ -5,7 +5,7 @@ from __future__ import annotations
 from tools.regen_context import (
     section_adrs,
     section_public_interfaces,
-    section_tests_inventory,
+    section_recent_sessions,
     section_ui_surface,
 )
 
@@ -45,7 +45,6 @@ def test_ui_surface_non_empty() -> None:
     assert "app/ui/pages/" in output
 
 
-def test_tests_inventory_non_empty() -> None:
-    output = section_tests_inventory()
-    # The section lists test function names without the `def` prefix
-    assert "test_" in output and "## Tests inventory" in output
+def test_recent_sessions_section_present() -> None:
+    output = section_recent_sessions()
+    assert output.startswith("## Recent sessions"), "Expected '## Recent sessions' heading"
