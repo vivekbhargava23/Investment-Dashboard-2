@@ -7,14 +7,13 @@
 
 ---
 
-This file is for the implementation agent. Vivek's day-to-day workflow lives in `docs/WORKFLOW.md` and is not your concern.
+This file is for the implementation agent. Vivek's day-to-day workflow lives in `docs/VIVEK.md` and is not your concern.
 
 ## Required reading (every session, in this order)
 
-1. `docs/STATE.md` — current status of the project
-2. `docs/CONTEXT.md` — auto-generated repo snapshot: code interfaces, UI surface, GitHub state. Gives a complete picture without re-exploring the codebase every session.
-3. `docs/METHODOLOGY.md` — how we work
-4. `docs/ARCHITECTURE.md` — the architecture rules (non-negotiable)
+1. `docs/CONTEXT.md` — auto-generated repo snapshot: code interfaces, UI surface, GitHub state, and board status (Up next, In progress, In review, Recently done). Gives a complete picture without re-exploring the codebase every session.
+2. `docs/METHODOLOGY.md` — how we work
+3. `docs/ARCHITECTURE.md` — the architecture rules (non-negotiable)
 
 If the work touches a specific module, also read that module's instruction file
 (e.g. `app/domain/fifo/CLAUDE.md`). These per-module files contain module-specific
@@ -31,11 +30,10 @@ context and constraints. Read them even if your CLI does not auto-load them.
 | Merges the PR | Writes the tests |
 | Drafts ADRs in chat | Runs the tests |
 | Approves architectural changes | Runs the linters |
-| | Commits with conventional commit messages |
+| Drags cards on the project board | Commits with conventional commit messages |
 | | Pushes the branch |
 | | Opens the PR via `gh pr create` |
-| | Updates `docs/STATE.md` |
-| | Updates the ticket's `Status:` field |
+| | Moves board items via `gh project item-edit` |
 
 ---
 
@@ -64,42 +62,57 @@ via Step 0 below, then proceed from Step 1.
 
 **Trigger:** Vivek says `next` (or `implement next ticket`).
 
-**Action:** Read `docs/STATE.md` "Up next" section. Parse the ordered list. Present it to Vivek as a numbered menu:
+**Action:** Query the GitHub Projects board for items in `Ready` column first, then `Backlog`, in board order:
+
+```bash
+gh project item-list 2 --owner @me --format json --limit 100
+```
+
+Filter out items whose linked issue is closed. Present as a numbered menu:
 
 ```
-Up next (N tickets queued):
+Up next (N tickets):
 
-1. TICKET-XXX — Short title [HIGH]
-2. TICKET-YYY — Another title [MEDIUM]
+Ready (vetted):
+  1. TICKET-XXX — Title [HIGH] (issue #N)
+  2. TICKET-YYY — Title [MEDIUM] (issue #M)
+Backlog:
+  3. TICKET-ZZZ — Title [LOW] (issue #P)
 
 Reply with:
-  <number>           pick a ticket and start implementing
-  reorder N,M,K      rearrange the list (I'll re-present)
-  drop N             close that ticket (marks issue "not planned", removes from list)
-  cancel             do nothing
+  <number>      pick a ticket and start implementing
+  reorder       open the board in your browser to drag-reorder (then re-run `next`)
+  drop N        close ticket #N and remove from the board
+  cancel        do nothing
 ```
 
-**On `<number>`:** proceed to Step 1 with that ticket. Step 5 removes it from STATE.md "Up next."
+**On `<number>`:** proceed to Step 1 with that ticket. Step 5 moves the board item to `In progress`.
 
-**On `reorder N,M,K`:** rewrite STATE.md "Up next" in the new order. Commit directly to main with `chore: reorder Up next per Vivek`. Push. Re-present the menu.
+**On `reorder`:** print `https://github.com/users/vivekbhargava23/projects/2` and tell Vivek to drag-reorder in the browser, then re-run `next`. Do not attempt programmatic reordering.
 
-**On `drop N`:** confirm with Vivek ("Drop TICKET-XXX? This closes the issue and removes it from Up next."). On confirmation:
+**On `drop N`:** confirm with Vivek ("Drop TICKET-XXX? This closes the issue and removes it from the board."). On confirmation:
 1. `gh issue close <issue-number> --reason "not planned"`
-2. Remove from STATE.md "Up next"
-3. Update the ticket file's `Status:` to `CLOSED`
-4. Commit to main: `chore: drop TICKET-XXX per Vivek`
-5. Push
-6. Re-present the menu.
+2. Move the board item to `Done` (the post-merge action won't fire for issue close):
+   ```bash
+   ITEM_ID=$(gh project item-list 2 --owner @me --format json --limit 100 | jq -r --argjson n <issue-num> '.items[] | select(.content.number==$n) | .id')
+   DONE_OPTION_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="Done") | .id')
+   PROJECT_ID=$(gh project list --owner @me --format json | jq -r '.projects[] | select(.number==2) | .id')
+   STATUS_FIELD_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .id')
+   gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$STATUS_FIELD_ID" --single-select-option-id "$DONE_OPTION_ID"
+   ```
+3. Update the ticket file's `Status:` to `CLOSED` (decorative).
+4. Print a summary.
+5. Re-present the menu.
 
 **On `cancel`:** stop. No state changes.
 
-**Edge case — "Up next" is empty:**
-> "No tickets in Up next. Run `gh issue list --label queued --state open` to see queued tickets, or draft a new ticket in chat."
+**Edge case — board is empty (`Ready` and `Backlog` both empty):**
+> "Board is empty. File tickets via `bash tools/file.sh` after saving them to `docs/TICKETS/`."
 Stop.
 
-**Edge case — an entry references an issue that is CLOSED or doesn't exist:** Flag it as `[INVALID — issue closed/missing]` in the menu but still allow other selections. It remains for Vivek to clean up via `drop`.
+**Edge case — an item's linked issue is CLOSED:** skip it in the menu (defensive — shouldn't happen because `Done` items have closed issues).
 
-**Override:** If Vivek says `implement TICKET-XXX` (explicit ID), skip this step entirely. Step 5 still removes the ticket from "Up next" if present.
+**Override:** If Vivek says `implement TICKET-XXX` (explicit ID), skip this step entirely.
 
 ### Step 1 — Verify clean main
 
@@ -111,35 +124,27 @@ git checkout main && git pull    # sync with remote
 ### Step 2 — Verify housekeeping from previous ticket (if applicable)
 
 GitHub Actions runs `post-merge-housekeeping.yml` within seconds of every merge.
-By the time you start the next session, `STATE.md` and the ticket file should already reflect `MERGED` status.
+By the time you start the next session, the board card should already be in `Done`.
 
-Verify by querying GitHub and reading the files:
+Query the board for any items still in `In review`. For each one, check if its linked issue is closed:
 
 ```bash
-gh issue view <N> --json state -q .state
+gh project item-list 2 --owner @me --format json --limit 100 | \
+  jq '.items[] | select(.status=="In review") | {id, number: .content.number, title: .content.title}'
 ```
 
-Where `<N>` is the issue number of the ticket that was last "In review 👀" in
-`docs/STATE.md`. If the output is `"CLOSED"`:
-
-- **If `STATE.md` "In review 👀" section is already empty and "Done ✓"
-  contains the ticket:** the GitHub Actions workflow succeeded. No action needed.
-
-- **If `STATE.md` still shows the ticket in "In review 👀"** (i.e. the
-  workflow failed for any reason): reconcile manually:
-
+For each `In review` item whose issue is CLOSED (i.e., `gh issue view <N> --json state -q .state` returns `"CLOSED"`):
+- Move the board item to `Done`:
   ```bash
-  PYTHONPATH=. python3 tools/sync_state.py --mark-merged TICKET-YYY --pr <PR-N>
-  git add docs/STATE.md docs/TICKETS/
-  git commit -m "chore: reconcile state for TICKET-YYY"
-  git push origin main
+  ITEM_ID=<item-id>
+  PROJECT_ID=$(gh project list --owner @me --format json | jq -r '.projects[] | select(.number==2) | .id')
+  STATUS_FIELD_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .id')
+  DONE_OPTION_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="Done") | .id')
+  gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$STATUS_FIELD_ID" --single-select-option-id "$DONE_OPTION_ID"
   ```
+- This is defense-in-depth — the post-merge action should have already done this.
 
-If the "In review 👀" section is already empty, or if `gh issue view` returns
-`"OPEN"`, skip this step entirely.
-
-**Note:** The housekeeping signal is the GitHub issue state, not a message from
-Vivek. Do not rely on Vivek saying "I merged it" — query GitHub instead.
+If all `In review` items have open issues, or if there are no `In review` items: no action needed.
 
 ### Step 3 — Confirm tests on main are green
 
@@ -153,7 +158,7 @@ I will not start TICKET-XXX until main is green." Open a hotfix ticket if needed
 
 ### Step 4 — Read required files
 
-Read the four files listed under "Required reading" above, plus the ticket file:
+Read the three files listed under "Required reading" above, plus the ticket file:
 
 ```bash
 cat docs/TICKETS/TICKET-XXX-*.md
@@ -167,58 +172,21 @@ If the ticket touches a specific module, also read that module's instruction fil
 git checkout -b ticket-XXX-short-name
 ```
 
-Update the ticket file: `Status: QUEUED` → `Status: IN_PROGRESS`
+Update the ticket file: `Status: QUEUED` → `Status: IN_PROGRESS` (decorative — nothing reads this).
 
-Then update the GitHub issue labels:
-
-```bash
-gh issue edit <N> --remove-label queued --add-label in-progress
-```
-
-(Where `<N>` is the GitHub issue number for this ticket.)
-
-Then remove this ticket from STATE.md "Up next" and commit directly to main:
+Move the picked ticket's board item to `In progress`:
 
 ```bash
-# Switch to main, edit STATE.md Up next, commit, push, return to branch
-git stash
-git checkout main
-# Remove the matching "N. TICKET-XXX — ..." line from STATE.md "### Next up 📋" section,
-# renumber remaining items.
-python3 -c "
-import re
-from pathlib import Path
-state = Path('docs/STATE.md')
-text = state.read_text()
-header = '### Next up 📋'
-m = re.search(re.escape(header) + r'\n', text)
-if not m:
-    exit(0)
-start = m.end()
-rest = text[start:]
-next_sec = re.search(r'\n(###|---)', rest)
-end = start + (next_sec.start() if next_sec else len(rest))
-section = text[start:end]
-lines = [ln for ln in section.splitlines() if 'TICKET-XXX' not in ln]
-n = 1
-renumbered = []
-for ln in lines:
-    if re.match(r'^\d+\.', ln.strip()):
-        renumbered.append(re.sub(r'^\d+', str(n), ln.strip()))
-        n += 1
-    elif ln.strip():
-        renumbered.append(ln)
-new_section = '\n' + '\n'.join(renumbered) + '\n' if renumbered else '\n(none)\n'
-state.write_text(text[:start] + new_section + text[end:])
-"
-git add docs/STATE.md
-git commit -m "chore: pick TICKET-XXX, remove from Up next"
-git push origin main
-git checkout -   # return to feature branch
-git stash pop
+PROJECT_ID=$(gh project list --owner @me --format json | jq -r '.projects[] | select(.number==2) | .id')
+STATUS_FIELD_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .id')
+IN_PROGRESS_OPTION_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="In progress") | .id')
+ITEM_ID=$(gh project item-list 2 --owner @me --format json --limit 100 | jq -r --argjson n <issue-num> '.items[] | select(.content.number==$n) | .id')
+gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" \
+  --field-id "$STATUS_FIELD_ID" \
+  --single-select-option-id "$IN_PROGRESS_OPTION_ID"
 ```
 
-If branch protection rejects the push to main, stop and report to Vivek — do not proceed.
+No commit to main from the agent. The board update is API-only.
 
 ### Step 6 — Implement
 
@@ -234,7 +202,7 @@ pytest && ruff check . && mypy app/ && lint-imports
 If **any** check fails: **STOP**. See "Stop conditions" below.
 Do not commit. Do not push. Do not open a PR. Report the failure to Vivek.
 
-### Step 8 — Commit, update docs, push (this exact order)
+### Step 8 — Commit and push
 
 ```bash
 # 8a. Commit the implementation
@@ -242,19 +210,20 @@ git add -A
 git commit -m "feat: <one-line summary in imperative mood>"
 # (Multiple commits OK if there were multiple logical changes)
 
-# 8b. Update docs — THIS HAPPENS HERE, BEFORE THE PUSH, ON THE BRANCH
-#   - In docs/STATE.md: move ticket from "In progress 🚧" to "In review 👀"
-#   - In the ticket file: Status: IN_PROGRESS → Status: IN_REVIEW
-git add -A
-git commit -m "docs: update session log and project state for TICKET-XXX"
-
-# 8c. Push the branch
+# 8b. Push the branch
 git push -u origin ticket-XXX-short-name
+
+# 8c. Move the board item to In review
+PROJECT_ID=$(gh project list --owner @me --format json | jq -r '.projects[] | select(.number==2) | .id')
+STATUS_FIELD_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .id')
+IN_REVIEW_OPTION_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="In review") | .id')
+ITEM_ID=$(gh project item-list 2 --owner @me --format json --limit 100 | jq -r --argjson n <issue-num> '.items[] | select(.content.number==$n) | .id')
+gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" \
+  --field-id "$STATUS_FIELD_ID" \
+  --single-select-option-id "$IN_REVIEW_OPTION_ID"
 ```
 
-**Why 8b is before 8c:** The doc updates are part of the branch's work product.
-They land on `main` when Vivek merges. There is no separate "doc update" step
-after the PR. If you push first and update docs later, they won't be in the PR.
+There is no separate doc-update step. The ticket file's `Status:` line is decorative and is not updated here. State is on the board.
 
 ### Step 9 — Open the PR and stop
 
@@ -305,12 +274,15 @@ You do not need to do anything else.
 
 - Do NOT update any files.
 - Do NOT commit or push.
-- Do NOT update the ticket status to MERGED — that happens in Step 2 of the *next* session.
+- Do NOT update the ticket status — the post-merge action moves the board card to `Done`.
 - Do NOT write to `main`.
 
-The merge itself landed all your branch commits (including the doc updates from Step 8b)
-onto `main`. GitHub Actions handles the MERGED status bookkeeping (ticket file, STATE.md "Recent activity", STATE.md "Done ✓") within seconds of the merge. Step 2 of the next session verifies it landed; in
-the rare case the workflow failed, Step 2 reconciles manually via `tools/sync_state.py`.
+The merge itself landed all your branch commits onto `main`. GitHub Actions
+(`post-merge-housekeeping.yml`) moves the board item to `Done` and
+`update-context.yml` regenerates `CONTEXT.md` within seconds. Step 2 of the
+next session verifies it landed; in the rare case the workflow failed, Step 2
+reconciles manually by moving the board item directly.
+
 Your session is over.
 
 ---
@@ -348,4 +320,5 @@ Do not attempt heroic recovery. Stopping early is cheap; a bad merge is expensiv
 - ❌ Disable a failing test to make CI pass. If a test is wrong, fix the test in a separate commit with explanation. If it's flaky, open a ticket.
 - ❌ `git push --force` on a branch with an open PR without saying so explicitly in your next message to Vivek.
 - ❌ Write to `main` after Vivek says he merged the PR. The session is over. See "When Vivek says 'I merged it'" above.
-- ❌ Treat doc updates (STATE.md, ticket status) as post-PR housekeeping. They are Step 8b — before push, before PR. Always.
+- ❌ Treat doc updates (STATE.md, ticket status) as post-PR housekeeping. Board state is managed via the API (Steps 5, 8c). Ticket `Status:` lines are decorative — update them in Step 5 if you like, but nothing reads them.
+- ❌ Edit the project board order programmatically. Vivek drags cards; the agent only writes the Status column.
