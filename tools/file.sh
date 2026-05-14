@@ -6,6 +6,11 @@
 # Finds every untracked docs/TICKETS/TICKET-*.md, validates them, creates GitHub
 # issues, adds each issue to the project board (Backlog), commits, and pushes.
 # No POSITION field. No clean-tree guard for ticket files. No batch separator.
+#
+# Portability: POSIX sh + bash 3.2+. No GNU-only constructs.
+#   Tested on: Linux (bash 5.2, GNU grep 3.11)
+#   Known macOS invocation: bash tools/file.sh  (works on stock macOS bash 3.2 + BSD grep)
+#   See tools/README.md for toolchain requirements.
 
 set -euo pipefail
 
@@ -45,7 +50,10 @@ fi
 # Step 3 — Find new ticket files
 # ---------------------------------------------------------------------------
 cd "$REPO_ROOT"
-mapfile -t NEW_FILES < <(git ls-files --others --exclude-standard docs/TICKETS/TICKET-*.md 2>/dev/null || true)
+NEW_FILES=()
+while IFS= read -r line; do
+  NEW_FILES+=("$line")
+done < <(git ls-files --others --exclude-standard docs/TICKETS/TICKET-*.md 2>/dev/null || true)
 
 if [ "${#NEW_FILES[@]}" -eq 0 ]; then
   echo "No new ticket files in docs/TICKETS/. Save .md files there and rerun."
@@ -73,8 +81,8 @@ for f in "${NEW_FILES[@]}"; do
     errors_for_file+=("filename does not match TICKET-[A-Z0-9-]+-[a-z0-9-]+.md pattern")
   fi
 
-  # Extract file-name prefix (e.g. TICKET-M5)
-  filename_id="$(echo "$basename_f" | grep -oP '^TICKET-[A-Z0-9-]+(?=-[a-z])')"
+  # Extract file-name prefix (e.g. TICKET-M5) — stop before first -lowercase segment
+  filename_id="$(echo "$basename_f" | sed -nE 's/^(TICKET-[A-Z0-9-]+)-[a-z].*/\1/p')"
   if [ -z "$filename_id" ]; then
     errors_for_file+=("could not extract ticket ID from filename")
   fi
@@ -98,14 +106,14 @@ for f in "${NEW_FILES[@]}"; do
     errors_for_file+=("filename ID '$filename_id' does not match heading ID 'TICKET-$heading_id'")
   fi
 
-  # Priority check
-  priority="$(echo "$content" | grep -oP '(?<=\*\*Priority:\*\* )(CRITICAL|HIGH|MEDIUM|LOW)' | head -1)"
+  # Priority check — sed -nE works on both BSD and GNU
+  priority="$(echo "$content" | sed -nE 's/.*\*\*Priority:\*\* (CRITICAL|HIGH|MEDIUM|LOW).*/\1/p' | head -1)"
   if [ -z "$priority" ]; then
     errors_for_file+=("missing or invalid **Priority:** field (must be CRITICAL|HIGH|MEDIUM|LOW)")
   fi
 
   # Milestone check
-  milestone="$(echo "$content" | grep -oP '(?<=\*\*Milestone:\*\* ).+' | head -1 | tr -d '\r')"
+  milestone="$(echo "$content" | sed -nE 's/.*\*\*Milestone:\*\* (.+)$/\1/p' | head -1 | tr -d '\r')"
   if [ -z "$milestone" ]; then
     errors_for_file+=("missing **Milestone:** field")
   fi
@@ -171,14 +179,15 @@ for i in "${!VALID_FILES[@]}"; do
   f="${VALID_FILES[$i]}"
   ticket_id="${VALID_IDS[$i]}"
   title="${VALID_TITLES[$i]}"
-  priority_lower="${VALID_PRIORITIES[$i],,}"
+  # tr is POSIX; works on bash 3.2 (replaces bash-4+ ${var,,} case-conversion)
+  priority_lower="$(echo "${VALID_PRIORITIES[$i]}" | tr '[:upper:]' '[:lower:]')"
   milestone="${VALID_MILESTONES[$i]}"
 
   echo "Creating issue for $ticket_id..."
 
   # Check if milestone exists and is open
   milestone_arg=""
-  ms_state="$(gh api repos/{owner}/{repo}/milestones --jq ".[] | select(.title==\"$milestone\") | .state" 2>/dev/null | head -1 || true)"
+  ms_state="$(gh api 'repos/{owner}/{repo}/milestones' --jq ".[] | select(.title==\"$milestone\") | .state" 2>/dev/null | head -1 || true)"
   if [ "$ms_state" = "open" ]; then
     milestone_arg="--milestone $milestone"
   elif [ -z "$ms_state" ]; then
@@ -194,7 +203,8 @@ for i in "${!VALID_FILES[@]}"; do
     --label "$priority_lower" \
     $milestone_arg)"
 
-  issue_num="$(echo "$issue_url" | grep -oP '\d+$')"
+  # sed -nE works on both BSD and GNU grep (replaces grep -oP '\d+$')
+  issue_num="$(echo "$issue_url" | sed -nE 's|.*/([0-9]+)$|\1|p')"
   echo "  Created: $issue_url (issue #$issue_num)"
 
   CREATED_URLS+=("$issue_url")
@@ -267,6 +277,6 @@ for i in "${!CREATED_IDS[@]}"; do
   if [ "${#title_short}" -gt 50 ]; then
     title_short="${title_short:0:47}..."
   fi
-  echo "  ${CREATED_IDS[$i]:-unknown}  — $title_short → issue #${CREATED_NUMS[$i]}, added to Backlog"
+  echo "  ${CREATED_IDS[$i]:-unknown}  — $title_short -> issue #${CREATED_NUMS[$i]}, added to Backlog"
 done
 echo "Commit pushed: $pushed_sha"
