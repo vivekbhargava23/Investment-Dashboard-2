@@ -44,7 +44,42 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
-(no entries yet)
+## 2026-05-14 21:30 — TICKET-M6
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~30 min
+**Branch:** ticket-m6-consolidate-agents-session-log
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/73
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Confirmed docs/AGENTS.md already deleted; root AGENTS.md is canonical (no STATE.md refs)
+- AGENTS.md Step 8: added 8b (append session log entry), renumbered 8b→8c, 8c→8d
+- docs/METHODOLOGY.md: updated session-end ritual summary to include step 8b
+- tools/regen_context.py: removed section_tests_inventory, removed tests/ from file tree, added section_recent_sessions() parsing last 10 TICKET-XXX entries from SESSION_LOG.md
+- tests/unit/tools/test_regen_context.py: replaced tests_inventory test with recent_sessions test
+- docs/SESSION_LOG.md: created with historical entries recovered from commit 3f6d520f^ and active-log structure
+- docs/CONTEXT.md: regenerated — 2273 → 1412 lines (861 lines removed)
+
+### Files touched
+- `AGENTS.md` — Step 8 reordered with new 8b session-log step
+- `docs/METHODOLOGY.md` — session-end ritual updated
+- `tools/regen_context.py` — tests_inventory removed, file tree scoped, recent_sessions added
+- `tests/unit/tools/test_regen_context.py` — assertions updated
+- `docs/SESSION_LOG.md` — created (new file)
+- `docs/CONTEXT.md` — regenerated
+
+### Tests
+649 passing, 85 skipped → 649 passing, 85 skipped (no net change)
+
+### Decisions made during the session
+- CONTEXT.md is 1412 lines, not 500-900 as estimated in ticket; public interfaces section (~1105 lines) was not identified as bloat and was not removed — the ticket explicitly notes "drop bloat, not hit a number"
+
+### Out-of-scope items noticed
+- No issues
+
+### Tokens used (rough)
+~40k
 
 ---
 
