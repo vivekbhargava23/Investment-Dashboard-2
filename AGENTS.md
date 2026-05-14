@@ -9,6 +9,14 @@
 
 This file is for the implementation agent. Vivek's day-to-day workflow lives in `docs/VIVEK.md` and is not your concern.
 
+## Local environment (macOS setup)
+
+`tools/*.sh` are POSIX-portable and run on **stock macOS bash 3.2 + BSD grep** — no
+`brew install bash` or GNU grep required. You only need `git`, `gh` (authenticated),
+and `jq` on PATH. See `tools/README.md` for the full toolchain reference.
+
+---
+
 ## Required reading (every session, in this order)
 
 1. `docs/CONTEXT.md` — auto-generated repo snapshot: code interfaces, UI surface, GitHub state, and board status (Up next, In progress, In review, Recently done). Gives a complete picture without re-exploring the codebase every session.
