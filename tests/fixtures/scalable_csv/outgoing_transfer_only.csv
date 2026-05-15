@@ -1,0 +1,2 @@
+date;time;status;reference;description;assetType;type;isin;shares;price;amount;fee;tax;currency
+2025-12-05;01:00:00;Executed;TXOUT001;21shares Polygon ETP;Security;Security transfer;CH1129538448;-17;1,191;-20,247;;;EUR

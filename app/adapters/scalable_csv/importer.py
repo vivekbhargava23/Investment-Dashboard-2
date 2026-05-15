@@ -21,6 +21,14 @@ from app.ports.repository import TransactionRepository
 _IN_SCOPE_TYPES = frozenset({"Buy", "Sell", "Savings plan", "Security transfer"})
 _EXECUTED_STATUS = "Executed"
 
+# Expected amount sign per row type: "negative"=cash out, "positive"=cash in, "either"=no check.
+_EXPECTED_AMOUNT_SIGN: dict[str, str] = {
+    "Buy": "negative",
+    "Savings plan": "negative",
+    "Sell": "positive",
+    "Security transfer": "either",
+}
+
 
 @dataclass
 class ImportSummary:
@@ -29,6 +37,7 @@ class ImportSummary:
     status_filtered: int = 0
     status_filtered_detail: dict[str, int] = field(default_factory=dict)
     out_of_scope: int = 0
+    outgoing_transfers_skipped: int = 0
     in_scope: int = 0
     already_existing: int = 0
     new_transactions: int = 0
@@ -49,20 +58,43 @@ def _csv_type_to_transaction_type(csv_type: str) -> TransactionType:
 
 
 def _check_amount(row: ParsedCsvRow) -> None:
-    """Verify abs(amount) ≈ shares × price within 0.01 EUR tolerance.
+    """Verify abs(amount) ≈ abs(shares × price) within 0.01 EUR tolerance.
 
-    The fee column is NOT included in the amount column — it is recorded
-    separately. This check catches format changes or data corruption.
+    Sign-agnostic: works for both positive-amount (Sell/incoming transfer) and
+    negative-amount (Buy/Savings plan) rows. The fee column is NOT included in
+    the amount column — it is recorded separately.
     """
     if row.shares is None or row.price is None or row.amount is None:
         return
-    computed = row.shares * row.price
-    diff = abs(abs(row.amount) - computed)
+    expected = abs(row.shares * row.price)
+    actual = abs(row.amount)
+    diff = abs(expected - actual)
     if diff >= Decimal("0.01"):
         raise ValueError(
             f"Row {row.row_number}: amount sanity check failed — "
-            f"abs(amount)={abs(row.amount):.6f}, shares×price={computed:.6f}, "
+            f"abs(amount)={actual:.6f}, abs(shares×price)={expected:.6f}, "
             f"diff={diff:.6f} ≥ 0.01. This may indicate a CSV format change."
+        )
+
+
+def _check_sign(row: ParsedCsvRow) -> None:
+    """Verify shares and amount have the expected directional sign for this row type."""
+    if row.amount is None:
+        return
+    expected = _EXPECTED_AMOUNT_SIGN.get(row.type, "either")
+    if expected == "either":
+        return
+    if expected == "negative" and row.amount > 0:
+        raise ValueError(
+            f"Row {row.row_number}: directional sign error — "
+            f"{row.type!r} expects negative amount (cash out) but got {row.amount}. "
+            "This may indicate a CSV format change."
+        )
+    if expected == "positive" and row.amount < 0:
+        raise ValueError(
+            f"Row {row.row_number}: directional sign error — "
+            f"{row.type!r} expects positive amount (cash in) but got {row.amount}. "
+            "This may indicate a CSV format change."
         )
 
 
@@ -122,6 +154,11 @@ def run_import(
             summary.out_of_scope += 1
             continue
 
+        # Skip outgoing Security transfers (negative shares = assets leaving old broker)
+        if row.type == "Security transfer" and row.shares is not None and row.shares < 0:
+            summary.outgoing_transfers_skipped += 1
+            continue
+
         summary.in_scope += 1
 
         # Non-EUR currency defense
@@ -138,8 +175,11 @@ def run_import(
                 f"Row {row.row_number}: in-scope row has blank shares or price"
             )
 
-        # Amount sanity check
+        # Amount sanity check (sign-agnostic)
         _check_amount(row)
+
+        # Directional sign check (separate from amount magnitude check)
+        _check_sign(row)
 
         # Deduplication — still update last_seen even for duplicates
         if row.reference in existing_ids:
