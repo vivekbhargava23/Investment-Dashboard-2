@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     ticker_cache_json_path: Path = Path("data/ticker_cache.json")
     nav_snapshots_json_path: Path = Path("data/nav_snapshots.json")
     isin_map_json_path: Path = Path("data/isin_map.json")
+    backups_dir: Path = Path("data/backups")
+    import_log_json_path: Path = Path("data/import_log.json")
 
 
 def get_settings() -> Settings:

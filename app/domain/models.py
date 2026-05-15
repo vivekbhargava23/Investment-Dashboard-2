@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
+from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -28,6 +29,8 @@ class Transaction(BaseModel):
     fees_native: Money | None = None
     fx_rate_eur: Decimal
     notes: str | None = None
+    csv_reference: str | None = None
+    source: Literal["scalable_csv", "manual", "switch", "unknown"] = "manual"
 
     @field_validator("ticker")
     @classmethod

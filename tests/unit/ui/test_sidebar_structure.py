@@ -62,13 +62,13 @@ def test_portfolio_section_items() -> None:
 
 
 def test_tools_section_items() -> None:
-    """TOOLS section contains exactly: simulator, lots, decision, behaviour."""
+    """TOOLS section contains: simulator, lots, decision, behaviour, import_workbench."""
     html = _capture_sidebar_html()
     tools_start = html.index("TOOLS")
     sett_start = html.index("SETTINGS")
     tools_block = html[tools_start:sett_start]
 
-    expected_ids = ["simulator", "lots", "decision", "behaviour"]
+    expected_ids = ["simulator", "lots", "decision", "behaviour", "import_workbench"]
     for page_id in expected_ids:
         assert f'href="/?page={page_id}"' in tools_block, (
             f"Expected {page_id} in TOOLS section"
@@ -143,8 +143,8 @@ def test_no_badge_renders_no_nav_badge_span() -> None:
 
 
 def test_nav_items_total_count() -> None:
-    """NAV_ITEMS still has exactly 12 entries (regression guard)."""
-    assert len(NAV_ITEMS) == 12
+    """NAV_ITEMS still has exactly 13 entries (regression guard)."""
+    assert len(NAV_ITEMS) == 13
 
 
 def test_sections_cover_all_items() -> None:
