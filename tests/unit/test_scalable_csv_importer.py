@@ -380,3 +380,81 @@ def test_within_csv_duplicate_references_not_double_imported(tmp_path: Path):
     assert summary.new_transactions == 1
     assert summary.already_existing == 1
     assert len(tx_repo.load_all()) == 1
+
+
+# ---------------------------------------------------------------------------
+# TICKET-CSV-1-hotfix: outgoing Security transfer + sign check tests
+# ---------------------------------------------------------------------------
+
+_ETP_ISIN = "CH1129538448"
+_ETP_MAP = _isin_map_with((_ETP_ISIN, "POLY.DE", "21shares Polygon ETP"))
+
+
+def test_outgoing_transfer_skipped():
+    """Outgoing Security transfer (negative shares) is skipped, not imported."""
+    rows = parse_csv(FIXTURES / "outgoing_transfer_only.csv")
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(_ETP_MAP)
+
+    summary = run_import(rows, "outgoing_transfer_only.csv", tx_repo, map_repo)
+
+    assert summary.new_transactions == 0
+    assert summary.outgoing_transfers_skipped == 1
+    assert len(tx_repo.load_all()) == 0
+
+
+def test_incoming_transfer_imported():
+    """Incoming Security transfer (positive shares) imports as BUY with correct fields."""
+    rows = parse_csv(FIXTURES / "incoming_transfer_only.csv")
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(_ETP_MAP)
+
+    summary = run_import(rows, "incoming_transfer_only.csv", tx_repo, map_repo)
+
+    assert summary.new_transactions == 1
+    assert summary.outgoing_transfers_skipped == 0
+
+    tx = tx_repo.load_all()[0]
+    assert tx.id == "TXIN001"
+    assert tx.type == TransactionType.BUY
+    assert tx.shares == Decimal("17")
+    assert tx.price_native == Money(amount=Decimal("1.144"), currency=Currency.EUR)
+    assert tx.fees_native is None
+    assert tx.trade_date == date(2025, 12, 6)
+
+
+def test_paired_transfers_one_transaction():
+    """Paired transfers: outgoing is skipped, incoming is imported as one BUY."""
+    rows = parse_csv(FIXTURES / "paired_transfers.csv")
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(_ETP_MAP)
+
+    summary = run_import(rows, "paired_transfers.csv", tx_repo, map_repo)
+
+    assert summary.new_transactions == 1
+    assert summary.outgoing_transfers_skipped == 1
+
+    txs = tx_repo.load_all()
+    assert len(txs) == 1
+    assert txs[0].trade_date == date(2025, 12, 6)  # incoming row, not outgoing
+
+
+def test_buy_wrong_sign_aborts_import():
+    """Buy row with positive amount (wrong direction) raises ValueError."""
+    rows = parse_csv(FIXTURES / "buy_wrong_sign.csv")
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(_isin_map_with((_SAP_ISIN, "SAP.DE", "SAP SE")))
+
+    with pytest.raises(ValueError, match="directional sign error"):
+        run_import(rows, "buy_wrong_sign.csv", tx_repo, map_repo)
+
+
+def test_amount_check_sign_agnostic_on_incoming_transfer():
+    """Amount sanity check uses abs(shares×price) so incoming transfers pass without error."""
+    rows = parse_csv(FIXTURES / "incoming_transfer_only.csv")
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(_ETP_MAP)
+
+    # Should not raise — sign-agnostic check: abs(17×1.144)=19.448 ≈ abs(19.4463)=19.4463
+    summary = run_import(rows, "incoming_transfer_only.csv", tx_repo, map_repo)
+    assert summary.new_transactions == 1

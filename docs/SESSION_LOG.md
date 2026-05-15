@@ -44,6 +44,39 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-15 — TICKET-CSV-1-hotfix
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~20 min
+**Branch:** ticket-csv1-hotfix
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Fixed `_check_amount` in `importer.py` to be sign-agnostic: uses `abs(shares×price)` instead of `shares×price`, fixing the sign-flip failure on outgoing Security transfer rows
+- Added `_check_sign` to verify directional sign consistency per row type (Buy/Savings plan expect negative amount, Sell expects positive, Security transfer is "either")
+- Added outgoing Security transfer filter: rows with `type=="Security transfer"` and `shares<0` are skipped before amount check; counted in new `outgoing_transfers_skipped` field on `ImportSummary`
+- Added 4 new fixture CSVs: `outgoing_transfer_only.csv`, `incoming_transfer_only.csv`, `paired_transfers.csv`, `buy_wrong_sign.csv`
+- Added 5 new unit tests covering all acceptance criteria
+
+### Files touched
+- `app/adapters/scalable_csv/importer.py` — both fixes + new ImportSummary field
+- `tests/unit/test_scalable_csv_importer.py` — 5 new tests
+- `tests/fixtures/scalable_csv/outgoing_transfer_only.csv` — new
+- `tests/fixtures/scalable_csv/incoming_transfer_only.csv` — new
+- `tests/fixtures/scalable_csv/paired_transfers.csv` — new
+- `tests/fixtures/scalable_csv/buy_wrong_sign.csv` — new
+
+### Tests
+710 passing → 715 passing (5 new)
+
+### Decisions made during the session
+- Fee is NOT added to the expected amount in the sanity check (contradicts a note in the ticket spec); the existing code comment and real CSV data confirm fee is recorded separately from amount
+- No architectural decisions made
+
+### Out-of-scope items noticed
+- None
+
 ## 2026-05-15 — TICKET-CSV-1
 **Surface:** Claude Code
 **Model:** sonnet-4.6

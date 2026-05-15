@@ -1,0 +1,2 @@
+date;time;status;reference;description;assetType;type;isin;shares;price;amount;fee;tax;currency
+2025-12-06;01:00:00;Executed;TXIN001;21shares Polygon ETP;Security;Security transfer;CH1129538448;17;1,144;19,4463;;;EUR
