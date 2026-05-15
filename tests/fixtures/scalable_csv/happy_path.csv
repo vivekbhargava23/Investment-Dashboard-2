@@ -1,0 +1,5 @@
+date;time;status;reference;description;assetType;type;isin;shares;price;amount;fee;tax;currency
+2026-03-01;10:00:00;Executed;REF001;SAP SE;Security;Buy;DE0007164600;10;100,00;-1.000,00;0,99;0,00;EUR
+2026-03-02;11:00:00;Executed;REF002;Rheinmetall AG;Security;Sell;DE0007030009;5;200,00;1.000,00;0,99;15,00;EUR
+2026-03-03;09:30:00;Executed;REF003;Vanguard FTSE All-World;Security;Savings plan;IE00B3RBWM25;7,054176;70,88;-499,99999488;0,00;0,00;EUR
+2026-03-04;08:00:00;Executed;REF004;Parrot SA;Security;Security transfer;FR0004038263;50;8,68;434,00;;;EUR

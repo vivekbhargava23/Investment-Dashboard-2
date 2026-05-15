@@ -1,0 +1,7 @@
+date;time;status;reference;description;assetType;type;isin;shares;price;amount;fee;tax;currency
+2026-03-01;10:00:00;Executed;REF001;SAP SE;Security;Buy;DE0007164600;10;100,00;-1.000,00;0,99;0,00;EUR
+2026-03-02;11:00:00;Executed;DEP001;Deposit;Cash;Deposit;;;;100,00;;;EUR
+2026-03-03;12:00:00;Executed;DIST001;SAP SE Dividend;Security;Distribution;DE0007164600;;;15,00;;;EUR
+2026-03-04;13:00:00;Executed;INT001;Interest;Cash;Interest;;;;0,50;;;EUR
+2026-03-05;14:00:00;Executed;TAX001;Taxes;Cash;Taxes;;;;-5,00;;;EUR
+2026-03-06;15:00:00;Executed;CORP001;Apple Inc;Security;Corporate action;US0378331005;-26;0,00;0,00;;;EUR
