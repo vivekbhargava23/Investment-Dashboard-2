@@ -44,6 +44,51 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-15 — TICKET-CSV-1
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~90 min
+**Branch:** ticket-csv-1-scalable-csv-import
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `app/domain/isin_map.py` — `IsinMapping` and `IsinMapDocument` Pydantic models
+- Added `app/ports/isin_map.py` — `IsinMapRepository` Protocol
+- Added `app/adapters/isin_map/repo.py` — `JsonIsinMapRepository` with atomic save
+- Added `app/adapters/scalable_csv/parser.py` — pure CSV → `ParsedCsvRow` parser (European decimals, no filtering)
+- Added `app/adapters/scalable_csv/importer.py` — orchestrator: status/type filter, dedup, ISIN map lookup, Transaction construction, amount sanity check, non-EUR currency defense
+- Added `tools/import_scalable_csv.py` — CLI entry point with `--input`, `--isin-map`, `--portfolio`, `--dry-run`
+- Added `data/isin_map.json` — initial empty mapping file (committed; gitignored data/* exception added)
+- Deleted `app/scripts/seed_portfolio.py` (replaced by importer), `docs/reference/seed_portfolio.csv`, `tests/integration/test_seed_script.py`
+- Rewrote `tests/integration/test_overview_e2e.py` to construct transactions directly (no longer depends on deleted seed script)
+- Added 32 unit tests across 3 test files; updated `.gitignore`
+
+### Files touched
+- `app/domain/isin_map.py` — new
+- `app/ports/isin_map.py` — new
+- `app/adapters/isin_map/__init__.py`, `repo.py` — new
+- `app/adapters/scalable_csv/__init__.py`, `parser.py`, `importer.py` — new
+- `tools/import_scalable_csv.py` — new
+- `data/isin_map.json` — new (committed)
+- `.gitignore` — added `!data/isin_map.json`, `data/scalable_raw.csv`
+- `tests/unit/test_scalable_csv_parser.py`, `test_scalable_csv_importer.py`, `test_isin_map_repo.py` — new
+- `tests/fixtures/scalable_csv/*.csv` — new fixture files
+- `tests/integration/test_overview_e2e.py` — rewritten (removed seed_portfolio dependency)
+- `app/scripts/seed_portfolio.py`, `docs/reference/seed_portfolio.csv`, `tests/integration/test_seed_script.py` — deleted
+
+### Tests
+673 passing → 705 passing (32 new), 81 skipped
+
+### Decisions made during the session
+- Transactions from Scalable CSV use EUR as native currency (fx_rate_eur=1.0 per ADR-005). Tickers in isin_map.json must therefore be EUR-denominated (e.g., SAP.DE, RHM.DE). USD/JPY tickers would fail Transaction.validate_ticker_currency — the importer catches ValidationError and counts them as invalid_mapping with a clear message.
+- Amount sanity check verifies abs(amount) ≈ shares×price (fee is NOT in the amount column per actual CSV data, despite spec description saying "±fee").
+- Zero fee (fee="0,00") produces fees_native=Money(0, EUR), not None. Blank fee (Security transfer) produces None.
+
+### Out-of-scope items noticed
+- TICKET-CSV-2: Mappings page UI for isin_map.json
+- TICKET-CSV-3: Distribution/Interest/Taxes/Corporate-action handling
+
 ## 2026-05-15 — TICKET-027
 **Surface:** Claude Code
 **Model:** sonnet-4.6
