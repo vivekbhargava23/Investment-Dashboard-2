@@ -44,6 +44,40 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-15 — TICKET-CSV-2
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~30 min
+**Branch:** ticket-csv-2-mappings-page
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `isin_map_json_path` setting to `app/config.py`
+- Added `get_isin_map_repo()` to `app/ui/wiring.py`
+- Created `app/ui/pages/mappings.py` — full Mappings page: header strip, unmapped section (save flow with resolver lookup), mapped table (edit + delete with confirm)
+- Added "ISIN Mappings" entry to sidebar under SETTINGS (sidebar.py + topbar.py)
+- Created `tests/unit/ui/test_mappings_page.py` — 24 tests covering validation, save, delete, init_state, and smoke
+
+### Files touched
+- `app/config.py` — added `isin_map_json_path`
+- `app/ui/wiring.py` — added `get_isin_map_repo()`
+- `app/ui/pages/mappings.py` — new
+- `app/ui/components/sidebar.py` — added Mappings nav item, updated _SECTIONS range
+- `app/ui/components/topbar.py` — added "mappings" to PAGE_TITLES
+- `tests/unit/ui/test_mappings_page.py` — new (24 tests)
+- `tests/unit/ui/test_components.py` — updated NAV_ITEMS count 11→12
+- `tests/unit/ui/test_sidebar_structure.py` — updated count 11→12
+
+### Tests
+710 passing → 734 passing (24 new)
+
+### Decisions made during the session
+- no architectural decisions made
+
+### Out-of-scope items noticed
+- None
+
 ## 2026-05-15 — TICKET-CSV-1-hotfix
 **Surface:** Claude Code
 **Model:** sonnet-4.6
