@@ -19,6 +19,7 @@ PAGE_TITLES: dict[str, str] = {
     "lots": "Lot Ledger",
     "simulator": "Sell Simulator",
     "manage": "Manage Portfolio",
+    "mappings": "ISIN Mappings",
 }
 
 def _handle_refresh() -> None:
