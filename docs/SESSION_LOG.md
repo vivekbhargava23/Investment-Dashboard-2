@@ -44,6 +44,45 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-15 — TICKET-027
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~90 min
+**Branch:** ticket-027-snapshot-tab
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `DEFAULT_STYLE = STYLE_CLEAN` to `chart_theme.py` (no explicit style choice recorded from TICKET-026 PR; defaulted to STYLE_CLEAN per ticket spec)
+- Removed chart style sampler code and `_sample_chart` / `_SAMPLE_QUARTERS` functions from `company.py`
+- Created `app/ui/pages/_snapshot_helpers.py` — pure helper module with: `filter_price_history`, `compute_sma`, `compute_revenue_cagr` (date-based CAGR using period_end), `compute_ebit_margin`, `compute_ebit_margin_series`, `compute_net_debt_ebitda`, `compute_net_debt_ebitda_series`, `compute_fcf_yield`, `compute_fcf_series`, `compute_revenue_series`, `compute_historical_pe_range`
+- Added `format_multiple` to `format.py` ("2.1x" format)
+- Implemented full Snapshot tab in `company.py`: header strip, 5Y price chart + 200DMA with period toggle, 4 KPI tiles with mini sparklines, P/E valuation band (gradient 20-segment background), next-catalyst card
+- Created `tests/unit/ui/test_snapshot_helpers.py` with 24 tests covering all helpers
+
+### Files touched
+- `app/ui/components/chart_theme.py` — added DEFAULT_STYLE
+- `app/ui/format.py` — added format_multiple
+- `app/ui/pages/_snapshot_helpers.py` — created
+- `app/ui/pages/company.py` — removed sampler, implemented Snapshot tab
+- `tests/unit/ui/test_snapshot_helpers.py` — created
+- `tests/unit/ui/test_company_page.py` — replaced sampler test with smoke test
+- `docs/TICKETS/TICKET-027-...md` — status → IN_PROGRESS
+
+### Tests
+649 passing → 673 passing (24 new)
+
+### Decisions made during the session
+- STYLE_CLEAN chosen as DEFAULT_STYLE (no PR-review choice recorded; spec says default to STYLE_CLEAN)
+- Revenue CAGR uses actual dates (period_end diff / 365.25) rather than counting valid quarters, so gaps in revenue coverage don't corrupt the year span
+- Valuation band uses 20 gradient segments (green→red) rendered as plotly shapes + scatter marker
+
+### Out-of-scope items noticed
+- None
+
+### Tokens used (rough)
+~70k
+
 ## 2026-05-14 22:00 — TICKET-M7
 **Surface:** Claude Code
 **Model:** sonnet-4.6
