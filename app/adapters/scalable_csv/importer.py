@@ -237,6 +237,8 @@ def run_import(
                 fees_native=fees_native,
                 fx_rate_eur=Decimal("1"),
                 notes=_build_notes(row),
+                csv_reference=row.reference,
+                source="scalable_csv",
             )
         except ValidationError as exc:
             if row.isin not in reported_invalid:

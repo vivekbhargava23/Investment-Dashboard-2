@@ -1,6 +1,6 @@
 # TICKET-CSV-4 — CSV Import Workbench (visible, row-level import flow)
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Estimated session length:** 3-4 hr (largest single UI ticket to date)
 **Drafted by:** Vivek + Claude (chat session 2026-05-15)
