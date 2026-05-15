@@ -44,6 +44,58 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-15 — TICKET-CSV-4
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~2 hr
+**Branch:** ticket-csv-4-import-workbench
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `csv_reference` + `source` fields to `Transaction` (schema v2)
+- Added `app/domain/csv_import.py`: `RowStatus`, `PlannedAction`, `PlannedRow`, `ImportPlan`
+- Added `app/adapters/scalable_csv/planner.py`: pure row classifier (reference dedup, content-hash fallback, currency/unmapped/out-of-scope detection)
+- Added `app/adapters/repo_json/migration.py`: v1→v2 auto-migration with backup
+- Updated `json_repo.py`: auto-migrates v1 portfolios on first load; bumped `SCHEMA_VERSION` to 2
+- Updated `importer.py`: sets `csv_reference` and `source="scalable_csv"` on new transactions
+- Added `app/scripts/migrate_portfolio_v1_to_v2.py`: standalone migration script
+- Added `app/ui/pages/import_workbench.py`: full workbench (upload, raw preview, planned-changes table with filter chips, inline ISIN mapping, apply bar with backup + import log)
+- Added "Import CSV" sidebar entry under TOOLS; topbar title registered
+- Updated `config.py`: `backups_dir`, `import_log_json_path`
+- Updated legacy fixture to v2; fixed two json_repo integration tests for schema version change
+
+### Files touched
+- `app/domain/csv_import.py` — new
+- `app/domain/models.py` — csv_reference, source fields
+- `app/adapters/scalable_csv/planner.py` — new
+- `app/adapters/scalable_csv/importer.py` — sets new fields
+- `app/adapters/repo_json/migration.py` — new
+- `app/adapters/repo_json/json_repo.py` — schema v2, auto-migration
+- `app/scripts/migrate_portfolio_v1_to_v2.py` — new
+- `app/config.py` — 2 new settings
+- `app/ui/pages/import_workbench.py` — new
+- `app/ui/components/sidebar.py` — Import CSV entry
+- `app/ui/components/topbar.py` — page title
+- `tests/unit/adapters/test_csv_import_planner.py` — new (15 tests)
+- `tests/unit/scripts/test_migrate_v1_to_v2.py` — new (7 tests)
+- `tests/unit/ui/test_import_workbench.py` — new (16 tests)
+- `tests/unit/ui/test_components.py` — count update
+- `tests/unit/ui/test_sidebar_structure.py` — count + section update
+- `tests/fixtures/portfolio_legacy_jpy_as_usd.json` — bumped to v2
+- `tests/integration/test_json_repo.py` — wrong-version test uses v3, invalid-tx test uses v2
+
+### Tests
+734 passing → 775 passing (41 new)
+
+### Decisions made during the session
+- Planner placed in `app/adapters/scalable_csv/` (not `app/services/`) because it imports `ParsedCsvRow` from adapters, which services cannot import per import-linter contract 3. All four import-linter contracts remain green.
+- Backup timestamp uses `%f` microseconds to guarantee unique filenames within the same second.
+
+### Out-of-scope items noticed
+- TICKET-CSV-5 will plug into this workbench (needs_currency_support rows will become importable)
+- TICKET-CSV-6 is the operational re-import run after CSV-5 ships
+
 ## 2026-05-15 — TICKET-CSV-2
 **Surface:** Claude Code
 **Model:** sonnet-4.6
