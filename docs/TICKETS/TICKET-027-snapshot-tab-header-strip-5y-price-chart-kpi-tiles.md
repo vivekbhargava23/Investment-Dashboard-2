@@ -1,6 +1,6 @@
 # TICKET-027 — Snapshot tab: header strip, 5Y price chart, KPI tiles with sparklines, valuation band, next catalyst
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Estimated session length:** 1.5 – 2 hr
 **Drafted by:** Vivek + Claude (chat 2026-05-13)

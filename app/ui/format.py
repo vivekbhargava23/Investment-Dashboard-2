@@ -88,6 +88,11 @@ def format_relative_time(dt: datetime | None) -> str:
     return f"{days}d ago"
 
 
+def format_multiple(value: Decimal) -> str:
+    """Format a multiple ratio as "2.1x"."""
+    return f"{float(value):.1f}x"
+
+
 def gain_class(value: Decimal) -> str:
     """
     Returns CSS class name: "gain-positive" if > 0, "gain-negative" if < 0, "gain-neutral" if == 0.
