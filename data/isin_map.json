@@ -1,4 +1,167 @@
 {
   "version": 1,
-  "entries": {}
+  "entries": {
+    "US81762P1021": {
+      "ticker": "NOW",
+      "name": "ServiceNow",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-05-13"
+    },
+    "US67066G1040": {
+      "ticker": "NVDA",
+      "name": "NVIDIA",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-04-24"
+    },
+    "IE00BFMXXD54": {
+      "ticker": "VUAA.DE",
+      "name": "Vanguard S&P 500 (Acc)",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-04-24"
+    },
+    "US5951121038": {
+      "ticker": "MU",
+      "name": "Micron Technology",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-04-20"
+    },
+    "US0091581068": {
+      "ticker": "APD",
+      "name": "Air Products & Chem",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-04-20"
+    },
+    "CA65704Y1079": {
+      "ticker": null,
+      "name": "North American Niobium and Critical Minerals",
+      "status": "unmapped",
+      "last_seen_in_csv": "2026-04-20"
+    },
+    "US78392B1070": {
+      "ticker": "HXSCL",
+      "name": "SK Hynix GDR",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-04-20"
+    },
+    "DE0007030009": {
+      "ticker": "RHM.DE",
+      "name": "Rheinmetall",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-03-30"
+    },
+    "US00215W1009": {
+      "ticker": "ASX",
+      "name": "ASE Technology Holding",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-03-30"
+    },
+    "US1717793095": {
+      "ticker": "CIEN",
+      "name": "Ciena Co",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-03-30"
+    },
+    "JP3721400004": {
+      "ticker": "5631.T",
+      "name": "Japan Steel Works",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-03-24"
+    },
+    "US50155Q1004": {
+      "ticker": "KD",
+      "name": "Kyndryl Holdings",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-03-03"
+    },
+    "IE00B42NKQ00": {
+      "ticker": "IUES.DE",
+      "name": "iShares S&P 500 Energy Sector (Acc)",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-03-03"
+    },
+    "IE00BMFKG444": {
+      "ticker": "XNAS.DE",
+      "name": "Xtrackers Nasdaq 100 (Acc)",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-02-25"
+    },
+    "IE00B8KQN827": {
+      "ticker": null,
+      "name": "Eaton",
+      "status": "unmapped",
+      "last_seen_in_csv": "2026-02-25"
+    },
+    "US5738741041": {
+      "ticker": "MRVL",
+      "name": "Marvell Technology",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-02-20"
+    },
+    "CH0491507486": {
+      "ticker": null,
+      "name": "21shares Tezos ETP Staking",
+      "status": "unmapped",
+      "last_seen_in_csv": "2026-02-18"
+    },
+    "CH1109575535": {
+      "ticker": null,
+      "name": "21shares Stellar ETP",
+      "status": "unmapped",
+      "last_seen_in_csv": "2026-02-18"
+    },
+    "CH1129538448": {
+      "ticker": null,
+      "name": "21shares Polygon ETP",
+      "status": "unmapped",
+      "last_seen_in_csv": "2026-02-18"
+    },
+    "GB00BNRRF105": {
+      "ticker": null,
+      "name": "CoinShares Physical Staked Algorand",
+      "status": "unmapped",
+      "last_seen_in_csv": "2026-02-18"
+    },
+    "US24703L2025": {
+      "ticker": "DELL",
+      "name": "Dell Technologies C",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-01-23"
+    },
+    "FR0004038263": {
+      "ticker": "PARRO.PA",
+      "name": "Parrot",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-01-23"
+    },
+    "US11135F1012": {
+      "ticker": "AVGO",
+      "name": "Broadcom",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-01-23"
+    },
+    "US0404132054": {
+      "ticker": "ANET",
+      "name": "Arista Networks",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-01-19"
+    },
+    "IE00B3WJKG14": {
+      "ticker": null,
+      "name": "iShares S&P 500 Information Technology Sector (Acc)",
+      "status": "unmapped",
+      "last_seen_in_csv": "2025-12-06"
+    },
+    "IE000QDFFK00": {
+      "ticker": null,
+      "name": "AXA Nasdaq 100 (Acc)",
+      "status": "unmapped",
+      "last_seen_in_csv": "2025-12-06"
+    },
+    "DE000HT41XN9": {
+      "ticker": null,
+      "name": "Apple Short 205,22 $ Turbo Open End HSBC",
+      "status": "unmapped",
+      "last_seen_in_csv": "2025-04-09"
+    }
+  }
 }
