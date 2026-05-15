@@ -1,6 +1,6 @@
 # TICKET-CSV-1 — Scalable Capital CSV import (trades only)
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Estimated session length:** 2 hr
 **Drafted by:** Vivek + Claude (chat session 2026-05-15)
