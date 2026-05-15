@@ -1,24 +1,40 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
 import plotly.graph_objects as go
 import streamlit as st
 
+from app.domain.company import CompanyData
 from app.ports.company_data import CompanyDataError
 from app.services.company import get_company, refresh_company_section
 from app.ui.components.chart_theme import (
-    CHART_STYLE_PRESETS,
+    DEFAULT_STYLE,
     ChartStyle,
     apply_style,
-    styled_bar_trace,
+    get_accent_color,
     styled_line_trace,
 )
 from app.ui.components.ticker_searchbox import render_ticker_searchbox
-from app.ui.format import format_relative_time
+from app.ui.format import format_multiple, format_pct, format_relative_time
+from app.ui.pages._snapshot_helpers import (
+    compute_ebit_margin,
+    compute_ebit_margin_series,
+    compute_fcf_series,
+    compute_fcf_yield,
+    compute_historical_pe_range,
+    compute_net_debt_ebitda,
+    compute_net_debt_ebitda_series,
+    compute_revenue_cagr,
+    compute_revenue_series,
+    compute_sma,
+    filter_price_history,
+)
+from app.ui.render import render_html
 from app.ui.wiring import get_company_provider, get_ticker_resolver
 
 _COMPANY_CACHE_ROOT = Path("data/companies")
@@ -101,63 +117,316 @@ def _refresh_all_sections(ticker: str) -> None:
         refresh_company_section(ticker, section, provider=provider)
 
 
-_SAMPLE_QUARTERS = (
-    "FY23 Q1",
-    "FY23 Q2",
-    "FY23 Q3",
-    "FY23 Q4",
-    "FY24 Q1",
-    "FY24 Q2",
-    "FY24 Q3",
-    "FY24 Q4",
-    "FY25 Q1",
-    "FY25 Q2",
-    "FY25 Q3",
-    "FY25 Q4",
-)
+_PERIOD_YEARS = {"1Y": 1, "3Y": 3, "5Y": 5}
 
 
-def _sample_chart(style: ChartStyle) -> go.Figure:
-    revenue = [91, 95, 102, 107, 112, 118, 126, 132, 141, 148, 157, 166]
-    margin = [18, 19, 19, 20, 21, 20, 22, 23, 23, 24, 25, 26]
+def _render_snapshot_header(data: CompanyData) -> None:
+    profile = data.profile
+    quote = data.latest_quote
 
-    fig = go.Figure()
-    fig.add_trace(styled_bar_trace(style, 0, x=_SAMPLE_QUARTERS, y=revenue, name="Revenue"))
-    fig.add_trace(
-        styled_line_trace(
-            style,
-            1,
-            x=_SAMPLE_QUARTERS,
-            y=margin,
-            name="Margin",
-            yaxis="y2",
-        )
+    left, right, star_col = st.columns([0.55, 0.35, 0.10])
+
+    with left:
+        if profile is None:
+            st.warning("Company data unavailable")
+        else:
+            render_html(f"<h2 style='margin:0'>{profile.name}</h2>")
+            isin_text = f" · ISIN {profile.isin}" if profile.isin else ""
+            render_html(
+                f"<p style='margin:0;font-size:1rem;font-weight:600'>"
+                f"{profile.ticker}{isin_text}</p>"
+            )
+            parts = [p for p in (profile.sector, profile.industry, profile.country) if p]
+            if parts:
+                st.caption(" · ".join(parts))
+
+    with right:
+        if quote is None:
+            st.warning("Price unavailable")
+        else:
+            currency = quote.price.currency
+            price_val = float(quote.price.amount)
+            st.metric(
+                label=f"{currency}",
+                value=f"{price_val:,.2f}",
+                delta=format_pct(quote.day_change_pct, signed=True),
+            )
+            if profile:
+                st.caption(f"{profile.country or ''} · {currency}")
+
+    with star_col:
+        st.button("⭐", disabled=True, help="Watchlist — coming in TICKET-031", key="snapshot_star")
+
+
+def _mini_sparkline(values: list[Decimal | None], style: ChartStyle) -> go.Figure:
+    """Small inline trend line, no axes, no labels."""
+    y = [float(v) if v is not None else None for v in values]
+    x = list(range(len(y)))
+    fig = go.Figure(
+        data=[
+            go.Scatter(
+                x=x,
+                y=y,
+                mode="lines",
+                line={"color": get_accent_color(style, 0), "width": 1.5},
+                connectgaps=True,
+            )
+        ]
     )
     fig.update_layout(
-        height=250,
-        yaxis={"title": None},
-        yaxis2={
-            "overlaying": "y",
-            "side": "right",
+        height=40,
+        width=120,
+        margin={"l": 0, "r": 0, "t": 0, "b": 0},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        showlegend=False,
+    )
+    fig.update_xaxes(visible=False)
+    fig.update_yaxes(visible=False)
+    return fig
+
+
+def _render_price_chart(data: CompanyData, period_label: str) -> None:
+    years = _PERIOD_YEARS.get(period_label, 5)
+    history = filter_price_history(data.price_history, years)
+
+    if not history:
+        st.warning("Price history unavailable")
+        return
+
+    dates = [p.date for p in history]
+    closes = [p.close for p in history]
+
+    sma_period = 200 if len(closes) >= 200 else (50 if len(closes) >= 50 else None)
+    sma_values = compute_sma(closes, sma_period) if sma_period else None
+    sma_label = f"{sma_period}DMA" if sma_period else None
+
+    fig = go.Figure()
+    fig.add_trace(
+        styled_line_trace(
+            DEFAULT_STYLE,
+            0,
+            x=dates,
+            y=[float(c) for c in closes],
+            name="Price",
+            mode="lines",
+        )
+    )
+    if sma_values and sma_label:
+        fig.add_trace(
+            styled_line_trace(
+                DEFAULT_STYLE,
+                1,
+                x=dates,
+                y=[float(v) if v is not None else None for v in sma_values],
+                name=sma_label,
+                mode="lines",
+                connectgaps=False,
+            )
+        )
+    currency = data.profile.currency if data.profile else "?"
+    fig.update_layout(
+        height=400,
+        showlegend=True,
+        legend={"orientation": "h", "y": -0.15},
+        yaxis={"title": currency},
+    )
+    apply_style(fig, DEFAULT_STYLE)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+    with st.expander("Show data"):
+        rows = [
+            {"Date": p.date.isoformat(), "Close": float(p.close), "Volume": p.volume}
+            for p in history
+        ]
+        st.dataframe(rows, use_container_width=True)
+
+
+def _render_kpi_tiles(data: CompanyData) -> None:
+    cols = st.columns(4)
+    quarters = data.quarterly_fundamentals
+    market_cap_amount = (
+        data.profile.market_cap.amount
+        if (data.profile and data.profile.market_cap)
+        else None
+    )
+
+    with cols[0]:
+        cagr, cagr_label = compute_revenue_cagr(quarters)
+        rev_series = compute_revenue_series(quarters)
+        if cagr is not None:
+            color = "green" if cagr >= 0 else "red"
+            render_html(
+                f"<b style='font-size:1.3rem;color:{color}'>{format_pct(cagr, signed=True)}</b>"
+            )
+            st.caption(f"Revenue Growth ({cagr_label})")
+        else:
+            st.markdown("**N/A**")
+            st.caption("Revenue data unavailable")
+        spark_vals = [v for v in rev_series if v is not None]
+        if len(spark_vals) >= 2:
+            st.plotly_chart(
+                _mini_sparkline([v for v in rev_series], DEFAULT_STYLE),
+                use_container_width=False,
+                config={"displayModeBar": False},
+            )
+
+    with cols[1]:
+        margin = compute_ebit_margin(quarters)
+        margin_series = compute_ebit_margin_series(quarters)
+        if margin is not None:
+            render_html(f"<b style='font-size:1.3rem'>{format_pct(margin)}</b>")
+            st.caption("EBIT Margin (latest quarter)")
+        else:
+            st.markdown("**N/A**")
+            st.caption("EBIT data unavailable")
+        if any(v is not None for v in margin_series):
+            st.plotly_chart(
+                _mini_sparkline(margin_series, DEFAULT_STYLE),
+                use_container_width=False,
+                config={"displayModeBar": False},
+            )
+
+    with cols[2]:
+        nd_ebitda = compute_net_debt_ebitda(quarters)
+        nd_series = compute_net_debt_ebitda_series(quarters)
+        if nd_ebitda is not None:
+            if nd_ebitda < 2:
+                color = "green"
+            elif nd_ebitda <= 3:
+                color = "orange"
+            else:
+                color = "red"
+            render_html(
+                f"<b style='font-size:1.3rem;color:{color}'>{format_multiple(nd_ebitda)}</b>"
+            )
+            st.caption("Net Debt / EBITDA")
+        else:
+            st.markdown("**N/A**")
+            st.caption("ND/EBITDA unavailable")
+        if any(v is not None for v in nd_series):
+            st.plotly_chart(
+                _mini_sparkline(nd_series, DEFAULT_STYLE),
+                use_container_width=False,
+                config={"displayModeBar": False},
+            )
+
+    with cols[3]:
+        fcf_yield_val = compute_fcf_yield(quarters, market_cap_amount)
+        fcf_series = compute_fcf_series(quarters)
+        if fcf_yield_val is not None:
+            render_html(f"<b style='font-size:1.3rem'>{format_pct(fcf_yield_val)}</b>")
+            st.caption("FCF Yield (TTM)")
+        else:
+            st.markdown("**N/A**")
+            st.caption("FCF yield unavailable")
+        if any(v is not None for v in fcf_series):
+            st.plotly_chart(
+                _mini_sparkline(fcf_series, DEFAULT_STYLE),
+                use_container_width=False,
+                config={"displayModeBar": False},
+            )
+
+
+def _render_valuation_band(data: CompanyData) -> None:
+    quarters = data.quarterly_fundamentals
+    current_pe_from_multiples = (
+        data.current_multiples.pe_trailing if data.current_multiples else None
+    )
+
+    pe_range = compute_historical_pe_range(quarters, data.price_history)
+
+    if pe_range is None:
+        st.caption("Valuation band unavailable — insufficient earnings data")
+        return
+
+    min_pe, current_pe, max_pe = pe_range
+
+    if current_pe <= 0:
+        st.caption("P/E not meaningful — company is loss-making")
+        return
+
+    if current_pe_from_multiples is not None and current_pe_from_multiples <= 0:
+        st.caption("P/E not meaningful — company is loss-making")
+        return
+
+    display_pe = current_pe_from_multiples if current_pe_from_multiples is not None else current_pe
+
+    pe_range_width = max_pe - min_pe
+    if pe_range_width <= 0:
+        st.caption("Valuation band unavailable — P/E range is flat")
+        return
+
+    n_segments = 20
+    fig = go.Figure()
+
+    for i in range(n_segments):
+        x0 = float(min_pe) + float(pe_range_width) * i / n_segments
+        x1 = float(min_pe) + float(pe_range_width) * (i + 1) / n_segments
+        frac = i / n_segments
+        r = int(frac * 200)
+        g = int((1 - frac) * 160)
+        fig.add_shape(
+            type="rect",
+            xref="x", yref="paper",
+            x0=x0, x1=x1, y0=0, y1=1,
+            fillcolor=f"rgb({r},{g},60)",
+            opacity=0.35,
+            line_width=0,
+        )
+
+    fig.add_trace(
+        go.Scatter(
+            x=[float(display_pe)],
+            y=[0],
+            mode="markers+text",
+            marker={"size": 14, "color": "white", "line": {"color": "#333", "width": 2}},
+            text=[f"{float(display_pe):.1f}x"],
+            textposition="top center",
+            hovertemplate=f"Current P/E: {float(display_pe):.1f}x<extra></extra>",
+        )
+    )
+
+    fig.update_layout(
+        height=90,
+        margin={"l": 10, "r": 10, "t": 20, "b": 30},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        showlegend=False,
+        xaxis={
+            "range": [float(min_pe) - float(pe_range_width) * 0.05,
+                      float(max_pe) + float(pe_range_width) * 0.05],
+            "tickvals": [float(min_pe), float(display_pe), float(max_pe)],
+            "ticktext": [
+                f"{float(min_pe):.1f}x",
+                f"{float(display_pe):.1f}x",
+                f"{float(max_pe):.1f}x",
+            ],
             "showgrid": False,
-            "title": None,
-            "tickfont": {"color": style.text_color, "size": style.font_size},
+            "zeroline": False,
+            "tickfont": {"size": 10},
         },
+        yaxis={"visible": False, "range": [-0.5, 0.5]},
     )
-    return apply_style(fig, style)
+    st.markdown("**Valuation Band — Trailing P/E (5Y range)**")
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 
-def _render_chart_style_sampler() -> None:
-    st.info(
-        "Pick a chart style during PR review. The chosen style will be applied across all "
-        "Company Deep Dive tabs. The sampler will be removed in TICKET-027."
+def _render_next_catalyst(data: CompanyData, today: date) -> None:
+    catalyst = data.next_catalyst
+    if catalyst is None:
+        st.caption("No upcoming catalyst data available")
+        return
+
+    days_until = (catalyst.date - today).days
+    kind_label = catalyst.kind.replace("_", " ").title()
+    detail = f" · {catalyst.detail}" if catalyst.detail else ""
+    countdown = f"in {days_until} days" if days_until >= 0 else f"{abs(days_until)} days ago"
+    render_html(
+        f"<div style='padding:8px 12px;border-left:3px solid #4f6f8f;margin:4px 0'>"
+        f"<b>📅 {kind_label}</b>{detail} · {catalyst.date.strftime('%b %d, %Y')} · {countdown}"
+        f"</div>"
     )
-    columns = st.columns(3)
-    for column, style in zip(columns, CHART_STYLE_PRESETS, strict=True):
-        with column:
-            st.plotly_chart(_sample_chart(style), use_container_width=True)
-            st.markdown(f"**{style.name}**")
-            st.caption(style.description)
 
 
 def render() -> None:
@@ -214,8 +483,28 @@ def render() -> None:
     )
 
     with tabs[0]:
-        st.write("Snapshot content — TICKET-027")
-        _render_chart_style_sampler()
+        _render_snapshot_header(data)
+        st.divider()
+
+        period_options = list(_PERIOD_YEARS.keys())
+        selected_period = st.radio(
+            "Period",
+            period_options,
+            index=period_options.index("5Y"),
+            horizontal=True,
+            key="snapshot_price_period",
+            label_visibility="collapsed",
+        )
+        _render_price_chart(data, str(selected_period))
+        st.divider()
+
+        _render_kpi_tiles(data)
+        st.divider()
+
+        _render_valuation_band(data)
+        st.divider()
+
+        _render_next_catalyst(data, datetime.now(UTC).date())
     with tabs[1]:
         st.info(
             "📋 Business tab coming soon — waiting for segment data sources and Panel framework."

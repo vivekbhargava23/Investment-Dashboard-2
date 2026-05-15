@@ -87,6 +87,8 @@ STYLE_EDITORIAL = ChartStyle(
 
 CHART_STYLE_PRESETS = (STYLE_CLEAN, STYLE_DARK, STYLE_EDITORIAL)
 
+DEFAULT_STYLE = STYLE_CLEAN
+
 
 def apply_style(fig: go.Figure, style: ChartStyle) -> go.Figure:
     fig.update_layout(
