@@ -26,56 +26,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Move linked issues to Done on the project board
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUM="${{ github.event.pull_request.number }}"
-          PR_BODY="$(gh pr view "$PR_NUM" --json body -q .body)"
-
-          # Extract all issue numbers from Closes/Fixes/Resolves lines
-          ISSUE_NUMS="$(echo "$PR_BODY" | grep -oP '(?i)(closes|fixes|resolves)\s+#\K\d+' || true)"
-
-          if [ -z "$ISSUE_NUMS" ]; then
-            echo "No 'Closes #N' lines found in PR body. Nothing to move."
-            exit 0
-          fi
-
-          # Resolve board identifiers via name lookup
-          PROJECT_NUMBER=2
-          PROJECT_ID="$(gh project list --owner @me --format json | jq -r --argjson n "$PROJECT_NUMBER" '.projects[] | select(.number==$n) | .id')"
-          STATUS_FIELD_ID="$(gh project field-list "$PROJECT_NUMBER" --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .id')"
-          DONE_OPTION_ID="$(gh project field-list "$PROJECT_NUMBER" --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="Done") | .id')"
-
-          if [ -z "$PROJECT_ID" ] || [ -z "$STATUS_FIELD_ID" ] || [ -z "$DONE_OPTION_ID" ]; then
-            echo "Error: could not resolve project board IDs. Board may have changed."
-            exit 1
-          fi
-
-          for ISSUE_NUM in $ISSUE_NUMS; do
-            echo "Processing issue #$ISSUE_NUM..."
-            ITEM_ID="$(gh project item-list "$PROJECT_NUMBER" --owner @me --format json --limit 200 | jq -r --argjson n "$ISSUE_NUM" '.items[] | select(.content.number==$n) | .id' | head -1)"
-
-            if [ -z "$ITEM_ID" ]; then
-              echo "  Issue #$ISSUE_NUM not found on the board — adding it now..."
-              ISSUE_URL="$(gh issue view "$ISSUE_NUM" --json url -q .url 2>/dev/null || true)"
-              if [ -n "$ISSUE_URL" ]; then
-                ITEM_ID="$(gh project item-add "$PROJECT_NUMBER" --owner @me --url "$ISSUE_URL" --format json | jq -r '.id')"
-              fi
-            fi
-
-            if [ -n "$ITEM_ID" ]; then
-              gh project item-edit \
-                --project-id "$PROJECT_ID" \
-                --id "$ITEM_ID" \
-                --field-id "$STATUS_FIELD_ID" \
-                --single-select-option-id "$DONE_OPTION_ID" \
-                --format json > /dev/null
-              echo "  Moved issue #$ISSUE_NUM to Done (item $ITEM_ID)."
-            else
-              echo "  Warning: could not find or create board item for issue #$ISSUE_NUM."
-            fi
-          done
 
       - name: Commit message (housekeeping marker)
         env:
