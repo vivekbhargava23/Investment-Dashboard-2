@@ -4,12 +4,14 @@ from pathlib import Path
 import streamlit as st
 
 from app.adapters.company_factory import build_company_provider
+from app.adapters.isin_map.repo import JsonIsinMapRepository
 from app.adapters.repo_json import JsonNavSnapshotRepository, JsonTransactionRepository
 from app.adapters.repo_json.tax_profile_repo import JsonTaxProfileRepository
 from app.adapters.yfinance_feed import YfinanceAdapter
 from app.config import get_settings
 from app.ports.company_data import CompanyDataProvider
 from app.ports.fx_feed import FxProvider
+from app.ports.isin_map import IsinMapRepository
 from app.ports.market_data import OhlcDataProvider
 from app.ports.nav_repository import NavSnapshotRepository
 from app.ports.price_feed import PriceProvider
@@ -64,6 +66,12 @@ def get_ticker_resolver() -> TickerResolver:
 @lru_cache(maxsize=1)
 def get_ohlc_data_provider() -> OhlcDataProvider:
     return get_price_provider()  # type: ignore[return-value]
+
+
+@lru_cache(maxsize=1)
+def get_isin_map_repo() -> IsinMapRepository:
+    settings = get_settings()
+    return JsonIsinMapRepository(settings.isin_map_json_path)
 
 
 @st.cache_resource

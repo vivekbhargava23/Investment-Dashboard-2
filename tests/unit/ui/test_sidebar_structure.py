@@ -143,8 +143,8 @@ def test_no_badge_renders_no_nav_badge_span() -> None:
 
 
 def test_nav_items_total_count() -> None:
-    """NAV_ITEMS still has exactly 11 entries (regression guard)."""
-    assert len(NAV_ITEMS) == 11
+    """NAV_ITEMS still has exactly 12 entries (regression guard)."""
+    assert len(NAV_ITEMS) == 12
 
 
 def test_sections_cover_all_items() -> None:

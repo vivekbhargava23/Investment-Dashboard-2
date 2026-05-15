@@ -31,7 +31,7 @@ def test_render_severity_badge():
         render_severity_badge("invalid") # type: ignore
 
 def test_nav_items_consistency():
-    assert len(NAV_ITEMS) == 11
+    assert len(NAV_ITEMS) == 12
     for item in NAV_ITEMS:
         assert "id" in item
         assert "label" in item
