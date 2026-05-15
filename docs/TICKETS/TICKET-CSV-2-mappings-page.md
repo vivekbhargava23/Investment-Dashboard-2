@@ -1,6 +1,6 @@
 # TICKET-CSV-2 — Mappings page (ISIN → ticker UI)
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Estimated session length:** 1 hr
 **Drafted by:** Vivek + Claude (chat session 2026-05-15)

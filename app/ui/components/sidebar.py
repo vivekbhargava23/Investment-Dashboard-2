@@ -24,13 +24,14 @@ NAV_ITEMS: list[dict[str, Any]] = [
     },
     {"id": "behaviour",   "label": "Behavioural Ledger", "icon": "◎",  "badge": None},
     # SETTINGS
-    {"id": "manage",      "label": "Manage Portfolio",   "icon": "⚙",  "badge": None},
+    {"id": "manage",    "label": "Manage Portfolio", "icon": "⚙",  "badge": None},
+    {"id": "mappings",  "label": "ISIN Mappings",    "icon": "⇄",  "badge": None},
 ]
 
 _SECTIONS: list[tuple[str, int, int]] = [
     ("PORTFOLIO", 0, 6),
     ("TOOLS",     6, 10),
-    ("SETTINGS",  10, 11),
+    ("SETTINGS",  10, 12),
 ]
 
 
