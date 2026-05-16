@@ -173,7 +173,7 @@ def test_load_all_corrupted_missing_version(tmp_path):
 
 def test_load_all_corrupted_wrong_version(tmp_path):
     path = tmp_path / "portfolio.json"
-    path.write_text(json.dumps({"version": 3, "transactions": []}))
+    path.write_text(json.dumps({"version": 99, "transactions": []}))
     repo = JsonTransactionRepository(path)
     with pytest.raises(RepositoryCorruptedError, match="version"):
         repo.load_all()
@@ -297,6 +297,112 @@ def test_scalable_csv_rows_exempt_from_legacy_check(tmp_path: Path):
     loaded = repo.load_all()
     assert len(loaded) == 1
     assert loaded[0].ticker == "NVDA"
+
+
+def test_v2_auto_migrates_to_v3_on_load(tmp_path):
+    """A v2 portfolio auto-migrates to v3 on first load_all() call."""
+    path = tmp_path / "portfolio.json"
+    data = {
+        "version": 2,
+        "transactions": [
+            {
+                "id": "R1",
+                "type": "buy",
+                "ticker": "NVDA",
+                "trade_date": "2026-01-01",
+                "shares": "10",
+                "price_native": {"amount": "200", "currency": "EUR"},
+                "fx_rate_eur": "1",
+                "notes": None,
+                "csv_reference": "R1",
+                "source": "scalable_csv",
+            }
+        ],
+    }
+    # Also write companion isin_map.json in same dir
+    isin_map = tmp_path / "isin_map.json"
+    isin_map.write_text(json.dumps({
+        "version": 1,
+        "entries": {
+            "US67066G1040": {"ticker": "NVDA", "name": "NVIDIA", "status": "mapped"},
+        },
+    }))
+    path.write_text(json.dumps(data))
+
+    repo = JsonTransactionRepository(path)
+    loaded = repo.load_all()
+
+    assert len(loaded) == 1
+    assert loaded[0].ticker == "NVDA"
+    assert loaded[0].isin == "US67066G1040"
+
+    # File on disk is now v3
+    on_disk = json.loads(path.read_text())
+    assert on_disk["version"] == 3
+
+
+def test_v2_migration_totals_preservation(tmp_path):
+    """Per-ticker share counts and EUR cost basis are identical before and after v2→v3."""
+    from app.domain.fifo import compute_positions
+
+    path = tmp_path / "portfolio.json"
+    isin_map = tmp_path / "isin_map.json"
+    isin_map.write_text(json.dumps({
+        "version": 1,
+        "entries": {
+            "US67066G1040": {"ticker": "NVDA", "name": "NVIDIA", "status": "mapped"},
+            "DE0007030009": {"ticker": "RHM.DE", "name": "Rheinmetall", "status": "mapped"},
+            "US0378331005": {"ticker": "AAPL", "name": "Apple", "status": "mapped"},
+        },
+    }))
+
+    raw_txs = [
+        {
+            "id": "R1", "type": "buy", "ticker": "NVDA",
+            "trade_date": "2025-01-10", "shares": "4",
+            "price_native": {"amount": "80", "currency": "EUR"},
+            "fx_rate_eur": "1", "notes": None, "csv_reference": "R1", "source": "scalable_csv",
+        },
+        {
+            "id": "R2", "type": "buy", "ticker": "NVDA",
+            "trade_date": "2025-03-01", "shares": "2",
+            "price_native": {"amount": "90", "currency": "EUR"},
+            "fx_rate_eur": "1", "notes": None, "csv_reference": "R2", "source": "scalable_csv",
+        },
+        {
+            "id": "R3", "type": "buy", "ticker": "RHM.DE",
+            "trade_date": "2025-04-15", "shares": "3",
+            "price_native": {"amount": "150", "currency": "EUR"},
+            "fx_rate_eur": "1", "notes": None, "csv_reference": "R3", "source": "scalable_csv",
+        },
+        {
+            "id": "R4", "type": "sell", "ticker": "NVDA",
+            "trade_date": "2025-06-01", "shares": "1",
+            "price_native": {"amount": "100", "currency": "EUR"},
+            "fx_rate_eur": "1", "notes": None, "csv_reference": "R4", "source": "scalable_csv",
+        },
+        {
+            "id": "M1", "type": "buy", "ticker": "AAPL",
+            "trade_date": "2025-02-20", "shares": "5",
+            "price_native": {"amount": "50", "currency": "EUR"},
+            "fx_rate_eur": "1", "notes": None, "csv_reference": None, "source": "manual",
+        },
+    ]
+    path.write_text(json.dumps({"version": 2, "transactions": raw_txs}))
+
+    # Load once → triggers migration to v3
+    repo = JsonTransactionRepository(path)
+    txs_v3 = repo.load_all()
+    positions_v3 = compute_positions(txs_v3)
+
+    # Load again (now v3 on disk, no re-migration)
+    repo2 = JsonTransactionRepository(path)
+    txs_v3b = repo2.load_all()
+    positions_v3b = compute_positions(txs_v3b)
+
+    for ticker in positions_v3:
+        assert positions_v3[ticker].open_shares == positions_v3b[ticker].open_shares, ticker
+        assert positions_v3[ticker].cost_basis_eur == positions_v3b[ticker].cost_basis_eur, ticker
 
 
 def test_creates_parent_directory(tmp_path):
