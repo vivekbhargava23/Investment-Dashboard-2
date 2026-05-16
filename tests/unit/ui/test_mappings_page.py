@@ -130,7 +130,7 @@ def test_init_state_sets_all_defaults() -> None:
     assert state["mappings_editing_isin"] is None
     assert state["mappings_confirming_delete_isin"] is None
     assert state["mappings_feedback"] is None
-    assert state["mappings_edit_ticker_value"] == ""
+    assert "mappings_edit_ticker_value" not in state
 
 
 def test_init_state_is_idempotent() -> None:
@@ -142,6 +142,39 @@ def test_init_state_is_idempotent() -> None:
 # ---------------------------------------------------------------------------
 # Smoke: module imports cleanly and render is callable
 # ---------------------------------------------------------------------------
+
+def test_init_state_does_not_include_edit_ticker_value() -> None:
+    """mappings_edit_ticker_value was removed when text_input was replaced by searchbox."""
+    state: dict = {}
+    _init_state(state)
+    assert "mappings_edit_ticker_value" not in state
+
+
+def test_save_mapping_with_ticker_from_searchbox_symbol() -> None:
+    """Ticker derived from TickerMatch.symbol is accepted by _save_mapping."""
+    isin = "DE0007030009"
+    doc = _make_doc(**{
+        isin: IsinMapping(ticker=None, name="Rheinmetall", status="unmapped",
+                          last_seen_in_csv=date(2026, 4, 1))
+    })
+    ticker_from_match = "RHM.DE"
+    updated, _ = _save_mapping(isin, ticker_from_match, doc)
+    assert updated.entries[isin].ticker == "RHM.DE"
+    assert updated.entries[isin].status == "mapped"
+
+
+def test_validate_ticker_accepts_searchbox_symbols() -> None:
+    """Symbols returned by the searchbox (resolver) pass _validate_ticker."""
+    assert _validate_ticker("RHM.DE") is None
+    assert _validate_ticker("5631.T") is None
+    assert _validate_ticker("IUES.DE") is None
+    assert _validate_ticker("XNAS.DE") is None
+
+
+def test_validate_ticker_none_match_still_blocked() -> None:
+    """When selected_match is None, an empty ticker string is invalid."""
+    assert _validate_ticker("") is not None
+
 
 def test_mappings_module_imports_cleanly() -> None:
     import app.ui.pages.mappings as m
