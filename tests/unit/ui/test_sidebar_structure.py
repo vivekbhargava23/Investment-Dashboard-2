@@ -62,25 +62,28 @@ def test_portfolio_section_items() -> None:
 
 
 def test_tools_section_items() -> None:
-    """TOOLS section contains: simulator, lots, decision, behaviour, import_workbench."""
+    """TOOLS section contains exactly: simulator, lots, decision, behaviour."""
     html = _capture_sidebar_html()
     tools_start = html.index("TOOLS")
     sett_start = html.index("SETTINGS")
     tools_block = html[tools_start:sett_start]
 
-    expected_ids = ["simulator", "lots", "decision", "behaviour", "import_workbench"]
+    expected_ids = ["simulator", "lots", "decision", "behaviour"]
     for page_id in expected_ids:
         assert f'href="/?page={page_id}"' in tools_block, (
             f"Expected {page_id} in TOOLS section"
         )
+    assert 'href="/?page=import_workbench"' not in tools_block
 
 
 def test_settings_section_items() -> None:
-    """SETTINGS section contains exactly: manage."""
+    """SETTINGS section contains: manage, import_workbench, mappings."""
     html = _capture_sidebar_html()
     sett_start = html.index("SETTINGS")
     settings_block = html[sett_start:]
     assert 'href="/?page=manage"' in settings_block
+    assert 'href="/?page=import_workbench"' in settings_block
+    assert 'href="/?page=mappings"' in settings_block
 
 
 def test_active_state_applied_to_correct_item() -> None:

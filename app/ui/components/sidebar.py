@@ -23,16 +23,16 @@ NAV_ITEMS: list[dict[str, Any]] = [
         "badge": {"text": "3 flags", "color": ""},
     },
     {"id": "behaviour",        "label": "Behavioural Ledger", "icon": "◎",  "badge": None},
-    {"id": "import_workbench", "label": "Import CSV",         "icon": "📥", "badge": None},
     # SETTINGS
-    {"id": "manage",    "label": "Manage Portfolio", "icon": "⚙",  "badge": None},
-    {"id": "mappings",  "label": "ISIN Mappings",    "icon": "⇄",  "badge": None},
+    {"id": "manage",           "label": "Manage Portfolio", "icon": "⚙",  "badge": None},
+    {"id": "import_workbench", "label": "Import CSV",       "icon": "📥", "badge": None},
+    {"id": "mappings",         "label": "ISIN Mappings",    "icon": "⇄",  "badge": None},
 ]
 
 _SECTIONS: list[tuple[str, int, int]] = [
     ("PORTFOLIO", 0, 6),
-    ("TOOLS",     6, 11),
-    ("SETTINGS",  11, 13),
+    ("TOOLS",     6, 10),
+    ("SETTINGS",  10, 13),
 ]
 
 
