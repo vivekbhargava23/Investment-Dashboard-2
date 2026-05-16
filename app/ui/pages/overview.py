@@ -110,22 +110,25 @@ def _build_positions_table_html(
         is_stale = p.live_price_native is None or p.live_value_eur is None or p.unrealised_gain_eur is None
         row_class = "stale" if is_stale else ""
 
-        if is_stale or p.live_price_native is None:
+        if is_stale or p.live_price_native is None or p.live_value_eur is None:
             price_cell = '<td class="font-mono text-right">—</td>'
         else:
             native_ccy = p.live_price_native.currency.value
             native_amt = float(p.live_price_native.amount)
-            native_str = f"{native_ccy} {native_amt:.2f}"
-            if p.live_value_eur is not None and p.position.open_shares > 0:
-                eur_per_share = float(p.live_value_eur.amount) / float(p.position.open_shares)
-                tooltip = f"{native_str} · €{eur_per_share:.2f} per share"
+            eur_per_share = float(p.live_value_eur.amount) / float(p.position.open_shares)
+            if native_ccy != "EUR":
+                tooltip = f"{native_ccy} {native_amt:.2f}"
+                price_cell = (
+                    f'<td class="font-mono text-right" title="{tooltip}">'
+                    f'{eur_per_share:.2f}'
+                    f'</td>'
+                )
             else:
-                tooltip = native_str
-            price_cell = (
-                f'<td class="font-mono text-right" title="{tooltip}">'
-                f'{native_amt:.2f}'
-                f'</td>'
-            )
+                price_cell = (
+                    f'<td class="font-mono text-right">'
+                    f'{eur_per_share:.2f}'
+                    f'</td>'
+                )
 
         val = "—" if is_stale or p.live_value_eur is None else format_eur(p.live_value_eur, signed=False).replace("€", "")
         gain = "—" if is_stale or p.unrealised_gain_eur is None else format_eur(p.unrealised_gain_eur, signed=True).replace("€", "")
@@ -171,7 +174,7 @@ def _build_positions_table_html(
         '<tr style="border-bottom: 1px solid var(--border); color: var(--text3); text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em;">'
         '<th style="padding: 8px 4px;">Ticker</th>'
         '<th style="padding: 8px 4px;">Name</th>'
-        '<th style="padding: 8px 4px; text-align: right;">Price</th>'
+        '<th style="padding: 8px 4px; text-align: right;">Price (€)</th>'
         '<th style="padding: 8px 4px; text-align: right;">Shares</th>'
         '<th style="padding: 8px 4px; text-align: right;">Cost (€)</th>'
         '<th style="padding: 8px 4px; text-align: right;">Value (€)</th>'

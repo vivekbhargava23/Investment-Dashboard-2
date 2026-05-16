@@ -303,23 +303,22 @@ def test_name_fallback_when_no_lookup_provided() -> None:
     assert "ANET" in html
 
 
-def test_price_tooltip_usd_position() -> None:
+def test_price_tooltip_usd_shows_native_in_tooltip() -> None:
     from app.ui.pages.overview import _build_positions_table_html
 
     positions = {"NVDA": _make_live_position_usd("NVDA", shares="5", price_usd="225.32")}
     summary = _make_summary(positions)
     html = _build_positions_table_html(positions, summary)
-    assert 'title="USD 225.32' in html, "Price cell must have USD tooltip"
-    assert "per share" in html
+    assert 'title="USD 225.32"' in html, "Non-EUR price cell must show native currency in tooltip"
 
 
-def test_price_tooltip_eur_position() -> None:
+def test_price_eur_position_displays_eur_no_tooltip() -> None:
     from app.ui.pages.overview import _build_positions_table_html
 
     positions = {"RHM.DE": _make_live_position("RHM.DE", "2", "800")}
     summary = _make_summary(positions)
     html = _build_positions_table_html(positions, summary)
-    assert 'title="EUR ' in html, "Price cell must have EUR tooltip"
+    assert 'title="EUR' not in html, "EUR-native price cell needs no tooltip"
 
 
 def test_stale_price_renders_dash_no_tooltip() -> None:
