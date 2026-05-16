@@ -51,9 +51,15 @@ class JsonTransactionRepository(TransactionRepository):
 
     SCHEMA_VERSION = 3
 
-    def __init__(self, path: Path, nav_repo: NavSnapshotRepository | None = None) -> None:
+    def __init__(
+        self,
+        path: Path,
+        nav_repo: NavSnapshotRepository | None = None,
+        isin_map_path: Path | None = None,
+    ) -> None:
         self.path = path
         self._nav_repo = nav_repo
+        self._isin_map_path = isin_map_path
 
     def load_all(self) -> list[Transaction]:
         if not self.path.exists():
@@ -86,8 +92,17 @@ class JsonTransactionRepository(TransactionRepository):
 
             from app.adapters.repo_json.migration import migrate_v2_to_v3
 
-            summary = migrate_v2_to_v3(self.path)
-            logging.getLogger(__name__).info("Auto-migrated portfolio to v3: %s", summary)
+            summary = migrate_v2_to_v3(self.path, isin_map_path=self._isin_map_path)
+            _log = logging.getLogger(__name__)
+            _log.info("Auto-migrated portfolio to v3: %s", summary)
+            if summary["scalable_unbackfilled_count"] > 0 and summary["migrated_count"] == 0:
+                _log.warning(
+                    "v2→v3 migration produced zero ISIN backfills across "
+                    "%d scalable_csv transactions. "
+                    "This is likely a logic bug — investigate before relying on "
+                    "isin-aware features.",
+                    summary["scalable_unbackfilled_count"],
+                )
             with open(self.path, encoding="utf-8") as f:
                 data = json.load(f)
 

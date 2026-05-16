@@ -44,6 +44,36 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-16 — TICKET-CSV-11
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Branch:** ticket-csv-11-fix-migration-v2-v3-backfill
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `isin_map_path: Path | None` parameter to `migrate_v2_to_v3`; falls back to `portfolio_path.parent/isin_map.json` when omitted (fully backward compatible)
+- `JsonTransactionRepository.__init__` accepts and stores `isin_map_path`, forwards it to the migration
+- Added zero-backfill WARNING log in `load_all()` when `scalable_unbackfilled_count > 0 and migrated_count == 0` — canary that would have caught the production failure at startup
+- Created `tests/fixtures/migration/portfolio_v2_production_shape.json` (151 transactions, 20 tickers, exact production shape)
+- Created `tests/fixtures/migration/isin_map_v1_production_shape.json` (20 mapped entries + 6 unmapped)
+- Added 6 new tests: production-shape regression, zero-backfill warning, edge cases (empty map, all-unmapped, missing ticker field, mixed/missing source)
+
+### Root cause diagnosis
+H1 confirmed: `migrate_v2_to_v3` infers isin_map path as `portfolio_path.parent/isin_map.json` with no fallback and no signal when absent. If the file is missing at migration time, all scalable_csv transactions silently receive `isin=None` with no error or log.
+
+### Files touched
+- `app/adapters/repo_json/migration.py` — added `isin_map_path` parameter
+- `app/adapters/repo_json/json_repo.py` — added `isin_map_path` to constructor; warning canary in `load_all()`
+- `tests/unit/adapters/test_migration_v2_v3.py` — 6 new tests
+- `tests/fixtures/migration/portfolio_v2_production_shape.json` — new
+- `tests/fixtures/migration/isin_map_v1_production_shape.json` — new
+
+### Tests
+827 passing → 843 passing (16 new in migration test file, net 16 added)
+
+### Decisions made during the session
+- No architectural decisions; change is limited to migration.py and json_repo.py per ticket scope
+
 ## 2026-05-16 — TICKET-CSV-8
 **Surface:** Claude Code
 **Model:** sonnet-4.6
