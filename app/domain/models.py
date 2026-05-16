@@ -55,9 +55,9 @@ class Transaction(BaseModel):
 
     @model_validator(mode="after")
     def validate_ticker_currency(self) -> Transaction:
-        # EUR-at-face-value: Scalable CSV rows are always EUR with fx_rate_eur=1.
-        # When both conditions hold, skip native-currency inference so any ticker works.
-        if self.price_native.currency == Currency.EUR and self.fx_rate_eur == Decimal("1"):
+        # Broker-sourced rows carry their own settlement currency; only manual entry is
+        # validated against ticker inference (see ADR-005 amendment, TICKET-CSV-7).
+        if self.source != "manual":
             return self
         try:
             inferred = infer_currency_from_ticker(self.ticker)

@@ -22,10 +22,10 @@ if TYPE_CHECKING:
 
 class LegacyDataError(Exception):
     """
-    Raised when portfolio.json contains transactions whose ticker does not match
-    their recorded currency (a pre-ADR-005 corruption). Run the migration:
-
-        python -m app.scripts.migrate_currency --input <path>
+    Raised when portfolio.json contains manually-entered transactions whose ticker
+    does not match their recorded currency (a pre-ADR-005 corruption).
+    Broker-sourced rows (scalable_csv, switch) are exempt — they carry their own
+    settlement currency and are never checked here.
     """
 
     def __init__(self, path: Path, count: int, first_offender: dict[str, object]) -> None:
@@ -34,9 +34,8 @@ class LegacyDataError(Exception):
         self.first_offender: dict[str, object] = first_offender
         self.offenders: list[dict[str, object]] = [first_offender]
         super().__init__(
-            f"Found {count} transaction(s) in {path} that fail the ticker↔currency "
-            f"consistency check. First offender: {first_offender}. "
-            f"Run `python -m app.scripts.migrate_currency --input {path}` to upgrade."
+            f"Found {count} manually-entered transaction(s) in {path} that fail the "
+            f"ticker↔currency consistency check. First offender: {first_offender}."
         )
 
 
@@ -92,9 +91,12 @@ class JsonTransactionRepository(TransactionRepository):
             raise RepositoryCorruptedError("Missing 'transactions' field")
 
         # Phase 1: detect legacy ticker↔currency mismatches before full construction.
-        # Raises LegacyDataError so the user knows to run the migration script.
+        # Only manually-entered transactions are checked; broker rows (scalable_csv, switch)
+        # carry their own settlement currency and must not be second-guessed via inference.
         offenders: list[dict[str, object]] = []
         for tx_data in data["transactions"]:
+            if tx_data.get("source", "manual") != "manual":
+                continue
             ticker = tx_data.get("ticker", "")
             currency_str = (tx_data.get("price_native") or {}).get("currency", "")
             if ticker and currency_str:
