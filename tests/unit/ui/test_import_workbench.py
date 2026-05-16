@@ -29,6 +29,7 @@ def _make_planned_row(
     price: Decimal | None = Decimal("100"),
     csv_type: str = "Buy",
     conflict_tx_id: str | None = None,
+    fx_rate_eur: Decimal | None = None,
 ) -> PlannedRow:
     return PlannedRow(
         row_number=2,
@@ -46,6 +47,7 @@ def _make_planned_row(
         action=action,
         proposed_ticker=ticker,
         conflict_tx_id=conflict_tx_id,
+        fx_rate_eur=fx_rate_eur,
     )
 
 
@@ -200,6 +202,113 @@ def test_md5_deterministic() -> None:
     data = b"hello world"
     assert _md5(data) == _md5(data)
     assert _md5(data) != _md5(b"other")
+
+
+# ─── _build_transaction: non-EUR ticker ──────────────────────────────────────
+
+def test_build_transaction_usd_ticker_with_fx_rate() -> None:
+    """Non-EUR row with fx_rate_eur set → native-currency Transaction."""
+    fx_rate_eur = Decimal("0.922345")  # 1 USD = 0.922345 EUR
+    row = PlannedRow(
+        row_number=2,
+        trade_date=date(2026, 3, 15),
+        csv_type="Buy",
+        isin="US67066G1040",
+        reference="REF_NVDA",
+        description="NVIDIA Corp",
+        shares=Decimal("4"),
+        price=Decimal("82.65"),   # EUR price per share from CSV
+        amount=Decimal("-330.60"),
+        fee=None,
+        tax=Decimal("0"),
+        status=RowStatus.NEW,
+        action=PlannedAction.INSERT,
+        proposed_ticker="NVDA",
+        fx_rate_eur=fx_rate_eur,
+    )
+    tx = _build_transaction(row)
+    assert tx is not None
+    assert tx.price_native.currency == Currency.USD
+    assert tx.fx_rate_eur == fx_rate_eur
+    expected_native_price = Decimal("82.65") / fx_rate_eur
+    assert abs(tx.price_native.amount - expected_native_price) < Decimal("0.001")
+    # EUR-roundtrip sanity
+    reconstructed = tx.shares * tx.price_native.amount * tx.fx_rate_eur
+    assert abs(reconstructed - Decimal("330.60")) < Decimal("0.02")
+
+
+def test_build_transaction_usd_ticker_no_fx_rate_returns_none() -> None:
+    """Non-EUR row without fx_rate_eur and without manual rate → None (cannot build)."""
+    row = PlannedRow(
+        row_number=2,
+        trade_date=date(2026, 3, 15),
+        csv_type="Buy",
+        isin="US67066G1040",
+        reference="REF_NVDA",
+        description="NVIDIA Corp",
+        shares=Decimal("4"),
+        price=Decimal("82.65"),
+        amount=Decimal("-330.60"),
+        fee=None,
+        tax=Decimal("0"),
+        status=RowStatus.FX_UNAVAILABLE,
+        action=PlannedAction.SKIP,
+        proposed_ticker="NVDA",
+        fx_rate_eur=None,
+    )
+    assert _build_transaction(row) is None
+
+
+def test_build_transaction_fx_unavailable_with_manual_rate() -> None:
+    """FX_UNAVAILABLE row with manual_fx_rates supplied → native Transaction."""
+    manual_rate = Decimal("0.910000")
+    row = PlannedRow(
+        row_number=2,
+        trade_date=date(2026, 3, 15),
+        csv_type="Buy",
+        isin="US67066G1040",
+        reference="REF_NVDA",
+        description="NVIDIA Corp",
+        shares=Decimal("4"),
+        price=Decimal("82.65"),
+        amount=Decimal("-330.60"),
+        fee=None,
+        tax=Decimal("0"),
+        status=RowStatus.FX_UNAVAILABLE,
+        action=PlannedAction.SKIP,
+        proposed_ticker="NVDA",
+        fx_rate_eur=None,
+    )
+    tx = _build_transaction(row, {"REF_NVDA": manual_rate})
+    assert tx is not None
+    assert tx.price_native.currency == Currency.USD
+    assert tx.fx_rate_eur == manual_rate
+
+
+# ─── _count_ready: FX_UNAVAILABLE rows ───────────────────────────────────────
+
+def test_count_ready_fx_unavailable_without_manual_rate_not_counted() -> None:
+    plan = ImportPlan(rows=(
+        _make_planned_row(
+            reference="FX1",
+            status=RowStatus.FX_UNAVAILABLE,
+            action=PlannedAction.SKIP,
+            ticker="NVDA",
+        ),
+    ))
+    assert _count_ready(plan, {}, set()) == 0
+
+
+def test_count_ready_fx_unavailable_with_manual_rate_counted() -> None:
+    plan = ImportPlan(rows=(
+        _make_planned_row(
+            reference="FX1",
+            status=RowStatus.FX_UNAVAILABLE,
+            action=PlannedAction.SKIP,
+            ticker="NVDA",
+        ),
+    ))
+    assert _count_ready(plan, {}, set(), {"FX1": Decimal("0.92")}) == 1
 
 
 # ─── page import smoke ────────────────────────────────────────────────────────

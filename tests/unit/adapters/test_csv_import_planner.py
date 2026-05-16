@@ -10,6 +10,7 @@ from app.domain.csv_import import PlannedAction, RowStatus
 from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
+from app.ports.fx_feed import FxRateUnavailableError
 
 # ─── fixtures ─────────────────────────────────────────────────────────────────
 
@@ -278,3 +279,109 @@ def test_proposed_ticker_populated() -> None:
     rows = [_row()]
     plan = plan_import(rows, [], _EUR_MAP)
     assert plan.rows[0].proposed_ticker == "SAP.DE"
+
+
+# ─── CSV-5: FX provider tests ─────────────────────────────────────────────────
+
+class FakeFxProvider:
+    """In-memory FX provider for tests."""
+
+    def __init__(
+        self,
+        rates: dict[tuple[Currency, Currency, date], Decimal],
+        *,
+        fail: bool = False,
+    ) -> None:
+        self._rates = rates
+        self._fail = fail
+
+    def get_historical_rate(self, base: Currency, quote: Currency, on_date: date) -> Decimal:
+        if self._fail:
+            raise FxRateUnavailableError(base, quote, on_date, "offline")
+        return self._rates[(base, quote, on_date)]
+
+    def get_current_rate(self, base: Currency, quote: Currency) -> Decimal:
+        raise NotImplementedError
+
+    def clear_cache(self) -> None:
+        pass
+
+
+_NVDA_TRADE_DATE = date(2026, 3, 1)
+_USD_EUR_RATE = Decimal("0.920000")
+
+
+def _nvda_row() -> ParsedCsvRow:
+    return _row(isin=_NVDA_ISIN, description="NVIDIA Corp")
+
+
+# ─── test 16: USD ticker + FxProvider → NEW with fx_rate_eur set ─────────────
+
+def test_usd_ticker_with_fx_provider_is_new() -> None:
+    rows = [_nvda_row()]
+    fx = FakeFxProvider({(Currency.USD, Currency.EUR, _NVDA_TRADE_DATE): _USD_EUR_RATE})
+    plan = plan_import(rows, [], _USD_MAP, fx_provider=fx)
+    r = plan.rows[0]
+    assert r.status == RowStatus.NEW
+    assert r.action == PlannedAction.INSERT
+    assert r.proposed_ticker == "NVDA"
+    assert r.fx_rate_eur == _USD_EUR_RATE
+
+
+# ─── test 17: USD ticker without FxProvider → NEEDS_CURRENCY_SUPPORT ─────────
+
+def test_usd_ticker_without_fx_provider_needs_currency_support() -> None:
+    rows = [_nvda_row()]
+    plan = plan_import(rows, [], _USD_MAP)  # no fx_provider
+    assert plan.rows[0].status == RowStatus.NEEDS_CURRENCY_SUPPORT
+
+
+# ─── test 18: USD ticker + FxProvider offline → FX_UNAVAILABLE ───────────────
+
+def test_usd_ticker_fx_offline_is_fx_unavailable() -> None:
+    rows = [_nvda_row()]
+    fx = FakeFxProvider({}, fail=True)
+    plan = plan_import(rows, [], _USD_MAP, fx_provider=fx)
+    r = plan.rows[0]
+    assert r.status == RowStatus.FX_UNAVAILABLE
+    assert r.action == PlannedAction.SKIP
+    assert r.proposed_ticker == "NVDA"
+    assert r.fx_rate_eur is None
+
+
+# ─── test 19: EUR ticker unaffected by FxProvider ────────────────────────────
+
+def test_eur_ticker_unaffected_by_fx_provider() -> None:
+    rows = [_row()]  # SAP.DE → EUR
+    fx = FakeFxProvider({}, fail=True)  # would fail if called
+    plan = plan_import(rows, [], _EUR_MAP, fx_provider=fx)
+    # EUR tickers never call FX provider — must still be NEW
+    assert plan.rows[0].status == RowStatus.NEW
+    assert plan.rows[0].fx_rate_eur is None  # EUR rows don't need fx_rate_eur
+
+
+# ─── test 20: JPY ticker + FxProvider → NEW with fx_rate_eur set ─────────────
+
+_JP_ISIN = "JP3633400001"
+_JPY_EUR_RATE = Decimal("0.006234")
+_JP_MAP = _mapped_doc((_JP_ISIN, "5631.T"))
+
+
+def test_jpy_ticker_with_fx_provider_is_new() -> None:
+    row = _row(isin=_JP_ISIN, description="Japan Steel Works")
+    fx = FakeFxProvider({(Currency.JPY, Currency.EUR, _NVDA_TRADE_DATE): _JPY_EUR_RATE})
+    plan = plan_import([row], [], _JP_MAP, fx_provider=fx)
+    r = plan.rows[0]
+    assert r.status == RowStatus.NEW
+    assert r.fx_rate_eur == _JPY_EUR_RATE
+    assert r.proposed_ticker == "5631.T"
+
+
+# ─── test 21: fx_rate_eur is None for EUR-native new rows ────────────────────
+
+def test_eur_new_row_has_no_fx_rate_eur() -> None:
+    rows = [_row()]
+    plan = plan_import(rows, [], _EUR_MAP)
+    r = plan.rows[0]
+    assert r.status == RowStatus.NEW
+    assert r.fx_rate_eur is None
