@@ -13,10 +13,8 @@ class RowStatus(StrEnum):
     CONFLICT_WITH_MANUAL = "conflict_with_manual"
     NEW = "new"
     UNMAPPED_ISIN = "unmapped_isin"
-    NEEDS_CURRENCY_SUPPORT = "needs_currency_support"
-    FX_UNAVAILABLE = "fx_unavailable"
     OUT_OF_SCOPE_V1 = "out_of_scope_v1"
-    OUTGOING_TRANSFER = "outgoing_transfer"
+    INTERNAL_TRANSFER = "internal_transfer"
     CANCELLED_OR_EXPIRED = "cancelled_or_expired"
     PARSE_ERROR = "parse_error"
 

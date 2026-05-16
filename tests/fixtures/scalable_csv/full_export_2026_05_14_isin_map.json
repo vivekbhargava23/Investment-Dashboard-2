@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "entries": {
+    "US67066G1040": {"ticker": "NVDA", "name": "NVIDIA", "status": "mapped", "last_seen_in_csv": null},
+    "US24703L2025": {"ticker": "DELL", "name": "Dell Technologies C", "status": "mapped", "last_seen_in_csv": null},
+    "US81762P1021": {"ticker": "NOW", "name": "ServiceNow", "status": "mapped", "last_seen_in_csv": null},
+    "US5951121038": {"ticker": "MU", "name": "Micron Technology", "status": "mapped", "last_seen_in_csv": null},
+    "US5738741041": {"ticker": "MRVL", "name": "Marvell Technology", "status": "mapped", "last_seen_in_csv": null},
+    "US78392B1070": {"ticker": "HXSCL", "name": "SK Hynix GDR", "status": "mapped", "last_seen_in_csv": null},
+    "US1717793095": {"ticker": "CIEN", "name": "Ciena Co", "status": "mapped", "last_seen_in_csv": null},
+    "US50155Q1004": {"ticker": "KD", "name": "Kyndryl Holdings", "status": "mapped", "last_seen_in_csv": null},
+    "US0091581068": {"ticker": "APD", "name": "Air Products & Chem", "status": "mapped", "last_seen_in_csv": null},
+    "US0404132054": {"ticker": "ANET", "name": "Arista Networks", "status": "mapped", "last_seen_in_csv": null},
+    "US11135F1012": {"ticker": "AVGO", "name": "Broadcom", "status": "mapped", "last_seen_in_csv": null},
+    "US00215W1009": {"ticker": "ASX", "name": "ASE Technology Holding", "status": "mapped", "last_seen_in_csv": null},
+    "CA65704Y1079": {"ticker": "NIOB", "name": "North American Niobium", "status": "mapped", "last_seen_in_csv": null},
+    "IE00BFMXXD54": {"ticker": "VUAA.DE", "name": "Vanguard S&P 500 Acc", "status": "mapped", "last_seen_in_csv": null},
+    "IE000QDFFK00": {"ticker": "AXNAS.DE", "name": "AXA Nasdaq 100 Acc", "status": "mapped", "last_seen_in_csv": null},
+    "IE00BMFKG444": {"ticker": "XNAS.DE", "name": "Xtrackers Nasdaq 100 Acc", "status": "mapped", "last_seen_in_csv": null},
+    "IE00B42NKQ00": {"ticker": "IUES.DE", "name": "iShares S&P 500 Energy", "status": "mapped", "last_seen_in_csv": null},
+    "IE00B3WJKG14": {"ticker": "IUIT.DE", "name": "iShares S&P 500 IT", "status": "mapped", "last_seen_in_csv": null},
+    "IE00B8KQN827": {"ticker": "ETN.DE", "name": "Eaton", "status": "mapped", "last_seen_in_csv": null},
+    "JP3721400004": {"ticker": "5631.T", "name": "Japan Steel Works", "status": "mapped", "last_seen_in_csv": null},
+    "DE0007030009": {"ticker": "RHM.DE", "name": "Rheinmetall", "status": "mapped", "last_seen_in_csv": null},
+    "FR0004038263": {"ticker": "PARRO.PA", "name": "Parrot", "status": "mapped", "last_seen_in_csv": null},
+    "CH1129538448": {"ticker": "POLY.SW", "name": "21Shares Polygon ETP", "status": "mapped", "last_seen_in_csv": null},
+    "CH1109575535": {"ticker": "XLM.SW", "name": "21Shares Stellar ETP", "status": "mapped", "last_seen_in_csv": null},
+    "CH0491507486": {"ticker": "TEZS.SW", "name": "21Shares Tezos ETP", "status": "mapped", "last_seen_in_csv": null},
+    "DE000HT41XN9": {"ticker": "HT41XN9", "name": "HSBC Apple Turbo", "status": "mapped", "last_seen_in_csv": null},
+    "GB00BNRRF105": {"ticker": "ALGO.L", "name": "CoinShares Algorand", "status": "mapped", "last_seen_in_csv": null}
+  }
+}

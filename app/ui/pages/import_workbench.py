@@ -18,8 +18,7 @@ from app.domain.csv_import import ImportPlan, PlannedRow, RowStatus
 from app.domain.isin_map import IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
-from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
-from app.ui.wiring import get_import_fx_provider, get_isin_map_repo, get_repository
+from app.ui.wiring import get_isin_map_repo, get_repository
 
 # Session-state key namespace
 _NS = "import_workbench"
@@ -30,17 +29,14 @@ _KEY_PLAN = f"{_NS}.plan"
 _KEY_FILTER = f"{_NS}.filter"
 _KEY_CONFLICTS = f"{_NS}.conflict_choices"   # {reference: "replace"|"keep"|"skip"}
 _KEY_EXCLUDES = f"{_NS}.excluded_refs"       # set of references for new rows to skip
-_KEY_MANUAL_RATES = f"{_NS}.manual_fx_rates"  # {reference: Decimal} — user-supplied FX rates
 
 _STATUS_COLORS: dict[str, str] = {
     RowStatus.NEW: "🟢",
     RowStatus.ALREADY_IMPORTED: "⚪",
     RowStatus.CONFLICT_WITH_MANUAL: "🟡",
     RowStatus.UNMAPPED_ISIN: "🔴",
-    RowStatus.NEEDS_CURRENCY_SUPPORT: "🔵",
-    RowStatus.FX_UNAVAILABLE: "🟠",
+    RowStatus.INTERNAL_TRANSFER: "⬜",
     RowStatus.OUT_OF_SCOPE_V1: "⬜",
-    RowStatus.OUTGOING_TRANSFER: "⬜",
     RowStatus.CANCELLED_OR_EXPIRED: "⬜",
     RowStatus.PARSE_ERROR: "🔴",
 }
@@ -85,10 +81,11 @@ def _write_backup(portfolio_path: Path, backups_dir: Path) -> Path:
     return bak
 
 
-def _build_transaction(
-    row: PlannedRow,
-    manual_fx_rates: dict[str, Decimal] | None = None,
-) -> Transaction | None:
+def _build_transaction(row: PlannedRow) -> Transaction | None:
+    """Build a Transaction from a planned row.
+
+    All Scalable CSV rows are EUR-native: price_native is EUR, fx_rate_eur is 1.
+    """
     if row.proposed_ticker is None or row.shares is None or row.price is None:
         return None
 
@@ -103,36 +100,10 @@ def _build_transaction(
         notes_parts.append(f"tax_withheld_eur={row.tax}")
     notes = "; ".join(notes_parts) or None
 
-    # Determine the effective FX rate: from PlannedRow (FX lookup succeeded) or
-    # from user-supplied manual override (FX_UNAVAILABLE rows).
-    fx_rate_eur = row.fx_rate_eur
-    if fx_rate_eur is None and manual_fx_rates:
-        fx_rate_eur = manual_fx_rates.get(row.reference)
-
-    try:
-        native_ccy = infer_currency_from_ticker(row.proposed_ticker)
-    except UnsupportedTickerError:
-        native_ccy = Currency.EUR
-
-    if native_ccy != Currency.EUR and fx_rate_eur is not None:
-        # Non-EUR ticker: CSV price is in EUR; convert to native using FX rate.
-        # fx_rate_eur = how many EUR per 1 native unit (e.g. 0.92 for USD)
-        native_price_amount = row.price / fx_rate_eur
-        price_native = Money(amount=native_price_amount, currency=native_ccy)
-        fees_native: Money | None = (
-            Money(amount=row.fee / fx_rate_eur, currency=native_ccy)
-            if row.fee is not None
-            else None
-        )
-    else:
-        # EUR-native ticker or no FX rate available
-        if native_ccy != Currency.EUR and fx_rate_eur is None:
-            return None  # cannot build without FX rate
-        price_native = Money(amount=row.price, currency=Currency.EUR)
-        fees_native = (
-            Money(amount=row.fee, currency=Currency.EUR) if row.fee is not None else None
-        )
-        fx_rate_eur = Decimal("1")
+    price_native = Money(amount=row.price, currency=Currency.EUR)
+    fees_native: Money | None = (
+        Money(amount=row.fee, currency=Currency.EUR) if row.fee is not None else None
+    )
 
     return Transaction(
         id=row.reference,
@@ -142,7 +113,7 @@ def _build_transaction(
         shares=row.shares,
         price_native=price_native,
         fees_native=fees_native,
-        fx_rate_eur=fx_rate_eur,
+        fx_rate_eur=Decimal("1"),
         notes=notes,
         csv_reference=row.reference,
         source="scalable_csv",
@@ -153,7 +124,6 @@ def _count_ready(
     plan: ImportPlan,
     conflicts: dict[str, str],
     excludes: set[str],
-    manual_fx_rates: dict[str, Decimal] | None = None,
 ) -> int:
     count = 0
     for row in plan.rows:
@@ -163,15 +133,12 @@ def _count_ready(
             choice = conflicts.get(row.reference, "replace")
             if choice == "replace":
                 count += 1
-        elif row.status == RowStatus.FX_UNAVAILABLE and manual_fx_rates:
-            if row.reference in manual_fx_rates:
-                count += 1
     return count
 
 
 def _clear_state() -> None:
     for key in [_KEY_FILE_BYTES, _KEY_FILE_NAME, _KEY_PARSED_ROWS, _KEY_PLAN,
-                _KEY_FILTER, _KEY_CONFLICTS, _KEY_EXCLUDES, _KEY_MANUAL_RATES]:
+                _KEY_FILTER, _KEY_CONFLICTS, _KEY_EXCLUDES]:
         st.session_state.pop(key, None)
 
 
@@ -237,17 +204,14 @@ def _render_upload_section(log_path: Path) -> bool:
     if _KEY_PLAN not in st.session_state:
         tx_repo = get_repository()
         isin_repo = get_isin_map_repo()
-        fx_provider = get_import_fx_provider()
         existing_txs = tx_repo.load_all()
         isin_doc = isin_repo.load()
-        new_plan = plan_import(parsed_rows, existing_txs, isin_doc, fx_provider=fx_provider)
+        new_plan = plan_import(parsed_rows, existing_txs, isin_doc)
         st.session_state[_KEY_PLAN] = new_plan
         if _KEY_CONFLICTS not in st.session_state:
             st.session_state[_KEY_CONFLICTS] = {}
         if _KEY_EXCLUDES not in st.session_state:
             st.session_state[_KEY_EXCLUDES] = set()
-        if _KEY_MANUAL_RATES not in st.session_state:
-            st.session_state[_KEY_MANUAL_RATES] = {}
 
     active_plan: ImportPlan = st.session_state[_KEY_PLAN]
     counts = active_plan.count_by_status()
@@ -255,12 +219,11 @@ def _render_upload_section(log_path: Path) -> bool:
     n_new = counts.get(RowStatus.NEW, 0)
     n_already = counts.get(RowStatus.ALREADY_IMPORTED, 0)
     n_conflicts = counts.get(RowStatus.CONFLICT_WITH_MANUAL, 0)
-    n_fx_unavail = counts.get(RowStatus.FX_UNAVAILABLE, 0)
     n_blocked = sum(
         counts.get(s, 0)
-        for s in (RowStatus.UNMAPPED_ISIN, RowStatus.NEEDS_CURRENCY_SUPPORT,
-                  RowStatus.OUT_OF_SCOPE_V1, RowStatus.OUTGOING_TRANSFER,
-                  RowStatus.CANCELLED_OR_EXPIRED, RowStatus.PARSE_ERROR)
+        for s in (RowStatus.UNMAPPED_ISIN, RowStatus.INTERNAL_TRANSFER,
+                  RowStatus.OUT_OF_SCOPE_V1, RowStatus.CANCELLED_OR_EXPIRED,
+                  RowStatus.PARSE_ERROR)
     )
 
     parts = [
@@ -268,10 +231,8 @@ def _render_upload_section(log_path: Path) -> bool:
         f"{n_already} already imported",
         f"{n_new} new",
         f"{n_conflicts} conflicts",
+        f"{n_blocked} blocked",
     ]
-    if n_fx_unavail:
-        parts.append(f"{n_fx_unavail} need FX rate")
-    parts.append(f"{n_blocked} blocked")
     st.caption(" · ".join(parts))
 
     col1, col2 = st.columns([0.9, 0.1])
@@ -318,11 +279,9 @@ def _render_filter_chips(plan: ImportPlan) -> str | None:
         (RowStatus.NEW, "new"),
         (RowStatus.ALREADY_IMPORTED, "already imported"),
         (RowStatus.CONFLICT_WITH_MANUAL, "conflicts"),
-        (RowStatus.FX_UNAVAILABLE, "FX rate needed"),
         (RowStatus.UNMAPPED_ISIN, "unmapped ISIN"),
-        (RowStatus.NEEDS_CURRENCY_SUPPORT, "needs currency"),
+        (RowStatus.INTERNAL_TRANSFER, "internal transfer"),
         (RowStatus.OUT_OF_SCOPE_V1, "out of scope"),
-        (RowStatus.OUTGOING_TRANSFER, "outgoing transfer"),
         (RowStatus.CANCELLED_OR_EXPIRED, "cancelled/expired"),
     ]
 
@@ -426,50 +385,6 @@ def _render_planned_changes(plan: ImportPlan) -> None:
                     conflicts[r.reference] = choice
                     st.session_state[_KEY_CONFLICTS] = conflicts
 
-    fx_unavail_rows = [r for r in rows_to_show if r.status == RowStatus.FX_UNAVAILABLE]
-    manual_rates: dict[str, Decimal] = st.session_state.get(_KEY_MANUAL_RATES, {})
-    if fx_unavail_rows:
-        with st.expander(
-            f"FX rate required — {len(fx_unavail_rows)} rows need a manual rate", expanded=True
-        ):
-            st.caption(
-                "Enter the EUR/native rate for each row (e.g. '1.0835' means 1 EUR = 1.0835 USD). "
-                "The rate is used only for this import; FX cache is not updated."
-            )
-            for r in fx_unavail_rows:
-                try:
-                    native_ccy = infer_currency_from_ticker(r.proposed_ticker or "")
-                except UnsupportedTickerError:
-                    native_ccy = Currency.USD
-                col1, col2, col3 = st.columns([0.5, 0.3, 0.2])
-                with col1:
-                    st.write(
-                        f"**{r.trade_date}** · {r.proposed_ticker} · {r.description[:40]}"
-                    )
-                    already = manual_rates.get(r.reference)
-                    if already is not None:
-                        st.caption(f"Rate set: 1 EUR = {already} {native_ccy} ✓")
-                with col2:
-                    rate_input = st.text_input(
-                        f"1 EUR = ? {native_ccy}",
-                        key=f"iw_fx_{r.reference}",
-                        placeholder="e.g. 1.0835",
-                    )
-                with col3:
-                    st.write("")
-                    if st.button("Apply rate", key=f"iw_fx_apply_{r.reference}"):
-                        raw = rate_input.strip().replace(",", ".")
-                        try:
-                            eur_native = Decimal(raw)
-                            if eur_native <= 0:
-                                raise ValueError
-                            # fx_rate_eur = 1 native = X EUR = 1 / eur_native_rate
-                            manual_rates[r.reference] = Decimal("1") / eur_native
-                            st.session_state[_KEY_MANUAL_RATES] = manual_rates
-                            st.rerun()
-                        except Exception:
-                            st.error("Enter a positive number (e.g. 1.0835)")
-
 
 def _render_isin_mapping_panel(plan: ImportPlan) -> None:
     unmapped_rows = [r for r in plan.rows if r.status == RowStatus.UNMAPPED_ISIN]
@@ -532,19 +447,14 @@ def _render_apply_bar(
 ) -> None:
     conflicts: dict[str, str] = st.session_state.get(_KEY_CONFLICTS, {})
     excludes: set[str] = st.session_state.get(_KEY_EXCLUDES, set())
-    manual_rates: dict[str, Decimal] = st.session_state.get(_KEY_MANUAL_RATES, {})
-    n_ready = _count_ready(plan, conflicts, excludes, manual_rates)
+    n_ready = _count_ready(plan, conflicts, excludes)
     n_conflicts = sum(1 for r in plan.rows if r.status == RowStatus.CONFLICT_WITH_MANUAL)
-    n_fx_unavail_pending = sum(
-        1 for r in plan.rows
-        if r.status == RowStatus.FX_UNAVAILABLE and r.reference not in manual_rates
-    )
     n_blocked = sum(
         1 for r in plan.rows
-        if r.status in (RowStatus.UNMAPPED_ISIN, RowStatus.NEEDS_CURRENCY_SUPPORT,
-                        RowStatus.OUT_OF_SCOPE_V1, RowStatus.OUTGOING_TRANSFER,
-                        RowStatus.CANCELLED_OR_EXPIRED, RowStatus.PARSE_ERROR)
-    ) + n_fx_unavail_pending
+        if r.status in (RowStatus.UNMAPPED_ISIN, RowStatus.INTERNAL_TRANSFER,
+                        RowStatus.OUT_OF_SCOPE_V1, RowStatus.CANCELLED_OR_EXPIRED,
+                        RowStatus.PARSE_ERROR)
+    )
 
     st.divider()
     st.caption(
@@ -566,7 +476,7 @@ def _render_apply_bar(
             st.rerun()
 
     if apply_clicked:
-        _do_apply(plan, conflicts, excludes, portfolio_path, backups_dir, log_path, manual_rates)
+        _do_apply(plan, conflicts, excludes, portfolio_path, backups_dir, log_path)
 
 
 def _do_apply(
@@ -576,7 +486,6 @@ def _do_apply(
     portfolio_path: Path,
     backups_dir: Path,
     log_path: Path,
-    manual_fx_rates: dict[str, Decimal] | None = None,
 ) -> None:
 
     tx_repo = get_repository()
@@ -595,7 +504,7 @@ def _do_apply(
     for row in plan.rows:
         if row.status == RowStatus.NEW:
             if row.reference not in excludes:
-                tx = _build_transaction(row, manual_fx_rates)
+                tx = _build_transaction(row)
                 if tx is not None:
                     to_insert.append(tx)
 
@@ -603,13 +512,7 @@ def _do_apply(
             choice = conflicts.get(row.reference, "replace")
             if choice == "replace" and row.conflict_tx_id is not None:
                 to_delete.append(row.conflict_tx_id)
-                tx = _build_transaction(row, manual_fx_rates)
-                if tx is not None:
-                    to_insert.append(tx)
-
-        elif row.status == RowStatus.FX_UNAVAILABLE and manual_fx_rates:
-            if row.reference in manual_fx_rates:
-                tx = _build_transaction(row, manual_fx_rates)
+                tx = _build_transaction(row)
                 if tx is not None:
                     to_insert.append(tx)
 

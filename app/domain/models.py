@@ -55,6 +55,10 @@ class Transaction(BaseModel):
 
     @model_validator(mode="after")
     def validate_ticker_currency(self) -> Transaction:
+        # Broker-sourced rows carry their own settlement currency; only manual entry is
+        # validated against ticker inference (see ADR-005 amendment, TICKET-CSV-7).
+        if self.source != "manual":
+            return self
         try:
             inferred = infer_currency_from_ticker(self.ticker)
         except UnsupportedTickerError as e:

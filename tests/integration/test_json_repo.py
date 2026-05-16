@@ -219,13 +219,13 @@ def test_legacy_data_error_raised_for_jpy_as_usd():
     assert len(exc_info.value.offenders) == 1
 
 
-def test_legacy_data_error_message_includes_migration_hint():
-    """LegacyDataError message must tell the user which script to run."""
+def test_legacy_data_error_message_describes_manual_scope():
+    """LegacyDataError message identifies the failure as manual-entry corruption."""
     path = FIXTURES_DIR / "portfolio_legacy_jpy_as_usd.json"
     repo = JsonTransactionRepository(path)
     with pytest.raises(LegacyDataError) as exc_info:
         repo.load_all()
-    assert "migrate_currency" in str(exc_info.value)
+    assert "manually-entered" in str(exc_info.value)
 
 
 def test_clean_portfolio_loads_without_error(tmp_path):
@@ -245,6 +245,58 @@ def test_clean_portfolio_loads_without_error(tmp_path):
     assert len(loaded) == 1
     assert loaded[0].ticker == "5631.T"
     assert loaded[0].price_native.currency == Currency.JPY
+
+
+def test_scalable_csv_eur_native_us_ticker_round_trip(tmp_path: Path):
+    """EUR-native scalable_csv row with a US ticker survives a full save→load round-trip."""
+    path = tmp_path / "portfolio.json"
+    repo = JsonTransactionRepository(path)
+    tx = Transaction(
+        type=TransactionType.BUY,
+        ticker="NVDA",
+        trade_date=date(2025, 1, 1),
+        shares=Decimal("10"),
+        price_native=Money(amount=Decimal("200"), currency=Currency.EUR),
+        fx_rate_eur=Decimal("1"),
+        source="scalable_csv",
+    )
+    repo.save_all([tx])
+    loaded = repo.load_all()
+    assert len(loaded) == 1
+    assert loaded[0].ticker == "NVDA"
+    assert loaded[0].price_native.currency == Currency.EUR
+    assert loaded[0].fx_rate_eur == Decimal("1")
+    assert loaded[0].source == "scalable_csv"
+
+
+def test_scalable_csv_rows_exempt_from_legacy_check(tmp_path: Path):
+    """Scalable CSV rows with non-EUR tickers stored in EUR do not raise LegacyDataError."""
+    path = tmp_path / "portfolio.json"
+    # Write raw JSON simulating what the importer persists
+    data = {
+        "version": 2,
+        "transactions": [
+            {
+                "id": "NVDA-B001",
+                "type": "buy",
+                "ticker": "NVDA",
+                "trade_date": "2025-01-01",
+                "shares": "10",
+                "price_native": {"amount": "200", "currency": "EUR"},
+                "fees_native": {"amount": "0.99", "currency": "EUR"},
+                "fx_rate_eur": "1",
+                "notes": None,
+                "csv_reference": "NVDA-B001",
+                "source": "scalable_csv",
+            }
+        ],
+    }
+    import json
+    path.write_text(json.dumps(data))
+    repo = JsonTransactionRepository(path)
+    loaded = repo.load_all()
+    assert len(loaded) == 1
+    assert loaded[0].ticker == "NVDA"
 
 
 def test_creates_parent_directory(tmp_path):

@@ -136,7 +136,24 @@ def test_ticker_currency_valid_nvda_usd():
     assert t.ticker == "NVDA"
 
 
-def test_ticker_currency_invalid_nvda_eur():
+def test_scalable_csv_nvda_eur_loads_clean():
+    """scalable_csv source bypasses ticker→currency inference; NVDA+EUR is valid."""
+    t = Transaction(
+        type=TransactionType.BUY,
+        ticker="NVDA",
+        trade_date=date(2024, 1, 1),
+        shares=Decimal("1"),
+        price_native=Money(amount=Decimal("100"), currency=Currency.EUR),
+        fx_rate_eur=Decimal("1"),
+        source="scalable_csv",
+    )
+    assert t.ticker == "NVDA"
+    assert t.price_native.currency == Currency.EUR
+    assert t.fx_rate_eur == Decimal("1")
+
+
+def test_manual_nvda_eur_raises():
+    """Manual entry of NVDA with EUR price still raises — inference applies to manual only."""
     with pytest.raises(ValidationError, match="NVDA trades in USD"):
         Transaction(
             type=TransactionType.BUY,
@@ -144,7 +161,8 @@ def test_ticker_currency_invalid_nvda_eur():
             trade_date=date(2024, 1, 1),
             shares=Decimal("1"),
             price_native=Money(amount=Decimal("100"), currency=Currency.EUR),
-            fx_rate_eur=Decimal("1"),
+            fx_rate_eur=Decimal("0.92"),
+            source="manual",
         )
 
 
