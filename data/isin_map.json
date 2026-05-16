@@ -1,12 +1,6 @@
 {
   "version": 1,
   "entries": {
-    "US67066G1040": {
-      "ticker": "NVDA",
-      "name": "NVIDIA",
-      "status": "mapped",
-      "last_seen_in_csv": "2026-04-24"
-    },
     "IE00BFMXXD54": {
       "ticker": "VUAA.DE",
       "name": "Vanguard S&P 500 (Acc)",
@@ -32,7 +26,7 @@
       "last_seen_in_csv": "2026-04-20"
     },
     "US78392B1070": {
-      "ticker": "HY9H",
+      "ticker": "HY9H.F",
       "name": "SK Hynix GDR",
       "status": "mapped",
       "last_seen_in_csv": "2026-04-20"
@@ -140,7 +134,7 @@
       "last_seen_in_csv": "2026-01-19"
     },
     "IE00B3WJKG14": {
-      "ticker": "QDVE",
+      "ticker": "QDVE.DE",
       "name": "iShares S&P 500 Information Technology Sector (Acc)",
       "status": "mapped",
       "last_seen_in_csv": "2025-12-06"
@@ -156,6 +150,12 @@
       "name": "Apple Short 205,22 $ Turbo Open End HSBC",
       "status": "unmapped",
       "last_seen_in_csv": "2025-04-09"
+    },
+    "US67066G1040": {
+      "ticker": "NVDA",
+      "name": "NVIDIA",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-04-24"
     }
   }
 }
