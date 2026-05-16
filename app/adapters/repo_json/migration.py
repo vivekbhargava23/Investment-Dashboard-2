@@ -95,10 +95,14 @@ def migrate_v1_to_v2(
     return result
 
 
-def migrate_v2_to_v3(portfolio_path: Path) -> dict[str, int]:
+def migrate_v2_to_v3(
+    portfolio_path: Path,
+    isin_map_path: Path | None = None,
+) -> dict[str, int]:
     """Migrate portfolio.json from schema v2 to v3.
 
-    Adds an ``isin`` field to every transaction via reverse-lookup against
+    Adds an ``isin`` field to every transaction via reverse-lookup against the
+    ISIN map.  If *isin_map_path* is not given, the map is looked up as
     ``isin_map.json`` in the same directory as the portfolio file.
 
     - scalable_csv transactions whose ticker appears in the ISIN map receive the
@@ -117,8 +121,9 @@ def migrate_v2_to_v3(portfolio_path: Path) -> dict[str, int]:
             f"migrate_v2_to_v3 requires a v2 portfolio, got v{data.get('version')}"
         )
 
-    # Build reverse map from isin_map.json (same directory as portfolio.json).
-    isin_map_path = portfolio_path.parent / "isin_map.json"
+    # Build reverse map from the ISIN map file.
+    if isin_map_path is None:
+        isin_map_path = portfolio_path.parent / "isin_map.json"
     ticker_to_isin: dict[str, str] = {}
     if isin_map_path.exists():
         with open(isin_map_path, encoding="utf-8") as f:

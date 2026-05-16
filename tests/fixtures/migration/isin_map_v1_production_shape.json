@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "entries": {
+    "IE00BFMXXD54": {
+      "ticker": "VUAA.DE",
+      "name": "VUAA.DE (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "US67066G1040": {
+      "ticker": "NVDA",
+      "name": "NVDA (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "US24703L2025": {
+      "ticker": "DELL",
+      "name": "DELL (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "IE00BMQ0P496": {
+      "ticker": "QDVE",
+      "name": "QDVE (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "IE00BJ5JP105": {
+      "ticker": "ANAU",
+      "name": "ANAU (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "DE000HY9H0F0": {
+      "ticker": "HY9H.F",
+      "name": "HY9H.F (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "IE00B42NKQ00": {
+      "ticker": "IUES.DE",
+      "name": "IUES.DE (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "IE00BMFKG444": {
+      "ticker": "XNAS.DE",
+      "name": "XNAS.DE (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "US00215W1009": {
+      "ticker": "ASX",
+      "name": "ASX (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "FR0004038263": {
+      "ticker": "PARRO.PA",
+      "name": "PARRO.PA (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "US1717793095": {
+      "ticker": "CIEN",
+      "name": "CIEN (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "JP3721400004": {
+      "ticker": "5631.T",
+      "name": "5631.T (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "US5951121038": {
+      "ticker": "MU",
+      "name": "MU (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "US0091581068": {
+      "ticker": "APD",
+      "name": "APD (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "US5738741041": {
+      "ticker": "MRVL",
+      "name": "MRVL (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "US50155Q1004": {
+      "ticker": "KD",
+      "name": "KD (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "US2884981026": {
+      "ticker": "ETN",
+      "name": "ETN (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "DE0007030009": {
+      "ticker": "RHM.DE",
+      "name": "RHM.DE (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "US11135F1012": {
+      "ticker": "AVGO",
+      "name": "AVGO (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "US0404132054": {
+      "ticker": "ANET",
+      "name": "ANET (production fixture)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-01-15"
+    },
+    "XX1111111111": {
+      "ticker": null,
+      "name": "Unknown (XX1111111111)",
+      "status": "unmapped",
+      "last_seen_in_csv": null
+    },
+    "XX2222222222": {
+      "ticker": null,
+      "name": "Unknown (XX2222222222)",
+      "status": "unmapped",
+      "last_seen_in_csv": null
+    },
+    "XX3333333333": {
+      "ticker": null,
+      "name": "Unknown (XX3333333333)",
+      "status": "unmapped",
+      "last_seen_in_csv": null
+    },
+    "XX4444444444": {
+      "ticker": null,
+      "name": "Unknown (XX4444444444)",
+      "status": "unmapped",
+      "last_seen_in_csv": null
+    },
+    "XX5555555555": {
+      "ticker": null,
+      "name": "Unknown (XX5555555555)",
+      "status": "unmapped",
+      "last_seen_in_csv": null
+    },
+    "XX6666666666": {
+      "ticker": null,
+      "name": "Unknown (XX6666666666)",
+      "status": "unmapped",
+      "last_seen_in_csv": null
+    }
+  }
+}
