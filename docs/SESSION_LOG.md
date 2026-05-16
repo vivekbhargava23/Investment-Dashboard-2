@@ -44,6 +44,40 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-16 — TICKET-CSV-10
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~25 min
+**Branch:** ticket-csv-10-live-overview-names-ccy-price
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Replaced `_PLACEHOLDER_NAME` dict with live lookup from `isin_map.json` mapped entries (ticker→name dict built in `render()`, passed to `_build_positions_table_html`)
+- `_build_positions_table_html` accepts optional `name_lookup` dict; falls back to ticker string when ISIN/name absent
+- Removed CCY column (header + all body cells); was always "EUR" regardless of actual trading currency
+- Price cell now shows native amount with `title=` tooltip: `"USD 225.32 · €198.45 per share"` for USD securities, `"EUR 1120.00"` for EUR-native; stale rows render `—` with no tooltip
+- Data fix: corrected `data/isin_map.json` ISIN IE000QDFFK00 ticker ANAU → ANAV.DE (stale from old session)
+- 8 new tests covering: CCY removal, name resolution, name fallback, USD tooltip, EUR tooltip, stale no-tooltip
+
+### Files touched
+- `app/ui/pages/overview.py` — implementation
+- `tests/unit/ui/test_overview_render.py` — 8 new tests
+- `data/isin_map.json` — ANAV.DE ticker fix
+
+### Tests
+859 passing → 867 passing (8 new)
+
+### Decisions made during the session
+- Used option (2) from ticket: ticker→name reverse lookup from isin_map rather than adding ISIN to OpenLot (no-risk, same effective result)
+- No architectural decisions required
+
+### Out-of-scope items noticed
+- `_PLACEHOLDER_THESIS_STATUS` and `_PLACEHOLDER_HORIZON` still hardcoded — out of scope per ticket
+
+### Tokens used (rough)
+~40k
+
 ## 2026-05-16 — TICKET-CSV-9
 **Surface:** Claude Code
 **Model:** sonnet-4.6

@@ -217,3 +217,126 @@ def test_positions_table_html_empty_positions() -> None:
     html = _build_positions_table_html({}, summary)
     assert "<table" in html
     assert html[0] == "<"
+
+
+# ---------------------------------------------------------------------------
+# TICKET-CSV-10: CCY column removed, name lookup, price tooltip
+# ---------------------------------------------------------------------------
+
+def _make_live_position_usd(
+    ticker: str, shares: str = "5", price_usd: str = "225.32"
+) -> LivePosition:
+    """Build a LivePosition with a USD native price."""
+    lot = OpenLot(
+        source_transaction_id="tx-usd",
+        ticker=ticker,
+        trade_date=date(2024, 6, 1),
+        remaining_shares=Decimal(shares),
+        cost_per_share_native=Money(amount=Decimal("180"), currency=Currency.USD),
+        fx_rate_eur=Decimal("0.9"),
+    )
+    cost_basis = Decimal(shares) * Decimal("180") * Decimal("0.9")
+    position = Position(
+        ticker=ticker,
+        open_shares=Decimal(shares),
+        open_lots=(lot,),
+        realised_gain_eur_ytd=Money(amount=Decimal("0"), currency=Currency.EUR),
+        cost_basis_eur=Money(amount=cost_basis, currency=Currency.EUR),
+    )
+    live_price = Money(amount=Decimal(price_usd), currency=Currency.USD)
+    eur_amount = Decimal(shares) * Decimal(price_usd) * Decimal("0.88")
+    live_value = Money(amount=eur_amount, currency=Currency.EUR)
+    gain = Money(amount=live_value.amount - cost_basis, currency=Currency.EUR)
+    return LivePosition(
+        position=position,
+        live_price_native=live_price,
+        live_value_eur=live_value,
+        unrealised_gain_eur=gain,
+        unrealised_gain_pct=Decimal("0.1"),
+        current_fx_rate=Decimal("0.88"),
+        staleness_reason=None,
+    )
+
+
+def test_ccy_column_not_in_header() -> None:
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary)
+    assert ">CCY<" not in html, "CCY header column should have been removed"
+
+
+def test_ccy_value_not_in_body() -> None:
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary)
+    assert ">EUR<" not in html, "EUR CCY cell should not appear as a standalone table cell"
+
+
+def test_name_resolved_from_lookup() -> None:
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary, name_lookup={"NVDA": "NVIDIA Corp"})
+    assert "NVIDIA Corp" in html
+
+
+def test_name_fallback_to_ticker_when_not_in_lookup() -> None:
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {"QDVE": _make_live_position("QDVE", "10", "50")}
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary, name_lookup={})
+    assert "QDVE" in html
+
+
+def test_name_fallback_when_no_lookup_provided() -> None:
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {"ANET": _make_live_position("ANET", "3", "200")}
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary)
+    assert "ANET" in html
+
+
+def test_price_tooltip_usd_shows_native_in_tooltip() -> None:
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {"NVDA": _make_live_position_usd("NVDA", shares="5", price_usd="225.32")}
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary)
+    assert 'title="USD 225.32"' in html, "Non-EUR price cell must show native currency in tooltip"
+
+
+def test_price_eur_position_displays_eur_no_tooltip() -> None:
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {"RHM.DE": _make_live_position("RHM.DE", "2", "800")}
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary)
+    assert 'title="EUR' not in html, "EUR-native price cell needs no tooltip"
+
+
+def test_stale_price_renders_dash_no_tooltip() -> None:
+    from app.ui.pages.overview import _build_positions_table_html
+
+    position = _make_position_with_lot("STALE", "3", "100")
+    stale_p = LivePosition(
+        position=position,
+        live_price_native=None,
+        live_value_eur=None,
+        unrealised_gain_eur=None,
+        unrealised_gain_pct=None,
+        current_fx_rate=None,
+        staleness_reason="price feed unavailable",
+    )
+    positions = {"STALE": stale_p}
+    summary = _make_summary(positions)
+    html = _build_positions_table_html(positions, summary)
+    assert "—" in html, "Stale row must render dash"
+    assert 'title="USD' not in html, "Stale row must not have price tooltip"
+    assert 'title="EUR' not in html, "Stale row must not have price tooltip"
