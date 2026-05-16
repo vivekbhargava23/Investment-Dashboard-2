@@ -15,6 +15,8 @@ from app.adapters.scalable_csv.parser import ParsedCsvRow
 from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
+from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
+from app.ports.fx_feed import FxProvider
 from app.ports.isin_map import IsinMapRepository
 from app.ports.repository import TransactionRepository
 
@@ -126,6 +128,8 @@ def run_import(
     csv_filename: str,
     tx_repo: TransactionRepository,
     isin_map_repo: IsinMapRepository,
+    *,
+    fx_provider: FxProvider | None = None,
 ) -> ImportSummary:
     summary = ImportSummary(csv_path=csv_filename, total_rows=len(rows))
 
@@ -216,15 +220,50 @@ def run_import(
             summary.unmapped += 1
             continue
 
-        # Build Transaction
+        # Build Transaction — detect native currency from ticker
         assert mapping.ticker is not None
         tx_type = _csv_type_to_transaction_type(row.type)
 
-        fees_native: Money | None
-        if row.fee is None:
-            fees_native = None
+        try:
+            native_ccy = infer_currency_from_ticker(mapping.ticker)
+        except UnsupportedTickerError as exc:
+            if row.isin not in reported_invalid:
+                reported_invalid.add(row.isin)
+                summary.invalid_mapping_errors.append((row.isin, str(exc)))
+            summary.invalid_mapping += 1
+            continue
+
+        if native_ccy == Currency.EUR:
+            price_native = Money(amount=row.price, currency=Currency.EUR)
+            fees_native: Money | None = (
+                Money(amount=row.fee, currency=Currency.EUR) if row.fee is not None else None
+            )
+            fx_rate_eur = Decimal("1")
         else:
-            fees_native = Money(amount=row.fee, currency=Currency.EUR)
+            if fx_provider is None:
+                if row.isin not in reported_invalid:
+                    reported_invalid.add(row.isin)
+                    summary.invalid_mapping_errors.append((
+                        row.isin,
+                        f"ticker {mapping.ticker!r} is non-EUR; supply fx_provider to import",
+                    ))
+                summary.invalid_mapping += 1
+                continue
+            try:
+                fx_rate_eur = fx_provider.get_historical_rate(native_ccy, Currency.EUR, row.date)
+            except Exception as exc:
+                if row.isin not in reported_invalid:
+                    reported_invalid.add(row.isin)
+                    summary.invalid_mapping_errors.append((row.isin, f"FX lookup failed: {exc}"))
+                summary.invalid_mapping += 1
+                continue
+            native_price_amount = row.price / fx_rate_eur
+            price_native = Money(amount=native_price_amount, currency=native_ccy)
+            fees_native = (
+                Money(amount=row.fee / fx_rate_eur, currency=native_ccy)
+                if row.fee is not None
+                else None
+            )
 
         try:
             tx = Transaction(
@@ -233,9 +272,9 @@ def run_import(
                 ticker=mapping.ticker,
                 trade_date=row.date,
                 shares=row.shares,
-                price_native=Money(amount=row.price, currency=Currency.EUR),
+                price_native=price_native,
                 fees_native=fees_native,
-                fx_rate_eur=Decimal("1"),
+                fx_rate_eur=fx_rate_eur,
                 notes=_build_notes(row),
                 csv_reference=row.reference,
                 source="scalable_csv",

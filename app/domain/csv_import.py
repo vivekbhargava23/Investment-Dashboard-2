@@ -14,6 +14,7 @@ class RowStatus(StrEnum):
     NEW = "new"
     UNMAPPED_ISIN = "unmapped_isin"
     NEEDS_CURRENCY_SUPPORT = "needs_currency_support"
+    FX_UNAVAILABLE = "fx_unavailable"
     OUT_OF_SCOPE_V1 = "out_of_scope_v1"
     OUTGOING_TRANSFER = "outgoing_transfer"
     CANCELLED_OR_EXPIRED = "cancelled_or_expired"
@@ -47,6 +48,7 @@ class PlannedRow(BaseModel):
     proposed_ticker: str | None = None
     conflict_tx_id: str | None = None
     error_message: str | None = None
+    fx_rate_eur: Decimal | None = None
 
 
 class ImportPlan(BaseModel):

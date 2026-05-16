@@ -73,3 +73,106 @@ def test_suffix_matching_is_case_insensitive():
 
 def test_empty_ticker_returns_usd():
     assert infer_currency_from_ticker("") == Currency.USD
+
+
+# ─── override map ────────────────────────────────────────────────────────────
+
+def test_hxscl_returns_usd_via_override():
+    assert infer_currency_from_ticker("HXSCL") == Currency.USD
+
+
+def test_asx_returns_usd_via_override():
+    assert infer_currency_from_ticker("ASX") == Currency.USD
+
+
+def test_override_is_case_insensitive():
+    assert infer_currency_from_ticker("hxscl") == Currency.USD
+    assert infer_currency_from_ticker("Hxscl") == Currency.USD
+
+
+# ─── additional EUR suffixes ──────────────────────────────────────────────────
+
+def test_sg_suffix_returns_eur():
+    assert infer_currency_from_ticker("SAP.SG") == Currency.EUR
+
+
+def test_mu_suffix_returns_eur():
+    assert infer_currency_from_ticker("SAP.MU") == Currency.EUR
+
+
+def test_hm_suffix_returns_eur():
+    assert infer_currency_from_ticker("SAP.HM") == Currency.EUR
+
+
+def test_du_suffix_returns_eur():
+    assert infer_currency_from_ticker("SAP.DU") == Currency.EUR
+
+
+def test_be_suffix_returns_eur():
+    assert infer_currency_from_ticker("SAP.BE") == Currency.EUR
+
+
+def test_br_suffix_returns_eur():
+    assert infer_currency_from_ticker("UCB.BR") == Currency.EUR
+
+
+def test_ls_suffix_returns_eur():
+    assert infer_currency_from_ticker("EDP.LS") == Currency.EUR
+
+
+def test_mc_suffix_returns_eur():
+    assert infer_currency_from_ticker("ITX.MC") == Currency.EUR
+
+
+def test_he_suffix_returns_eur():
+    assert infer_currency_from_ticker("NESTE.HE") == Currency.EUR
+
+
+def test_vi_suffix_returns_eur():
+    assert infer_currency_from_ticker("OMV.VI") == Currency.EUR
+
+
+def test_ir_suffix_returns_eur():
+    assert infer_currency_from_ticker("CRH.IR") == Currency.EUR
+
+
+def test_lu_suffix_returns_eur():
+    assert infer_currency_from_ticker("APAM.LU") == Currency.EUR
+
+
+# ─── additional JPY suffix ────────────────────────────────────────────────────
+
+def test_jp_suffix_returns_jpy():
+    assert infer_currency_from_ticker("7203.JP") == Currency.JPY
+
+
+# ─── new unsupported suffixes ─────────────────────────────────────────────────
+
+def test_l_suffix_raises_unsupported():
+    with pytest.raises(UnsupportedTickerError, match="GBP"):
+        infer_currency_from_ticker("HSBA.L")
+
+
+def test_sw_suffix_raises_unsupported():
+    with pytest.raises(UnsupportedTickerError, match="CHF"):
+        infer_currency_from_ticker("NESN.SW")
+
+
+def test_vx_suffix_raises_unsupported():
+    with pytest.raises(UnsupportedTickerError, match="CHF"):
+        infer_currency_from_ticker("NESN.VX")
+
+
+def test_ax_suffix_raises_unsupported():
+    with pytest.raises(UnsupportedTickerError, match="AUD"):
+        infer_currency_from_ticker("BHP.AX")
+
+
+def test_to_suffix_raises_unsupported():
+    with pytest.raises(UnsupportedTickerError, match="CAD"):
+        infer_currency_from_ticker("RY.TO")
+
+
+def test_v_suffix_raises_unsupported():
+    with pytest.raises(UnsupportedTickerError, match="CAD"):
+        infer_currency_from_ticker("ACB.V")
