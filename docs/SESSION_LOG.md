@@ -44,6 +44,31 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-16 — TICKET-CSV-12
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Branch:** ticket-csv-12-backfill-isin-recovery-script
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created `tools/backfill_isin_from_csv.py`: standalone CLI that backfills isin onto scalable_csv transactions via csv_reference→ISIN lookup from the original Scalable Capital CSV export
+- Defaults to `--dry-run`; `--apply` required to write; backup-before-mutation; atomic write; never overwrites existing ISINs; refuses non-v3 portfolios
+- Reuses `app.adapters.scalable_csv.parser.parse_csv` (no fresh DictReader)
+- 12 tests in `tests/unit/tools/test_backfill_isin_from_csv.py`
+- Updated `tools/README.md` with usage docs and when-to-use guidance
+- Smoke test on live data: 2 transactions still had isin=None (missed by original one-shot recovery), 149 already set — script ready to fix those 2 with --apply
+
+### Files touched
+- `tools/backfill_isin_from_csv.py` — new script
+- `tests/unit/tools/test_backfill_isin_from_csv.py` — new tests
+- `tools/README.md` — new section for the script
+
+### Tests
+843 passing → 855 passing (+12)
+
+### Decisions made during the session
+- No architectural decisions; script lives in tools/ (no app/ changes)
+
 ## 2026-05-16 — TICKET-CSV-11
 **Surface:** Claude Code
 **Model:** sonnet-4.6
