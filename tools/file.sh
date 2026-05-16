@@ -186,10 +186,11 @@ for i in "${!VALID_FILES[@]}"; do
   echo "Creating issue for $ticket_id..."
 
   # Check if milestone exists (open or closed); auto-create if missing.
-  milestone_arg=""
+  # Use array to preserve multi-word milestone names like "Investment Panel".
+  milestone_args=()
   ms_state="$(gh api 'repos/{owner}/{repo}/milestones?state=all' --jq ".[] | select(.title==\"$milestone\") | .state" 2>/dev/null | head -1 || true)"
   if [ "$ms_state" = "open" ]; then
-    milestone_arg="--milestone $milestone"
+    milestone_args=(--milestone "$milestone")
   elif [ "$ms_state" = "closed" ]; then
     echo "  Warning: milestone '$milestone' is closed. Filing without milestone."
   else
@@ -197,18 +198,17 @@ for i in "${!VALID_FILES[@]}"; do
     echo "  Milestone '$milestone' not found. Creating it..."
     if gh api 'repos/{owner}/{repo}/milestones' -f title="$milestone" >/dev/null 2>&1; then
       echo "  Created milestone '$milestone'."
-      milestone_arg="--milestone $milestone"
+      milestone_args=(--milestone "$milestone")
     else
       echo "  Warning: failed to create milestone '$milestone'. Filing without milestone."
     fi
   fi
 
-  # shellcheck disable=SC2086
   issue_url="$(gh issue create \
     --title "$ticket_id — $title" \
     --body-file "$f" \
     --label "$priority_lower" \
-    $milestone_arg)"
+    "${milestone_args[@]}")"
 
   # sed -nE works on both BSD and GNU grep (replaces grep -oP '\d+$')
   issue_num="$(echo "$issue_url" | sed -nE 's|.*/([0-9]+)$|\1|p')"
