@@ -1,6 +1,7 @@
 """Unit tests for app.adapters.scalable_csv.importer."""
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
@@ -13,7 +14,6 @@ from app.adapters.scalable_csv.parser import ParsedCsvRow, parse_csv
 from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
-from app.ports.fx_feed import FxRateUnavailableError
 from app.ports.repository import TransactionNotFoundError
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "scalable_csv"
@@ -110,18 +110,19 @@ _FULL_MAP = _isin_map_with(
 
 
 def test_empty_portfolio_happy_path():
-    """4-row CSV, all mapped → 4 transactions with correct fields."""
+    """3 in-scope rows imported; security transfer skipped."""
     rows = parse_csv(FIXTURES / "happy_path.csv")
     tx_repo = FakeTransactionRepository()
     map_repo = FakeIsinMapRepository(_FULL_MAP)
 
     summary = run_import(rows, "happy_path.csv", tx_repo, map_repo)
 
-    assert summary.new_transactions == 4
+    assert summary.new_transactions == 3
     assert summary.already_existing == 0
     assert summary.unmapped == 0
+    assert summary.internal_transfers_skipped == 1
     txs = tx_repo.load_all()
-    assert len(txs) == 4
+    assert len(txs) == 3
 
     buy = next(t for t in txs if t.id == "REF001")
     assert buy.ticker == "SAP.DE"
@@ -137,11 +138,6 @@ def test_empty_portfolio_happy_path():
     assert savings.type == TransactionType.BUY
     assert savings.shares == Decimal("7.054176")
 
-    # Security transfer maps to BUY, blank fee → None
-    transfer = next(t for t in txs if t.id == "REF004")
-    assert transfer.type == TransactionType.BUY
-    assert transfer.fees_native is None
-
     # price_native.currency is EUR for all
     for tx in txs:
         assert tx.price_native.currency == Currency.EUR
@@ -155,12 +151,12 @@ def test_idempotent_reimport():
     map_repo = FakeIsinMapRepository(_FULL_MAP)
 
     s1 = run_import(rows, "happy_path.csv", tx_repo, map_repo)
-    assert s1.new_transactions == 4
+    assert s1.new_transactions == 3
 
     s2 = run_import(rows, "happy_path.csv", tx_repo, map_repo)
     assert s2.new_transactions == 0
-    assert s2.already_existing == 4
-    assert len(tx_repo.load_all()) == 4
+    assert s2.already_existing == 3
+    assert len(tx_repo.load_all()) == 3
 
 
 def test_partial_csv_update(tmp_path: Path):
@@ -176,22 +172,23 @@ def test_partial_csv_update(tmp_path: Path):
     rows = parse_csv(FIXTURES / "happy_path.csv")  # contains REF001-REF004
     summary = run_import(rows, "happy_path.csv", tx_repo, map_repo)
 
-    # REF001, REF002 already exist → already_existing=2; REF003, REF004 are new
+    # REF001, REF002 already exist → already_existing=2; REF003 is new; REF004 is transfer (skipped)
     assert summary.already_existing == 2
-    assert summary.new_transactions == 2
+    assert summary.new_transactions == 1
+    assert summary.internal_transfers_skipped == 1
 
     all_ids = {tx.id for tx in tx_repo.load_all()}
     assert "A" in all_ids  # preserved even though not in CSV
     assert "REF001" in all_ids
     assert "REF002" in all_ids
     assert "REF003" in all_ids
-    assert "REF004" in all_ids
-    assert len(all_ids) == 5
+    assert len(all_ids) == 4
 
 
 def test_unmapped_isin_is_quarantined(tmp_path: Path):
     """Rows with unmapped ISINs are counted and listed; mapped rows still import."""
-    # Only SAP is mapped; RHM, VWCE, Parrot are absent → unmapped on first run
+    # Only SAP is mapped; RHM, VWCE are absent → unmapped on first run
+    # Parrot (REF004) is a Security transfer → skipped before ISIN lookup
     partial_map = _isin_map_with((_SAP_ISIN, "SAP.DE", "SAP SE"))
     tx_repo = FakeTransactionRepository()
     map_repo = FakeIsinMapRepository(partial_map)
@@ -200,11 +197,12 @@ def test_unmapped_isin_is_quarantined(tmp_path: Path):
     summary = run_import(rows, "happy_path.csv", tx_repo, map_repo)
 
     assert summary.new_transactions == 1  # only SAP buy goes through
-    assert summary.unmapped == 3  # RHM sell, VWCE savings plan, Parrot transfer
+    assert summary.unmapped == 2  # RHM sell, VWCE savings plan
+    assert summary.internal_transfers_skipped == 1  # Parrot transfer skipped
     unmapped_isins = {isin for isin, _ in summary.unmapped_isins}
     assert _RHM_ISIN in unmapped_isins
     assert _VWCE_ISIN in unmapped_isins
-    assert _PARROT_ISIN in unmapped_isins
+    assert _PARROT_ISIN not in unmapped_isins
 
 
 def test_new_isin_first_time_seen_becomes_unmapped():
@@ -216,12 +214,14 @@ def test_new_isin_first_time_seen_becomes_unmapped():
     summary = run_import(rows, "happy_path.csv", tx_repo, map_repo)
 
     assert summary.new_transactions == 0
-    assert summary.unmapped == 4  # all 4 ISINs are new and unmapped
+    assert summary.unmapped == 3  # SAP, RHM, VWCE — Parrot transfer is skipped
+    assert summary.internal_transfers_skipped == 1
 
     doc = map_repo.load()
     assert _SAP_ISIN in doc.entries
     assert doc.entries[_SAP_ISIN].status == "unmapped"
     assert doc.entries[_SAP_ISIN].ticker is None
+    assert _PARROT_ISIN not in doc.entries
 
 
 def test_status_filter_counts():
@@ -297,18 +297,6 @@ def test_last_seen_in_csv_updated(tmp_path: Path):
     assert doc.entries[_SAP_ISIN].last_seen_in_csv == date(2026, 3, 1)
 
 
-def test_fees_none_on_security_transfer():
-    """Security transfer rows with blank fee → fees_native=None."""
-    rows = parse_csv(FIXTURES / "happy_path.csv")
-    tx_repo = FakeTransactionRepository()
-    map_repo = FakeIsinMapRepository(_FULL_MAP)
-
-    run_import(rows, "happy_path.csv", tx_repo, map_repo)
-
-    transfer = next(t for t in tx_repo.load_all() if t.id == "REF004")
-    assert transfer.fees_native is None
-
-
 def test_fees_zero_for_savings_plan():
     """Savings plan rows with fee=0,00 → fees_native=Money(0, EUR), not None."""
     rows = parse_csv(FIXTURES / "happy_path.csv")
@@ -358,7 +346,7 @@ def test_transaction_id_equals_csv_reference():
     run_import(rows, "happy_path.csv", tx_repo, map_repo)
 
     ids = {tx.id for tx in tx_repo.load_all()}
-    assert ids == {"REF001", "REF002", "REF003", "REF004"}
+    assert ids == {"REF001", "REF002", "REF003"}
 
 
 def test_within_csv_duplicate_references_not_double_imported(tmp_path: Path):
@@ -384,7 +372,7 @@ def test_within_csv_duplicate_references_not_double_imported(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
-# TICKET-CSV-1-hotfix: outgoing Security transfer + sign check tests
+# Security transfer tests — both legs are always skipped
 # ---------------------------------------------------------------------------
 
 _ETP_ISIN = "CH1129538448"
@@ -400,44 +388,34 @@ def test_outgoing_transfer_skipped():
     summary = run_import(rows, "outgoing_transfer_only.csv", tx_repo, map_repo)
 
     assert summary.new_transactions == 0
-    assert summary.outgoing_transfers_skipped == 1
+    assert summary.internal_transfers_skipped == 1
     assert len(tx_repo.load_all()) == 0
 
 
-def test_incoming_transfer_imported():
-    """Incoming Security transfer (positive shares) imports as BUY with correct fields."""
+def test_incoming_transfer_skipped():
+    """Incoming Security transfer (positive shares) is also skipped — internal reshuffling."""
     rows = parse_csv(FIXTURES / "incoming_transfer_only.csv")
     tx_repo = FakeTransactionRepository()
     map_repo = FakeIsinMapRepository(_ETP_MAP)
 
     summary = run_import(rows, "incoming_transfer_only.csv", tx_repo, map_repo)
 
-    assert summary.new_transactions == 1
-    assert summary.outgoing_transfers_skipped == 0
-
-    tx = tx_repo.load_all()[0]
-    assert tx.id == "TXIN001"
-    assert tx.type == TransactionType.BUY
-    assert tx.shares == Decimal("17")
-    assert tx.price_native == Money(amount=Decimal("1.144"), currency=Currency.EUR)
-    assert tx.fees_native is None
-    assert tx.trade_date == date(2025, 12, 6)
+    assert summary.new_transactions == 0
+    assert summary.internal_transfers_skipped == 1
+    assert len(tx_repo.load_all()) == 0
 
 
-def test_paired_transfers_one_transaction():
-    """Paired transfers: outgoing is skipped, incoming is imported as one BUY."""
+def test_paired_transfers_both_skipped():
+    """Both legs of a paired security transfer are skipped — net 0 economic effect."""
     rows = parse_csv(FIXTURES / "paired_transfers.csv")
     tx_repo = FakeTransactionRepository()
     map_repo = FakeIsinMapRepository(_ETP_MAP)
 
     summary = run_import(rows, "paired_transfers.csv", tx_repo, map_repo)
 
-    assert summary.new_transactions == 1
-    assert summary.outgoing_transfers_skipped == 1
-
-    txs = tx_repo.load_all()
-    assert len(txs) == 1
-    assert txs[0].trade_date == date(2025, 12, 6)  # incoming row, not outgoing
+    assert summary.new_transactions == 0
+    assert summary.internal_transfers_skipped == 2
+    assert len(tx_repo.load_all()) == 0
 
 
 def test_buy_wrong_sign_aborts_import():
@@ -450,39 +428,9 @@ def test_buy_wrong_sign_aborts_import():
         run_import(rows, "buy_wrong_sign.csv", tx_repo, map_repo)
 
 
-def test_amount_check_sign_agnostic_on_incoming_transfer():
-    """Amount sanity check uses abs(shares×price) so incoming transfers pass without error."""
-    rows = parse_csv(FIXTURES / "incoming_transfer_only.csv")
-    tx_repo = FakeTransactionRepository()
-    map_repo = FakeIsinMapRepository(_ETP_MAP)
-
-    # Should not raise — sign-agnostic check: abs(17×1.144)=19.448 ≈ abs(19.4463)=19.4463
-    summary = run_import(rows, "incoming_transfer_only.csv", tx_repo, map_repo)
-    assert summary.new_transactions == 1
-
-
 # ---------------------------------------------------------------------------
-# TICKET-CSV-5: native-currency support
+# EUR-native: all tickers store EUR price + fx_rate_eur=1
 # ---------------------------------------------------------------------------
-
-class FakeFxProvider:
-    def __init__(self, rates: dict[tuple[Currency, Currency, date], Decimal]) -> None:
-        self._rates = rates
-        self.call_count = 0
-
-    def get_historical_rate(self, base: Currency, quote: Currency, on_date: date) -> Decimal:
-        self.call_count += 1
-        key = (base, quote, on_date)
-        if key not in self._rates:
-            raise FxRateUnavailableError(base, quote, on_date, "not in fake")
-        return self._rates[key]
-
-    def get_current_rate(self, base: Currency, quote: Currency) -> Decimal:
-        raise NotImplementedError
-
-    def clear_cache(self) -> None:
-        pass
-
 
 _NVDA_ISIN = "US67066G1040"
 _NVDA_MAP = _isin_map_with((_NVDA_ISIN, "NVDA", "NVIDIA Corp"))
@@ -500,7 +448,7 @@ def _make_csv_rows(
     trade_date: date,
     reference: str = "REF_NATIVE",
 ) -> list[ParsedCsvRow]:
-    """Build a single-row CSV-parsed result directly for non-EUR ticker tests."""
+    """Build a single-row list of ParsedCsvRow for unit tests."""
     return [
         ParsedCsvRow(
             row_number=2,
@@ -523,12 +471,8 @@ def _make_csv_rows(
 
 
 def test_usd_ticker_imports_with_native_currency():
-    """NVDA buy row: produces Transaction with USD native price and correct fx_rate_eur."""
+    """NVDA (USD ticker) buy row: produces EUR-native Transaction, no FX lookup."""
     trade_date = date(2026, 3, 15)
-    eur_usd_rate = Decimal("1.0835")   # 1 EUR = 1.0835 USD → fx_rate_eur = 1/1.0835 ≈ 0.9229
-    fx_rate_eur = Decimal("1") / eur_usd_rate
-
-    # CSV shows EUR-equivalent price: 4 shares × 82.65 EUR = 330.60 EUR
     rows = _make_csv_rows(
         _NVDA_ISIN, "NVIDIA Corp",
         shares="4", price_eur="82.65", amount_eur="-330.60",
@@ -536,30 +480,22 @@ def test_usd_ticker_imports_with_native_currency():
     )
     tx_repo = FakeTransactionRepository()
     map_repo = FakeIsinMapRepository(_NVDA_MAP)
-    fx = FakeFxProvider({(Currency.USD, Currency.EUR, trade_date): fx_rate_eur})
 
-    summary = run_import(rows, "nvda.csv", tx_repo, map_repo, fx_provider=fx)
+    summary = run_import(rows, "nvda.csv", tx_repo, map_repo)
 
     assert summary.new_transactions == 1
     assert summary.invalid_mapping == 0
 
     tx = tx_repo.load_all()[0]
-    assert tx.price_native.currency == Currency.USD
-    assert tx.fx_rate_eur == fx_rate_eur
-    # native_price = csv_price_eur / fx_rate_eur = 82.65 / (1/1.0835) = 82.65 * 1.0835 ≈ 89.55
-    expected_native_price = Decimal("82.65") / fx_rate_eur
-    assert abs(tx.price_native.amount - expected_native_price) < Decimal("0.001")
-    # Sanity: shares × native_price × fx_rate_eur ≈ abs(csv_amount_eur)
-    reconstructed_eur = tx.shares * tx.price_native.amount * tx.fx_rate_eur
-    assert abs(reconstructed_eur - Decimal("330.60")) < Decimal("0.02")
+    assert tx.price_native.currency == Currency.EUR
+    assert tx.price_native.amount == Decimal("82.65")
+    assert tx.fx_rate_eur == Decimal("1")
+    assert tx.shares == Decimal("4")
 
 
 def test_jpy_ticker_imports_with_native_currency():
-    """5631.T buy row: produces Transaction with JPY native price."""
+    """5631.T (JPY ticker) buy row: produces EUR-native Transaction, no FX lookup."""
     trade_date = date(2026, 2, 10)
-    jpy_fx_rate_eur = Decimal("0.006234")  # 1 JPY = 0.006234 EUR
-
-    # CSV shows EUR-equivalent price: 100 shares × 1.87 EUR = 187.00 EUR
     rows = _make_csv_rows(
         _JP_ISIN, "Japan Steel Works",
         shares="100", price_eur="1.87", amount_eur="-187.00",
@@ -567,64 +503,73 @@ def test_jpy_ticker_imports_with_native_currency():
     )
     tx_repo = FakeTransactionRepository()
     map_repo = FakeIsinMapRepository(_JP_MAP)
-    fx = FakeFxProvider({(Currency.JPY, Currency.EUR, trade_date): jpy_fx_rate_eur})
 
-    summary = run_import(rows, "jsw.csv", tx_repo, map_repo, fx_provider=fx)
+    summary = run_import(rows, "jsw.csv", tx_repo, map_repo)
 
     assert summary.new_transactions == 1
     tx = tx_repo.load_all()[0]
-    assert tx.price_native.currency == Currency.JPY
-    assert tx.fx_rate_eur == jpy_fx_rate_eur
-    expected_native = Decimal("1.87") / jpy_fx_rate_eur
-    assert abs(tx.price_native.amount - expected_native) < Decimal("0.01")
+    assert tx.price_native.currency == Currency.EUR
+    assert tx.price_native.amount == Decimal("1.87")
+    assert tx.fx_rate_eur == Decimal("1")
 
 
-def test_usd_ticker_without_fx_provider_counts_as_invalid_mapping():
-    """Without fx_provider, non-EUR tickers go to invalid_mapping (CLI backward compat)."""
-    trade_date = date(2026, 3, 15)
-    rows = _make_csv_rows(
-        _NVDA_ISIN, "NVIDIA Corp",
-        shares="4", price_eur="82.65", amount_eur="-330.60",
-        trade_date=trade_date,
-    )
-    tx_repo = FakeTransactionRepository()
-    map_repo = FakeIsinMapRepository(_NVDA_MAP)
-
-    summary = run_import(rows, "nvda.csv", tx_repo, map_repo)  # no fx_provider
-
-    assert summary.new_transactions == 0
-    assert summary.invalid_mapping == 1
-
-
-def test_usd_ticker_fx_unavailable_counts_as_invalid_mapping():
-    """When FX provider raises, the row is counted as invalid_mapping."""
-    trade_date = date(2026, 3, 15)
-    rows = _make_csv_rows(
-        _NVDA_ISIN, "NVIDIA Corp",
-        shares="4", price_eur="82.65", amount_eur="-330.60",
-        trade_date=trade_date,
-    )
-    tx_repo = FakeTransactionRepository()
-    map_repo = FakeIsinMapRepository(_NVDA_MAP)
-    fx = FakeFxProvider({})  # always raises
-
-    summary = run_import(rows, "nvda.csv", tx_repo, map_repo, fx_provider=fx)
-
-    assert summary.new_transactions == 0
-    assert summary.invalid_mapping == 1
-
-
-def test_eur_ticker_regression_with_fx_provider():
-    """EUR-native tickers import identically whether fx_provider is passed or not."""
+def test_eur_ticker_regression():
+    """EUR-native tickers import correctly; security transfer is skipped."""
     rows = parse_csv(FIXTURES / "happy_path.csv")
     tx_repo = FakeTransactionRepository()
     map_repo = FakeIsinMapRepository(_FULL_MAP)
-    fx = FakeFxProvider({})  # never called for EUR tickers
 
-    summary = run_import(rows, "happy_path.csv", tx_repo, map_repo, fx_provider=fx)
+    summary = run_import(rows, "happy_path.csv", tx_repo, map_repo)
 
-    assert summary.new_transactions == 4
+    assert summary.new_transactions == 3  # REF001, REF002, REF003; REF004 is transfer
+    assert summary.internal_transfers_skipped == 1
     assert summary.invalid_mapping == 0
     for tx in tx_repo.load_all():
         assert tx.price_native.currency == Currency.EUR
         assert tx.fx_rate_eur == Decimal("1")
+
+
+def test_full_export_reconciliation():
+    """46-row full export: 6 transfer legs skipped, 40 transactions imported, all EUR-native."""
+    rows = parse_csv(FIXTURES / "full_export_2026_05_14.csv")
+    assert len(rows) == 46
+
+    # Load companion ISIN map
+    raw = json.loads((FIXTURES / "full_export_2026_05_14_isin_map.json").read_text())
+    entries = {
+        isin: IsinMapping(ticker=v["ticker"], name=v["name"], status=v["status"])
+        for isin, v in raw["entries"].items()
+    }
+    isin_doc = IsinMapDocument(version=raw["version"], entries=entries)
+
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(isin_doc)
+
+    summary = run_import(rows, "full_export_2026_05_14.csv", tx_repo, map_repo)
+
+    assert summary.total_rows == 46
+    assert summary.internal_transfers_skipped == 6  # 3 pairs: NVDA, DELL, PAR
+    assert summary.in_scope == 40
+    assert summary.new_transactions == 40
+    assert summary.unmapped == 0
+    assert summary.invalid_mapping == 0
+
+    txs = tx_repo.load_all()
+    assert len(txs) == 40
+
+    # All transactions are EUR-native regardless of ticker currency
+    for tx in txs:
+        assert tx.price_native.currency == Currency.EUR
+        assert tx.fx_rate_eur == Decimal("1")
+
+    # NVDA has two buys (transfers excluded)
+    nvda_txs = [t for t in txs if t.ticker == "NVDA"]
+    assert len(nvda_txs) == 2
+    assert all(t.type == TransactionType.BUY for t in nvda_txs)
+
+    # DELL has one buy and one sell (two transfers excluded)
+    dell_txs = [t for t in txs if t.ticker == "DELL"]
+    assert len(dell_txs) == 2
+    types = {t.type for t in dell_txs}
+    assert TransactionType.BUY in types
+    assert TransactionType.SELL in types

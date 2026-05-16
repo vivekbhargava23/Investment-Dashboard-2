@@ -1,6 +1,6 @@
 # TICKET-CSV-7 — Scalable importer: EUR-native and Security-transfer pair fix
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** CRITICAL
 **Estimated session length:** 2 hr
 **Drafted by:** Vivek + AI (chat session 2026-05-16)

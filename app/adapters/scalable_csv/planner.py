@@ -13,12 +13,9 @@ from app.domain.csv_import import (
 )
 from app.domain.isin_map import IsinMapDocument
 from app.domain.models import Transaction
-from app.domain.money import Currency
-from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
-from app.ports.fx_feed import FxProvider
 
 _EXECUTED_STATUS = "Executed"
-_IN_SCOPE_TYPES = frozenset({"Buy", "Sell", "Savings plan", "Security transfer"})
+_IN_SCOPE_TYPES = frozenset({"Buy", "Sell", "Savings plan"})
 
 
 def _content_hash(tx: Transaction) -> str:
@@ -43,15 +40,12 @@ def plan_import(
     rows: list[ParsedCsvRow],
     existing_txs: list[Transaction],
     isin_doc: IsinMapDocument,
-    *,
-    fx_provider: FxProvider | None = None,
 ) -> ImportPlan:
     """Classify every CSV row into a planned action without writing anything.
 
-    When fx_provider is supplied, non-EUR tickers are resolved via FX lookup:
-    - Successful lookup → status NEW with fx_rate_eur set on the row.
-    - Failed lookup → status FX_UNAVAILABLE (user may supply rate manually).
-    When fx_provider is None, non-EUR tickers remain NEEDS_CURRENCY_SUPPORT.
+    All Scalable Capital CSV rows carry EUR prices; no FX lookup is performed.
+    Security-transfer pairs (both incoming and outgoing legs) are skipped as
+    internal reshuffles with no economic effect.
     """
     existing_by_ref: dict[str, Transaction] = {
         tx.csv_reference: tx
@@ -73,12 +67,13 @@ def plan_import(
             planned.append(_make(row, RowStatus.CANCELLED_OR_EXPIRED, PlannedAction.SKIP))
             continue
 
-        if row.type not in _IN_SCOPE_TYPES:
-            planned.append(_make(row, RowStatus.OUT_OF_SCOPE_V1, PlannedAction.SKIP))
+        # Security transfers are internal reshuffles — skip both legs.
+        if row.type == "Security transfer":
+            planned.append(_make(row, RowStatus.INTERNAL_TRANSFER, PlannedAction.SKIP))
             continue
 
-        if row.type == "Security transfer" and row.shares is not None and row.shares < 0:
-            planned.append(_make(row, RowStatus.OUTGOING_TRANSFER, PlannedAction.SKIP))
+        if row.type not in _IN_SCOPE_TYPES:
+            planned.append(_make(row, RowStatus.OUT_OF_SCOPE_V1, PlannedAction.SKIP))
             continue
 
         if row.reference in existing_by_ref or row.reference in existing_scalable_ids:
@@ -91,36 +86,8 @@ def plan_import(
             continue
 
         assert mapping.ticker is not None
-        try:
-            native_currency = infer_currency_from_ticker(mapping.ticker)
-        except UnsupportedTickerError:
-            # Currency not in our enum — cannot compute FX rate
-            planned.append(_make(
-                row, RowStatus.NEEDS_CURRENCY_SUPPORT, PlannedAction.SKIP, ticker=mapping.ticker
-            ))
-            continue
 
-        if native_currency != Currency.EUR:
-            if fx_provider is None:
-                planned.append(_make(
-                    row, RowStatus.NEEDS_CURRENCY_SUPPORT, PlannedAction.SKIP, ticker=mapping.ticker
-                ))
-                continue
-            fx_rate_eur = _lookup_fx(fx_provider, native_currency, row.date)
-            if fx_rate_eur is None:
-                planned.append(_make(
-                    row, RowStatus.FX_UNAVAILABLE, PlannedAction.SKIP, ticker=mapping.ticker
-                ))
-                continue
-            planned.append(_make(
-                row, RowStatus.NEW, PlannedAction.INSERT,
-                ticker=mapping.ticker, fx_rate_eur=fx_rate_eur,
-            ))
-            continue
-
-        tx_type_str = (
-            "buy" if row.type in ("Buy", "Savings plan", "Security transfer") else "sell"
-        )
+        tx_type_str = "buy" if row.type in ("Buy", "Savings plan") else "sell"
         row_hash = _row_content_hash(row, mapping.ticker, tx_type_str)
 
         if row_hash and row_hash in existing_by_content:
@@ -142,16 +109,6 @@ def plan_import(
         planned.append(_make(row, RowStatus.NEW, PlannedAction.INSERT, ticker=mapping.ticker))
 
     return ImportPlan(rows=tuple(planned))
-
-
-def _lookup_fx(fx_provider: FxProvider, native_ccy: Currency, on_date: object) -> Decimal | None:
-    """Return fx_rate_eur (1 native = X EUR) or None on any error."""
-    try:
-        from datetime import date as date_type
-        assert isinstance(on_date, date_type)
-        return fx_provider.get_historical_rate(native_ccy, Currency.EUR, on_date)
-    except Exception:
-        return None
 
 
 def _make(

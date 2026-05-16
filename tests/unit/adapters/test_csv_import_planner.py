@@ -10,7 +10,6 @@ from app.domain.csv_import import PlannedAction, RowStatus
 from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
-from app.ports.fx_feed import FxRateUnavailableError
 
 # ─── fixtures ─────────────────────────────────────────────────────────────────
 
@@ -120,12 +119,15 @@ def test_unmapped_isin() -> None:
     assert plan.rows[0].status == RowStatus.UNMAPPED_ISIN
 
 
-# ─── test 4: ticker is non-EUR ────────────────────────────────────────────────
+# ─── test 4: USD ticker is NEW (EUR-native, no FX needed) ────────────────────
 
-def test_needs_currency_support_usd_ticker() -> None:
+def test_usd_ticker_is_new() -> None:
+    """NVDA (USD ticker) is classified as NEW — EUR-native, no FX lookup required."""
     rows = [_row(isin=_NVDA_ISIN, description="NVIDIA")]
     plan = plan_import(rows, [], _USD_MAP)
-    assert plan.rows[0].status == RowStatus.NEEDS_CURRENCY_SUPPORT
+    assert plan.rows[0].status == RowStatus.NEW
+    assert plan.rows[0].proposed_ticker == "NVDA"
+    assert plan.rows[0].fx_rate_eur is None
 
 
 # ─── test 5: out-of-scope row type ────────────────────────────────────────────
@@ -148,12 +150,34 @@ def test_deposit_is_out_of_scope() -> None:
     assert plan.rows[0].status == RowStatus.OUT_OF_SCOPE_V1
 
 
-# ─── test 6: outgoing security transfer ──────────────────────────────────────
+# ─── test 6: security transfer — both legs are INTERNAL_TRANSFER ──────────────
 
-def test_outgoing_transfer_flagged() -> None:
+def test_outgoing_transfer_is_internal_transfer() -> None:
     rows = [_row(type_="Security transfer", shares=Decimal("-17"))]
     plan = plan_import(rows, [], _EUR_MAP)
-    assert plan.rows[0].status == RowStatus.OUTGOING_TRANSFER
+    assert plan.rows[0].status == RowStatus.INTERNAL_TRANSFER
+    assert plan.rows[0].action == PlannedAction.SKIP
+
+
+def test_incoming_transfer_is_internal_transfer() -> None:
+    rows = [_row(type_="Security transfer", shares=Decimal("17"), amount=Decimal("194"))]
+    plan = plan_import(rows, [], _EUR_MAP)
+    assert plan.rows[0].status == RowStatus.INTERNAL_TRANSFER
+    assert plan.rows[0].action == PlannedAction.SKIP
+
+
+def test_both_transfer_legs_classified_internal() -> None:
+    """Both legs of a paired security transfer get INTERNAL_TRANSFER/SKIP."""
+    rows = [
+        _row(reference="OUT", type_="Security transfer",
+             shares=Decimal("-17"), amount=Decimal("-19.4")),
+        _row(reference="IN", type_="Security transfer",
+             shares=Decimal("17"), amount=Decimal("19.4")),
+    ]
+    plan = plan_import(rows, [], _EUR_MAP)
+    assert plan.rows[0].status == RowStatus.INTERNAL_TRANSFER
+    assert plan.rows[1].status == RowStatus.INTERNAL_TRANSFER
+    assert all(r.action == PlannedAction.SKIP for r in plan.rows)
 
 
 # ─── test 7: cancelled/expired ────────────────────────────────────────────────
@@ -246,15 +270,7 @@ def test_legacy_id_as_reference_dedup() -> None:
     assert plan.rows[0].status == RowStatus.ALREADY_IMPORTED
 
 
-# ─── test 12: incoming security transfer is NEW ───────────────────────────────
-
-def test_incoming_transfer_is_new() -> None:
-    rows = [_row(type_="Security transfer", shares=Decimal("17"), amount=Decimal("194"))]
-    plan = plan_import(rows, [], _EUR_MAP)
-    assert plan.rows[0].status == RowStatus.NEW
-
-
-# ─── test 13: savings plan is NEW ─────────────────────────────────────────────
+# ─── test 12: savings plan is NEW ─────────────────────────────────────────────
 
 def test_savings_plan_is_new() -> None:
     rows = [_row(type_="Savings plan")]
@@ -262,7 +278,7 @@ def test_savings_plan_is_new() -> None:
     assert plan.rows[0].status == RowStatus.NEW
 
 
-# ─── test 14: unmapped ISIN (status=unmapped in doc) ─────────────────────────
+# ─── test 13: unmapped ISIN (status=unmapped in doc) ─────────────────────────
 
 def test_isin_status_unmapped_in_doc() -> None:
     doc = IsinMapDocument(
@@ -273,7 +289,7 @@ def test_isin_status_unmapped_in_doc() -> None:
     assert plan.rows[0].status == RowStatus.UNMAPPED_ISIN
 
 
-# ─── test 15: proposed_ticker populated for new rows ─────────────────────────
+# ─── test 14: proposed_ticker populated for new rows ─────────────────────────
 
 def test_proposed_ticker_populated() -> None:
     rows = [_row()]
@@ -281,103 +297,32 @@ def test_proposed_ticker_populated() -> None:
     assert plan.rows[0].proposed_ticker == "SAP.DE"
 
 
-# ─── CSV-5: FX provider tests ─────────────────────────────────────────────────
+# ─── test 15: EUR ticker classified as NEW ────────────────────────────────────
 
-class FakeFxProvider:
-    """In-memory FX provider for tests."""
-
-    def __init__(
-        self,
-        rates: dict[tuple[Currency, Currency, date], Decimal],
-        *,
-        fail: bool = False,
-    ) -> None:
-        self._rates = rates
-        self._fail = fail
-
-    def get_historical_rate(self, base: Currency, quote: Currency, on_date: date) -> Decimal:
-        if self._fail:
-            raise FxRateUnavailableError(base, quote, on_date, "offline")
-        return self._rates[(base, quote, on_date)]
-
-    def get_current_rate(self, base: Currency, quote: Currency) -> Decimal:
-        raise NotImplementedError
-
-    def clear_cache(self) -> None:
-        pass
-
-
-_NVDA_TRADE_DATE = date(2026, 3, 1)
-_USD_EUR_RATE = Decimal("0.920000")
-
-
-def _nvda_row() -> ParsedCsvRow:
-    return _row(isin=_NVDA_ISIN, description="NVIDIA Corp")
-
-
-# ─── test 16: USD ticker + FxProvider → NEW with fx_rate_eur set ─────────────
-
-def test_usd_ticker_with_fx_provider_is_new() -> None:
-    rows = [_nvda_row()]
-    fx = FakeFxProvider({(Currency.USD, Currency.EUR, _NVDA_TRADE_DATE): _USD_EUR_RATE})
-    plan = plan_import(rows, [], _USD_MAP, fx_provider=fx)
-    r = plan.rows[0]
-    assert r.status == RowStatus.NEW
-    assert r.action == PlannedAction.INSERT
-    assert r.proposed_ticker == "NVDA"
-    assert r.fx_rate_eur == _USD_EUR_RATE
-
-
-# ─── test 17: USD ticker without FxProvider → NEEDS_CURRENCY_SUPPORT ─────────
-
-def test_usd_ticker_without_fx_provider_needs_currency_support() -> None:
-    rows = [_nvda_row()]
-    plan = plan_import(rows, [], _USD_MAP)  # no fx_provider
-    assert plan.rows[0].status == RowStatus.NEEDS_CURRENCY_SUPPORT
-
-
-# ─── test 18: USD ticker + FxProvider offline → FX_UNAVAILABLE ───────────────
-
-def test_usd_ticker_fx_offline_is_fx_unavailable() -> None:
-    rows = [_nvda_row()]
-    fx = FakeFxProvider({}, fail=True)
-    plan = plan_import(rows, [], _USD_MAP, fx_provider=fx)
-    r = plan.rows[0]
-    assert r.status == RowStatus.FX_UNAVAILABLE
-    assert r.action == PlannedAction.SKIP
-    assert r.proposed_ticker == "NVDA"
-    assert r.fx_rate_eur is None
-
-
-# ─── test 19: EUR ticker unaffected by FxProvider ────────────────────────────
-
-def test_eur_ticker_unaffected_by_fx_provider() -> None:
+def test_eur_ticker_classified_as_new() -> None:
     rows = [_row()]  # SAP.DE → EUR
-    fx = FakeFxProvider({}, fail=True)  # would fail if called
-    plan = plan_import(rows, [], _EUR_MAP, fx_provider=fx)
-    # EUR tickers never call FX provider — must still be NEW
+    plan = plan_import(rows, [], _EUR_MAP)
     assert plan.rows[0].status == RowStatus.NEW
     assert plan.rows[0].fx_rate_eur is None  # EUR rows don't need fx_rate_eur
 
 
-# ─── test 20: JPY ticker + FxProvider → NEW with fx_rate_eur set ─────────────
+# ─── test 16: JPY ticker is NEW (EUR-native, no FX) ──────────────────────────
 
 _JP_ISIN = "JP3633400001"
-_JPY_EUR_RATE = Decimal("0.006234")
 _JP_MAP = _mapped_doc((_JP_ISIN, "5631.T"))
 
 
-def test_jpy_ticker_with_fx_provider_is_new() -> None:
+def test_jpy_ticker_is_new() -> None:
+    """5631.T (JPY ticker) is classified as NEW — EUR-native, no FX lookup."""
     row = _row(isin=_JP_ISIN, description="Japan Steel Works")
-    fx = FakeFxProvider({(Currency.JPY, Currency.EUR, _NVDA_TRADE_DATE): _JPY_EUR_RATE})
-    plan = plan_import([row], [], _JP_MAP, fx_provider=fx)
+    plan = plan_import([row], [], _JP_MAP)
     r = plan.rows[0]
     assert r.status == RowStatus.NEW
-    assert r.fx_rate_eur == _JPY_EUR_RATE
     assert r.proposed_ticker == "5631.T"
+    assert r.fx_rate_eur is None
 
 
-# ─── test 21: fx_rate_eur is None for EUR-native new rows ────────────────────
+# ─── test 17: fx_rate_eur is None for all new rows ───────────────────────────
 
 def test_eur_new_row_has_no_fx_rate_eur() -> None:
     rows = [_row()]
