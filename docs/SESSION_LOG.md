@@ -44,6 +44,46 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-16 — TICKET-CSV-8
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Branch:** ticket-csv-8-isin-on-transaction-remap
+**PR:** pending
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `Transaction.isin: str | None = None` to domain model (between `notes` and `csv_reference`)
+- CSV importer now populates `isin=row.isin` on every scalable_csv transaction
+- Added `migrate_v2_to_v3()` in `migration.py`: reverse-lookup against `isin_map.json` (same directory), collision-safe abort, atomic write, backup to `portfolio.json.v2.bak`
+- Bumped `JsonTransactionRepository.SCHEMA_VERSION` to 3; auto-migrates v2→v3 on `load_all()`
+- Created `app/services/isin_remap.py` with `rewrite_ticker_for_isin` and `count_transactions_for_isin`
+- Mappings page edit-save now rewrites transaction tickers for the edited ISIN and includes count in toast
+- Mappings page delete hard-blocked when transactions reference the ISIN
+
+### Files touched
+- `app/domain/models.py` — added `isin` field
+- `app/adapters/scalable_csv/importer.py` — populate isin on import
+- `app/adapters/repo_json/migration.py` — added `migrate_v2_to_v3`
+- `app/adapters/repo_json/json_repo.py` — bump SCHEMA_VERSION, add v2→v3 branch
+- `app/services/isin_remap.py` — new file
+- `app/ui/pages/mappings.py` — wired remap service for edit + delete
+- `tests/unit/services/test_isin_remap.py` — new file (11 tests)
+- `tests/unit/adapters/test_migration_v2_v3.py` — new file (11 tests)
+- `tests/unit/test_scalable_csv_importer.py` — 1 new reconciliation test
+- `tests/integration/test_json_repo.py` — 2 new tests + fixed wrong-version test
+- `tests/unit/ui/test_mappings_page.py` — 3 new tests
+
+### Tests
+813 passing → 837 passing (24 new)
+
+### Decisions made during the session
+- No architectural decisions made; all decisions were pre-resolved in the ticket
+
+### Out-of-scope items noticed
+- TICKET-CSV-9 (fuzzy typeahead in Mappings) and TICKET-CSV-10 (name resolution on Live Overview) remain next
+
+---
+
 ## 2026-05-16 — TICKET-CSV-7
 **Surface:** Claude Code
 **Model:** sonnet-4.6
