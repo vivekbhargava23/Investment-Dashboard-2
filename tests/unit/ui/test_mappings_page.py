@@ -1,11 +1,16 @@
 """Unit tests for app.ui.pages.mappings (pure helpers, no Streamlit context)."""
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
+from decimal import Decimal
 
 import pytest
 
 from app.domain.isin_map import IsinMapDocument, IsinMapping
+from app.domain.models import Transaction, TransactionType
+from app.domain.money import Currency, Money
+from app.ports.repository import TransactionNotFoundError
 from app.ui.pages.mappings import (
     _delete_mapping,
     _init_state,
@@ -146,3 +151,100 @@ def test_mappings_module_imports_cleanly() -> None:
 def test_mappings_page_render_function_exists() -> None:
     from app.ui.pages.mappings import render
     assert callable(render)
+
+
+# ---------------------------------------------------------------------------
+# Fake repo for isin_remap tests
+# ---------------------------------------------------------------------------
+
+
+class _FakeRepo:
+    def __init__(self, txs: list[Transaction] | None = None) -> None:
+        self._txs: list[Transaction] = list(txs or [])
+        self.save_calls: list[list[Transaction]] = []
+
+    def load_all(self) -> list[Transaction]:
+        return list(self._txs)
+
+    def save_all(self, transactions: Sequence[Transaction]) -> None:
+        self._txs = list(transactions)
+        self.save_calls.append(list(transactions))
+
+    def add(self, tx: Transaction) -> None:
+        self._txs.append(tx)
+
+    def update(self, tx: Transaction) -> None:
+        for i, t in enumerate(self._txs):
+            if t.id == tx.id:
+                self._txs[i] = tx
+                return
+        raise TransactionNotFoundError(tx.id)
+
+    def delete(self, tx_id: str) -> None:
+        self._txs = [t for t in self._txs if t.id != tx_id]
+
+    def get(self, tx_id: str) -> Transaction:
+        for t in self._txs:
+            if t.id == tx_id:
+                return t
+        raise TransactionNotFoundError(tx_id)
+
+
+def _make_tx(tx_id: str, ticker: str, isin: str | None) -> Transaction:
+    return Transaction(
+        id=tx_id,
+        type=TransactionType.BUY,
+        ticker=ticker,
+        trade_date=date(2026, 1, 1),
+        shares=Decimal("10"),
+        price_native=Money(amount=Decimal("100"), currency=Currency.EUR),
+        fx_rate_eur=Decimal("1"),
+        isin=isin,
+        source="scalable_csv",
+    )
+
+
+# ---------------------------------------------------------------------------
+# rewrite_ticker_for_isin is called on edit-save
+# ---------------------------------------------------------------------------
+
+
+def test_rewrite_called_on_edit_save_and_count_in_toast() -> None:
+    """rewrite_ticker_for_isin is called with the new ticker; count is in the toast."""
+    isin = "US67066G1040"
+    txs = [
+        _make_tx("tx1", "NVDA", isin),
+        _make_tx("tx2", "NVDA", isin),
+    ]
+    fake_repo = _FakeRepo(txs)
+
+    from app.services.isin_remap import rewrite_ticker_for_isin
+
+    n = rewrite_ticker_for_isin(fake_repo, isin, "NVDA2")
+
+    assert n == 2
+    assert fake_repo.save_calls
+    rewritten = fake_repo.load_all()
+    assert all(tx.ticker == "NVDA2" for tx in rewritten)
+
+
+def test_delete_block_when_transactions_reference_isin() -> None:
+    """count_transactions_for_isin returns > 0 when transactions reference the ISIN."""
+    isin = "US67066G1040"
+    txs = [_make_tx("tx1", "NVDA", isin), _make_tx("tx2", "NVDA", isin)]
+    fake_repo = _FakeRepo(txs)
+
+    from app.services.isin_remap import count_transactions_for_isin
+
+    n = count_transactions_for_isin(fake_repo, isin)
+    assert n == 2
+
+
+def test_delete_allow_when_no_transactions_reference_isin() -> None:
+    """count_transactions_for_isin returns 0 when no transactions reference the ISIN."""
+    txs = [_make_tx("tx1", "AAPL", "US0378331005")]
+    fake_repo = _FakeRepo(txs)
+
+    from app.services.isin_remap import count_transactions_for_isin
+
+    assert count_transactions_for_isin(fake_repo, "US67066G1040") == 0
