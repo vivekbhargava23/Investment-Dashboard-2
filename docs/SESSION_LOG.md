@@ -44,6 +44,52 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-16 — TICKET-CSV-5
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~2 hr
+**Branch:** ticket-csv-5-native-currency
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Extended `app/domain/tickers.py`: 15+ new exchange suffixes (Stuttgart, Munich, Brussels, etc.), override map for HXSCL/ASX, new unsupported suffixes (GBP, CHF, AUD, CAD)
+- Added `FX_UNAVAILABLE` to `RowStatus` and `fx_rate_eur` field to `PlannedRow` in `app/domain/csv_import.py`
+- New `app/adapters/fx_yfinance/` adapter: disk-cached FX lookup at `data/fx_cache/{FROM}_{TO}.json`, historical rates cached indefinitely, wraps yfinance via composition
+- Updated `planner.plan_import` to accept `fx_provider`; non-EUR rows now resolve to `NEW` (fx_rate_eur set) or `FX_UNAVAILABLE` (offline) instead of `NEEDS_CURRENCY_SUPPORT` when a provider is given
+- Updated `importer.run_import` to accept `fx_provider`; builds native-currency `Transaction` objects for USD/JPY tickers using FX-derived rates
+- Updated `import_workbench.py`: wires `FxYfinanceDiskAdapter`, shows manual-rate input for `FX_UNAVAILABLE` rows, builds correct native-currency Transactions on Apply (FX cache not written from manual overrides)
+- Added `fx_cache_dir` to `Settings` (default `data/fx_cache/`)
+- Added `get_import_fx_provider()` to `wiring.py`
+
+### Files touched
+- `app/domain/tickers.py` — override map + 15+ new suffixes
+- `app/domain/csv_import.py` — FX_UNAVAILABLE status, fx_rate_eur on PlannedRow
+- `app/config.py` — fx_cache_dir setting
+- `app/adapters/fx_yfinance/__init__.py` (new)
+- `app/adapters/fx_yfinance/adapter.py` (new) — FxYfinanceDiskAdapter
+- `app/adapters/scalable_csv/planner.py` — fx_provider param, FX lookup branch
+- `app/adapters/scalable_csv/importer.py` — fx_provider param, native-currency tx building
+- `app/ui/wiring.py` — get_import_fx_provider()
+- `app/ui/pages/import_workbench.py` — FX wiring, FX_UNAVAILABLE UI, _build_transaction for non-EUR
+- `tests/unit/adapters/test_fx_yfinance.py` (new) — 8 FX adapter tests
+- `tests/unit/domain/test_tickers.py` — 25+ new ticker detection tests
+- `tests/unit/adapters/test_csv_import_planner.py` — 6 new FX-related planner tests
+- `tests/unit/test_scalable_csv_importer.py` — 5 new USD/JPY/regression importer tests
+- `tests/unit/ui/test_import_workbench.py` — 5 new workbench helper tests
+
+### Tests
+761 passing → 821 passing (60 new)
+
+### Decisions made during the session
+- Reused existing `FxProvider` port (fx_feed.py) rather than creating a new `app/ports/fx_rate.py` — the existing protocol already covers historical rate lookup; duplication avoided
+- FxYfinanceDiskAdapter wraps YfinanceAdapter via composition (lazy init) rather than duplicating yfinance fetch logic
+- Override map in tickers.py checked before suffix rules to allow explicit per-ticker exceptions
+- Manual rate input direction: user enters "1 EUR = X native" (natural direction); adapter converts to fx_rate_eur = 1/user_input before storing
+
+### Out-of-scope items noticed
+- TICKET-CSV-6 (operational re-import) is now unblocked; no code needed, it's purely ops
+
 ## 2026-05-15 — TICKET-CSV-4
 **Surface:** Claude Code
 **Model:** sonnet-4.6
