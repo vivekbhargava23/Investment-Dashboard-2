@@ -1,0 +1,2421 @@
+{
+  "version": 2,
+  "transactions": [
+    {
+      "id": "WWUMVUAADE0001",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0001",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0002",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0002",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0003",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0003",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0004",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0004",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0005",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0005",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0006",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0006",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0007",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0007",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0008",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0008",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0009",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0009",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0010",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0010",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0011",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0011",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0012",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0012",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0013",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0013",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0014",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0014",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0015",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0015",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0016",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0016",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0017",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0017",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0018",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0018",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0019",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0019",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0020",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0020",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMVUAADE0021",
+      "type": "buy",
+      "ticker": "VUAA.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMVUAADE0021",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0022",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0022",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0023",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0023",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0024",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0024",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0025",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0025",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0026",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0026",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0027",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0027",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0028",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0028",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0029",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0029",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0030",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0030",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0031",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0031",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0032",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0032",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0033",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0033",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0034",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0034",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0035",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0035",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0036",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0036",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0037",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0037",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0038",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0038",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0039",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0039",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0040",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0040",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMNVDA0041",
+      "type": "buy",
+      "ticker": "NVDA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMNVDA0041",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0042",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0042",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0043",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0043",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0044",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0044",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0045",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0045",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0046",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0046",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0047",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0047",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0048",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0048",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0049",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0049",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0050",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0050",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0051",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0051",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0052",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0052",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0053",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0053",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0054",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0054",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0055",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0055",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0056",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0056",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0057",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0057",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMDELL0058",
+      "type": "buy",
+      "ticker": "DELL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMDELL0058",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0059",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0059",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0060",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0060",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0061",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0061",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0062",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0062",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0063",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0063",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0064",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0064",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0065",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0065",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0066",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0066",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0067",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0067",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0068",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0068",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0069",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0069",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0070",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0070",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMQDVE0071",
+      "type": "buy",
+      "ticker": "QDVE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMQDVE0071",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0072",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0072",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0073",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0073",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0074",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0074",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0075",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0075",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0076",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0076",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0077",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0077",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0078",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0078",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0079",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0079",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0080",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0080",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0081",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0081",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0082",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0082",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0083",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0083",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANAU0084",
+      "type": "buy",
+      "ticker": "ANAU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANAU0084",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMHY9HF0085",
+      "type": "buy",
+      "ticker": "HY9H.F",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMHY9HF0085",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMHY9HF0086",
+      "type": "buy",
+      "ticker": "HY9H.F",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMHY9HF0086",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMHY9HF0087",
+      "type": "buy",
+      "ticker": "HY9H.F",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMHY9HF0087",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMHY9HF0088",
+      "type": "buy",
+      "ticker": "HY9H.F",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMHY9HF0088",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMHY9HF0089",
+      "type": "buy",
+      "ticker": "HY9H.F",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMHY9HF0089",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMHY9HF0090",
+      "type": "buy",
+      "ticker": "HY9H.F",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMHY9HF0090",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMHY9HF0091",
+      "type": "buy",
+      "ticker": "HY9H.F",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMHY9HF0091",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMHY9HF0092",
+      "type": "buy",
+      "ticker": "HY9H.F",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMHY9HF0092",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMHY9HF0093",
+      "type": "buy",
+      "ticker": "HY9H.F",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMHY9HF0093",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMHY9HF0094",
+      "type": "buy",
+      "ticker": "HY9H.F",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMHY9HF0094",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMIUESDE0095",
+      "type": "buy",
+      "ticker": "IUES.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMIUESDE0095",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMIUESDE0096",
+      "type": "buy",
+      "ticker": "IUES.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMIUESDE0096",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMIUESDE0097",
+      "type": "buy",
+      "ticker": "IUES.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMIUESDE0097",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMIUESDE0098",
+      "type": "buy",
+      "ticker": "IUES.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMIUESDE0098",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMIUESDE0099",
+      "type": "buy",
+      "ticker": "IUES.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMIUESDE0099",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMIUESDE0100",
+      "type": "buy",
+      "ticker": "IUES.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMIUESDE0100",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMIUESDE0101",
+      "type": "buy",
+      "ticker": "IUES.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMIUESDE0101",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMIUESDE0102",
+      "type": "buy",
+      "ticker": "IUES.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMIUESDE0102",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMIUESDE0103",
+      "type": "buy",
+      "ticker": "IUES.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMIUESDE0103",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMIUESDE0104",
+      "type": "buy",
+      "ticker": "IUES.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMIUESDE0104",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMXNASDE0105",
+      "type": "buy",
+      "ticker": "XNAS.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMXNASDE0105",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMXNASDE0106",
+      "type": "buy",
+      "ticker": "XNAS.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMXNASDE0106",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMXNASDE0107",
+      "type": "buy",
+      "ticker": "XNAS.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMXNASDE0107",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMXNASDE0108",
+      "type": "buy",
+      "ticker": "XNAS.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMXNASDE0108",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMXNASDE0109",
+      "type": "buy",
+      "ticker": "XNAS.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMXNASDE0109",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMXNASDE0110",
+      "type": "buy",
+      "ticker": "XNAS.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMXNASDE0110",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMXNASDE0111",
+      "type": "buy",
+      "ticker": "XNAS.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMXNASDE0111",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMXNASDE0112",
+      "type": "buy",
+      "ticker": "XNAS.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMXNASDE0112",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMXNASDE0113",
+      "type": "buy",
+      "ticker": "XNAS.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMXNASDE0113",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMASX0114",
+      "type": "buy",
+      "ticker": "ASX",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMASX0114",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMASX0115",
+      "type": "buy",
+      "ticker": "ASX",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMASX0115",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMASX0116",
+      "type": "buy",
+      "ticker": "ASX",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMASX0116",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMASX0117",
+      "type": "buy",
+      "ticker": "ASX",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMASX0117",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMASX0118",
+      "type": "buy",
+      "ticker": "ASX",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMASX0118",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMASX0119",
+      "type": "buy",
+      "ticker": "ASX",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMASX0119",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMASX0120",
+      "type": "buy",
+      "ticker": "ASX",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMASX0120",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMPARROPA0121",
+      "type": "buy",
+      "ticker": "PARRO.PA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMPARROPA0121",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMPARROPA0122",
+      "type": "buy",
+      "ticker": "PARRO.PA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMPARROPA0122",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMPARROPA0123",
+      "type": "buy",
+      "ticker": "PARRO.PA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMPARROPA0123",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMPARROPA0124",
+      "type": "buy",
+      "ticker": "PARRO.PA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMPARROPA0124",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMPARROPA0125",
+      "type": "buy",
+      "ticker": "PARRO.PA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMPARROPA0125",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMPARROPA0126",
+      "type": "buy",
+      "ticker": "PARRO.PA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMPARROPA0126",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMPARROPA0127",
+      "type": "buy",
+      "ticker": "PARRO.PA",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMPARROPA0127",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMCIEN0128",
+      "type": "buy",
+      "ticker": "CIEN",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMCIEN0128",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMCIEN0129",
+      "type": "buy",
+      "ticker": "CIEN",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMCIEN0129",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMCIEN0130",
+      "type": "buy",
+      "ticker": "CIEN",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMCIEN0130",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMCIEN0131",
+      "type": "buy",
+      "ticker": "CIEN",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMCIEN0131",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUM5631T0132",
+      "type": "buy",
+      "ticker": "5631.T",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUM5631T0132",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUM5631T0133",
+      "type": "buy",
+      "ticker": "5631.T",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUM5631T0133",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUM5631T0134",
+      "type": "buy",
+      "ticker": "5631.T",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUM5631T0134",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUM5631T0135",
+      "type": "buy",
+      "ticker": "5631.T",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUM5631T0135",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMMU0136",
+      "type": "buy",
+      "ticker": "MU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMMU0136",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMMU0137",
+      "type": "buy",
+      "ticker": "MU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMMU0137",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMMU0138",
+      "type": "buy",
+      "ticker": "MU",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMMU0138",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMAPD0139",
+      "type": "buy",
+      "ticker": "APD",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMAPD0139",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMAPD0140",
+      "type": "buy",
+      "ticker": "APD",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMAPD0140",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMAPD0141",
+      "type": "buy",
+      "ticker": "APD",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMAPD0141",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMMRVL0142",
+      "type": "buy",
+      "ticker": "MRVL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMMRVL0142",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMMRVL0143",
+      "type": "buy",
+      "ticker": "MRVL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMMRVL0143",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMMRVL0144",
+      "type": "buy",
+      "ticker": "MRVL",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMMRVL0144",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMKD0145",
+      "type": "buy",
+      "ticker": "KD",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMKD0145",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMKD0146",
+      "type": "buy",
+      "ticker": "KD",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMKD0146",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMETN0147",
+      "type": "buy",
+      "ticker": "ETN",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMETN0147",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMETN0148",
+      "type": "buy",
+      "ticker": "ETN",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMETN0148",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMRHMDE0149",
+      "type": "buy",
+      "ticker": "RHM.DE",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMRHMDE0149",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMAVGO0150",
+      "type": "buy",
+      "ticker": "AVGO",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMAVGO0150",
+      "source": "scalable_csv"
+    },
+    {
+      "id": "WWUMANET0151",
+      "type": "buy",
+      "ticker": "ANET",
+      "trade_date": "2025-01-15",
+      "shares": "10",
+      "price_native": {
+        "amount": "100",
+        "currency": "EUR"
+      },
+      "fees_native": null,
+      "fx_rate_eur": "1",
+      "notes": null,
+      "csv_reference": "WWUMANET0151",
+      "source": "scalable_csv"
+    }
+  ]
+}

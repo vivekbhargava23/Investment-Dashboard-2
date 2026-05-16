@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import json
+import logging
+import shutil
 from pathlib import Path
 
 import pytest
 
 from app.adapters.repo_json.migration import migrate_v2_to_v3
+
+_FIXTURES = Path(__file__).parent.parent.parent / "fixtures" / "migration"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -245,3 +249,182 @@ def test_unmapped_entries_in_isin_map_are_ignored(tmp_path: Path) -> None:
     assert summary["migrated_count"] == 1
     data = _read_portfolio(portfolio)
     assert data["transactions"][0]["isin"] == "US67066G1040"
+
+
+# ---------------------------------------------------------------------------
+# Step 1 — Production-shape reproduction fixture
+# ---------------------------------------------------------------------------
+
+def _load_fixture(name: str) -> dict:
+    with open(_FIXTURES / name, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def test_migrate_v2_to_v3_backfills_production_shape(tmp_path: Path) -> None:
+    """151 scalable_csv transactions across 20 mapped tickers must all get ISINs."""
+    portfolio = tmp_path / "portfolio.json"
+    isin_map_path = tmp_path / "isin_map.json"
+
+    shutil.copy(_FIXTURES / "portfolio_v2_production_shape.json", portfolio)
+    shutil.copy(_FIXTURES / "isin_map_v1_production_shape.json", isin_map_path)
+
+    summary = migrate_v2_to_v3(portfolio)
+
+    assert summary["migrated_count"] == 151, (
+        f"expected migrated_count=151, got {summary['migrated_count']}. "
+        f"Full summary: {summary}"
+    )
+    assert summary["scalable_unbackfilled_count"] == 0
+
+    # Build expected ISIN per ticker from fixture
+    isin_data = _load_fixture("isin_map_v1_production_shape.json")
+    expected_isin: dict[str, str] = {}
+    for isin, entry in isin_data["entries"].items():
+        if entry["status"] == "mapped" and entry["ticker"]:
+            expected_isin[entry["ticker"]] = isin
+
+    data = _read_portfolio(portfolio)
+    assert data["version"] == 3
+
+    bad = []
+    for tx in data["transactions"]:
+        expected = expected_isin.get(tx["ticker"])
+        if tx.get("isin") != expected:
+            bad.append((tx["ticker"], tx.get("isin"), expected))
+    assert not bad, f"ISIN mismatches: {bad[:5]}"
+
+
+# ---------------------------------------------------------------------------
+# Step 4 — Zero-backfill warning (load_all canary)
+# ---------------------------------------------------------------------------
+
+def test_zero_backfill_logs_warning(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """Migration emits WARNING when all scalable_csv transactions get isin=None."""
+    from app.adapters.repo_json.json_repo import JsonTransactionRepository
+
+    portfolio = tmp_path / "portfolio.json"
+    # isin_map has no entry for UNKNOWN → all 3 txs are unbackfilled
+    _write_v2(portfolio, [
+        _scalable_tx("R1", "UNKNOWN"),
+        _scalable_tx("R2", "UNKNOWN"),
+        _scalable_tx("R3", "UNKNOWN"),
+    ])
+    _write_isin_map(tmp_path / "isin_map.json", {
+        "US67066G1040": {"ticker": "NVDA", "name": "NVIDIA", "status": "mapped"},
+    })
+
+    repo = JsonTransactionRepository(portfolio)
+    with caplog.at_level(logging.WARNING):
+        try:
+            repo.load_all()
+        except Exception:
+            pass  # UnsupportedTickerError or similar from UNKNOWN ticker is fine
+
+    warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
+    assert any("zero ISIN backfills" in m for m in warning_messages), (
+        f"Expected zero-backfill warning but got: {warning_messages}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Step 7 — Edge cases
+# ---------------------------------------------------------------------------
+
+def test_empty_isin_map_file(tmp_path: Path) -> None:
+    """Empty isin_map entries → all txs get isin=None, warning condition met."""
+    portfolio = tmp_path / "portfolio.json"
+    _write_v2(portfolio, [
+        _scalable_tx("R1", "NVDA"),
+        _manual_tx("M1", "SAP.DE"),
+    ])
+    _write_isin_map(tmp_path / "isin_map.json", {})  # no entries
+
+    summary = migrate_v2_to_v3(portfolio)
+
+    assert summary["migrated_count"] == 0
+    assert summary["scalable_unbackfilled_count"] == 1
+    assert summary["manual_skipped_count"] == 1
+
+    data = _read_portfolio(portfolio)
+    assert data["version"] == 3
+    for tx in data["transactions"]:
+        assert tx["isin"] is None
+
+
+def test_all_unmapped_isin_map(tmp_path: Path) -> None:
+    """isin_map with all entries status='unmapped' → all txs get isin=None."""
+    portfolio = tmp_path / "portfolio.json"
+    _write_v2(portfolio, [_scalable_tx("R1", "NVDA")])
+    _write_isin_map(tmp_path / "isin_map.json", {
+        "US67066G1040": {"ticker": "NVDA", "name": "NVIDIA", "status": "unmapped"},
+    })
+
+    summary = migrate_v2_to_v3(portfolio)
+
+    assert summary["migrated_count"] == 0
+    assert summary["scalable_unbackfilled_count"] == 1
+    data = _read_portfolio(portfolio)
+    assert data["transactions"][0]["isin"] is None
+
+
+def test_tx_missing_ticker_field(tmp_path: Path) -> None:
+    """Transaction with no ticker key → isin=None, migration does not crash."""
+    portfolio = tmp_path / "portfolio.json"
+    tx_no_ticker = {
+        "id": "R1",
+        "type": "buy",
+        "trade_date": "2026-01-01",
+        "shares": "10",
+        "price_native": {"amount": "100", "currency": "EUR"},
+        "fx_rate_eur": "1",
+        "notes": None,
+        "csv_reference": "R1",
+        "source": "scalable_csv",
+        # deliberately omit "ticker"
+    }
+    _write_v2(portfolio, [tx_no_ticker])
+    _write_isin_map(tmp_path / "isin_map.json", {
+        "US67066G1040": {"ticker": "NVDA", "name": "NVIDIA", "status": "mapped"},
+    })
+
+    summary = migrate_v2_to_v3(portfolio)
+
+    assert summary["migrated_count"] == 0
+    assert summary["scalable_unbackfilled_count"] == 1
+    data = _read_portfolio(portfolio)
+    assert data["transactions"][0]["isin"] is None
+
+
+def test_mixed_source_fields(tmp_path: Path) -> None:
+    """Transactions with missing source are treated as manual (isin=None)."""
+    portfolio = tmp_path / "portfolio.json"
+    tx_no_source = {
+        "id": "M1",
+        "type": "buy",
+        "ticker": "NVDA",
+        "trade_date": "2026-01-01",
+        "shares": "5",
+        "price_native": {"amount": "200", "currency": "EUR"},
+        "fx_rate_eur": "1",
+        "notes": None,
+        "csv_reference": None,
+        # deliberately omit "source" — should default to manual
+    }
+    _write_v2(portfolio, [
+        _scalable_tx("R1", "NVDA"),
+        tx_no_source,
+    ])
+    _write_isin_map(tmp_path / "isin_map.json", {
+        "US67066G1040": {"ticker": "NVDA", "name": "NVIDIA", "status": "mapped"},
+    })
+
+    summary = migrate_v2_to_v3(portfolio)
+
+    # scalable_csv R1 gets backfilled; no-source M1 treated as manual → isin=None
+    assert summary["migrated_count"] == 1
+    assert summary["manual_skipped_count"] == 1
+
+    data = _read_portfolio(portfolio)
+    txs = {t["id"]: t for t in data["transactions"]}
+    assert txs["R1"]["isin"] == "US67066G1040"
+    assert txs["M1"]["isin"] is None
