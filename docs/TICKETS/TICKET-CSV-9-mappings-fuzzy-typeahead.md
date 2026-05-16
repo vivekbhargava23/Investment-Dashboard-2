@@ -1,6 +1,6 @@
 # TICKET-CSV-9 — Fuzzy ticker typeahead in Mappings page
 
-**Status:** QUEUED
+\*\*Status:\*\* IN_PROGRESS
 **Priority:** MEDIUM
 **Estimated session length:** 30 min
 **Drafted by:** Vivek + Claude Chat (2026-05-16)
