@@ -50,7 +50,7 @@ class JsonTransactionRepository(TransactionRepository):
     the transaction history (TICKET-013 decision #6).
     """
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     def __init__(self, path: Path, nav_repo: NavSnapshotRepository | None = None) -> None:
         self.path = path
@@ -71,6 +71,17 @@ class JsonTransactionRepository(TransactionRepository):
 
         if "version" not in data:
             raise RepositoryCorruptedError("Missing 'version' field")
+
+        if data["version"] == 1:
+            import logging
+
+            from app.adapters.repo_json.migration import migrate_v1_to_v2
+
+            result = migrate_v1_to_v2(self.path)
+            logging.getLogger(__name__).info("Auto-migrated portfolio to v2: %s", result)
+            # Reload the migrated file
+            with open(self.path, encoding="utf-8") as f:
+                data = json.load(f)
 
         if data["version"] != self.SCHEMA_VERSION:
             raise RepositoryCorruptedError(
