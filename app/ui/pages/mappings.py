@@ -9,14 +9,15 @@ from typing import Any
 import streamlit as st
 
 from app.domain.isin_map import IsinMapDocument, IsinMapping
+from app.ports.ticker_resolver import TickerMatch
 from app.services.isin_remap import count_transactions_for_isin, rewrite_ticker_for_isin
+from app.ui.components.ticker_searchbox import render_ticker_searchbox
 from app.ui.wiring import get_isin_map_repo, get_repository, get_ticker_resolver
 
 _TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,29}$")
 
 _STATE_DEFAULTS: dict[str, Any] = {
     "mappings_editing_isin": None,
-    "mappings_edit_ticker_value": "",
     "mappings_confirming_delete_isin": None,
     "mappings_feedback": None,
 }
@@ -91,33 +92,35 @@ def _render_unmapped_section(
                 st.markdown(f'<span title="{name}">{name[:38]}…</span>', unsafe_allow_html=True)
             else:
                 st.write(name)
-        ticker_key = f"mappings_ticker_{isin}"
         with col_input:
-            ticker_input = st.text_input(
-                "Ticker",
-                key=ticker_key,
-                placeholder="e.g. NVDA, 5631.T",
-                label_visibility="collapsed",
+            selected_match: TickerMatch | None = render_ticker_searchbox(
+                key=f"mappings_searchbox_unmapped_{isin}",
+                resolver=get_ticker_resolver(),
+                placeholder=f"Search for {mapping.name or 'this security'}…",
             )
         with col_btn:
             if st.button("Save", key=f"mappings_save_unmapped_{isin}"):
-                raw = ticker_input.strip().upper()
-                err = _validate_ticker(raw)
-                if err:
-                    st.session_state.mappings_feedback = ("error", f"{isin}: {err}")
+                if selected_match is None:
+                    st.session_state.mappings_feedback = ("error", f"{isin}: Pick a ticker from the search results before saving.")
                     st.rerun()
                 else:
-                    hint, warn = _try_resolve(raw)
-                    updated_doc, _ = _save_mapping(isin, raw, doc)
-                    get_isin_map_repo().save(updated_doc)
-                    if hint:
-                        msg = f"Mapped {isin} → {raw} ({hint})."
-                    elif warn:
-                        msg = f"Mapped {isin} → {raw}. Warning: {warn}"
+                    raw = selected_match.symbol
+                    err = _validate_ticker(raw)
+                    if err:
+                        st.session_state.mappings_feedback = ("error", f"{isin}: {err}")
+                        st.rerun()
                     else:
-                        msg = f"Mapped {isin} → {raw}."
-                    st.session_state.mappings_feedback = ("success", msg)
-                    st.rerun()
+                        hint, warn = _try_resolve(raw)
+                        updated_doc, _ = _save_mapping(isin, raw, doc)
+                        get_isin_map_repo().save(updated_doc)
+                        if hint:
+                            msg = f"Mapped {isin} → {raw} ({hint})."
+                        elif warn:
+                            msg = f"Mapped {isin} → {raw}. Warning: {warn}"
+                        else:
+                            msg = f"Mapped {isin} → {raw}."
+                        st.session_state.mappings_feedback = ("success", msg)
+                        st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +159,6 @@ def _render_mapped_section(
         cols[3].write(mapping.last_seen_in_csv.isoformat() if mapping.last_seen_in_csv else "—")
         if cols[4].button("Edit", key=f"mappings_edit_{isin}"):
             st.session_state.mappings_editing_isin = isin
-            st.session_state.mappings_edit_ticker_value = mapping.ticker or ""
             st.rerun()
         if cols[5].button("Delete", key=f"mappings_delete_{isin}"):
             st.session_state.mappings_confirming_delete_isin = isin
@@ -168,34 +170,44 @@ def _render_edit_row(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
     cols[0].code(isin, language=None)
     cols[1].write(mapping.name or "—")
     with cols[2]:
-        new_ticker = st.text_input(
-            "New ticker",
-            value=st.session_state.mappings_edit_ticker_value,
-            key=f"mappings_edit_input_{isin}",
-            label_visibility="collapsed",
+        default_match: TickerMatch | None = None
+        if mapping.ticker:
+            try:
+                default_match = get_ticker_resolver().lookup(mapping.ticker)
+            except Exception:
+                default_match = None
+        selected_match: TickerMatch | None = render_ticker_searchbox(
+            key=f"mappings_edit_searchbox_{isin}",
+            resolver=get_ticker_resolver(),
+            placeholder="Search by ticker or name…",
+            default_match=default_match,
         )
     cols[3].write(mapping.last_seen_in_csv.isoformat() if mapping.last_seen_in_csv else "—")
     with cols[4]:
         if st.button("Save", key=f"mappings_edit_save_{isin}", type="primary"):
-            raw = new_ticker.strip().upper()
-            err = _validate_ticker(raw)
-            if err:
-                st.session_state.mappings_feedback = ("error", f"{isin}: {err}")
+            if selected_match is None:
+                st.session_state.mappings_feedback = ("error", f"{isin}: Pick a ticker from the search results before saving.")
                 st.rerun()
             else:
-                hint, warn = _try_resolve(raw)
-                updated_doc, _ = _save_mapping(isin, raw, doc)
-                get_isin_map_repo().save(updated_doc)
-                n = rewrite_ticker_for_isin(get_repository(), isin, raw)
-                st.session_state.mappings_editing_isin = None
-                if hint:
-                    msg = f"Updated {isin} → {raw} ({hint}). Rewrote {n} transaction(s)."
-                elif warn:
-                    msg = f"Updated {isin} → {raw}. Warning: {warn}. Rewrote {n} transaction(s)."
+                raw = selected_match.symbol
+                err = _validate_ticker(raw)
+                if err:
+                    st.session_state.mappings_feedback = ("error", f"{isin}: {err}")
+                    st.rerun()
                 else:
-                    msg = f"Updated {isin} → {raw}. Rewrote {n} transaction(s)."
-                st.session_state.mappings_feedback = ("success", msg)
-                st.rerun()
+                    hint, warn = _try_resolve(raw)
+                    updated_doc, _ = _save_mapping(isin, raw, doc)
+                    get_isin_map_repo().save(updated_doc)
+                    n = rewrite_ticker_for_isin(get_repository(), isin, raw)
+                    st.session_state.mappings_editing_isin = None
+                    if hint:
+                        msg = f"Updated {isin} → {raw} ({hint}). Rewrote {n} transaction(s)."
+                    elif warn:
+                        msg = f"Updated {isin} → {raw}. Warning: {warn}. Rewrote {n} transaction(s)."
+                    else:
+                        msg = f"Updated {isin} → {raw}. Rewrote {n} transaction(s)."
+                    st.session_state.mappings_feedback = ("success", msg)
+                    st.rerun()
     with cols[5]:
         if st.button("Cancel", key=f"mappings_edit_cancel_{isin}"):
             st.session_state.mappings_editing_isin = None
