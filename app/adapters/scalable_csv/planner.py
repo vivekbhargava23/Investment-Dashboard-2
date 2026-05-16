@@ -1,7 +1,8 @@
-"""Classify parsed CSV rows into planned import actions (pure, no I/O)."""
+"""Classify parsed CSV rows into planned import actions (no write I/O)."""
 from __future__ import annotations
 
 import hashlib
+from decimal import Decimal
 
 from app.adapters.scalable_csv.parser import ParsedCsvRow
 from app.domain.csv_import import (
@@ -14,6 +15,7 @@ from app.domain.isin_map import IsinMapDocument
 from app.domain.models import Transaction
 from app.domain.money import Currency
 from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
+from app.ports.fx_feed import FxProvider
 
 _EXECUTED_STATUS = "Executed"
 _IN_SCOPE_TYPES = frozenset({"Buy", "Sell", "Savings plan", "Security transfer"})
@@ -41,8 +43,16 @@ def plan_import(
     rows: list[ParsedCsvRow],
     existing_txs: list[Transaction],
     isin_doc: IsinMapDocument,
+    *,
+    fx_provider: FxProvider | None = None,
 ) -> ImportPlan:
-    """Classify every CSV row into a planned action without writing anything."""
+    """Classify every CSV row into a planned action without writing anything.
+
+    When fx_provider is supplied, non-EUR tickers are resolved via FX lookup:
+    - Successful lookup → status NEW with fx_rate_eur set on the row.
+    - Failed lookup → status FX_UNAVAILABLE (user may supply rate manually).
+    When fx_provider is None, non-EUR tickers remain NEEDS_CURRENCY_SUPPORT.
+    """
     existing_by_ref: dict[str, Transaction] = {
         tx.csv_reference: tx
         for tx in existing_txs
@@ -84,14 +94,27 @@ def plan_import(
         try:
             native_currency = infer_currency_from_ticker(mapping.ticker)
         except UnsupportedTickerError:
+            # Currency not in our enum — cannot compute FX rate
             planned.append(_make(
                 row, RowStatus.NEEDS_CURRENCY_SUPPORT, PlannedAction.SKIP, ticker=mapping.ticker
             ))
             continue
 
         if native_currency != Currency.EUR:
+            if fx_provider is None:
+                planned.append(_make(
+                    row, RowStatus.NEEDS_CURRENCY_SUPPORT, PlannedAction.SKIP, ticker=mapping.ticker
+                ))
+                continue
+            fx_rate_eur = _lookup_fx(fx_provider, native_currency, row.date)
+            if fx_rate_eur is None:
+                planned.append(_make(
+                    row, RowStatus.FX_UNAVAILABLE, PlannedAction.SKIP, ticker=mapping.ticker
+                ))
+                continue
             planned.append(_make(
-                row, RowStatus.NEEDS_CURRENCY_SUPPORT, PlannedAction.SKIP, ticker=mapping.ticker
+                row, RowStatus.NEW, PlannedAction.INSERT,
+                ticker=mapping.ticker, fx_rate_eur=fx_rate_eur,
             ))
             continue
 
@@ -121,6 +144,16 @@ def plan_import(
     return ImportPlan(rows=tuple(planned))
 
 
+def _lookup_fx(fx_provider: FxProvider, native_ccy: Currency, on_date: object) -> Decimal | None:
+    """Return fx_rate_eur (1 native = X EUR) or None on any error."""
+    try:
+        from datetime import date as date_type
+        assert isinstance(on_date, date_type)
+        return fx_provider.get_historical_rate(native_ccy, Currency.EUR, on_date)
+    except Exception:
+        return None
+
+
 def _make(
     row: ParsedCsvRow,
     status: RowStatus,
@@ -129,6 +162,7 @@ def _make(
     ticker: str | None = None,
     conflict_tx_id: str | None = None,
     error_message: str | None = None,
+    fx_rate_eur: Decimal | None = None,
 ) -> PlannedRow:
     return PlannedRow(
         row_number=row.row_number,
@@ -147,4 +181,5 @@ def _make(
         proposed_ticker=ticker,
         conflict_tx_id=conflict_tx_id,
         error_message=error_message,
+        fx_rate_eur=fx_rate_eur,
     )

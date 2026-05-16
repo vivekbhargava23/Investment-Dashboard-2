@@ -9,10 +9,11 @@ from pathlib import Path
 import pytest
 
 from app.adapters.scalable_csv.importer import run_import
-from app.adapters.scalable_csv.parser import parse_csv
+from app.adapters.scalable_csv.parser import ParsedCsvRow, parse_csv
 from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
+from app.ports.fx_feed import FxRateUnavailableError
 from app.ports.repository import TransactionNotFoundError
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "scalable_csv"
@@ -458,3 +459,172 @@ def test_amount_check_sign_agnostic_on_incoming_transfer():
     # Should not raise — sign-agnostic check: abs(17×1.144)=19.448 ≈ abs(19.4463)=19.4463
     summary = run_import(rows, "incoming_transfer_only.csv", tx_repo, map_repo)
     assert summary.new_transactions == 1
+
+
+# ---------------------------------------------------------------------------
+# TICKET-CSV-5: native-currency support
+# ---------------------------------------------------------------------------
+
+class FakeFxProvider:
+    def __init__(self, rates: dict[tuple[Currency, Currency, date], Decimal]) -> None:
+        self._rates = rates
+        self.call_count = 0
+
+    def get_historical_rate(self, base: Currency, quote: Currency, on_date: date) -> Decimal:
+        self.call_count += 1
+        key = (base, quote, on_date)
+        if key not in self._rates:
+            raise FxRateUnavailableError(base, quote, on_date, "not in fake")
+        return self._rates[key]
+
+    def get_current_rate(self, base: Currency, quote: Currency) -> Decimal:
+        raise NotImplementedError
+
+    def clear_cache(self) -> None:
+        pass
+
+
+_NVDA_ISIN = "US67066G1040"
+_NVDA_MAP = _isin_map_with((_NVDA_ISIN, "NVDA", "NVIDIA Corp"))
+
+_JP_ISIN = "JP3633400001"
+_JP_MAP = _isin_map_with((_JP_ISIN, "5631.T", "Japan Steel Works"))
+
+
+def _make_csv_rows(
+    isin: str,
+    description: str,
+    shares: str,
+    price_eur: str,
+    amount_eur: str,
+    trade_date: date,
+    reference: str = "REF_NATIVE",
+) -> list[ParsedCsvRow]:
+    """Build a single-row CSV-parsed result directly for non-EUR ticker tests."""
+    return [
+        ParsedCsvRow(
+            row_number=2,
+            date=trade_date,
+            time="10:00:00",
+            status="Executed",
+            reference=reference,
+            description=description,
+            asset_type="Security",
+            type="Buy",
+            isin=isin,
+            shares=Decimal(shares),
+            price=Decimal(price_eur),
+            amount=Decimal(amount_eur),
+            fee=None,
+            tax=Decimal("0"),
+            currency="EUR",
+        )
+    ]
+
+
+def test_usd_ticker_imports_with_native_currency():
+    """NVDA buy row: produces Transaction with USD native price and correct fx_rate_eur."""
+    trade_date = date(2026, 3, 15)
+    eur_usd_rate = Decimal("1.0835")   # 1 EUR = 1.0835 USD → fx_rate_eur = 1/1.0835 ≈ 0.9229
+    fx_rate_eur = Decimal("1") / eur_usd_rate
+
+    # CSV shows EUR-equivalent price: 4 shares × 82.65 EUR = 330.60 EUR
+    rows = _make_csv_rows(
+        _NVDA_ISIN, "NVIDIA Corp",
+        shares="4", price_eur="82.65", amount_eur="-330.60",
+        trade_date=trade_date,
+    )
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(_NVDA_MAP)
+    fx = FakeFxProvider({(Currency.USD, Currency.EUR, trade_date): fx_rate_eur})
+
+    summary = run_import(rows, "nvda.csv", tx_repo, map_repo, fx_provider=fx)
+
+    assert summary.new_transactions == 1
+    assert summary.invalid_mapping == 0
+
+    tx = tx_repo.load_all()[0]
+    assert tx.price_native.currency == Currency.USD
+    assert tx.fx_rate_eur == fx_rate_eur
+    # native_price = csv_price_eur / fx_rate_eur = 82.65 / (1/1.0835) = 82.65 * 1.0835 ≈ 89.55
+    expected_native_price = Decimal("82.65") / fx_rate_eur
+    assert abs(tx.price_native.amount - expected_native_price) < Decimal("0.001")
+    # Sanity: shares × native_price × fx_rate_eur ≈ abs(csv_amount_eur)
+    reconstructed_eur = tx.shares * tx.price_native.amount * tx.fx_rate_eur
+    assert abs(reconstructed_eur - Decimal("330.60")) < Decimal("0.02")
+
+
+def test_jpy_ticker_imports_with_native_currency():
+    """5631.T buy row: produces Transaction with JPY native price."""
+    trade_date = date(2026, 2, 10)
+    jpy_fx_rate_eur = Decimal("0.006234")  # 1 JPY = 0.006234 EUR
+
+    # CSV shows EUR-equivalent price: 100 shares × 1.87 EUR = 187.00 EUR
+    rows = _make_csv_rows(
+        _JP_ISIN, "Japan Steel Works",
+        shares="100", price_eur="1.87", amount_eur="-187.00",
+        trade_date=trade_date,
+    )
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(_JP_MAP)
+    fx = FakeFxProvider({(Currency.JPY, Currency.EUR, trade_date): jpy_fx_rate_eur})
+
+    summary = run_import(rows, "jsw.csv", tx_repo, map_repo, fx_provider=fx)
+
+    assert summary.new_transactions == 1
+    tx = tx_repo.load_all()[0]
+    assert tx.price_native.currency == Currency.JPY
+    assert tx.fx_rate_eur == jpy_fx_rate_eur
+    expected_native = Decimal("1.87") / jpy_fx_rate_eur
+    assert abs(tx.price_native.amount - expected_native) < Decimal("0.01")
+
+
+def test_usd_ticker_without_fx_provider_counts_as_invalid_mapping():
+    """Without fx_provider, non-EUR tickers go to invalid_mapping (CLI backward compat)."""
+    trade_date = date(2026, 3, 15)
+    rows = _make_csv_rows(
+        _NVDA_ISIN, "NVIDIA Corp",
+        shares="4", price_eur="82.65", amount_eur="-330.60",
+        trade_date=trade_date,
+    )
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(_NVDA_MAP)
+
+    summary = run_import(rows, "nvda.csv", tx_repo, map_repo)  # no fx_provider
+
+    assert summary.new_transactions == 0
+    assert summary.invalid_mapping == 1
+
+
+def test_usd_ticker_fx_unavailable_counts_as_invalid_mapping():
+    """When FX provider raises, the row is counted as invalid_mapping."""
+    trade_date = date(2026, 3, 15)
+    rows = _make_csv_rows(
+        _NVDA_ISIN, "NVIDIA Corp",
+        shares="4", price_eur="82.65", amount_eur="-330.60",
+        trade_date=trade_date,
+    )
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(_NVDA_MAP)
+    fx = FakeFxProvider({})  # always raises
+
+    summary = run_import(rows, "nvda.csv", tx_repo, map_repo, fx_provider=fx)
+
+    assert summary.new_transactions == 0
+    assert summary.invalid_mapping == 1
+
+
+def test_eur_ticker_regression_with_fx_provider():
+    """EUR-native tickers import identically whether fx_provider is passed or not."""
+    rows = parse_csv(FIXTURES / "happy_path.csv")
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(_FULL_MAP)
+    fx = FakeFxProvider({})  # never called for EUR tickers
+
+    summary = run_import(rows, "happy_path.csv", tx_repo, map_repo, fx_provider=fx)
+
+    assert summary.new_transactions == 4
+    assert summary.invalid_mapping == 0
+    for tx in tx_repo.load_all():
+        assert tx.price_native.currency == Currency.EUR
+        assert tx.fx_rate_eur == Decimal("1")
