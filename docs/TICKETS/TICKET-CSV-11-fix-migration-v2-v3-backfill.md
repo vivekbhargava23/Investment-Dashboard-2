@@ -1,6 +1,6 @@
 # TICKET-CSV-11 — Fix migration v2→v3 ISIN backfill (zero-result bug)
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Estimated session length:** 2 hr
 **Drafted by:** Vivek + Claude Chat (2026-05-16)
