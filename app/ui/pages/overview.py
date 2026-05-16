@@ -19,6 +19,7 @@ from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
 from app.ui.wiring import (
     get_fx_provider,
+    get_isin_map_repo,
     get_ohlc_data_provider,
     get_price_provider,
     get_repository,
@@ -34,11 +35,6 @@ _PLACEHOLDER_HORIZON: dict[str, Literal["H1", "H2", "H3"]] = {
     "NVDA": "H1", "ETN": "H1", "ANET": "H1",
     "RHM.DE": "H2", "MU": "H2", "HY9H.F": "H2", "MRVL": "H2", "APD": "H2",
     "AVGO": "H2", "ASX": "H2", "VUSA.DE": "H3", "5631.T": "H3",
-}
-_PLACEHOLDER_NAME: dict[str, str] = {
-    "NVDA": "NVIDIA", "RHM.DE": "Rheinmetall", "MU": "Micron", "HY9H.F": "SK Hynix",
-    "MRVL": "Marvell", "APD": "Air Products", "ANET": "Arista", "AVGO": "Broadcom",
-    "ETN": "Eaton", "ASX": "ASE Tech", "VUSA.DE": "S&P 500 ETF", "5631.T": "Japan Steel Works",
 }
 _PERIOD_LABELS: dict[ChartPeriod, str] = {
     ChartPeriod.ONE_DAY: "1D",
@@ -90,6 +86,7 @@ def _build_positions_table_html(
     positions: dict[str, LivePosition],
     summary: PortfolioSummary,
     trend_data: dict[str, str] | None = None,
+    name_lookup: dict[str, str] | None = None,
 ) -> str:
     """trend_data maps ticker → pre-formatted trend cell HTML (e.g. '↑ +2.3%' or '—')."""
     sorted_positions = sorted(
@@ -98,14 +95,11 @@ def _build_positions_table_html(
         reverse=True,
     )
 
+    _name_lookup = name_lookup or {}
     tbody_rows: list[str] = []
     for p in sorted_positions:
         ticker = p.position.ticker
-        name = _PLACEHOLDER_NAME.get(ticker, ticker)
-
-        ccy = "EUR"
-        if len(p.position.open_lots) > 0:
-            ccy = p.position.open_lots[0].cost_per_share_native.currency.value
+        name = _name_lookup.get(ticker, ticker)
 
         shares = f"{p.position.open_shares:g}"
         cost = format_eur(p.position.cost_basis_eur, signed=False).replace("€", "")
@@ -116,7 +110,26 @@ def _build_positions_table_html(
         is_stale = p.live_price_native is None or p.live_value_eur is None or p.unrealised_gain_eur is None
         row_class = "stale" if is_stale else ""
 
-        price = "—" if is_stale or p.live_price_native is None else f"{float(p.live_price_native.amount):.2f}"
+        if is_stale or p.live_price_native is None or p.live_value_eur is None:
+            price_cell = '<td class="font-mono text-right">—</td>'
+        else:
+            native_ccy = p.live_price_native.currency.value
+            native_amt = float(p.live_price_native.amount)
+            eur_per_share = float(p.live_value_eur.amount) / float(p.position.open_shares)
+            if native_ccy != "EUR":
+                tooltip = f"{native_ccy} {native_amt:.2f}"
+                price_cell = (
+                    f'<td class="font-mono text-right" title="{tooltip}">'
+                    f'{eur_per_share:.2f}'
+                    f'</td>'
+                )
+            else:
+                price_cell = (
+                    f'<td class="font-mono text-right">'
+                    f'{eur_per_share:.2f}'
+                    f'</td>'
+                )
+
         val = "—" if is_stale or p.live_value_eur is None else format_eur(p.live_value_eur, signed=False).replace("€", "")
         gain = "—" if is_stale or p.unrealised_gain_eur is None else format_eur(p.unrealised_gain_eur, signed=True).replace("€", "")
 
@@ -141,8 +154,7 @@ def _build_positions_table_html(
             f'<tr class="{row_class}">'
             f'<td><strong>{ticker}</strong></td>'
             f'<td style="color: var(--text2);">{name}</td>'
-            f'<td style="color: var(--text3);">{ccy}</td>'
-            f'<td class="font-mono text-right">{price}</td>'
+            f'{price_cell}'
             f'<td class="font-mono text-right">{shares}</td>'
             f'<td class="font-mono text-right">{cost}</td>'
             f'<td class="font-mono text-right"><strong>{val}</strong></td>'
@@ -162,8 +174,7 @@ def _build_positions_table_html(
         '<tr style="border-bottom: 1px solid var(--border); color: var(--text3); text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em;">'
         '<th style="padding: 8px 4px;">Ticker</th>'
         '<th style="padding: 8px 4px;">Name</th>'
-        '<th style="padding: 8px 4px;">CCY</th>'
-        '<th style="padding: 8px 4px; text-align: right;">Price</th>'
+        '<th style="padding: 8px 4px; text-align: right;">Price (€)</th>'
         '<th style="padding: 8px 4px; text-align: right;">Shares</th>'
         '<th style="padding: 8px 4px; text-align: right;">Cost (€)</th>'
         '<th style="padding: 8px 4px; text-align: right;">Value (€)</th>'
@@ -303,10 +314,17 @@ def render() -> None:
         </div>
     """)
 
+    isin_map_doc = get_isin_map_repo().load()
+    name_lookup: dict[str, str] = {
+        m.ticker: m.name
+        for m in isin_map_doc.entries.values()
+        if m.status == "mapped" and m.ticker
+    }
+
     tickers = list(live_positions.keys())
     trend_text_map = _fetch_trend_texts(tickers)
 
-    table_html = _build_positions_table_html(live_positions, summary, trend_data=trend_text_map)
+    table_html = _build_positions_table_html(live_positions, summary, trend_data=trend_text_map, name_lookup=name_lookup)
     render_html(f'<div class="metric-card" style="padding: 0; overflow-x: auto;">{table_html}</div>')
 
     status_text = f"● LIVE · refreshed {now.strftime('%H:%M')}"
