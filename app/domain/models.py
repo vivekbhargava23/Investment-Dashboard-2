@@ -29,6 +29,7 @@ class Transaction(BaseModel):
     fees_native: Money | None = None
     fx_rate_eur: Decimal
     notes: str | None = None
+    isin: str | None = None
     csv_reference: str | None = None
     source: Literal["scalable_csv", "manual", "switch", "unknown"] = "manual"
 
