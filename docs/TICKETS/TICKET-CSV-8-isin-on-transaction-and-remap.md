@@ -1,6 +1,6 @@
 # TICKET-CSV-8 — ISIN on Transaction + remap-on-mapping-edit
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Estimated session length:** 2 hr
 **Drafted by:** Vivek + Claude Chat (2026-05-16)

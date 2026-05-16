@@ -573,3 +573,38 @@ def test_full_export_reconciliation():
     types = {t.type for t in dell_txs}
     assert TransactionType.BUY in types
     assert TransactionType.SELL in types
+
+
+def test_full_export_isin_populated_on_every_transaction():
+    """Every imported transaction from the full export has isin set to the CSV row's ISIN."""
+    rows = parse_csv(FIXTURES / "full_export_2026_05_14.csv")
+
+    raw = json.loads((FIXTURES / "full_export_2026_05_14_isin_map.json").read_text())
+    entries = {
+        isin: IsinMapping(ticker=v["ticker"], name=v["name"], status=v["status"])
+        for isin, v in raw["entries"].items()
+    }
+    isin_doc = IsinMapDocument(version=raw["version"], entries=entries)
+
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(isin_doc)
+
+    run_import(rows, "full_export_2026_05_14.csv", tx_repo, map_repo)
+
+    # Build a reference: csv_reference → isin from the parsed CSV rows
+    # (security-transfer rows are skipped so only in-scope rows are relevant)
+    _IN_SCOPE = frozenset({"Buy", "Sell", "Savings plan"})
+    ref_to_isin = {
+        row.reference: row.isin
+        for row in rows
+        if row.status == "Executed" and row.type in _IN_SCOPE
+    }
+
+    txs = tx_repo.load_all()
+    assert all(tx.source == "scalable_csv" for tx in txs)
+
+    for tx in txs:
+        assert tx.isin is not None, f"tx {tx.id} has no ISIN"
+        assert tx.isin == ref_to_isin[tx.id], (
+            f"tx {tx.id}: expected ISIN {ref_to_isin[tx.id]!r}, got {tx.isin!r}"
+        )

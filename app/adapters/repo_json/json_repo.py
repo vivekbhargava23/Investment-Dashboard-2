@@ -49,7 +49,7 @@ class JsonTransactionRepository(TransactionRepository):
     the transaction history (TICKET-013 decision #6).
     """
 
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 3
 
     def __init__(self, path: Path, nav_repo: NavSnapshotRepository | None = None) -> None:
         self.path = path
@@ -78,7 +78,16 @@ class JsonTransactionRepository(TransactionRepository):
 
             result = migrate_v1_to_v2(self.path)
             logging.getLogger(__name__).info("Auto-migrated portfolio to v2: %s", result)
-            # Reload the migrated file
+            with open(self.path, encoding="utf-8") as f:
+                data = json.load(f)
+
+        if data["version"] == 2:
+            import logging
+
+            from app.adapters.repo_json.migration import migrate_v2_to_v3
+
+            summary = migrate_v2_to_v3(self.path)
+            logging.getLogger(__name__).info("Auto-migrated portfolio to v3: %s", summary)
             with open(self.path, encoding="utf-8") as f:
                 data = json.load(f)
 

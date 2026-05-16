@@ -9,7 +9,8 @@ from typing import Any
 import streamlit as st
 
 from app.domain.isin_map import IsinMapDocument, IsinMapping
-from app.ui.wiring import get_isin_map_repo, get_ticker_resolver
+from app.services.isin_remap import count_transactions_for_isin, rewrite_ticker_for_isin
+from app.ui.wiring import get_isin_map_repo, get_repository, get_ticker_resolver
 
 _TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,29}$")
 
@@ -185,13 +186,14 @@ def _render_edit_row(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
                 hint, warn = _try_resolve(raw)
                 updated_doc, _ = _save_mapping(isin, raw, doc)
                 get_isin_map_repo().save(updated_doc)
+                n = rewrite_ticker_for_isin(get_repository(), isin, raw)
                 st.session_state.mappings_editing_isin = None
                 if hint:
-                    msg = f"Updated {isin} → {raw} ({hint})."
+                    msg = f"Updated {isin} → {raw} ({hint}). Rewrote {n} transaction(s)."
                 elif warn:
-                    msg = f"Updated {isin} → {raw}. Warning: {warn}"
+                    msg = f"Updated {isin} → {raw}. Warning: {warn}. Rewrote {n} transaction(s)."
                 else:
-                    msg = f"Updated {isin} → {raw}."
+                    msg = f"Updated {isin} → {raw}. Rewrote {n} transaction(s)."
                 st.session_state.mappings_feedback = ("success", msg)
                 st.rerun()
     with cols[5]:
@@ -206,6 +208,15 @@ def _render_delete_confirmation(isin: str, mapping: Any, doc: IsinMapDocument) -
         st.warning(f"Delete mapping for {isin} ({mapping.name}, ticker: {mapping.ticker})?")
     with cols[1]:
         if st.button("Yes", key=f"mappings_confirm_delete_{isin}", type="primary"):
+            n = count_transactions_for_isin(get_repository(), isin)
+            if n > 0:
+                st.session_state.mappings_confirming_delete_isin = None
+                st.session_state.mappings_feedback = (
+                    "error",
+                    f"Cannot delete {isin}: {n} transaction(s) still reference it. "
+                    "Delete those transactions first or remap to a different ticker.",
+                )
+                st.rerun()
             updated_doc = _delete_mapping(isin, doc)
             get_isin_map_repo().save(updated_doc)
             st.session_state.mappings_confirming_delete_isin = None

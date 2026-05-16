@@ -240,6 +240,7 @@ def run_import(
                 fees_native=fees_native,
                 fx_rate_eur=fx_rate_eur,
                 notes=_build_notes(row),
+                isin=row.isin,
                 csv_reference=row.reference,
                 source="scalable_csv",
             )
