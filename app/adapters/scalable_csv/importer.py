@@ -2,7 +2,11 @@
 
 Takes parsed CSV rows (from parser.py), an IsinMapRepository, and a
 TransactionRepository. Applies business rules (status filter, type filter,
-deduplication, currency check, amount sanity check) and writes the results.
+deduplication, amount sanity check) and writes the results.
+
+All Scalable Capital CSV rows carry EUR prices (currency column is always EUR).
+No FX lookup is performed; every imported Transaction is stored as EUR-native
+with fx_rate_eur=1.  Security-transfer pairs are skipped as internal reshuffles.
 """
 from __future__ import annotations
 
@@ -15,12 +19,10 @@ from app.adapters.scalable_csv.parser import ParsedCsvRow
 from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
-from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
-from app.ports.fx_feed import FxProvider
 from app.ports.isin_map import IsinMapRepository
 from app.ports.repository import TransactionRepository
 
-_IN_SCOPE_TYPES = frozenset({"Buy", "Sell", "Savings plan", "Security transfer"})
+_IN_SCOPE_TYPES = frozenset({"Buy", "Sell", "Savings plan"})
 _EXECUTED_STATUS = "Executed"
 
 # Expected amount sign per row type: "negative"=cash out, "positive"=cash in, "either"=no check.
@@ -28,7 +30,6 @@ _EXPECTED_AMOUNT_SIGN: dict[str, str] = {
     "Buy": "negative",
     "Savings plan": "negative",
     "Sell": "positive",
-    "Security transfer": "either",
 }
 
 
@@ -39,7 +40,7 @@ class ImportSummary:
     status_filtered: int = 0
     status_filtered_detail: dict[str, int] = field(default_factory=dict)
     out_of_scope: int = 0
-    outgoing_transfers_skipped: int = 0
+    internal_transfers_skipped: int = 0
     in_scope: int = 0
     already_existing: int = 0
     new_transactions: int = 0
@@ -52,7 +53,7 @@ class ImportSummary:
 
 
 def _csv_type_to_transaction_type(csv_type: str) -> TransactionType:
-    if csv_type in ("Buy", "Savings plan", "Security transfer"):
+    if csv_type in ("Buy", "Savings plan"):
         return TransactionType.BUY
     if csv_type == "Sell":
         return TransactionType.SELL
@@ -62,7 +63,7 @@ def _csv_type_to_transaction_type(csv_type: str) -> TransactionType:
 def _check_amount(row: ParsedCsvRow) -> None:
     """Verify abs(amount) ≈ abs(shares × price) within 0.01 EUR tolerance.
 
-    Sign-agnostic: works for both positive-amount (Sell/incoming transfer) and
+    Sign-agnostic: works for both positive-amount (Sell) and
     negative-amount (Buy/Savings plan) rows. The fee column is NOT included in
     the amount column — it is recorded separately.
     """
@@ -128,8 +129,6 @@ def run_import(
     csv_filename: str,
     tx_repo: TransactionRepository,
     isin_map_repo: IsinMapRepository,
-    *,
-    fx_provider: FxProvider | None = None,
 ) -> ImportSummary:
     summary = ImportSummary(csv_path=csv_filename, total_rows=len(rows))
 
@@ -153,19 +152,19 @@ def run_import(
             )
             continue
 
+        # Security transfers are internal reshuffles — skip both legs entirely.
+        if row.type == "Security transfer":
+            summary.internal_transfers_skipped += 1
+            continue
+
         # Type filter
         if row.type not in _IN_SCOPE_TYPES:
             summary.out_of_scope += 1
             continue
 
-        # Skip outgoing Security transfers (negative shares = assets leaving old broker)
-        if row.type == "Security transfer" and row.shares is not None and row.shares < 0:
-            summary.outgoing_transfers_skipped += 1
-            continue
-
         summary.in_scope += 1
 
-        # Non-EUR currency defense
+        # Non-EUR currency defense (all Scalable rows should be EUR)
         if row.currency != "EUR":
             raise ValueError(
                 f"Row {row.row_number} (ISIN {row.isin}): unexpected currency "
@@ -220,50 +219,15 @@ def run_import(
             summary.unmapped += 1
             continue
 
-        # Build Transaction — detect native currency from ticker
+        # Build Transaction — all Scalable CSV rows are EUR-native
         assert mapping.ticker is not None
         tx_type = _csv_type_to_transaction_type(row.type)
 
-        try:
-            native_ccy = infer_currency_from_ticker(mapping.ticker)
-        except UnsupportedTickerError as exc:
-            if row.isin not in reported_invalid:
-                reported_invalid.add(row.isin)
-                summary.invalid_mapping_errors.append((row.isin, str(exc)))
-            summary.invalid_mapping += 1
-            continue
-
-        if native_ccy == Currency.EUR:
-            price_native = Money(amount=row.price, currency=Currency.EUR)
-            fees_native: Money | None = (
-                Money(amount=row.fee, currency=Currency.EUR) if row.fee is not None else None
-            )
-            fx_rate_eur = Decimal("1")
-        else:
-            if fx_provider is None:
-                if row.isin not in reported_invalid:
-                    reported_invalid.add(row.isin)
-                    summary.invalid_mapping_errors.append((
-                        row.isin,
-                        f"ticker {mapping.ticker!r} is non-EUR; supply fx_provider to import",
-                    ))
-                summary.invalid_mapping += 1
-                continue
-            try:
-                fx_rate_eur = fx_provider.get_historical_rate(native_ccy, Currency.EUR, row.date)
-            except Exception as exc:
-                if row.isin not in reported_invalid:
-                    reported_invalid.add(row.isin)
-                    summary.invalid_mapping_errors.append((row.isin, f"FX lookup failed: {exc}"))
-                summary.invalid_mapping += 1
-                continue
-            native_price_amount = row.price / fx_rate_eur
-            price_native = Money(amount=native_price_amount, currency=native_ccy)
-            fees_native = (
-                Money(amount=row.fee / fx_rate_eur, currency=native_ccy)
-                if row.fee is not None
-                else None
-            )
+        price_native = Money(amount=row.price, currency=Currency.EUR)
+        fees_native: Money | None = (
+            Money(amount=row.fee, currency=Currency.EUR) if row.fee is not None else None
+        )
+        fx_rate_eur = Decimal("1")
 
         try:
             tx = Transaction(
