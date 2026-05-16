@@ -173,7 +173,7 @@ def test_load_all_corrupted_missing_version(tmp_path):
 
 def test_load_all_corrupted_wrong_version(tmp_path):
     path = tmp_path / "portfolio.json"
-    path.write_text(json.dumps({"version": 2, "transactions": []}))
+    path.write_text(json.dumps({"version": 3, "transactions": []}))
     repo = JsonTransactionRepository(path)
     with pytest.raises(RepositoryCorruptedError, match="version"):
         repo.load_all()
@@ -181,7 +181,7 @@ def test_load_all_corrupted_wrong_version(tmp_path):
 
 def test_load_all_corrupted_invalid_transaction(tmp_path):
     path = tmp_path / "portfolio.json"
-    path.write_text(json.dumps({"version": 1, "transactions": [{"id": "bad"}]}))
+    path.write_text(json.dumps({"version": 2, "transactions": [{"id": "bad"}]}))
     repo = JsonTransactionRepository(path)
     with pytest.raises(RepositoryCorruptedError, match="Invalid transaction"):
         repo.load_all()

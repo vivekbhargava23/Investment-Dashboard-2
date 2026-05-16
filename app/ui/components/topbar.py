@@ -20,6 +20,7 @@ PAGE_TITLES: dict[str, str] = {
     "simulator": "Sell Simulator",
     "manage": "Manage Portfolio",
     "mappings": "ISIN Mappings",
+    "import_workbench": "Import CSV",
 }
 
 def _handle_refresh() -> None:

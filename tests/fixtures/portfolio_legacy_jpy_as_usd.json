@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "transactions": [
     {
       "id": "clean-row-001",
@@ -13,7 +13,9 @@
       },
       "fees_native": null,
       "fx_rate_eur": "0.9100",
-      "notes": "NVIDIA — AI compute"
+      "notes": "NVIDIA — AI compute",
+      "csv_reference": null,
+      "source": "manual"
     },
     {
       "id": "legacy-bad-row-001",
@@ -27,7 +29,9 @@
       },
       "fees_native": null,
       "fx_rate_eur": "0.9300",
-      "notes": "Japan Steel Works (use USD as approximation; KRW/JPY not supported in v1)"
+      "notes": "Japan Steel Works (use USD as approximation; KRW/JPY not supported in v1)",
+      "csv_reference": null,
+      "source": "manual"
     }
   ]
 }
