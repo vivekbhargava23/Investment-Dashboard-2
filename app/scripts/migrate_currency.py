@@ -1,6 +1,10 @@
 """
-One-shot migration: fix transactions whose ticker↔currency pairing pre-dates
-the ADR-005 / TICKET-008c validator.
+One-shot migration: fix manually-entered transactions whose ticker↔currency
+pairing pre-dates the ADR-005 / TICKET-008c validator.
+
+Broker-sourced rows (source=scalable_csv, switch) are intentionally skipped —
+they store EUR prices at face value and must not be rewritten (ADR-005 amendment,
+TICKET-CSV-7).
 
 Usage:
     python -m app.scripts.migrate_currency --input data/portfolio.json [options]
@@ -28,6 +32,9 @@ from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticke
 def _collect_offenders(data: dict[str, Any]) -> list[dict[str, Any]]:
     offenders: list[dict[str, Any]] = []
     for tx in data.get("transactions", []):
+        # Broker rows carry their own settlement currency — skip them entirely.
+        if tx.get("source", "manual") != "manual":
+            continue
         ticker = tx.get("ticker", "")
         currency_str = (tx.get("price_native") or {}).get("currency", "")
         if not ticker or not currency_str:

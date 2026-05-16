@@ -44,6 +44,43 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-16 — TICKET-CSV-7
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Branch:** ticket-csv-7-transfer-eur-native-fix
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Removed FX provider from planner, importer, wiring, and workbench UI — Scalable CSV prices are always EUR
+- Both legs of security-transfer pairs now skip as INTERNAL_TRANSFER (was: incoming leg imported as phantom BUY)
+- Added EUR-at-face-value bypass to `validate_ticker_currency` so non-EUR tickers (NVDA, 5631.T, POLY.SW, ALGO.L) can be stored with EUR price + fx_rate_eur=1
+- Removed `RowStatus.NEEDS_CURRENCY_SUPPORT`, `FX_UNAVAILABLE`, `OUTGOING_TRANSFER` from domain
+- Added 45-row synthetic fixture `full_export_2026_05_14.csv` with all 27 ISIN types including 3 transfer pairs and tickers from all currency zones
+
+### Files touched
+- `app/domain/models.py` — EUR-at-face-value bypass in `validate_ticker_currency`
+- `app/domain/csv_import.py` — new RowStatus: INTERNAL_TRANSFER; removed FX/OUTGOING_TRANSFER statuses
+- `app/adapters/scalable_csv/planner.py` — removed fx_provider; both transfer legs → INTERNAL_TRANSFER
+- `app/adapters/scalable_csv/importer.py` — removed fx_provider; both transfer legs skipped; always EUR
+- `app/ui/wiring.py` — removed `get_import_fx_provider`
+- `app/ui/pages/import_workbench.py` — removed FX UI, manual_fx_rates, FX status chips
+- `tests/fixtures/scalable_csv/full_export_2026_05_14.csv` — new 46-row fixture
+- `tests/fixtures/scalable_csv/full_export_2026_05_14_isin_map.json` — companion ISIN map
+- `tests/unit/test_scalable_csv_importer.py` — updated for new transfer + EUR-native behavior
+- `tests/unit/adapters/test_csv_import_planner.py` — removed FX tests, updated transfer tests
+- `tests/unit/domain/test_transaction.py` — updated validator test for EUR bypass
+- `tests/unit/ui/test_import_workbench.py` — removed FX-related tests
+
+### Tests
+735 passing → 813 passing (81 skipped unchanged)
+
+### Decisions made during the session
+- EUR-at-face-value bypass uses `price_native.currency == EUR and fx_rate_eur == Decimal("1")` as sentinel; non-unit fx_rate still enforces native-currency check
+- Synthetic fixture preferred over real 301-row CSV (not in repo)
+
+### Tokens used (rough)
+~200k (split session with context compaction)
+
 ## 2026-05-16 — TICKET-CSV-5
 **Surface:** Claude Code
 **Model:** sonnet-4.6

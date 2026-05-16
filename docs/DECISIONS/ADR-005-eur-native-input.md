@@ -163,3 +163,30 @@ This ADR is implemented by:
 
 - **Should we eventually capture broker-reported FX explicitly** (so the user can paste it from the confirmation PDF when available, overriding the derived value)? Probably yes, as a future "advanced" expander on the form. Out of scope for this ADR.
 - **What happens for currencies the resolver returns that are not in the `Currency` enum** (e.g., HKD, AUD)? For now: error out cleanly with a "currency not yet supported, please request via TICKET-XXX" message. Adding a currency is a one-line enum change plus a migration test. Future tickets handle this on demand.
+
+---
+
+## Amendment — TICKET-CSV-7 (2026-05-16)
+
+**Scope of ticker→currency inference narrowed to manual entry only.**
+
+### Problem
+
+ADR-005 was written with the assumption that the only data path was the EUR-native manual form. When TICKET-CSV-7 introduced direct Scalable Capital CSV import, it produced transactions with `source="scalable_csv"` where `price_native.currency=EUR` and `fx_rate_eur=1` — even for US tickers like NVDA, JPY tickers like 5631.T, and CHF/GBP ETPs. These are not mistakes: Scalable always invoices in EUR and the dashboard stores prices at face value.
+
+The original `validate_ticker_currency` model validator — and the Phase 1 pre-check in `JsonTransactionRepository.load_all()` — both called `infer_currency_from_ticker(ticker)` on every row regardless of source. Scalable CSV rows with NVDA+EUR raised `LegacyDataError` at load time, blocking the Manage Portfolio page and the import workbench.
+
+### Decision
+
+**Ticker→currency inference applies to manually-entered transactions only.**
+
+- `Transaction.validate_ticker_currency` now short-circuits when `self.source != "manual"`. Broker rows carry their own settlement currency; the dashboard does not second-guess them.
+- `JsonTransactionRepository` Phase 1 pre-check skips rows where `source != "manual"`.
+- `migrate_currency.py` skips non-manual rows in `_collect_offenders`.
+- `LegacyDataError` message updated to reflect the narrower scope.
+
+### What stays the same
+
+- Manual entry still enforces `ticker→currency` consistency. A user who manually enters NVDA with `currency=EUR` via the form will still see the validation error.
+- The `validate_eur_fx_rate` invariant (`fx_rate_eur=1` for EUR transactions) is unchanged and still applies to all sources.
+- The `validate_fees_currency` check (fees currency must match price currency) is unchanged.

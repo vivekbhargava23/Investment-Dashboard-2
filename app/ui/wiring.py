@@ -4,7 +4,6 @@ from pathlib import Path
 import streamlit as st
 
 from app.adapters.company_factory import build_company_provider
-from app.adapters.fx_yfinance import FxYfinanceDiskAdapter
 from app.adapters.isin_map.repo import JsonIsinMapRepository
 from app.adapters.repo_json import JsonNavSnapshotRepository, JsonTransactionRepository
 from app.adapters.repo_json.tax_profile_repo import JsonTaxProfileRepository
@@ -73,12 +72,6 @@ def get_ohlc_data_provider() -> OhlcDataProvider:
 def get_isin_map_repo() -> IsinMapRepository:
     settings = get_settings()
     return JsonIsinMapRepository(settings.isin_map_json_path)
-
-
-@lru_cache(maxsize=1)
-def get_import_fx_provider() -> FxProvider:
-    settings = get_settings()
-    return FxYfinanceDiskAdapter(settings.fx_cache_dir)
 
 
 @st.cache_resource
