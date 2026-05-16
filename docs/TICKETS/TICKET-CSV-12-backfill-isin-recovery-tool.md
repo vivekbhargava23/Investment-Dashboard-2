@@ -1,6 +1,6 @@
 # TICKET-CSV-12 — Productionize ISIN-from-CSV backfill recovery script
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** MEDIUM
 **Estimated session length:** 45 min
 **Drafted by:** Vivek + Claude Chat (2026-05-16)

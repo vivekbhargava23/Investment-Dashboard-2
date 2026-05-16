@@ -39,6 +39,39 @@ the `update-context.yml` GitHub Action on every merge to main.
 python tools/regen_context.py
 ```
 
+### `backfill_isin_from_csv.py`
+
+Idempotently backfills the `isin` field onto `scalable_csv` transactions
+whose `isin` is `null`, using each transaction's `csv_reference` to look
+up the ISIN from the original Scalable Capital CSV export.
+
+**When to use:** only when CSV-imported transactions have `isin: null` and
+you have the original CSV on hand. This arises from the CSV-11 migration bug
+where `isin_map.json` was absent at the time `migrate_v2_to_v3` ran.
+The portfolio must already be at schema v3.
+
+**Usage (always dry-run first):**
+
+```bash
+# Preview what would change — safe, writes nothing
+python3 tools/backfill_isin_from_csv.py \
+    --portfolio data/portfolio.json \
+    --csv path/to/ScalableCapital-Broker-Transactions.csv
+
+# Write changes (creates a timestamped backup first)
+python3 tools/backfill_isin_from_csv.py \
+    --portfolio data/portfolio.json \
+    --csv path/to/ScalableCapital-Broker-Transactions.csv \
+    --apply
+```
+
+**Backups:** written alongside `portfolio.json` as
+`portfolio.json.backfill.bak.<YYYYMMDD-HHMMSS>`. Multiple runs accumulate
+backups; prune by hand when no longer needed.
+
+**Safety guarantees:** never overwrites a transaction whose `isin` is already
+set; skips manual/switch transactions; refuses to run on non-v3 portfolios.
+
 ---
 
 ## Toolchain requirements
