@@ -44,6 +44,32 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-16 — TICKET-CSV-9
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~20 min
+**Branch:** ticket-csv-9-mappings-fuzzy-typeahead
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Replaced `st.text_input` ticker fields in Mappings page with `render_ticker_searchbox` (same component as Manage Portfolio)
+- Both unmapped-section assign field and edit-row field now use fuzzy typeahead backed by the yfinance resolver
+- Edit row pre-seeds searchbox from current mapped ticker via `resolver.lookup`
+- Save blocked with error toast when `selected_match is None`
+- Removed `mappings_edit_ticker_value` session-state key (no longer needed)
+- Added 4 new tests; updated `test_init_state_sets_all_defaults` to reflect removed key
+
+### Files touched
+- `app/ui/pages/mappings.py` — swap text_input → searchbox in `_render_unmapped_section` and `_render_edit_row`; remove `mappings_edit_ticker_value`
+- `tests/unit/ui/test_mappings_page.py` — updated state test, added 4 new tests
+
+### Tests
+855 passing → 859 passing (+4)
+
+### Decisions made during the session
+- No architectural decisions; reused existing `render_ticker_searchbox` component as specified in ticket
+
 ## 2026-05-16 — TICKET-CSV-12
 **Surface:** Claude Code
 **Model:** sonnet-4.6
