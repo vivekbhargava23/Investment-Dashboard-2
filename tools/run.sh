@@ -8,6 +8,7 @@ repo_parent="$(cd "$(dirname "$0")/../.." && pwd)"
 target="$repo_parent/Investment-Dashboard-2-$slug"
 [ -d "$target" ] || { echo "No such worktree: $target" >&2; exit 1; }
 cd "$target"
+# shellcheck source=/dev/null
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate investment-dashboard
 exec "$@"
