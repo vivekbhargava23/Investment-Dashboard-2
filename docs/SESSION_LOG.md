@@ -44,6 +44,45 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-31 — TICKET-R5
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~45 min
+**Branch:** ticket-r5-consolidate-caching-and-live-positions
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `get_live_positions_cached` and `clear_live_positions_cache` to `services/valuation.py`: module-level TTL cache (60 s) keyed by transactions signature; single source of truth for live positions across all pages
+- Removed three page-local `@st.cache_data` wrappers (`_cached_live_positions` in tax.py, `_cached_concentration_live_positions` in analytics.py, `_live_positions_cached` in sell_simulator.py); all pages now call `get_live_positions_cached` directly
+- Removed service-level `_cache` from `services/market_data.py`; OHLC caching now delegates entirely to the adapter (YfinanceAdapter._ohlc_cache), which already held identical data with matching TTLs
+- Updated `clear_market_data_caches` to clear live-positions cache + adapter cache in one call; topbar Refresh button now calls only this function
+- Updated test suite: added 4 new TTL/invalidation tests for `get_live_positions_cached` in test_valuation.py; rewrote test_market_data.py (removed cache TTL tests, added aggregation and clear tests); updated sizer-tab and sell-simulator UI tests to patch the new function
+
+### Files touched
+- `app/services/valuation.py` — added `get_live_positions_cached`, `clear_live_positions_cache`, `_live_positions_cache`, `_tx_sig`
+- `app/services/market_data.py` — removed `_cache` and TTL logic; updated `clear_market_data_caches`
+- `app/ui/pages/tax.py` — removed `_cached_live_positions`; pages call `get_live_positions_cached`
+- `app/ui/pages/analytics.py` — removed `_cached_concentration_live_positions`; added `_get_live_positions` helper; pages call `get_live_positions_cached`
+- `app/ui/components/sell_simulator.py` — removed `_live_positions_cached`
+- `app/ui/components/topbar.py` — updated Refresh to call `clear_market_data_caches`
+- `tests/unit/services/test_valuation.py` — added TTL/invalidation tests; removed `test_service_no_module_state`
+- `tests/unit/services/test_market_data.py` — rewrote for adapter-delegated caching
+- `tests/unit/ui/test_sizer_tab.py` — updated patches
+- `tests/unit/ui/test_sell_simulator_component.py` — removed stale `TestLivePositionsCache`
+
+### Tests
+869 passing → 865 passing (net −4: removed stale cache tests, added TTL tests)
+
+### Decisions made during the session
+- No architectural decisions; ticket spec was clear and self-contained
+
+### Out-of-scope items noticed
+- `overview.py` has a fourth `_cached_live_positions` with the same pattern — not in ticket scope; should be filed as a follow-up
+
+### Tokens used (rough)
+~120k
+
 ## 2026-05-31 — TICKET-M9
 **Surface:** Claude Code
 **Model:** sonnet-4.6
