@@ -1,6 +1,6 @@
 # ADR-010 — `tools/file.sh` orders new Backlog items by priority band
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-05-31
 **Drafted by:** Vivek + Claude (Cowork session 2026-05-31)
 **Supersedes / amends:** METHODOLOGY.md "Anti-patterns" list (one entry); AGENTS.md (one cross-reference)

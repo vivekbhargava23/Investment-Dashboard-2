@@ -283,4 +283,4 @@ Vivek commits the ADR in one commit: `docs: ADR-XXX <title>`. Or — better — 
 - ❌ Doc updates after the PR is opened → Board state is set in Steps 5 and 8c (before and immediately after push). Never after PR open.
 - ❌ Writing to `main` after Vivek says "merged" → The session is over. Done status is set by the post-merge action.
 - ❌ Editing STATE.md by hand — STATE.md does not exist. The board is the source of truth for ticket state.
-- ❌ Writing scripts that mutate the project board outside `tools/file.sh` and the agent's Step 5/8c/Step 0 drop handler. Board state is touched by these three places only.
+- ❌ Writing scripts that mutate the project board outside `tools/file.sh` (Status + Backlog position by priority band per ADR-010) and the agent's Step 5/8c/Step 0 drop handler (Status only). Board state is touched by these three places only.
