@@ -1,6 +1,6 @@
 # TICKET-M10 — Worktree workflow polish (shared data + auto-prune merged)
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Estimated session length:** 60 min
 **Drafted by:** Vivek + Claude Chat (2026-05-31)
