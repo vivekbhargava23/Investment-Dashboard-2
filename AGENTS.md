@@ -179,9 +179,19 @@ If the ticket touches a specific module, also read that module's instruction fil
 If the current working directory is the **main checkout** (i.e. `git rev-parse --abbrev-ref HEAD` returns `main`):
 
 ```bash
+# Prune any worktrees whose branch has already landed on main
+bash tools/cleanup-worktrees.sh || true
+
 slug="ticket-$(echo TICKET-XXX | tr '[:upper:]' '[:lower:]' | sed -E 's/ticket-//')-short-name"
 worktree_path="../$(basename "$(git rev-parse --show-toplevel)")-$(echo TICKET-XXX | tr '[:upper:]' '[:lower:]' | sed -E 's/ticket-//')"
 git worktree add "$worktree_path" -b "$slug"
+
+# Share the main checkout's runtime data directory (and .env if present)
+main_root="$(git rev-parse --show-toplevel)"
+rm -rf "$worktree_path/data"
+ln -s "$main_root/data" "$worktree_path/data"
+[ -f "$main_root/.env" ] && ln -s "$main_root/.env" "$worktree_path/.env" || true
+
 cd "$worktree_path"
 ```
 
