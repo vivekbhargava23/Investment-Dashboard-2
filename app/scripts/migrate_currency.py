@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from app.adapters.repo_json.json_repo import JsonTransactionRepository
-from app.adapters.yfinance_feed.yfinance_adapter import YfinanceAdapter
+from app.adapters.yfinance_price.adapter import YfinancePriceAdapter
 from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 
 
@@ -50,7 +50,7 @@ def _collect_offenders(data: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _migrate_row(
     tx: dict[str, Any],
-    price_provider: YfinanceAdapter,
+    price_provider: YfinancePriceAdapter,
     interactive: bool = False,
 ) -> dict[str, Any]:
     """
@@ -143,7 +143,7 @@ def main(
     output_path: Path | None = None,
     dry_run: bool = False,
     force: bool = False,
-    price_provider: YfinanceAdapter | None = None,
+    price_provider: YfinancePriceAdapter | None = None,
     interactive: bool | None = None,
 ) -> int:
     if output_path is None:
@@ -181,7 +181,7 @@ def main(
         return 0
 
     if price_provider is None:
-        price_provider = YfinanceAdapter()
+        price_provider = YfinancePriceAdapter()
 
     offender_ids = {o["id"] for o in offenders}
 

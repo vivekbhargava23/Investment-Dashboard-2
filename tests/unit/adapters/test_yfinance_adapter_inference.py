@@ -1,7 +1,7 @@
 import pytest
 
-from app.adapters.yfinance_feed import YfinanceAdapter
 from app.domain.money import Currency
+from app.domain.tickers import infer_currency_from_ticker
 
 
 @pytest.mark.parametrize(
@@ -19,5 +19,4 @@ from app.domain.money import Currency
     ],
 )
 def test_currency_inference(ticker: str, expected_currency: Currency) -> None:
-    adapter = YfinanceAdapter()
-    assert adapter._infer_currency(ticker) == expected_currency
+    assert infer_currency_from_ticker(ticker) == expected_currency
