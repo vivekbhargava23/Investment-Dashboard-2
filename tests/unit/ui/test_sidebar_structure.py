@@ -54,25 +54,25 @@ def test_portfolio_section_items() -> None:
     tools_start = html.index("TOOLS")
     portfolio_block = html[port_start:tools_start]
 
-    expected_ids = ["overview", "performance", "tax", "analytics", "research", "company"]
+    expected_ids = ["overview", "tax", "analytics", "research", "company"]
     for page_id in expected_ids:
         assert f'href="/?page={page_id}"' in portfolio_block, (
             f"Expected {page_id} in PORTFOLIO section"
         )
+    assert 'href="/?page=performance"' not in portfolio_block
 
 
 def test_tools_section_items() -> None:
-    """TOOLS section contains exactly: simulator, lots, decision, behaviour."""
+    """TOOLS section contains exactly: simulator."""
     html = _capture_sidebar_html()
     tools_start = html.index("TOOLS")
     sett_start = html.index("SETTINGS")
     tools_block = html[tools_start:sett_start]
 
-    expected_ids = ["simulator", "lots", "decision", "behaviour"]
-    for page_id in expected_ids:
-        assert f'href="/?page={page_id}"' in tools_block, (
-            f"Expected {page_id} in TOOLS section"
-        )
+    assert 'href="/?page=simulator"' in tools_block
+    assert 'href="/?page=lots"' not in tools_block
+    assert 'href="/?page=decision"' not in tools_block
+    assert 'href="/?page=behaviour"' not in tools_block
     assert 'href="/?page=import_workbench"' not in tools_block
 
 
@@ -131,13 +131,6 @@ def test_footer_date_is_deterministic() -> None:
     assert html1.replace("2024-01-01", "DATE") == html2.replace("2026-05-09", "DATE")
 
 
-def test_badge_appears_on_decision_gates() -> None:
-    """Decision Gates item renders a badge; the badge text is '3 flags'."""
-    html = _capture_sidebar_html()
-    assert "nav-badge" in html
-    assert "3 flags" in html
-
-
 def test_no_badge_renders_no_nav_badge_span() -> None:
     """_nav_item_html with badge=None produces no nav-badge span."""
     item = NAV_ITEMS[0]  # overview — badge=None
@@ -146,8 +139,8 @@ def test_no_badge_renders_no_nav_badge_span() -> None:
 
 
 def test_nav_items_total_count() -> None:
-    """NAV_ITEMS still has exactly 13 entries (regression guard)."""
-    assert len(NAV_ITEMS) == 13
+    """NAV_ITEMS has exactly 9 entries after dropping stub pages (ADR-008)."""
+    assert len(NAV_ITEMS) == 9
 
 
 def test_sections_cover_all_items() -> None:

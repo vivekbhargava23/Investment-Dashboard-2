@@ -83,6 +83,47 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 ### Tokens used (rough)
 ~120k
 
+## 2026-05-31 — TICKET-C2
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~20 min
+**Branch:** ticket-c2-drop-stub-pages
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Deleted four stub page files: `decision.py`, `lots.py`, `performance.py`, `behaviour.py`
+- Removed the four entries from `NAV_ITEMS` in `sidebar.py`; adjusted `_SECTIONS` ranges (13 → 9 items)
+- Removed the four titles from `PAGE_TITLES` in `topbar.py`
+- Updated `ARCHITECTURE.md` file layout to reflect the 9 live pages; added note that per-lot view is in the Tax page
+- Regenerated `CONTEXT.md` via `tools/regen_context.py`
+- Updated `test_components.py`: removed stub imports and assertions; count 13 → 9
+- Updated `test_sidebar_structure.py`: updated portfolio/tools section tests, removed `test_badge_appears_on_decision_gates`, count 13 → 9
+
+### Files touched
+- `app/ui/pages/decision.py` — deleted
+- `app/ui/pages/lots.py` — deleted
+- `app/ui/pages/performance.py` — deleted
+- `app/ui/pages/behaviour.py` — deleted
+- `app/ui/components/sidebar.py` — removed 4 nav entries, adjusted section ranges
+- `app/ui/components/topbar.py` — removed 4 page titles
+- `docs/ARCHITECTURE.md` — updated file layout, added lots note
+- `docs/CONTEXT.md` — regenerated
+- `tests/unit/ui/test_components.py` — updated imports and assertions
+- `tests/unit/ui/test_sidebar_structure.py` — updated tests for new nav shape
+
+### Tests
+869 passing → 868 passing (removed test_badge_appears_on_decision_gates)
+
+### Decisions made during the session
+- No architectural decisions made; implements ADR-008 as specified.
+
+### Out-of-scope items noticed
+- None
+
+### Tokens used (rough)
+~30k
+
 ## 2026-05-31 — TICKET-M9
 **Surface:** Claude Code
 **Model:** sonnet-4.6

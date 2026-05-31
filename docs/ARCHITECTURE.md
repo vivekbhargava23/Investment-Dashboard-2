@@ -143,10 +143,10 @@ investment-dashboard/
 │       │   ├── simulator.py       # Pre-trade sell simulator
 │       │   ├── research.py        # Research page (OHLC chart, fundamentals)
 │       │   ├── analytics.py       # Analytics & Risk (Performance, Concentration, Correlation, Technicals, Position Sizer tabs)
-│       │   ├── lots.py            # Lot Ledger
-│       │   ├── performance.py     # Performance page
-│       │   ├── behaviour.py       # Behavioural Ledger
-│       │   └── decision.py        # Decision Gates
+│       │   ├── company.py         # Company Deep Dive (profile, snapshot, financials tabs)
+│       │   ├── mappings.py        # ISIN → ticker resolution
+│       │   └── import_workbench.py  # Scalable Capital CSV import flow
+│       │   # Note: per-lot view is rendered inside the Tax page; a standalone Lots page is not currently in scope.
 │       ├── components/       # Reusable UI bits
 │       ├── format.py
 │       └── styles/dark.css
