@@ -44,6 +44,39 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-31 — TICKET-R1
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~30 min
+**Branch:** ticket-r1-holiday-intraday-rangebreaks
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `_holiday_rangebreaks(series)` — computes missing weekdays within series window and returns Plotly `{"values": [...]}` rangebreaks for each holiday gap
+- Added `_intraday_overnight_rangebreaks(series)` — derives trading-hour bounds from min/max UTC hour observed; FX tickers (`=X`) return empty; falls back to `[22, 13]` default
+- Updated `render_candlestick`, `render_line_chart`, `render_drawdown_chart` to apply holiday breaks on daily paths and overnight breaks on intraday paths
+- Added 13 new unit tests covering `_holiday_rangebreaks`, `_intraday_overnight_rangebreaks`, and render-function wiring
+
+### Files touched
+- `app/ui/components/charts.py` — two new helpers + updated render wiring
+- `tests/unit/ui/test_chart_components.py` — 13 new tests
+
+### Tests
+509 passing → 522 passing (13 new)
+
+### Decisions made during the session
+- FX ticker detection via `ticker.endswith("=X")` (no adapter import needed; sufficient for all yfinance FX pairs)
+- No architectural decisions made
+
+### Out-of-scope items noticed
+- Per-exchange holiday calendars (pandas_market_calendars): out of scope per ticket; TICKET-R2 pending
+
+### Tokens used (rough)
+~40k
+
+---
+
 ## 2026-05-31 — TICKET-C3
 **Surface:** Claude Code
 **Model:** sonnet-4.6
