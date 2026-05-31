@@ -1,12 +1,13 @@
 from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import patch
 
 import pytest
 
 import app.services.market_data as svc
+import app.services.valuation as valuation_mod
 from app.domain.market_data import ChartPeriod, OhlcBar, OhlcSeries, OhlcUnavailableError
 from app.domain.money import Currency
+from app.services.valuation import clear_live_positions_cache
 from tests.fakes.ohlc import FAKE_SERIES_NVDA_6MO, FakeOhlcDataProvider
 
 
@@ -25,18 +26,10 @@ def _series(*bars: OhlcBar, period: ChartPeriod) -> OhlcSeries:
 
 
 @pytest.fixture(autouse=True)
-def _clear_cache() -> None:
-    svc._cache.clear()
+def _clear_caches() -> None:
+    clear_live_positions_cache()
     yield  # type: ignore[misc]
-    svc._cache.clear()
-
-
-def test_cache_miss_calls_provider_once() -> None:
-    fake = FakeOhlcDataProvider()
-    result1 = svc.get_ohlc_history("NVDA", ChartPeriod.SIX_MONTH, provider=fake)
-    result2 = svc.get_ohlc_history("NVDA", ChartPeriod.SIX_MONTH, provider=fake)
-    assert result1 is result2
-    assert fake.call_count == 1
+    clear_live_positions_cache()
 
 
 def test_ticker_normalised_to_upper() -> None:
@@ -45,77 +38,16 @@ def test_ticker_normalised_to_upper() -> None:
     assert result is FAKE_SERIES_NVDA_6MO
 
 
-def test_intraday_ttl_miss_after_15_minutes() -> None:
-    fake = FakeOhlcDataProvider(
-        series_map={("NVDA", ChartPeriod.ONE_DAY): FAKE_SERIES_NVDA_6MO}
-    )
-    with patch("app.services.market_data.time") as mock_time:
-        mock_time.monotonic.return_value = 1000.0
-        svc.get_ohlc_history("NVDA", ChartPeriod.ONE_DAY, provider=fake)
-        assert fake.call_count == 1
-
-        # Still within 15-min TTL
-        mock_time.monotonic.return_value = 1000.0 + 14 * 60
-        svc.get_ohlc_history("NVDA", ChartPeriod.ONE_DAY, provider=fake)
-        assert fake.call_count == 1
-
-        # Past 15-min TTL
-        mock_time.monotonic.return_value = 1000.0 + 15 * 60 + 1
-        svc.get_ohlc_history("NVDA", ChartPeriod.ONE_DAY, provider=fake)
-        assert fake.call_count == 2
-
-
-def test_daily_ttl_hit_within_24h() -> None:
+def test_clear_market_data_caches_clears_live_positions_and_adapter() -> None:
     fake = FakeOhlcDataProvider()
-    with patch("app.services.market_data.time") as mock_time:
-        mock_time.monotonic.return_value = 1000.0
-        svc.get_ohlc_history("NVDA", ChartPeriod.SIX_MONTH, provider=fake)
-        assert fake.call_count == 1
-
-        # 23h59m later — still within 24h TTL
-        mock_time.monotonic.return_value = 1000.0 + 23 * 3600 + 59 * 60
-        svc.get_ohlc_history("NVDA", ChartPeriod.SIX_MONTH, provider=fake)
-        assert fake.call_count == 1
-
-
-def test_daily_ttl_miss_after_24h() -> None:
-    fake = FakeOhlcDataProvider()
-    with patch("app.services.market_data.time") as mock_time:
-        mock_time.monotonic.return_value = 1000.0
-        svc.get_ohlc_history("NVDA", ChartPeriod.SIX_MONTH, provider=fake)
-        assert fake.call_count == 1
-
-        # 24h + 1 minute later
-        mock_time.monotonic.return_value = 1000.0 + 24 * 3600 + 60
-        svc.get_ohlc_history("NVDA", ChartPeriod.SIX_MONTH, provider=fake)
-        assert fake.call_count == 2
-
-
-def test_different_periods_cached_independently() -> None:
-    fake = FakeOhlcDataProvider(
-        series_map={
-            ("NVDA", ChartPeriod.SIX_MONTH): FAKE_SERIES_NVDA_6MO,
-            ("NVDA", ChartPeriod.ONE_YEAR): FAKE_SERIES_NVDA_6MO,
-        }
-    )
-    svc.get_ohlc_history("NVDA", ChartPeriod.SIX_MONTH, provider=fake)
-    svc.get_ohlc_history("NVDA", ChartPeriod.ONE_YEAR, provider=fake)
-    assert fake.call_count == 2
-    assert len(svc._cache) == 2
-
-
-def test_clear_market_data_caches() -> None:
-    fake = FakeOhlcDataProvider()
-    svc.get_ohlc_history("NVDA", ChartPeriod.SIX_MONTH, provider=fake)
-    assert len(svc._cache) == 1
+    # Prime the live positions cache
+    valuation_mod._live_positions_cache["dummy"] = (1.0, {})
+    assert valuation_mod._live_positions_cache
 
     svc.clear_market_data_caches(fake)
 
-    assert len(svc._cache) == 0
+    assert not valuation_mod._live_positions_cache
     assert fake.clear_cache_count == 1
-
-    svc.get_ohlc_history("NVDA", ChartPeriod.SIX_MONTH, provider=fake)
-    assert fake.call_count == 2
 
 
 def test_ohlc_unavailable_error_propagates() -> None:
@@ -177,8 +109,8 @@ def test_five_year_period_aggregates_to_monthly() -> None:
     assert len(result.bars) == 2  # 5 daily bars across 2 months → 2 monthly bars
 
 
-def test_aggregated_series_is_cached() -> None:
-    """The post-aggregation result is what gets cached, not the raw series."""
+def test_aggregation_applied_on_every_call() -> None:
+    """Aggregation runs on every call (caching is now adapter responsibility)."""
     raw = _series(
         _bar("2024-01-02T09:30"), _bar("2024-01-02T10:00"),
         period=ChartPeriod.FIVE_DAY,
@@ -186,6 +118,6 @@ def test_aggregated_series_is_cached() -> None:
     fake = FakeOhlcDataProvider(series_map={("NVDA", ChartPeriod.FIVE_DAY): raw})
     r1 = svc.get_ohlc_history("NVDA", ChartPeriod.FIVE_DAY, provider=fake)
     r2 = svc.get_ohlc_history("NVDA", ChartPeriod.FIVE_DAY, provider=fake)
-    assert fake.call_count == 1
-    assert r1 is r2
-    assert len(r1.bars) == 1  # aggregated to 1 daily bar
+    assert fake.call_count == 2  # adapter is called each time (adapter owns caching)
+    assert len(r1.bars) == 1
+    assert len(r2.bars) == 1

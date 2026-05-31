@@ -25,7 +25,7 @@ from app.services.tax_planning import (
     compute_per_position_harvest_impact,
     compute_tax_if_full_liquidation,
 )
-from app.services.valuation import compute_live_positions
+from app.services.valuation import get_live_positions_cached
 from app.ui.cache_keys import file_mtime_key, transactions_signature
 from app.ui.format import format_eur, format_pct, gain_class
 from app.ui.render import render_html
@@ -128,12 +128,6 @@ def compute_sequential_harvest_impacts(
 # ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=60, show_spinner=False)
-def _cached_live_positions(tx_sig: str) -> dict[str, LivePosition]:
-    txs = get_repository().load_all()
-    return compute_live_positions(txs, get_price_provider(), get_fx_provider())
-
-
-@st.cache_data(ttl=60, show_spinner=False)
 def _cached_tax_summary(tx_sig: str, profile_sig: str, isin_sig: str, year: int) -> TaxYearSummary:
     repo = get_tax_profile_repo()
     doc = repo.load()
@@ -162,7 +156,7 @@ def _cached_harvest_report(tx_sig: str, profile_sig: str, isin_sig: str, year: i
     profile = TaxProfile(filing_status=doc.filing_status)
     txs = get_repository().load_all()
     isin_map = get_isin_map_repo().load()
-    live_positions = _cached_live_positions(tx_sig)
+    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_fx_provider())
     summary = _cached_tax_summary(tx_sig, profile_sig, isin_sig, year)
     as_of = datetime.now()
     return compute_per_position_harvest_impact(
@@ -187,7 +181,7 @@ def _cached_liquidation_summary(tx_sig: str, profile_sig: str, isin_sig: str, ye
     profile = TaxProfile(filing_status=doc.filing_status)
     txs = get_repository().load_all()
     isin_map = get_isin_map_repo().load()
-    live_positions = _cached_live_positions(tx_sig)
+    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_fx_provider())
     summary = _cached_tax_summary(tx_sig, profile_sig, isin_sig, year)
     as_of = datetime.now()
     return compute_tax_if_full_liquidation(
@@ -643,7 +637,7 @@ def render() -> None:
         st.error(f"Could not compute tax summary: {exc}")
         return
 
-    live_positions = _cached_live_positions(tx_sig)
+    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_fx_provider())
 
     _render_ytd_tiles(summary)
 
