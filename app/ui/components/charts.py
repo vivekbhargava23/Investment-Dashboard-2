@@ -3,7 +3,7 @@ renders a Plotly figure via st.plotly_chart, and returns None.
 No fetching, no caching — the caller is responsible for those."""
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Literal, TypedDict
 
@@ -77,6 +77,49 @@ def _needs_weekend_rangebreaks(series: OhlcSeries) -> bool:
     total_s = (series.bars[-1].timestamp - series.bars[0].timestamp).total_seconds()
     avg_h = total_s / (len(series.bars) - 1) / 3600
     return 8.0 <= avg_h < 100.0
+
+
+def _holiday_rangebreaks(series: OhlcSeries) -> list[dict[str, Any]]:
+    """Return rangebreaks for missing trading days (holidays) within the series window.
+
+    Computes missing weekdays as: all weekdays between first and last bar date
+    minus the set of dates that actually appear in the series.  Plotly accepts
+    ISO date strings for the 'values' form of rangebreaks.
+    """
+    if len(series.bars) < 2:
+        return []
+    first_date = series.bars[0].timestamp.date()
+    last_date = series.bars[-1].timestamp.date()
+    actual_dates: set[date] = {bar.timestamp.date() for bar in series.bars}
+    missing: list[str] = []
+    current = first_date + timedelta(days=1)
+    while current < last_date:
+        if current.weekday() < 5 and current not in actual_dates:
+            missing.append(current.isoformat())
+        current += timedelta(days=1)
+    if not missing:
+        return []
+    return [{"values": missing}]
+
+
+def _intraday_overnight_rangebreaks(series: OhlcSeries) -> list[dict[str, Any]]:
+    """Return rangebreaks that hide overnight gaps for intraday (1D/5D) charts.
+
+    Derives trading-hour bounds from the min/max UTC hour observed in the series.
+    FX tickers (ending '=X') trade 24 h — returns empty list for those.
+    Falls back to [22, 13] (NYSE/XETRA overlap) when detection is ambiguous.
+    """
+    if series.ticker.endswith("=X"):
+        return []
+    if len(series.bars) < 2:
+        return [{"bounds": [22, 13], "pattern": "hour"}]
+    hours = [bar.timestamp.hour for bar in series.bars]
+    min_h = min(hours)
+    max_h = max(hours)
+    end_hour = max_h + 1
+    if end_hour >= 24 or end_hour <= min_h:
+        return [{"bounds": [22, 13], "pattern": "hour"}]
+    return [{"bounds": [end_hour, min_h], "pattern": "hour"}]
 
 
 def _chart_timestamps(series: LineChartSeries) -> list[datetime]:
@@ -172,7 +215,9 @@ def render_candlestick(
             "x": 1,
         }
     if _needs_weekend_rangebreaks(series):
-        layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks()
+        layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks() + _holiday_rangebreaks(series)
+    elif series.period.is_intraday:
+        layout["xaxis"]["rangebreaks"] = _intraday_overnight_rangebreaks(series)
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
@@ -323,7 +368,11 @@ def render_line_chart(
             "xanchor": "right",
             "x": 1,
         }
-    if _needs_line_rangebreaks(series):
+    if isinstance(series, OhlcSeries) and _needs_weekend_rangebreaks(series):
+        layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks() + _holiday_rangebreaks(series)
+    elif isinstance(series, OhlcSeries) and series.period.is_intraday:
+        layout["xaxis"]["rangebreaks"] = _intraday_overnight_rangebreaks(series)
+    elif _needs_line_rangebreaks(series):
         layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks()
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
@@ -371,7 +420,11 @@ def render_drawdown_chart(
             "line": {"color": THEME_GREY, "width": 1, "dash": "dash"},
         }
     ]
-    if _needs_line_rangebreaks(series):
+    if isinstance(series, OhlcSeries) and _needs_weekend_rangebreaks(series):
+        layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks() + _holiday_rangebreaks(series)
+    elif isinstance(series, OhlcSeries) and series.period.is_intraday:
+        layout["xaxis"]["rangebreaks"] = _intraday_overnight_rangebreaks(series)
+    elif _needs_line_rangebreaks(series):
         layout["xaxis"]["rangebreaks"] = _weekend_rangebreaks()
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)

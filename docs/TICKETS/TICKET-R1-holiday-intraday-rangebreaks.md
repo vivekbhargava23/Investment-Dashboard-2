@@ -1,6 +1,6 @@
 # TICKET-R1 — Holiday and intraday rangebreaks for OHLC charts
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** MEDIUM
 **Estimated session length:** 1 hr
 **Drafted by:** Vivek + Claude Chat (2026-05-31)
