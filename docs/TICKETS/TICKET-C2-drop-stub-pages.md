@@ -1,6 +1,6 @@
 # TICKET-C2 — Drop stub pages from nav and delete stub files
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** MEDIUM
 **Estimated session length:** 30 min
 **Drafted by:** Vivek + Claude Chat (2026-05-31)
