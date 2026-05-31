@@ -15,10 +15,21 @@ import streamlit as st
 from app.adapters.scalable_csv.parser import ParsedCsvRow, parse_csv
 from app.adapters.scalable_csv.planner import plan_import
 from app.domain.csv_import import ImportPlan, PlannedRow, RowStatus
-from app.domain.isin_map import IsinMapping
+from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
-from app.ui.wiring import get_isin_map_repo, get_repository
+from app.services.isin_autoresolve import AutoResolveResult, autoresolve_isin
+from app.ui.components.isin_mapper import (
+    KIND_LABEL,
+    build_mapping,
+    render_isin_mapper_row,
+)
+from app.ui.wiring import (
+    get_company_provider,
+    get_isin_map_repo,
+    get_repository,
+    get_ticker_resolver,
+)
 
 # Session-state key namespace
 _NS = "import_workbench"
@@ -29,6 +40,9 @@ _KEY_PLAN = f"{_NS}.plan"
 _KEY_FILTER = f"{_NS}.filter"
 _KEY_CONFLICTS = f"{_NS}.conflict_choices"   # {reference: "replace"|"keep"|"skip"}
 _KEY_EXCLUDES = f"{_NS}.excluded_refs"       # set of references for new rows to skip
+_KEY_AUTO_RESOLVED = f"{_NS}.auto_resolved"  # dict[isin, AutoResolveResult]
+_KEY_AUTO_SAVED = f"{_NS}.auto_saved_isins"  # set[str] — ISINs in isin_map from auto-resolve
+_KEY_REJECTED = f"{_NS}.rejected_isins"      # set[str] — ISINs user rejected
 
 _STATUS_COLORS: dict[str, str] = {
     RowStatus.NEW: "🟢",
@@ -138,18 +152,93 @@ def _count_ready(
 
 def _clear_state() -> None:
     for key in [_KEY_FILE_BYTES, _KEY_FILE_NAME, _KEY_PARSED_ROWS, _KEY_PLAN,
-                _KEY_FILTER, _KEY_CONFLICTS, _KEY_EXCLUDES]:
+                _KEY_FILTER, _KEY_CONFLICTS, _KEY_EXCLUDES,
+                _KEY_AUTO_RESOLVED, _KEY_AUTO_SAVED, _KEY_REJECTED]:
         st.session_state.pop(key, None)
+
+
+def _get_unique_unmapped_isins(plan: ImportPlan) -> list[tuple[str, str]]:
+    """Return (isin, description) for each unique unmapped ISIN in plan order."""
+    seen: set[str] = set()
+    result = []
+    for row in plan.rows:
+        if row.status == RowStatus.UNMAPPED_ISIN and row.isin not in seen:
+            seen.add(row.isin)
+            result.append((row.isin, row.description))
+    return result
+
+
+def _run_autoresolve(
+    unmapped: list[tuple[str, str]],
+    log_path: Path,
+) -> tuple[dict[str, AutoResolveResult], set[str]]:
+    """Resolve all unmapped ISINs. Returns (all_results, saved_isins)."""
+    resolver = get_ticker_resolver()
+    company_provider = get_company_provider()
+    isin_repo = get_isin_map_repo()
+    isin_doc = isin_repo.load()
+    entries = dict(isin_doc.entries)
+
+    results: dict[str, AutoResolveResult] = {}
+    saved_isins: set[str] = set()
+    rejected: set[str] = st.session_state.get(_KEY_REJECTED, set())
+    auto_resolve_log: list[dict[str, object]] = []
+
+    for isin, description in unmapped:
+        result = autoresolve_isin(
+            isin,
+            description,
+            resolver=resolver,
+            company_provider=company_provider,
+        )
+        results[isin] = result
+
+        if (
+            result.confidence in ("high", "medium")
+            and result.ticker is not None
+            and result.instrument_kind is not None
+            and isin not in rejected
+        ):
+            entries[isin] = IsinMapping(
+                ticker=result.ticker,
+                name=result.name or description,
+                status="mapped",
+                instrument_kind=result.instrument_kind,
+            )
+            saved_isins.add(isin)
+
+        auto_resolve_log.append({
+            "isin": isin,
+            "ticker": result.ticker,
+            "kind": result.instrument_kind.value if result.instrument_kind else None,
+            "confidence": result.confidence,
+            "reason": result.reason,
+        })
+
+    if saved_isins:
+        isin_repo.save(IsinMapDocument(version=isin_doc.version, entries=entries))
+
+    _append_import_log(log_path, {
+        "timestamp": datetime.now().isoformat(),
+        "event": "auto_resolve",
+        "auto_resolved": auto_resolve_log,
+    })
+
+    return results, saved_isins
 
 
 # ─── sections ─────────────────────────────────────────────────────────────────
 
 def _render_last_import_card(log_path: Path) -> None:
     entries = _load_import_log(log_path)
-    if not entries:
+    apply_entries = [
+        e for e in entries
+        if e.get("event") not in ("auto_resolve", "auto_resolve_rejected")
+    ]
+    if not apply_entries:
         st.info("No imports yet. Upload a CSV to get started.")
         return
-    last = entries[-1]
+    last = apply_entries[-1]
     ts = str(last.get("timestamp", "?"))[:10]
     fn = str(last.get("filename", "?"))
     n = last.get("applied_count", 0)
@@ -187,6 +276,9 @@ def _render_upload_section(log_path: Path) -> bool:
         st.session_state.pop(_KEY_PLAN, None)
         st.session_state.pop(_KEY_CONFLICTS, None)
         st.session_state.pop(_KEY_EXCLUDES, None)
+        st.session_state.pop(_KEY_AUTO_RESOLVED, None)
+        st.session_state.pop(_KEY_AUTO_SAVED, None)
+        # Preserve _KEY_REJECTED across re-uploads of same data
 
         try:
             with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
@@ -214,6 +306,23 @@ def _render_upload_section(log_path: Path) -> bool:
             st.session_state[_KEY_EXCLUDES] = set()
 
     active_plan: ImportPlan = st.session_state[_KEY_PLAN]
+
+    # Auto-resolve unmapped ISINs once per upload
+    if _KEY_AUTO_RESOLVED not in st.session_state:
+        unmapped = _get_unique_unmapped_isins(active_plan)
+        if unmapped:
+            with st.spinner(f"Auto-resolving {len(unmapped)} ISIN(s)…"):
+                results, saved = _run_autoresolve(unmapped, log_path)
+            st.session_state[_KEY_AUTO_RESOLVED] = results
+            st.session_state[_KEY_AUTO_SAVED] = saved
+            if saved:
+                st.session_state.pop(_KEY_PLAN, None)
+                st.rerun()
+        else:
+            st.session_state[_KEY_AUTO_RESOLVED] = {}
+            st.session_state[_KEY_AUTO_SAVED] = set()
+
+    active_plan = st.session_state[_KEY_PLAN]
     counts = active_plan.count_by_status()
 
     n_new = counts.get(RowStatus.NEW, 0)
@@ -386,60 +495,114 @@ def _render_planned_changes(plan: ImportPlan) -> None:
                     st.session_state[_KEY_CONFLICTS] = conflicts
 
 
-def _render_isin_mapping_panel(plan: ImportPlan) -> None:
-    unmapped_rows = [r for r in plan.rows if r.status == RowStatus.UNMAPPED_ISIN]
-    if not unmapped_rows:
-        return
+def _reject_autoresolve(isin: str, log_path: Path) -> None:
+    """Demote an auto-mapped ISIN back to unmapped and record rejection."""
+    rejected: set[str] = st.session_state.get(_KEY_REJECTED, set())
+    rejected.add(isin)
+    st.session_state[_KEY_REJECTED] = rejected
 
-    # Deduplicate by ISIN
-    seen: set[str] = set()
-    unique_unmapped: list[PlannedRow] = []
-    for r in unmapped_rows:
-        if r.isin not in seen:
-            seen.add(r.isin)
-            unique_unmapped.append(r)
-
-    count_per_isin: dict[str, int] = {}
-    for r in unmapped_rows:
-        count_per_isin[r.isin] = count_per_isin.get(r.isin, 0) + 1
-
-    st.subheader(f"ISINs needing mapping ({len(unique_unmapped)})")
+    auto_saved: set[str] = st.session_state.get(_KEY_AUTO_SAVED, set())
+    auto_saved.discard(isin)
+    st.session_state[_KEY_AUTO_SAVED] = auto_saved
 
     isin_repo = get_isin_map_repo()
     isin_doc = isin_repo.load()
-    entries = dict(isin_doc.entries)
-    saved_any = False
+    if isin in isin_doc.entries:
+        existing = isin_doc.entries[isin]
+        new_entries = dict(isin_doc.entries)
+        new_entries[isin] = IsinMapping(
+            ticker=None,
+            name=existing.name,
+            status="unmapped",
+            last_seen_in_csv=existing.last_seen_in_csv,
+            instrument_kind=None,
+        )
+        isin_repo.save(IsinMapDocument(version=isin_doc.version, entries=new_entries))
 
-    for row in unique_unmapped:
-        col1, col2, col3 = st.columns([0.3, 0.5, 0.2])
-        with col1:
-            st.code(row.isin)
-            st.caption(f"{count_per_isin[row.isin]} transactions")
-        with col2:
-            st.write(row.description[:60])
-            ticker_input = st.text_input(
-                "Ticker",
-                key=f"iw_map_{row.isin}",
-                placeholder="e.g. SAP.DE",
-                label_visibility="collapsed",
-            )
-        with col3:
-            st.write("")
-            if st.button("Save", key=f"iw_save_map_{row.isin}") and ticker_input.strip():
-                entries[row.isin] = IsinMapping(
-                    ticker=ticker_input.strip().upper(),
-                    name=row.description,
-                    status="mapped",
-                    last_seen_in_csv=row.trade_date,
+    _append_import_log(log_path, {
+        "timestamp": datetime.now().isoformat(),
+        "event": "auto_resolve_rejected",
+        "isin": isin,
+    })
+
+    st.session_state.pop(_KEY_PLAN, None)
+
+
+def _render_autoresolve_panel(plan: ImportPlan, log_path: Path) -> None:
+    """Render the auto-resolve review card and manual fallback for remaining unmapped ISINs."""
+    auto_resolved: dict[str, AutoResolveResult] = st.session_state.get(_KEY_AUTO_RESOLVED, {})
+    auto_saved: set[str] = st.session_state.get(_KEY_AUTO_SAVED, set())
+
+    remaining_unmapped = _get_unique_unmapped_isins(plan)
+
+    # ── Green banner: successfully auto-mapped ISINs ──────────────────────────
+    if auto_saved:
+        high_count = sum(
+            1 for isin in auto_saved
+            if isin in auto_resolved and auto_resolved[isin].confidence == "high"
+        )
+        med_count = len(auto_saved) - high_count
+        parts = []
+        if high_count:
+            parts.append(f"{high_count} high-confidence")
+        if med_count:
+            parts.append(f"{med_count} medium-confidence")
+        conf_label = ", ".join(parts) if parts else "auto"
+        st.success(f"Auto-mapped {len(auto_saved)} ISIN(s) ({conf_label}).")
+
+        with st.expander("Review auto-mappings", expanded=False):
+            for isin in sorted(auto_saved):
+                result = auto_resolved.get(isin)
+                if result is None:
+                    continue
+                col_isin, col_ticker, col_kind, col_conf, col_reason, col_btn = st.columns(
+                    [1.8, 1.2, 1.5, 0.8, 2.5, 0.7]
                 )
-                saved_any = True
+                col_isin.code(isin)
+                col_ticker.write(f"`{result.ticker}`")
+                kind_label = (
+                    KIND_LABEL.get(result.instrument_kind, result.instrument_kind.value)
+                    if result.instrument_kind else "—"
+                )
+                col_kind.write(kind_label)
+                col_conf.write(result.confidence)
+                col_reason.caption(result.reason[:80])
+                if col_btn.button("Reject", key=f"iw_reject_{isin}"):
+                    _reject_autoresolve(isin, log_path)
+                    st.rerun()
 
-    if saved_any:
-        from app.domain.isin_map import IsinMapDocument
-        isin_repo.save(IsinMapDocument(version=isin_doc.version, entries=entries))
-        # Clear plan so it gets re-classified with new mappings
-        st.session_state.pop(_KEY_PLAN, None)
-        st.rerun()
+    # ── Yellow banner: ISINs needing manual review ────────────────────────────
+    if remaining_unmapped:
+        st.warning(f"{len(remaining_unmapped)} ISIN(s) need manual review.")
+
+        isin_repo = get_isin_map_repo()
+        isin_doc = isin_repo.load()
+        saved_any = False
+
+        with st.expander(f"Map ISINs manually ({len(remaining_unmapped)})", expanded=True):
+            for isin, description in remaining_unmapped:
+                col_isin, col_search_kind, col_btn = st.columns([1.5, 3.5, 0.7])
+                with col_isin:
+                    st.code(isin)
+                    st.caption(description[:40])
+                with col_search_kind:
+                    selected_match, selected_kind = render_isin_mapper_row(
+                        isin, description, key_prefix="iw_manual"
+                    )
+                with col_btn:
+                    save_disabled = selected_match is None or selected_kind is None
+                    if st.button("Save", key=f"iw_manual_save_{isin}", disabled=save_disabled):
+                        if selected_match and selected_kind:
+                            updated_doc = build_mapping(
+                                isin, selected_match.symbol, selected_kind, description, isin_doc
+                            )
+                            isin_repo.save(updated_doc)
+                            isin_doc = updated_doc
+                            saved_any = True
+
+        if saved_any:
+            st.session_state.pop(_KEY_PLAN, None)
+            st.rerun()
 
 
 def _render_apply_bar(
@@ -492,7 +655,6 @@ def _do_apply(
     file_bytes: bytes = st.session_state.get(_KEY_FILE_BYTES, b"")
     file_name: str = st.session_state.get(_KEY_FILE_NAME, "unknown.csv")
 
-    # Step 1: write backup
     if portfolio_path.exists():
         bak = _write_backup(portfolio_path, backups_dir)
     else:
@@ -518,7 +680,6 @@ def _do_apply(
 
     try:
         all_txs = tx_repo.load_all()
-        # Remove conflicting manual transactions
         if to_delete:
             all_txs = [t for t in all_txs if t.id not in to_delete]
         all_txs.extend(to_insert)
@@ -527,7 +688,6 @@ def _do_apply(
         st.error(f"Apply failed: {exc}. Your backup is at `{bak}`.")
         return
 
-    # Append to import log
     _append_import_log(log_path, {
         "timestamp": datetime.now().isoformat(),
         "filename": file_name,
@@ -569,6 +729,6 @@ def render() -> None:
     st.divider()
     _render_planned_changes(plan)
 
-    _render_isin_mapping_panel(plan)
+    _render_autoresolve_panel(plan, log_path)
 
     _render_apply_bar(plan, portfolio_path, backups_dir, log_path)

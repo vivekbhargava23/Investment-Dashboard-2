@@ -40,6 +40,9 @@ class FakeProvider:
         self.refresh_calls.append((ticker, section))
         return self._company
 
+    def get_quote_type(self, ticker: str) -> str | None:
+        return self._company.quote_type
+
 
 def test_disjoint_sections_merged() -> None:
     yfinance_data = CompanyData(
@@ -132,3 +135,37 @@ def test_empty_providers_returns_empty_company_data() -> None:
     result = composite.get_company("NVDA")
     assert result.ticker == "NVDA"
     assert result.profile is None
+
+
+# ── get_quote_type ─────────────────────────────────────────────────────────────
+
+def test_get_quote_type_returns_first_non_none() -> None:
+    a = FakeProvider(CompanyData(ticker="NVDA", quote_type="EQUITY"))
+    b = FakeProvider(CompanyData(ticker="NVDA", quote_type="ETF"))
+    composite = CompositeCompanyAdapter(a, b)
+
+    assert composite.get_quote_type("NVDA") == "EQUITY"
+
+
+def test_get_quote_type_skips_none_providers() -> None:
+    a = FakeProvider(CompanyData(ticker="NVDA", quote_type=None))
+    b = FakeProvider(CompanyData(ticker="NVDA", quote_type="ETF"))
+    composite = CompositeCompanyAdapter(a, b)
+
+    assert composite.get_quote_type("NVDA") == "ETF"
+
+
+def test_get_quote_type_returns_none_when_all_none() -> None:
+    a = FakeProvider(CompanyData(ticker="NVDA", quote_type=None))
+    composite = CompositeCompanyAdapter(a)
+
+    assert composite.get_quote_type("NVDA") is None
+
+
+def test_quote_type_propagated_through_merge() -> None:
+    data = CompanyData(ticker="NVDA", quote_type="EQUITY")
+    composite = CompositeCompanyAdapter(FakeProvider(data))
+
+    result = composite.get_company("NVDA")
+
+    assert result.quote_type == "EQUITY"

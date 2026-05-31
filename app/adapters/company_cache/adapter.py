@@ -106,6 +106,13 @@ class CacheCompanyAdapter:
             path.unlink()
         return self.get_company(ticker)
 
+    def get_quote_type(self, ticker: str) -> str | None:
+        now = self._now()
+        cached, _ = self._load_section(ticker, "profile", now)
+        if cached is not None and cached.quote_type is not None:
+            return cached.quote_type
+        return self._inner.get_quote_type(ticker)
+
     def _section_path(self, ticker: str, section: _Section) -> Path:
         return self._cache_root / ticker / f"{section}.json"
 
@@ -173,6 +180,7 @@ def _source_for_section(section: _Section, company: CompanyData) -> str:
 def _company_data_to_section_dict(section: _Section, company: CompanyData) -> dict[str, Any]:
     if section == "profile":
         return {
+            "quote_type": company.quote_type,
             "profile": company.profile.model_dump(mode="json") if company.profile else None,
         }
     if section == "prices":
@@ -210,7 +218,7 @@ def _dict_to_company_data(ticker: str, section: _Section, data: dict[str, Any]) 
     if section == "profile":
         raw_profile = data.get("profile")
         profile = CompanyProfile.model_validate(raw_profile) if raw_profile else None
-        return CompanyData(ticker=ticker, profile=profile)
+        return CompanyData(ticker=ticker, quote_type=data.get("quote_type"), profile=profile)
 
     if section == "prices":
         raw_quote = data.get("latest_quote")
@@ -250,6 +258,7 @@ def _merge_sections(
 ) -> CompanyData:
     return CompanyData(
         ticker=ticker,
+        quote_type=profile_data.quote_type,
         profile=profile_data.profile,
         latest_quote=prices_data.latest_quote,
         price_history=prices_data.price_history,
