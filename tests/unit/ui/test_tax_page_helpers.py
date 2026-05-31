@@ -7,6 +7,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.money import Currency, Money
 from app.domain.tax.classification import InstrumentKind
 from app.domain.tax.engine import compute_tax_year_summary
@@ -15,6 +16,10 @@ from app.ui.pages.tax import compute_headroom, compute_sequential_harvest_impact
 
 _EUR = Currency.EUR
 _SINGLE = TaxProfile(filing_status=FilingStatus.SINGLE)
+
+_RHM_MAP = IsinMapDocument(entries={
+    "DE0007030009": IsinMapping(ticker="RHM.DE", name="Rheinmetall", status="mapped", instrument_kind=InstrumentKind.AKTIE),
+})
 
 
 def _m(v: str) -> Money:
@@ -85,6 +90,7 @@ def test_headroom_mixed_components() -> None:
         year=2026,
         transactions=txs,
         profile=_SINGLE,
+        isin_map=_RHM_MAP,
         prior_year_aktien_carryforward_eur=_m("0"),
         prior_year_general_carryforward_eur=_m("200"),
     )
@@ -146,7 +152,7 @@ def test_headroom_does_not_double_count_losses() -> None:
             fx_rate_eur=Decimal("1"),
         ),
     ]
-    summary = compute_tax_year_summary(year=2026, transactions=txs, profile=_SINGLE)
+    summary = compute_tax_year_summary(year=2026, transactions=txs, profile=_SINGLE, isin_map=_RHM_MAP)
     # NVDA gain: €400. RHM.DE loss: -€300. Net AKTIE: €100. Allowance covers €100.
     # Pots: aktien remaining = 0 (losses absorbed gains, nothing left to carryforward).
     # General: nothing.

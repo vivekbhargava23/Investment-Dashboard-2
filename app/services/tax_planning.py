@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from app.domain.fifo import compute_realised_gains
+from app.domain.isin_map import IsinMapDocument
 from app.domain.models import Transaction
 from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition
@@ -39,6 +40,7 @@ def compute_current_tax_summary(
     additional_dividend_income_eur: Money,
     additional_interest_income_eur: Money,
     as_of: datetime,
+    isin_map: IsinMapDocument = IsinMapDocument(),
 ) -> TaxYearSummary:
     """Thin wrapper over compute_tax_year_summary; validates year and delegates."""
     year = as_of.year
@@ -50,6 +52,7 @@ def compute_current_tax_summary(
         year=year,
         transactions=transactions,
         profile=profile,
+        isin_map=isin_map,
         prior_year_aktien_carryforward_eur=carryforward_eur_aktien,
         prior_year_general_carryforward_eur=carryforward_eur_general,
         additional_dividend_income_eur=additional_dividend_income_eur,
@@ -88,6 +91,7 @@ def _run_pipeline_with_extra_gains(
     carryforward_eur_general: Money,
     additional_dividend_income_eur: Money,
     additional_interest_income_eur: Money,
+    isin_map: IsinMapDocument = IsinMapDocument(),
 ) -> TaxYearSummary:
     rates = RATES_BY_YEAR[year]
     ledger = TaxYearLedger(
@@ -99,6 +103,7 @@ def _run_pipeline_with_extra_gains(
         prior_general_carryforward=carryforward_eur_general,
         additional_dividend_income_eur=additional_dividend_income_eur,
         additional_interest_income_eur=additional_interest_income_eur,
+        isin_map=isin_map,
     )
     return run_pipeline(ledger)
 
@@ -113,6 +118,7 @@ def compute_per_position_harvest_impact(
     additional_dividend_income_eur: Money,
     additional_interest_income_eur: Money,
     as_of: datetime,
+    isin_map: IsinMapDocument = IsinMapDocument(),
 ) -> HarvestImpactReport:
     """Compute the marginal tax impact of selling each non-stale position today.
 
@@ -147,6 +153,7 @@ def compute_per_position_harvest_impact(
             carryforward_eur_general=carryforward_eur_general,
             additional_dividend_income_eur=additional_dividend_income_eur,
             additional_interest_income_eur=additional_interest_income_eur,
+            isin_map=isin_map,
         )
 
         incremental_tax = new_summary.abgeltungsteuer_eur - current_summary.abgeltungsteuer_eur
@@ -159,7 +166,7 @@ def compute_per_position_harvest_impact(
         # The synthetic gain's TaxImpact is the last entry in realised_gain_impacts.
         synthetic_impact = new_summary.realised_gain_impacts[-1]
 
-        instrument_kind = classify_instrument(ticker)
+        instrument_kind = classify_instrument(ticker, isin_map)
 
         impacts[ticker] = HarvestImpact(
             ticker=ticker,
@@ -189,6 +196,7 @@ def compute_marginal_tax_for_realised_gains(
     carryforward_eur_general: Money = _ZERO_EUR,
     additional_dividend_income_eur: Money = _ZERO_EUR,
     additional_interest_income_eur: Money = _ZERO_EUR,
+    isin_map: IsinMapDocument = IsinMapDocument(),
 ) -> MarginalTaxImpact:
     """Compute the marginal tax impact of a single hypothetical sell.
 
@@ -212,6 +220,7 @@ def compute_marginal_tax_for_realised_gains(
             carryforward_eur_general=carryforward_eur_general,
             additional_dividend_income_eur=additional_dividend_income_eur,
             additional_interest_income_eur=additional_interest_income_eur,
+            isin_map=isin_map,
         )
 
     before = _run(current_transactions)
@@ -255,6 +264,7 @@ def compute_tax_if_full_liquidation(
     additional_dividend_income_eur: Money,
     additional_interest_income_eur: Money,
     as_of: datetime,
+    isin_map: IsinMapDocument = IsinMapDocument(),
 ) -> TaxYearSummary:
     """Tax summary if every non-stale position were sold at today's prices.
 
@@ -288,4 +298,5 @@ def compute_tax_if_full_liquidation(
         carryforward_eur_general=carryforward_eur_general,
         additional_dividend_income_eur=additional_dividend_income_eur,
         additional_interest_income_eur=additional_interest_income_eur,
+        isin_map=isin_map,
     )

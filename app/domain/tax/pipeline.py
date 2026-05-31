@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from app.domain.isin_map import IsinMapDocument
 from app.domain.money import Currency, Money
 from app.domain.realised_gain import RealisedGain
 from app.domain.tax.classification import InstrumentKind, classify_instrument
@@ -33,6 +34,7 @@ class TaxYearLedger:
     prior_general_carryforward: Money
     additional_dividend_income_eur: Money
     additional_interest_income_eur: Money
+    isin_map: IsinMapDocument = field(default_factory=IsinMapDocument)
 
     # Populated by _classify_and_apply_teilfreistellung
     tax_impacts: list[TaxImpact] = field(default_factory=list)
@@ -88,7 +90,7 @@ class TaxYearLedger:
 def _classify_and_apply_teilfreistellung(ledger: TaxYearLedger) -> TaxYearLedger:
     impacts: list[TaxImpact] = []
     for gain in ledger.realised_gains:
-        kind = classify_instrument(gain.ticker)
+        kind = classify_instrument(gain.ticker, ledger.isin_map)
         pct = ledger.rates.teilfreistellung[kind]
         gross = gain.realised_gain_eur
         amount = gross * pct

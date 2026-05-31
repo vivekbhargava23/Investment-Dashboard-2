@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.domain.tax.classification import InstrumentKind
+
 
 class IsinMapping(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -13,6 +15,7 @@ class IsinMapping(BaseModel):
     name: str
     status: Literal["mapped", "unmapped"]
     last_seen_in_csv: date | None = None
+    instrument_kind: InstrumentKind | None = None
 
 
 class IsinMapDocument(BaseModel):

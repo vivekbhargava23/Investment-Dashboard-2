@@ -14,7 +14,7 @@ Pure domain tax engine. Zero I/O. Zero port imports. Same purity contract as the
 ## What lives where
 
 - `rates.py` — year-keyed tax-rate constants (`TaxYearRates`, `RATES_BY_YEAR`).
-- `classification.py` — `InstrumentKind` enum and `TICKER_KIND` table.
+- `classification.py` — `InstrumentKind` enum and `classify_instrument(ticker, isin_map)`.
 - `models.py` — public output types (`TaxImpact`, `LossPotState`, `TaxYearSummary`, `TaxProfile`, `FilingStatus`).
 - `pipeline.py` — internal `TaxYearLedger` dataclass and the ordered pipeline steps.
 - `engine.py` — public entry point `compute_tax_year_summary`.
@@ -30,13 +30,14 @@ All three changes go in one PR.
 
 1. Extend `InstrumentKind` enum in `classification.py`.
 2. Add the Teilfreistellung percentage in the `teilfreistellung` dict of each year's `TaxYearRates` in `rates.py`.
-3. Add mapping rows to `TICKER_KIND` in `classification.py`.
+3. Set `instrument_kind` on the relevant `IsinMapping` entries via the Mappings page or migration script.
 4. Add tests in `tests/unit/domain/tax/test_classification.py`.
 All four changes go in one PR.
 
 ## Never silent-default an unknown ticker to AKTIE
 
-`classify_instrument` raises `InstrumentClassificationError` for unknown tickers.
+`classify_instrument(ticker, isin_map)` raises `InstrumentClassificationError` for
+tickers not in the ISIN map or with `IsinMapping.instrument_kind = None`.
 A silent default of AKTIE would silently miscompute tax by the full Teilfreistellung
 percentage (up to 30% of the gain). Loud failure forces the right fix.
 
