@@ -272,6 +272,7 @@ _priority_rank() {
 }
 
 # Shared GraphQL query: fetch all project items with Status + priority labels.
+# shellcheck disable=SC2016
 _BACKLOG_QUERY='query($projectId: ID!) {
   node(id: $projectId) {
     ... on ProjectV2 {
@@ -349,6 +350,7 @@ for i in "${!ITEM_IDS[@]}"; do
 
   if [ -z "$anchor_id" ]; then
     # No higher-priority item — place at top of Backlog.
+    # shellcheck disable=SC2016
     if ! gh api graphql \
       -f query='mutation($projectId: ID!, $itemId: ID!) {
         updateProjectV2ItemPosition(input: { projectId: $projectId, itemId: $itemId }) {
@@ -363,6 +365,7 @@ for i in "${!ITEM_IDS[@]}"; do
     fi
   else
     # Place directly after the last higher-priority item (top of this band).
+    # shellcheck disable=SC2016
     if ! gh api graphql \
       -f query='mutation($projectId: ID!, $itemId: ID!, $afterId: ID!) {
         updateProjectV2ItemPosition(input: { projectId: $projectId, itemId: $itemId, afterId: $afterId }) {
@@ -396,7 +399,7 @@ if [ -n "$final_backlog_json" ]; then
         '[.data.node.items.nodes[] | select(.fieldValueByName.name == "Backlog") | .id] |
          (index($iid) // -1) |
          if . >= 0 then (. + 1 | tostring) else "?" end')"
-      ITEM_BACKLOG_RANKS[$i]="$rank"
+      ITEM_BACKLOG_RANKS[i]="$rank"
     fi
   done
 fi
