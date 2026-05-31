@@ -44,12 +44,47 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-31 — TICKET-R1
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~45 min
+**Branch:** ticket-r1-holiday-intraday-rangebreaks
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/124
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `_holiday_rangebreaks(series)` — computes missing weekdays within series window and returns Plotly `{"values": [...]}` rangebreaks for each holiday gap
+- Added `_intraday_overnight_rangebreaks(series)` — derives trading-hour bounds from min/max UTC hour observed; FX tickers (`=X`) return empty; falls back to `[22, 13]` default
+- Updated `render_candlestick`, `render_line_chart`, `render_drawdown_chart` to apply holiday breaks on daily paths and overnight breaks on intraday paths
+- Fixed root cause of rangebreaks being silently ignored: added explicit `xaxis.type='date'` (Plotly.js does not auto-detect date axis from UTC-aware ISO strings)
+- Fixed repeated x-axis month label: switched daily `tickformat` from `%b %Y` to `%b %d`
+- Added 15 new unit tests
+
+### Files touched
+- `app/ui/components/charts.py` — two new helpers + updated render wiring + `type='date'` + `tickformat` fix
+- `tests/unit/ui/test_chart_components.py` — 15 new tests
+
+### Tests
+509 passing → 524 passing (15 new)
+
+### Decisions made during the session
+- FX ticker detection via `ticker.endswith("=X")` — no adapter import needed
+- Root cause: Plotly.js ignores rangebreaks unless `xaxis.type` is explicitly `'date'`
+
+### Out-of-scope items noticed
+- Per-exchange holiday calendars (pandas_market_calendars): out of scope per ticket; see TICKET-R2
+
+### Tokens used (rough)
+~60k
+
+---
+
 ## 2026-05-31 — TICKET-M8
 **Surface:** Claude Code
 **Model:** sonnet-4.6
 **Duration:** ~30 min
 **Branch:** ticket-m8-file-sh-priority-ordering
-**PR:** TBD
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/125
 **Status at session end:** IN_REVIEW
 
 ### What got done
