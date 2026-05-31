@@ -6,9 +6,11 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
+from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition, OpenLot, Position
+from app.domain.tax.classification import InstrumentKind
 from app.domain.tax.models import FilingStatus, TaxProfile
 from app.services.sell_simulator import SellSimulationRequest, simulate_sell
 
@@ -18,6 +20,11 @@ _SINGLE = TaxProfile(filing_status=FilingStatus.SINGLE)
 
 # Use RHM.DE — a EUR-native ticker — so all prices are in EUR and fx_rate=1
 _TICKER = "RHM.DE"
+
+_SIM_MAP = IsinMapDocument(entries={
+    "ISIN-RHM.DE": IsinMapping(ticker="RHM.DE", name="RHM.DE", status="mapped", instrument_kind=InstrumentKind.AKTIE),
+    "ISIN-VUSA.DE": IsinMapping(ticker="VUSA.DE", name="VUSA.DE", status="mapped", instrument_kind=InstrumentKind.AKTIENFONDS),
+})
 
 
 def _eur(v: str) -> Money:
@@ -96,7 +103,7 @@ class TestSimulateSellHappyPaths:
     def test_partial_sell_single_lot(self) -> None:
         txs = [_buy("2025-01-01", "12", "100")]
         req = _request("5", "120")
-        sim = simulate_sell(req, txs, _SINGLE, {})
+        sim = simulate_sell(req, txs, _SINGLE, {}, isin_map=_SIM_MAP)
 
         assert sim.is_valid
         assert len(sim.lot_consumption) == 1
@@ -112,7 +119,7 @@ class TestSimulateSellHappyPaths:
             _buy("2026-01-01", "5", "110"),
         ]
         req = _request("7", "130")
-        sim = simulate_sell(req, txs, _SINGLE, {})
+        sim = simulate_sell(req, txs, _SINGLE, {}, isin_map=_SIM_MAP)
 
         assert sim.is_valid
         assert len(sim.lot_consumption) == 2
@@ -128,7 +135,7 @@ class TestSimulateSellHappyPaths:
             _buy("2026-04-15", "3", "150"),  # 2026 lot
         ]
         req = _request("6", "130")
-        sim = simulate_sell(req, txs, _SINGLE, {})
+        sim = simulate_sell(req, txs, _SINGLE, {}, isin_map=_SIM_MAP)
 
         assert sim.is_valid
         assert len(sim.lot_consumption) == 2
@@ -143,14 +150,14 @@ class TestSimulateSellHappyPaths:
     def test_deterministic_same_input_same_output(self) -> None:
         txs = [_buy("2025-01-01", "10", "100")]
         req = _request("3", "120")
-        sim1 = simulate_sell(req, txs, _SINGLE, {})
-        sim2 = simulate_sell(req, txs, _SINGLE, {})
+        sim1 = simulate_sell(req, txs, _SINGLE, {}, isin_map=_SIM_MAP)
+        sim2 = simulate_sell(req, txs, _SINGLE, {}, isin_map=_SIM_MAP)
         assert sim1 == sim2
 
     def test_marginal_tax_populated(self) -> None:
         txs = [_buy("2025-01-01", "10", "100")]
         req = _request("5", "120")
-        sim = simulate_sell(req, txs, _SINGLE, {})
+        sim = simulate_sell(req, txs, _SINGLE, {}, isin_map=_SIM_MAP)
         assert sim.marginal_tax is not None
         assert sim.marginal_tax.marginal_total_tax_owed_eur.amount >= Decimal("0")
 
@@ -165,7 +172,7 @@ class TestSimulateSellValidationErrors:
     def test_over_sell(self) -> None:
         txs = [_buy("2025-01-01", "5", "100")]
         req = _request("10", "120")
-        sim = simulate_sell(req, txs, _SINGLE, {})
+        sim = simulate_sell(req, txs, _SINGLE, {}, isin_map=_SIM_MAP)
         assert not sim.is_valid
         assert sim.validation_error is not None
         # error message should mention the excess
@@ -184,7 +191,7 @@ class TestMarginalAllowanceState:
             _sell_tx("2026-01-15", "6", "200"),   # gain: (200-100)*6 = €600
         ]
         req = _request("6", "200")  # another €600 gain from remaining 14 shares
-        sim = simulate_sell(req, txs, _SINGLE, {})
+        sim = simulate_sell(req, txs, _SINGLE, {}, isin_map=_SIM_MAP)
 
         assert sim.is_valid
         mt = sim.marginal_tax
@@ -207,7 +214,7 @@ class TestMarginalAllowanceState:
             _buy("2025-01-01", "5", "100"),  # RHM.DE position
         ]
         req = _request("5", "200")  # €500 gain on RHM.DE (Aktie)
-        sim = simulate_sell(req, txs, _SINGLE, {})
+        sim = simulate_sell(req, txs, _SINGLE, {}, isin_map=_SIM_MAP)
 
         assert sim.is_valid
         mt = sim.marginal_tax

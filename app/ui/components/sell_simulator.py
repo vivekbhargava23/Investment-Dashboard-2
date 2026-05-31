@@ -15,6 +15,7 @@ import streamlit as st
 
 from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition
+from app.domain.tax.classification import InstrumentClassificationError
 from app.domain.tax.models import TaxProfile
 from app.ports.tax_profile_repo import TaxProfileDocument
 from app.services.sell_simulator import (
@@ -27,6 +28,7 @@ from app.ui.format import format_date, format_eur, gain_class
 from app.ui.render import render_html
 from app.ui.wiring import (
     get_fx_provider,
+    get_isin_map_repo,
     get_price_provider,
     get_repository,
     get_tax_profile_repo,
@@ -339,6 +341,7 @@ def render_sell_simulator(default_ticker: str | None = None) -> None:
     )
 
     profile, cf_aktien, cf_general, add_div, add_int = _load_tax_context(sell_date.year)
+    isin_map = get_isin_map_repo().load()
 
     try:
         sim = simulate_sell(
@@ -350,7 +353,16 @@ def render_sell_simulator(default_ticker: str | None = None) -> None:
             carryforward_eur_general=cf_general,
             additional_dividend_income_eur=add_div,
             additional_interest_income_eur=add_int,
+            isin_map=isin_map,
         )
+    except InstrumentClassificationError as exc:
+        st.warning(
+            f"⚠ Tax kind missing: {exc}\n\n"
+            "Open the Mappings page to classify this ticker, then retry."
+        )
+        if st.button("Open Mappings page", key="sim_open_mappings"):
+            st.query_params["page"] = "mappings"
+        return
     except Exception as exc:
         st.error(f"Simulation error: {exc}")
         return

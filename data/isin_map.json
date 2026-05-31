@@ -5,157 +5,183 @@
       "ticker": "VUAA.DE",
       "name": "Vanguard S&P 500 (Acc)",
       "status": "mapped",
-      "last_seen_in_csv": "2026-04-24"
+      "last_seen_in_csv": "2026-04-24",
+      "instrument_kind": "AKTIENFONDS"
     },
     "US5951121038": {
       "ticker": "MU",
       "name": "Micron Technology",
       "status": "mapped",
-      "last_seen_in_csv": "2026-04-20"
+      "last_seen_in_csv": "2026-04-20",
+      "instrument_kind": "AKTIE"
     },
     "US0091581068": {
       "ticker": "APD",
       "name": "Air Products & Chem",
       "status": "mapped",
-      "last_seen_in_csv": "2026-04-20"
+      "last_seen_in_csv": "2026-04-20",
+      "instrument_kind": "AKTIE"
     },
     "CA65704Y1079": {
-      "ticker": null,
+      "ticker": "NIOB.CN",
       "name": "North American Niobium and Critical Minerals",
-      "status": "unmapped",
-      "last_seen_in_csv": "2026-04-20"
+      "status": "mapped",
+      "last_seen_in_csv": "2026-04-20",
+      "instrument_kind": "AKTIE"
     },
     "US78392B1070": {
       "ticker": "HY9H.F",
       "name": "SK Hynix GDR",
       "status": "mapped",
-      "last_seen_in_csv": "2026-04-20"
+      "last_seen_in_csv": "2026-04-20",
+      "instrument_kind": "AKTIE"
     },
     "DE0007030009": {
       "ticker": "RHM.DE",
       "name": "Rheinmetall",
       "status": "mapped",
-      "last_seen_in_csv": "2026-03-30"
+      "last_seen_in_csv": "2026-03-30",
+      "instrument_kind": "AKTIE"
     },
     "US00215W1009": {
       "ticker": "ASX",
       "name": "ASE Technology Holding",
       "status": "mapped",
-      "last_seen_in_csv": "2026-03-30"
+      "last_seen_in_csv": "2026-03-30",
+      "instrument_kind": "AKTIE"
     },
     "US1717793095": {
       "ticker": "CIEN",
       "name": "Ciena Co",
       "status": "mapped",
-      "last_seen_in_csv": "2026-03-30"
+      "last_seen_in_csv": "2026-03-30",
+      "instrument_kind": "AKTIE"
     },
     "JP3721400004": {
       "ticker": "5631.T",
       "name": "Japan Steel Works",
       "status": "mapped",
-      "last_seen_in_csv": "2026-03-24"
+      "last_seen_in_csv": "2026-03-24",
+      "instrument_kind": "AKTIE"
     },
     "US50155Q1004": {
       "ticker": "KD",
       "name": "Kyndryl Holdings",
       "status": "mapped",
-      "last_seen_in_csv": "2026-03-03"
+      "last_seen_in_csv": "2026-03-03",
+      "instrument_kind": "AKTIE"
     },
     "IE00B42NKQ00": {
       "ticker": "IUES.DE",
       "name": "iShares S&P 500 Energy Sector (Acc)",
       "status": "mapped",
-      "last_seen_in_csv": "2026-03-03"
+      "last_seen_in_csv": "2026-03-03",
+      "instrument_kind": "AKTIENFONDS"
     },
     "IE00BMFKG444": {
       "ticker": "XNAS.DE",
       "name": "Xtrackers Nasdaq 100 (Acc)",
       "status": "mapped",
-      "last_seen_in_csv": "2026-02-25"
+      "last_seen_in_csv": "2026-02-25",
+      "instrument_kind": "AKTIENFONDS"
     },
     "IE00B8KQN827": {
       "ticker": "ETN",
       "name": "Eaton",
       "status": "mapped",
-      "last_seen_in_csv": "2026-02-25"
+      "last_seen_in_csv": "2026-02-25",
+      "instrument_kind": "AKTIE"
     },
     "US5738741041": {
       "ticker": "MRVL",
       "name": "Marvell Technology",
       "status": "mapped",
-      "last_seen_in_csv": "2026-02-20"
+      "last_seen_in_csv": "2026-02-20",
+      "instrument_kind": "AKTIE"
     },
     "CH0491507486": {
       "ticker": null,
       "name": "21shares Tezos ETP Staking",
       "status": "unmapped",
-      "last_seen_in_csv": "2026-02-18"
+      "last_seen_in_csv": "2026-02-18",
+      "instrument_kind": null
     },
     "CH1109575535": {
       "ticker": null,
       "name": "21shares Stellar ETP",
       "status": "unmapped",
-      "last_seen_in_csv": "2026-02-18"
+      "last_seen_in_csv": "2026-02-18",
+      "instrument_kind": null
     },
     "CH1129538448": {
       "ticker": null,
       "name": "21shares Polygon ETP",
       "status": "unmapped",
-      "last_seen_in_csv": "2026-02-18"
+      "last_seen_in_csv": "2026-02-18",
+      "instrument_kind": null
     },
     "GB00BNRRF105": {
       "ticker": null,
       "name": "CoinShares Physical Staked Algorand",
       "status": "unmapped",
-      "last_seen_in_csv": "2026-02-18"
+      "last_seen_in_csv": "2026-02-18",
+      "instrument_kind": null
     },
     "US24703L2025": {
       "ticker": "DELL",
       "name": "Dell Technologies C",
       "status": "mapped",
-      "last_seen_in_csv": "2026-01-23"
+      "last_seen_in_csv": "2026-01-23",
+      "instrument_kind": "AKTIE"
     },
     "FR0004038263": {
       "ticker": "PARRO.PA",
       "name": "Parrot",
       "status": "mapped",
-      "last_seen_in_csv": "2026-01-23"
+      "last_seen_in_csv": "2026-01-23",
+      "instrument_kind": "AKTIE"
     },
     "US11135F1012": {
       "ticker": "AVGO",
       "name": "Broadcom",
       "status": "mapped",
-      "last_seen_in_csv": "2026-01-23"
+      "last_seen_in_csv": "2026-01-23",
+      "instrument_kind": "AKTIE"
     },
     "US0404132054": {
       "ticker": "ANET",
       "name": "Arista Networks",
       "status": "mapped",
-      "last_seen_in_csv": "2026-01-19"
+      "last_seen_in_csv": "2026-01-19",
+      "instrument_kind": "AKTIE"
     },
     "IE00B3WJKG14": {
       "ticker": "QDVE.DE",
       "name": "iShares S&P 500 Information Technology Sector (Acc)",
       "status": "mapped",
-      "last_seen_in_csv": "2025-12-06"
+      "last_seen_in_csv": "2025-12-06",
+      "instrument_kind": "AKTIENFONDS"
     },
     "IE000QDFFK00": {
       "ticker": "ANAV.DE",
       "name": "AXA Nasdaq 100 (Acc)",
       "status": "mapped",
-      "last_seen_in_csv": "2025-12-06"
+      "last_seen_in_csv": "2025-12-06",
+      "instrument_kind": "AKTIENFONDS"
     },
     "DE000HT41XN9": {
       "ticker": null,
       "name": "Apple Short 205,22 $ Turbo Open End HSBC",
       "status": "unmapped",
-      "last_seen_in_csv": "2025-04-09"
+      "last_seen_in_csv": "2025-04-09",
+      "instrument_kind": null
     },
     "US67066G1040": {
       "ticker": "NVDA",
       "name": "NVIDIA",
       "status": "mapped",
-      "last_seen_in_csv": "2026-04-24"
+      "last_seen_in_csv": "2026-04-24",
+      "instrument_kind": "AKTIE"
     }
   }
 }

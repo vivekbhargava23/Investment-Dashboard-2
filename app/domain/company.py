@@ -149,6 +149,7 @@ class CompanyData(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     ticker: str
+    quote_type: str | None = None
     profile: CompanyProfile | None = None
     latest_quote: LatestQuote | None = None
     price_history: list[PriceHistoryPoint] = Field(default_factory=list)
