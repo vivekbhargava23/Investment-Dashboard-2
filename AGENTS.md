@@ -179,9 +179,19 @@ If the ticket touches a specific module, also read that module's instruction fil
 If the current working directory is the **main checkout** (i.e. `git rev-parse --abbrev-ref HEAD` returns `main`):
 
 ```bash
+# Prune any worktrees whose branch has already landed on main
+bash tools/cleanup-worktrees.sh || true
+
 slug="ticket-$(echo TICKET-XXX | tr '[:upper:]' '[:lower:]' | sed -E 's/ticket-//')-short-name"
 worktree_path="../$(basename "$(git rev-parse --show-toplevel)")-$(echo TICKET-XXX | tr '[:upper:]' '[:lower:]' | sed -E 's/ticket-//')"
 git worktree add "$worktree_path" -b "$slug"
+
+# Share the main checkout's runtime data directory (and .env if present)
+main_root="$(git rev-parse --show-toplevel)"
+rm -rf "$worktree_path/data"
+ln -s "$main_root/data" "$worktree_path/data"
+[ -f "$main_root/.env" ] && ln -s "$main_root/.env" "$worktree_path/.env" || true
+
 cd "$worktree_path"
 ```
 
@@ -277,6 +287,22 @@ PR: <url>
 Tests: X passing → Y passing
 Files changed: <count>
 Ready for your review.
+
+How to test this branch locally:
+  cd <absolute worktree path, e.g. /Users/vivekb2017/Desktop/Apps/Investment-Dashboard-2-xxx>
+  conda activate investment-dashboard
+  streamlit run app/ui/main.py
+```
+
+If the worktree was removed by cleanup before this summary is printed, use this fallback instead:
+
+```
+How to test this branch locally (fallback — worktree was pruned):
+  cd ~/Desktop/Apps/Investment-Dashboard-2
+  git fetch origin
+  git checkout <branch-name>
+  conda activate investment-dashboard
+  streamlit run app/ui/main.py
 ```
 
 **Then stop. The session is done.**
