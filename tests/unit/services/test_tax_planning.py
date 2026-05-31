@@ -8,6 +8,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition, OpenLot, Position
@@ -24,6 +25,29 @@ _EUR = Currency.EUR
 _USD = Currency.USD
 _SINGLE = TaxProfile(filing_status=FilingStatus.SINGLE)
 _AS_OF = datetime(2026, 6, 1, 12, 0)
+
+
+def _isin_map(*pairs: tuple[str, InstrumentKind]) -> IsinMapDocument:
+    """Build a minimal IsinMapDocument from (ticker, kind) pairs."""
+    entries = {
+        f"ISIN-{ticker}": IsinMapping(
+            ticker=ticker,
+            name=ticker,
+            status="mapped",
+            instrument_kind=kind,
+        )
+        for ticker, kind in pairs
+    }
+    return IsinMapDocument(entries=entries)
+
+
+# Map covering all tickers used in these tests.
+_FULL_MAP = _isin_map(
+    ("NVDA", InstrumentKind.AKTIE),
+    ("RHM.DE", InstrumentKind.AKTIE),
+    ("ETN", InstrumentKind.AKTIE),
+    ("VUSA.DE", InstrumentKind.AKTIENFONDS),
+)
 
 
 def _m(v: str, ccy: Currency = _EUR) -> Money:
@@ -112,6 +136,7 @@ def _zero_summary(year: int = 2026) -> TaxYearSummary:
         year=year,
         transactions=[],
         profile=_SINGLE,
+        isin_map=_FULL_MAP,
     )
 
 
@@ -129,6 +154,7 @@ def test_compute_current_tax_summary_passthrough() -> None:
         year=2026,
         transactions=txs,
         profile=_SINGLE,
+        isin_map=_FULL_MAP,
         prior_year_aktien_carryforward_eur=_eur("0"),
         prior_year_general_carryforward_eur=_eur("0"),
         additional_dividend_income_eur=_eur("0"),
@@ -142,6 +168,7 @@ def test_compute_current_tax_summary_passthrough() -> None:
         additional_dividend_income_eur=_eur("0"),
         additional_interest_income_eur=_eur("0"),
         as_of=datetime(2026, 12, 31),
+        isin_map=_FULL_MAP,
     )
     assert service_result == engine_result
 
@@ -164,6 +191,7 @@ def test_harvest_single_position_fully_sheltered() -> None:
         additional_dividend_income_eur=_eur("0"),
         additional_interest_income_eur=_eur("0"),
         as_of=_AS_OF,
+        isin_map=_FULL_MAP,
     )
     assert "NVDA" in report.impacts
     imp = report.impacts["NVDA"]
@@ -187,6 +215,7 @@ def test_harvest_partial_shelter() -> None:
         additional_dividend_income_eur=_eur("0"),
         additional_interest_income_eur=_eur("0"),
         as_of=_AS_OF,
+        isin_map=_FULL_MAP,
     )
     imp = report.impacts["NVDA"]
     assert imp.is_fully_sheltered is False
@@ -212,6 +241,7 @@ def test_harvest_etf_teilfreistellung_no_allowance() -> None:
         additional_dividend_income_eur=_eur("0"),
         additional_interest_income_eur=_eur("0"),
         as_of=datetime(2026, 12, 31),
+        isin_map=_FULL_MAP,
     )
     assert summary.sparerpauschbetrag_remaining_eur.amount == Decimal("0")
 
@@ -226,6 +256,7 @@ def test_harvest_etf_teilfreistellung_no_allowance() -> None:
         additional_dividend_income_eur=_eur("0"),
         additional_interest_income_eur=_eur("0"),
         as_of=_AS_OF,
+        isin_map=_FULL_MAP,
     )
     imp = report.impacts["VUSA.DE"]
     assert imp.instrument_kind == InstrumentKind.AKTIENFONDS
@@ -252,6 +283,7 @@ def test_harvest_stale_position_excluded() -> None:
         additional_dividend_income_eur=_eur("0"),
         additional_interest_income_eur=_eur("0"),
         as_of=_AS_OF,
+        isin_map=_FULL_MAP,
     )
     assert "NVDA" in report.impacts
     assert "RHM.DE" not in report.impacts
@@ -280,6 +312,7 @@ def test_full_liquidation_three_positions() -> None:
         additional_dividend_income_eur=_eur("0"),
         additional_interest_income_eur=_eur("0"),
         as_of=_AS_OF,
+        isin_map=_FULL_MAP,
     )
     # Combined gain: NVDA €200 (AKTIE), ETN €200 (AKTIE), VUSA.DE €500 (AKTIENFONDS 30% TF → €350 taxable)
     # Total AKTIE taxable: €400. General-pot (VUSA.DE goes to general pot): €350.
@@ -303,5 +336,6 @@ def test_full_liquidation_all_stale_returns_current_summary() -> None:
         additional_dividend_income_eur=_eur("0"),
         additional_interest_income_eur=_eur("0"),
         as_of=_AS_OF,
+        isin_map=_FULL_MAP,
     )
     assert result is summary

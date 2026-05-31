@@ -66,12 +66,14 @@ def test_save_mapping_flips_status_to_mapped() -> None:
         isin: IsinMapping(ticker=None, name="North American Niobium", status="unmapped",
                           last_seen_in_csv=date(2026, 4, 20))
     })
-    updated, _ = _save_mapping(isin, "NAN.V", doc)
+    from app.domain.tax.classification import InstrumentKind
+    updated, _ = _save_mapping(isin, "NAN.V", InstrumentKind.AKTIE, doc)
     entry = updated.entries[isin]
     assert entry.ticker == "NAN.V"
     assert entry.status == "mapped"
     assert entry.name == "North American Niobium"
     assert entry.last_seen_in_csv == date(2026, 4, 20)
+    assert entry.instrument_kind == InstrumentKind.AKTIE
 
 
 def test_save_mapping_updates_existing_mapped_entry() -> None:
@@ -80,7 +82,8 @@ def test_save_mapping_updates_existing_mapped_entry() -> None:
         isin: IsinMapping(ticker="RHM.DE", name="Rheinmetall", status="mapped",
                           last_seen_in_csv=date(2026, 3, 30))
     })
-    updated, _ = _save_mapping(isin, "RHM.XETRA", doc)
+    from app.domain.tax.classification import InstrumentKind
+    updated, _ = _save_mapping(isin, "RHM.XETRA", InstrumentKind.AKTIE, doc)
     assert updated.entries[isin].ticker == "RHM.XETRA"
     assert updated.entries[isin].status == "mapped"
 
@@ -92,7 +95,8 @@ def test_save_mapping_preserves_other_entries() -> None:
             "CA65704Y1079": IsinMapping(ticker=None, name="Niobium", status="unmapped"),
         }
     )
-    updated, _ = _save_mapping("CA65704Y1079", "NAN.V", doc)
+    from app.domain.tax.classification import InstrumentKind
+    updated, _ = _save_mapping("CA65704Y1079", "NAN.V", InstrumentKind.AKTIE, doc)
     assert "US67066G1040" in updated.entries
     assert updated.entries["US67066G1040"].ticker == "NVDA"
 
@@ -157,8 +161,9 @@ def test_save_mapping_with_ticker_from_searchbox_symbol() -> None:
         isin: IsinMapping(ticker=None, name="Rheinmetall", status="unmapped",
                           last_seen_in_csv=date(2026, 4, 1))
     })
+    from app.domain.tax.classification import InstrumentKind
     ticker_from_match = "RHM.DE"
-    updated, _ = _save_mapping(isin, ticker_from_match, doc)
+    updated, _ = _save_mapping(isin, ticker_from_match, InstrumentKind.AKTIE, doc)
     assert updated.entries[isin].ticker == "RHM.DE"
     assert updated.entries[isin].status == "mapped"
 

@@ -11,7 +11,7 @@ import streamlit as st
 
 from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition
-from app.domain.tax.classification import InstrumentKind
+from app.domain.tax.classification import InstrumentClassificationError, InstrumentKind
 from app.domain.tax.models import (
     FilingStatus,
     HarvestImpact,
@@ -31,6 +31,7 @@ from app.ui.format import format_eur, format_pct, gain_class
 from app.ui.render import render_html
 from app.ui.wiring import (
     get_fx_provider,
+    get_isin_map_repo,
     get_price_provider,
     get_repository,
     get_tax_profile_repo,
@@ -58,6 +59,11 @@ _KIND_LABEL: dict[InstrumentKind, str] = {
 def _tax_profile_signature() -> str:
     from app.config import get_settings
     return file_mtime_key(Path(get_settings().tax_profile_json_path))
+
+
+def _isin_map_signature() -> str:
+    from app.config import get_settings
+    return file_mtime_key(Path(get_settings().isin_map_json_path))
 
 
 # ---------------------------------------------------------------------------
@@ -128,12 +134,13 @@ def _cached_live_positions(tx_sig: str) -> dict[str, LivePosition]:
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def _cached_tax_summary(tx_sig: str, profile_sig: str, year: int) -> TaxYearSummary:
+def _cached_tax_summary(tx_sig: str, profile_sig: str, isin_sig: str, year: int) -> TaxYearSummary:
     repo = get_tax_profile_repo()
     doc = repo.load()
     inputs = doc.inputs_for_year(year)
     profile = TaxProfile(filing_status=doc.filing_status)
     txs = get_repository().load_all()
+    isin_map = get_isin_map_repo().load()
     as_of = datetime(year, 12, 31)  # compute for full year-to-date
     return compute_current_tax_summary(
         transactions=txs,
@@ -143,18 +150,20 @@ def _cached_tax_summary(tx_sig: str, profile_sig: str, year: int) -> TaxYearSumm
         additional_dividend_income_eur=inputs.additional_dividend_income_eur,
         additional_interest_income_eur=inputs.additional_interest_income_eur,
         as_of=as_of,
+        isin_map=isin_map,
     )
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def _cached_harvest_report(tx_sig: str, profile_sig: str, year: int) -> HarvestImpactReport:
+def _cached_harvest_report(tx_sig: str, profile_sig: str, isin_sig: str, year: int) -> HarvestImpactReport:
     repo = get_tax_profile_repo()
     doc = repo.load()
     inputs = doc.inputs_for_year(year)
     profile = TaxProfile(filing_status=doc.filing_status)
     txs = get_repository().load_all()
+    isin_map = get_isin_map_repo().load()
     live_positions = _cached_live_positions(tx_sig)
-    summary = _cached_tax_summary(tx_sig, profile_sig, year)
+    summary = _cached_tax_summary(tx_sig, profile_sig, isin_sig, year)
     as_of = datetime.now()
     return compute_per_position_harvest_impact(
         transactions=txs,
@@ -166,18 +175,20 @@ def _cached_harvest_report(tx_sig: str, profile_sig: str, year: int) -> HarvestI
         additional_dividend_income_eur=inputs.additional_dividend_income_eur,
         additional_interest_income_eur=inputs.additional_interest_income_eur,
         as_of=as_of,
+        isin_map=isin_map,
     )
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def _cached_liquidation_summary(tx_sig: str, profile_sig: str, year: int) -> TaxYearSummary:
+def _cached_liquidation_summary(tx_sig: str, profile_sig: str, isin_sig: str, year: int) -> TaxYearSummary:
     repo = get_tax_profile_repo()
     doc = repo.load()
     inputs = doc.inputs_for_year(year)
     profile = TaxProfile(filing_status=doc.filing_status)
     txs = get_repository().load_all()
+    isin_map = get_isin_map_repo().load()
     live_positions = _cached_live_positions(tx_sig)
-    summary = _cached_tax_summary(tx_sig, profile_sig, year)
+    summary = _cached_tax_summary(tx_sig, profile_sig, isin_sig, year)
     as_of = datetime.now()
     return compute_tax_if_full_liquidation(
         transactions=txs,
@@ -189,6 +200,7 @@ def _cached_liquidation_summary(tx_sig: str, profile_sig: str, year: int) -> Tax
         additional_dividend_income_eur=inputs.additional_dividend_income_eur,
         additional_interest_income_eur=inputs.additional_interest_income_eur,
         as_of=as_of,
+        isin_map=isin_map,
     )
 
 
@@ -602,6 +614,15 @@ def _render_profile_editor(year: int) -> None:
 # Main render entry point
 # ---------------------------------------------------------------------------
 
+def _render_classification_warning(exc: InstrumentClassificationError) -> None:
+    st.warning(
+        f"⚠ Some tickers need a Tax kind before the full summary can be computed: {exc}\n\n"
+        "Open the Mappings page to classify them."
+    )
+    if st.button("Open Mappings page", key="tax_open_mappings"):
+        st.query_params["page"] = "mappings"
+
+
 def render() -> None:
     now = datetime.now()
     year = now.year
@@ -609,11 +630,15 @@ def render() -> None:
     txs = get_repository().load_all()
     tx_sig = transactions_signature(txs)
     profile_sig = _tax_profile_signature()
+    isin_sig = _isin_map_signature()
 
     render_html('<div style="font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px;">YTD Tax Summary</div>')
 
     try:
-        summary = _cached_tax_summary(tx_sig, profile_sig, year)
+        summary = _cached_tax_summary(tx_sig, profile_sig, isin_sig, year)
+    except InstrumentClassificationError as exc:
+        _render_classification_warning(exc)
+        return
     except Exception as exc:
         st.error(f"Could not compute tax summary: {exc}")
         return
@@ -623,7 +648,10 @@ def render() -> None:
     _render_ytd_tiles(summary)
 
     try:
-        liq_summary = _cached_liquidation_summary(tx_sig, profile_sig, year)
+        liq_summary = _cached_liquidation_summary(tx_sig, profile_sig, isin_sig, year)
+    except InstrumentClassificationError as exc:
+        _render_classification_warning(exc)
+        liq_summary = summary
     except Exception as exc:
         st.warning(f"Could not compute liquidation scenario: {exc}")
         liq_summary = summary
@@ -631,7 +659,10 @@ def render() -> None:
     _render_tax_exposure(summary, liq_summary, live_positions)
 
     try:
-        harvest_report = _cached_harvest_report(tx_sig, profile_sig, year)
+        harvest_report = _cached_harvest_report(tx_sig, profile_sig, isin_sig, year)
+    except InstrumentClassificationError as exc:
+        _render_classification_warning(exc)
+        harvest_report = HarvestImpactReport(impacts={}, stale_tickers=tuple(live_positions.keys()))
     except Exception as exc:
         st.warning(f"Could not compute harvest opportunities: {exc}")
         harvest_report = HarvestImpactReport(impacts={}, stale_tickers=tuple(live_positions.keys()))

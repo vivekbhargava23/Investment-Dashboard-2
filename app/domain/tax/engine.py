@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from decimal import Decimal
 
 from app.domain.fifo import compute_realised_gains
+from app.domain.isin_map import IsinMapDocument
 from app.domain.models import Transaction
 from app.domain.money import Currency, CurrencyMismatchError, Money
 from app.domain.tax.models import TaxProfile, TaxYearSummary
@@ -19,6 +20,7 @@ def compute_tax_year_summary(
     year: int,
     transactions: Sequence[Transaction],
     profile: TaxProfile,
+    isin_map: IsinMapDocument = IsinMapDocument(),
     prior_year_aktien_carryforward_eur: Money = Money(
         amount=Decimal("0"), currency=Currency.EUR
     ),
@@ -72,5 +74,6 @@ def compute_tax_year_summary(
         prior_general_carryforward=prior_year_general_carryforward_eur,
         additional_dividend_income_eur=additional_dividend_income_eur,
         additional_interest_income_eur=additional_interest_income_eur,
+        isin_map=isin_map,
     )
     return run_pipeline(ledger)

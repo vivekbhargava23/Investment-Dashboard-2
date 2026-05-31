@@ -15,6 +15,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 
 from app.domain.fifo import SellExceedsOpenSharesError, compute_positions, simulate_lot_consumption
+from app.domain.isin_map import IsinMapDocument
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition, OpenLot
@@ -104,6 +105,7 @@ def simulate_sell(
     carryforward_eur_general: Money = _ZERO_EUR,
     additional_dividend_income_eur: Money = _ZERO_EUR,
     additional_interest_income_eur: Money = _ZERO_EUR,
+    isin_map: IsinMapDocument = IsinMapDocument(),
 ) -> SellSimulation:
     """Simulate selling shares of a position without writing any transactions.
 
@@ -178,6 +180,7 @@ def simulate_sell(
         carryforward_eur_general=carryforward_eur_general,
         additional_dividend_income_eur=additional_dividend_income_eur,
         additional_interest_income_eur=additional_interest_income_eur,
+        isin_map=isin_map,
     )
 
     # Step 5: position after snapshot
