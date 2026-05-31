@@ -263,3 +263,21 @@ def test_render_candlestick_weekly_has_no_rangebreaks() -> None:
         render_candlestick(weekly)
     fig = mock_st.plotly_chart.call_args.args[0]
     assert not fig.layout.xaxis.rangebreaks
+
+
+def test_render_candlestick_sets_date_axis_type() -> None:
+    """xaxis.type must be 'date' so Plotly.js applies rangebreaks on UTC timestamps."""
+    daily = _series(_bar("2024-01-02"), _bar("2024-01-03"), period=ChartPeriod.ONE_MONTH)
+    with patch("app.ui.components.charts.st") as mock_st:
+        render_candlestick(daily)
+    fig = mock_st.plotly_chart.call_args.args[0]
+    assert fig.layout.xaxis.type == "date"
+
+
+def test_render_candlestick_daily_tickformat_is_month_day() -> None:
+    """Daily charts use '%b %d' so each tick shows a distinct date, not a repeated month."""
+    daily = _series(_bar("2024-01-02"), _bar("2024-01-03"), period=ChartPeriod.ONE_MONTH)
+    with patch("app.ui.components.charts.st") as mock_st:
+        render_candlestick(daily)
+    fig = mock_st.plotly_chart.call_args.args[0]
+    assert fig.layout.xaxis.tickformat == "%b %d"
