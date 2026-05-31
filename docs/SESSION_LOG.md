@@ -44,6 +44,44 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-31 — TICKET-M9
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~20 min
+**Branch:** ticket-m9-worktree-and-conda-env
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Amended `AGENTS.md` Step 5 to be worktree-aware: creates a sibling worktree `<repo>-<ticket-id>` and cds into it when starting from main; reuses existing worktree when already inside one
+- Added conda env activation subsection under `AGENTS.md` Step 7: all Python shell calls must prefix with `source ... && conda activate investment-dashboard &&`
+- Created `tools/cleanup-worktrees.sh`: removes local worktrees whose upstream branches no longer exist; marks executable; idempotent
+- Documented `cleanup-worktrees.sh` in `tools/README.md`
+- Updated `docs/VIVEK.md` Section 3 to reflect the new minimal two-step start flow
+- Flipped `docs/DECISIONS/ADR-011-parallel-agent-workflow.md` status from `Proposed` to `Accepted (2026-05-31)`
+
+### Files touched
+- `AGENTS.md` — Step 5 and Step 7 amendments
+- `tools/cleanup-worktrees.sh` — new script
+- `tools/README.md` — added cleanup-worktrees.sh entry
+- `docs/VIVEK.md` — Section 3 rewritten
+- `docs/DECISIONS/ADR-011-parallel-agent-workflow.md` — status accepted
+- `docs/TICKETS/TICKET-M9-automate-worktree-and-env.md` — status IN_PROGRESS
+
+### Tests
+869 passing → 869 passing (no Python changes)
+
+### Decisions made during the session
+No architectural decisions — this ticket implements an already-accepted ADR (ADR-011).
+
+### Out-of-scope items noticed
+None.
+
+### Tokens used (rough)
+~30k
+
+---
+
 ## 2026-05-16 — TICKET-CSV-10
 **Surface:** Claude Code
 **Model:** sonnet-4.6
