@@ -44,6 +44,37 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-31 — TICKET-M10
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~60 min
+**Branch:** ticket-m10-worktree-workflow-polish
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Rewrote `tools/cleanup-worktrees.sh`: now detects merged worktrees via three cases (upstream gone + was tracked, ancestor-of-main, squash-merged via tree-hash); uses `git-common-dir` to identify the main checkout correctly when called from inside a worktree; preserves brand-new branches that have never been pushed
+- Updated `AGENTS.md` Step 5: prepends `bash tools/cleanup-worktrees.sh || true` before creating each new worktree; after `git worktree add`, removes the checked-out `data/` directory and replaces it with a symlink to the main checkout's `data/` (and `.env` if present)
+- Updated `docs/VIVEK.md` Section 3: added one-line note that all worktrees share the main checkout's `data/` automatically
+
+### Files touched
+- `tools/cleanup-worktrees.sh` — full rewrite with merged-branch detection
+- `AGENTS.md` — Step 5 extended with cleanup call + data symlink
+- `docs/VIVEK.md` — Section 3 shared-data note
+
+### Tests
+864 passing → 864 passing (no new tests; no Python code changed)
+
+### Decisions made during the session
+- Used `git config --get "branch.$name.remote"` to distinguish new-never-pushed branches from upstream-deleted branches in Case 1 of the cleanup script. Alternative (commits-ahead check) would fail for fresh branches with no commits yet.
+- Used `git rev-parse --git-common-dir` (not `--show-toplevel`) to find the main repo; `--show-toplevel` returns the worktree path when called from a worktree, causing the main-checkout guard to fail.
+
+### Out-of-scope items noticed
+- None
+
+### Tokens used (rough)
+~60k
+
 ## 2026-05-31 — TICKET-R5
 **Surface:** Claude Code
 **Model:** sonnet-4.6
