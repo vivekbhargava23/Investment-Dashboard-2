@@ -7,22 +7,13 @@ from app.ui.render import render_html
 
 NAV_ITEMS: list[dict[str, Any]] = [
     # PORTFOLIO
-    {"id": "overview",    "label": "Live Overview",      "icon": "◉",  "badge": None},
-    {"id": "performance", "label": "Performance",        "icon": "↗",  "badge": None},
-    {"id": "tax",         "label": "Tax Dashboard",      "icon": "§",  "badge": None},
-    {"id": "analytics",   "label": "Analytics & Risk",   "icon": "⬡",  "badge": None},
-    {"id": "research",    "label": "Research",           "icon": "📈", "badge": None},
-    {"id": "company",     "label": "Company",            "icon": "🏢", "badge": None},
+    {"id": "overview",  "label": "Live Overview",    "icon": "◉",  "badge": None},
+    {"id": "tax",       "label": "Tax Dashboard",    "icon": "§",  "badge": None},
+    {"id": "analytics", "label": "Analytics & Risk", "icon": "⬡",  "badge": None},
+    {"id": "research",  "label": "Research",         "icon": "📈", "badge": None},
+    {"id": "company",   "label": "Company",          "icon": "🏢", "badge": None},
     # TOOLS
-    {"id": "simulator",        "label": "Sell Simulator",     "icon": "⚡", "badge": None},
-    {"id": "lots",             "label": "Lot Ledger",         "icon": "≡",  "badge": None},
-    {
-        "id": "decision",
-        "label": "Decision Gates",
-        "icon": "▲",
-        "badge": {"text": "3 flags", "color": ""},
-    },
-    {"id": "behaviour",        "label": "Behavioural Ledger", "icon": "◎",  "badge": None},
+    {"id": "simulator", "label": "Sell Simulator", "icon": "⚡", "badge": None},
     # SETTINGS
     {"id": "manage",           "label": "Manage Portfolio", "icon": "⚙",  "badge": None},
     {"id": "import_workbench", "label": "Import CSV",       "icon": "📥", "badge": None},
@@ -30,9 +21,9 @@ NAV_ITEMS: list[dict[str, Any]] = [
 ]
 
 _SECTIONS: list[tuple[str, int, int]] = [
-    ("PORTFOLIO", 0, 6),
-    ("TOOLS",     6, 10),
-    ("SETTINGS",  10, 13),
+    ("PORTFOLIO", 0, 5),
+    ("TOOLS",     5, 6),
+    ("SETTINGS",  6, 9),
 ]
 
 

@@ -10,13 +10,9 @@ from app.ui.wiring import get_fx_provider, get_price_provider
 PAGE_TITLES: dict[str, str] = {
     "overview": "Live Overview",
     "analytics": "Analytics & Risk",
-    "performance": "Performance",
     "tax": "Tax Dashboard",
     "research": "Research",
     "company": "Company Deep Dive",
-    "decision": "Decision Gates",
-    "behaviour": "Behavioural Ledger",
-    "lots": "Lot Ledger",
     "simulator": "Sell Simulator",
     "manage": "Manage Portfolio",
     "mappings": "ISIN Mappings",
