@@ -221,21 +221,32 @@ source files under `app/` and `tests/`.
 ### Step 7 — Gate check (must pass before ANY commit)
 
 ```bash
-pytest && ruff check . && mypy app/ && lint-imports
+bash tools/run.sh <slug> bash -c 'pytest && ruff check . && mypy app/ && lint-imports'
 ```
 
 If **any** check fails: **STOP**. See "Stop conditions" below.
 Do not commit. Do not push. Do not open a PR. Report the failure to Vivek.
 
-#### Conda env activation
+#### Running commands in a worktree
 
-All shell calls that require Python (`pytest`, `ruff`, `mypy`, `lint-imports`, `streamlit`) must prefix with:
+Use `bash tools/run.sh <slug> <cmd>` instead of inlining `cd … && source … && conda activate …`:
 
 ```bash
-source "$(conda info --base)/etc/profile.d/conda.sh" && conda activate investment-dashboard && <command>
+# Gate check (all four tools chained in one activation)
+bash tools/run.sh c3 bash -c 'pytest && ruff check . && mypy app/ && lint-imports'
+
+# Single tool
+bash tools/run.sh c3 pytest tests/unit
 ```
 
-On systems with `mamba`, substitute `mamba` for `conda`. The agent never relies on the outer shell having the conda env already activated.
+The slug is the worktree suffix: the `c3` worktree lives at `../Investment-Dashboard-2-c3`, slug is `c3`.
+Chain related checks into one `bash -c '...'` call to avoid re-activating the env each time.
+
+For commands run from the **main checkout** (e.g. Step 3 `pytest -q`), use the activation prefix directly — `run.sh` only targets worktrees:
+
+```bash
+source "$(conda info --base)/etc/profile.d/conda.sh" && conda activate investment-dashboard && pytest -q
+```
 
 ### Step 8 — Commit, log, and push
 

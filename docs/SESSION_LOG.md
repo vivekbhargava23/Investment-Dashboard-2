@@ -44,6 +44,36 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-31 — wrapper (run.sh + AGENTS.md sweep)
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~15 min
+**Branch:** wrapper
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/123
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `tools/run.sh` — runs any command inside a named worktree with the conda env active
+- Updated AGENTS.md Step 7 gate-check to use `run.sh`; replaced "Conda env activation" sub-section with "Running commands in a worktree" covering both `run.sh` (worktree) and direct prefix (main checkout)
+- Added `run.sh` entry to `tools/README.md`
+
+### Files touched
+- `tools/run.sh` — new
+- `AGENTS.md` — Step 7 + conda section rewritten
+- `tools/README.md` — run.sh documented
+
+### Tests
+864 passing (no change — no app code modified)
+
+### Decisions made during the session
+- No architectural decisions
+
+### Out-of-scope items noticed
+- None
+
+### Tokens used (rough)
+~10k
+
 ## 2026-05-31 — TICKET-M10
 **Surface:** Claude Code
 **Model:** sonnet-4.6
