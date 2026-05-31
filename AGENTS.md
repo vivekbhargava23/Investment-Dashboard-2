@@ -388,4 +388,4 @@ Do not attempt heroic recovery. Stopping early is cheap; a bad merge is expensiv
 - ❌ `git push --force` on a branch with an open PR without saying so explicitly in your next message to Vivek.
 - ❌ Write to `main` after Vivek says he merged the PR. The session is over. See "When Vivek says 'I merged it'" above.
 - ❌ Treat doc updates (STATE.md, ticket status) as post-PR housekeeping. Board state is managed via the API (Steps 5, 8c). Ticket `Status:` lines are decorative — update them in Step 5 if you like, but nothing reads them.
-- ❌ Edit the project board order programmatically. Vivek drags cards; the agent only writes the Status column.
+- ❌ Reorder cards on the project board. Only `tools/file.sh` sets Backlog position (by priority band — ADR-010). The agent only writes Status.

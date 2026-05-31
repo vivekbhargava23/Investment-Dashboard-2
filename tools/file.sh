@@ -4,7 +4,8 @@
 # Usage: bash tools/file.sh
 #
 # Finds every untracked docs/TICKETS/TICKET-*.md, validates them, creates GitHub
-# issues, adds each issue to the project board (Backlog), commits, and pushes.
+# issues, adds each issue to the project board (Backlog), sets each item's
+# position by priority band (banded-prepend, ADR-010), commits, and pushes.
 # No POSITION field. No clean-tree guard for ticket files. No batch separator.
 #
 # Portability: POSIX sh + bash 3.2+. No GNU-only constructs.
@@ -251,7 +252,160 @@ for i in "${!CREATED_URLS[@]}"; do
 done
 
 # ---------------------------------------------------------------------------
-# Step 7 — Commit and push
+# Step 7 — Priority-band ordering in Backlog (banded-prepend per ADR-010)
+# ---------------------------------------------------------------------------
+# Each new item is placed at the top of its priority band: after the last
+# existing Backlog item of strictly higher priority (or at the very top of
+# Backlog if no higher-priority item exists). The query is re-run before each
+# insertion so the algorithm sees the post-state of earlier insertions in the
+# same batch. Failures are non-fatal: a warning is printed and the item stays
+# wherever gh project item-add placed it (Vivek can drag to fix).
+
+_priority_rank() {
+  case "$1" in
+    CRITICAL) echo 4 ;;
+    HIGH)     echo 3 ;;
+    MEDIUM)   echo 2 ;;
+    LOW)      echo 1 ;;
+    *)        echo 0 ;;
+  esac
+}
+
+# Shared GraphQL query: fetch all project items with Status + priority labels.
+# shellcheck disable=SC2016
+_BACKLOG_QUERY='query($projectId: ID!) {
+  node(id: $projectId) {
+    ... on ProjectV2 {
+      items(first: 100) {
+        nodes {
+          id
+          fieldValueByName(name: "Status") {
+            ... on ProjectV2ItemFieldSingleSelectValue { name }
+          }
+          content {
+            ... on Issue {
+              labels(first: 10) { nodes { name } }
+            }
+          }
+        }
+      }
+    }
+  }
+}'
+
+declare -a ITEM_BACKLOG_RANKS=()
+
+echo ""
+echo "Setting priority-band positions in Backlog..."
+for i in "${!ITEM_IDS[@]}"; do
+  item_id="${ITEM_IDS[$i]}"
+  priority="${VALID_PRIORITIES[$i]}"
+  ticket_id="${VALID_IDS[$i]}"
+
+  if [ -z "$item_id" ]; then
+    ITEM_BACKLOG_RANKS+=("?")
+    echo "  $ticket_id: skipping reorder (item was not added to board)"
+    continue
+  fi
+
+  new_rank="$(_priority_rank "$priority")"
+
+  # Re-query current Backlog before each insertion.
+  backlog_json="$(gh api graphql \
+    -f query="$_BACKLOG_QUERY" \
+    -f projectId="$PROJECT_ID" 2>/dev/null || true)"
+
+  if [ -z "$backlog_json" ]; then
+    ITEM_BACKLOG_RANKS+=("?")
+    echo "  Warning: could not query board for $ticket_id — fix manually by dragging on the board."
+    continue
+  fi
+
+  # Find the last Backlog item with strictly higher priority rank.
+  # Exclude the new item itself (it is already in Backlog after Step 6).
+  anchor_id="$(printf '%s' "$backlog_json" | jq -r \
+    --argjson new_rank "$new_rank" \
+    --arg item_id "$item_id" \
+    '[
+      .data.node.items.nodes[] |
+      select(.fieldValueByName.name == "Backlog") |
+      select(.id != $item_id) |
+      {
+        id: .id,
+        rank: (
+          [
+            (.content.labels?.nodes // [])[] |
+            .name | ascii_downcase |
+            if . == "critical" then 4
+            elif . == "high" then 3
+            elif . == "medium" then 2
+            elif . == "low" then 1
+            else empty
+            end
+          ] | max // 0
+        )
+      } |
+      select(.rank > $new_rank)
+    ] | last | .id // empty')"
+
+  if [ -z "$anchor_id" ]; then
+    # No higher-priority item — place at top of Backlog.
+    # shellcheck disable=SC2016
+    if ! gh api graphql \
+      -f query='mutation($projectId: ID!, $itemId: ID!) {
+        updateProjectV2ItemPosition(input: { projectId: $projectId, itemId: $itemId }) {
+          items(first: 1) { nodes { id } }
+        }
+      }' \
+      -f projectId="$PROJECT_ID" \
+      -f itemId="$item_id" > /dev/null 2>&1; then
+      ITEM_BACKLOG_RANKS+=("?")
+      echo "  Warning: could not reorder $ticket_id — fix manually by dragging on the board."
+      continue
+    fi
+  else
+    # Place directly after the last higher-priority item (top of this band).
+    # shellcheck disable=SC2016
+    if ! gh api graphql \
+      -f query='mutation($projectId: ID!, $itemId: ID!, $afterId: ID!) {
+        updateProjectV2ItemPosition(input: { projectId: $projectId, itemId: $itemId, afterId: $afterId }) {
+          items(first: 1) { nodes { id } }
+        }
+      }' \
+      -f projectId="$PROJECT_ID" \
+      -f itemId="$item_id" \
+      -f afterId="$anchor_id" > /dev/null 2>&1; then
+      ITEM_BACKLOG_RANKS+=("?")
+      echo "  Warning: could not reorder $ticket_id — fix manually by dragging on the board."
+      continue
+    fi
+  fi
+
+  echo "  Positioned $ticket_id at top of $priority band."
+  ITEM_BACKLOG_RANKS+=("pending")
+done
+
+# Compute final 1-indexed Backlog ranks from a single post-mutation query.
+final_backlog_json="$(gh api graphql \
+  -f query="$_BACKLOG_QUERY" \
+  -f projectId="$PROJECT_ID" 2>/dev/null || true)"
+
+if [ -n "$final_backlog_json" ]; then
+  for i in "${!ITEM_IDS[@]}"; do
+    if [ "${ITEM_BACKLOG_RANKS[$i]:-}" = "pending" ]; then
+      item_id="${ITEM_IDS[$i]}"
+      rank="$(printf '%s' "$final_backlog_json" | jq -r \
+        --arg iid "$item_id" \
+        '[.data.node.items.nodes[] | select(.fieldValueByName.name == "Backlog") | .id] |
+         (index($iid) // -1) |
+         if . >= 0 then (. + 1 | tostring) else "?" end')"
+      ITEM_BACKLOG_RANKS[i]="$rank"
+    fi
+  done
+fi
+
+# ---------------------------------------------------------------------------
+# Step 8 — Commit and push
 # ---------------------------------------------------------------------------
 echo ""
 echo "Committing ticket files..."
@@ -275,7 +429,7 @@ fi
 pushed_sha="$(git rev-parse HEAD)"
 
 # ---------------------------------------------------------------------------
-# Step 8 — Print summary
+# Step 9 — Print summary
 # ---------------------------------------------------------------------------
 echo ""
 echo "Filed ${#CREATED_IDS[@]} ticket(s):"
@@ -284,6 +438,8 @@ for i in "${!CREATED_IDS[@]}"; do
   if [ "${#title_short}" -gt 50 ]; then
     title_short="${title_short:0:47}..."
   fi
-  echo "  ${CREATED_IDS[$i]:-unknown}  — $title_short -> issue #${CREATED_NUMS[$i]}, added to Backlog"
+  backlog_rank="${ITEM_BACKLOG_RANKS[$i]:-?}"
+  priority="${VALID_PRIORITIES[$i]}"
+  echo "  ${CREATED_IDS[$i]:-unknown}  — $title_short -> issue #${CREATED_NUMS[$i]}, Backlog #$backlog_rank ($priority)"
 done
 echo "Commit pushed: $pushed_sha"
