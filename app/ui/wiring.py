@@ -4,10 +4,14 @@ from pathlib import Path
 import streamlit as st
 
 from app.adapters.company_factory import build_company_provider
+from app.adapters.fx_yfinance import YfinanceLiveFxAdapter
 from app.adapters.isin_map.repo import JsonIsinMapRepository
 from app.adapters.repo_json import JsonNavSnapshotRepository, JsonTransactionRepository
 from app.adapters.repo_json.tax_profile_repo import JsonTaxProfileRepository
-from app.adapters.yfinance_feed import YfinanceAdapter
+from app.adapters.ticker_resolver_cached import CachedTickerResolver
+from app.adapters.yfinance_ohlc import YfinanceOhlcAdapter
+from app.adapters.yfinance_price import YfinancePriceAdapter
+from app.adapters.yfinance_resolver import YfinanceResolverAdapter
 from app.config import get_settings
 from app.ports.company_data import CompanyDataProvider
 from app.ports.fx_feed import FxProvider
@@ -43,29 +47,26 @@ def get_tax_profile_repo() -> TaxProfileRepository:
 
 @lru_cache(maxsize=1)
 def get_price_provider() -> PriceProvider:
-    return YfinanceAdapter()
+    return YfinancePriceAdapter()
 
 
 @lru_cache(maxsize=1)
 def get_fx_provider() -> FxProvider:
-    # Same instance; YfinanceAdapter implements PriceProvider, FxProvider, and TickerResolver.
-    return get_price_provider()  # type: ignore[return-value]
+    return YfinanceLiveFxAdapter()
 
 
 @lru_cache(maxsize=1)
 def get_ticker_resolver() -> TickerResolver:
-    from typing import cast
-
-    from app.adapters.ticker_resolver_cached import CachedTickerResolver
-
     settings = get_settings()
-    inner = cast(TickerResolver, get_price_provider())
-    return CachedTickerResolver(inner=inner, cache_path=settings.ticker_cache_json_path)
+    return CachedTickerResolver(
+        inner=YfinanceResolverAdapter(),
+        cache_path=settings.ticker_cache_json_path,
+    )
 
 
 @lru_cache(maxsize=1)
 def get_ohlc_data_provider() -> OhlcDataProvider:
-    return get_price_provider()  # type: ignore[return-value]
+    return YfinanceOhlcAdapter()
 
 
 @lru_cache(maxsize=1)

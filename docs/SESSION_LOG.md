@@ -44,6 +44,56 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-31 — TICKET-C3
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~45 min
+**Branch:** ticket-c3-split-yfinance-adapter
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/122
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created `app/adapters/_yfinance_client.py` as single yfinance import point
+- Created `YfinancePriceAdapter` in `app/adapters/yfinance_price/` implementing `PriceProvider`
+- Created `YfinanceOhlcAdapter` in `app/adapters/yfinance_ohlc/` implementing `OhlcDataProvider`
+- Created `YfinanceResolverAdapter` in `app/adapters/yfinance_resolver/` implementing `TickerResolver`
+- Added `YfinanceLiveFxAdapter` to `app/adapters/fx_yfinance/` implementing `FxProvider`
+- Rewrote `app/ui/wiring.py`: each provider wired to its own adapter, zero `type: ignore`
+- Updated `FxYfinanceDiskAdapter._get_inner` to use `YfinanceLiveFxAdapter`
+- Updated `app/scripts/migrate_currency.py` to use `YfinancePriceAdapter`
+- Deprecated `yfinance_feed/__init__.py` with `YfinanceAdapter = YfinancePriceAdapter` alias
+- Updated all unit tests to use per-protocol adapters
+- Created integration test stubs: `test_yfinance_price.py`, `test_yfinance_live_fx.py`
+- Updated `test_yfinance_resolver.py` to use `YfinanceResolverAdapter`
+- Added `tests/unit/adapters/test_yfinance_live_fx.py` for `YfinanceLiveFxAdapter`
+
+### Files touched
+- `app/adapters/_yfinance_client.py` — new shared yfinance import
+- `app/adapters/yfinance_price/` — new PriceProvider adapter
+- `app/adapters/yfinance_ohlc/` — new OhlcDataProvider adapter
+- `app/adapters/yfinance_resolver/` — new TickerResolver adapter
+- `app/adapters/fx_yfinance/adapter.py` — added YfinanceLiveFxAdapter
+- `app/adapters/fx_yfinance/__init__.py` — export YfinanceLiveFxAdapter
+- `app/adapters/yfinance_feed/__init__.py` — deprecated back-compat alias
+- `app/ui/wiring.py` — rewired to per-protocol adapters
+- `app/scripts/migrate_currency.py` — use YfinancePriceAdapter
+- All unit tests in `tests/unit/adapters/test_yfinance_*`
+- New integration tests in `tests/integration/`
+
+### Tests
+864 passing → 870 passing (6 new)
+
+### Decisions made during the session
+- `YfinanceAdapter` alias kept in `yfinance_feed/__init__.py` for one release pointing at `YfinancePriceAdapter`
+- `YfinanceLiveFxAdapter` implements both `get_current_rate` and `get_historical_rate` via yfinance; TICKET-C1 will replace historical with ECB
+- No architectural decisions beyond what ADR-009 already specified
+
+### Out-of-scope items noticed
+- None
+
+### Tokens used (rough)
+~80k
+
 ## 2026-05-31 — wrapper (run.sh + AGENTS.md sweep)
 **Surface:** Claude Code
 **Model:** sonnet-4.6
