@@ -80,6 +80,7 @@ class YfinanceCompanyAdapter:
         now = datetime.now(UTC)
         return CompanyData(
             ticker=ticker,
+            quote_type=info.get("quoteType"),
             profile=profile,
             latest_quote=latest_quote,
             price_history=price_history,

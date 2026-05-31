@@ -7,9 +7,10 @@ from decimal import Decimal
 
 import pytest
 
+from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, CurrencyMismatchError, Money
-from app.domain.tax.classification import InstrumentClassificationError
+from app.domain.tax.classification import InstrumentClassificationError, InstrumentKind
 from app.domain.tax.engine import compute_tax_year_summary
 from app.domain.tax.models import FilingStatus, TaxProfile
 from app.domain.tax.rates import UnsupportedTaxYearError
@@ -17,6 +18,15 @@ from app.domain.tax.rates import UnsupportedTaxYearError
 _EUR = Currency.EUR
 _USD = Currency.USD
 _SINGLE = TaxProfile(filing_status=FilingStatus.SINGLE)
+
+_SEED_MAP = IsinMapDocument(entries={
+    "ISIN-ETN": IsinMapping(
+        ticker="ETN", name="ETN", status="mapped", instrument_kind=InstrumentKind.AKTIE
+    ),
+    "ISIN-HY9H.F": IsinMapping(
+        ticker="HY9H.F", name="HY9H.F", status="mapped", instrument_kind=InstrumentKind.AKTIE
+    ),
+})
 
 
 def _m(value: str, currency: Currency = _EUR) -> Money:
@@ -68,7 +78,7 @@ def test_seed_2026_gains_total_tax_zero() -> None:
     Allowance €1,000 covers it entirely → total_tax = €0.00
     """
     txs = _seed_transactions()
-    summary = compute_tax_year_summary(2026, txs, _SINGLE)
+    summary = compute_tax_year_summary(2026, txs, _SINGLE, isin_map=_SEED_MAP)
 
     assert len(summary.realised_gain_impacts) == 3
 
@@ -96,7 +106,7 @@ def test_seed_2026_gains_total_tax_zero() -> None:
 def test_empty_year_returns_zero_summary() -> None:
     # No sells in 2025 → all realised gains are zero
     txs = _seed_transactions()
-    summary = compute_tax_year_summary(2025, txs, _SINGLE)
+    summary = compute_tax_year_summary(2025, txs, _SINGLE, isin_map=_SEED_MAP)
 
     assert summary.realised_gain_impacts == ()
     assert summary.total_tax_owed_eur == Money(amount=Decimal("0"), currency=_EUR)
@@ -109,7 +119,7 @@ def test_unclassified_ticker_raises() -> None:
         _tx(TransactionType.SELL, "ZZZZ", "2026-01-15", "1", "120.00", _USD, "0.91"),
     ]
     with pytest.raises(InstrumentClassificationError) as exc_info:
-        compute_tax_year_summary(2026, txs, _SINGLE)
+        compute_tax_year_summary(2026, txs, _SINGLE, isin_map=IsinMapDocument())
     assert "ZZZZ" in str(exc_info.value)
 
 
@@ -125,8 +135,8 @@ def test_determinism_shuffled_inputs() -> None:
     shuffled = txs[:]
     random.seed(42)
     random.shuffle(shuffled)
-    s1 = compute_tax_year_summary(2026, txs, _SINGLE)
-    s2 = compute_tax_year_summary(2026, shuffled, _SINGLE)
+    s1 = compute_tax_year_summary(2026, txs, _SINGLE, isin_map=_SEED_MAP)
+    s2 = compute_tax_year_summary(2026, shuffled, _SINGLE, isin_map=_SEED_MAP)
     assert s1 == s2
 
 

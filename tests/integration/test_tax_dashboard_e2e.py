@@ -8,10 +8,11 @@ from decimal import Decimal
 
 import pytest
 
+from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition, OpenLot, Position
-from app.domain.tax.classification import InstrumentClassificationError
+from app.domain.tax.classification import InstrumentClassificationError, InstrumentKind
 from app.domain.tax.models import FilingStatus, TaxProfile
 from app.services.tax_planning import (
     compute_current_tax_summary,
@@ -22,6 +23,20 @@ _EUR = Currency.EUR
 _USD = Currency.USD
 _SINGLE = TaxProfile(filing_status=FilingStatus.SINGLE)
 _AS_OF = datetime(2026, 6, 1, 12, 0)
+
+
+def _isin_map(*pairs: tuple[str, InstrumentKind]) -> IsinMapDocument:
+    entries = {
+        f"ISIN-{ticker}": IsinMapping(ticker=ticker, name=ticker, status="mapped", instrument_kind=kind)
+        for ticker, kind in pairs
+    }
+    return IsinMapDocument(entries=entries)
+
+
+_E2E_MAP = _isin_map(
+    ("ETN", InstrumentKind.AKTIE),
+    ("NVDA", InstrumentKind.AKTIE),
+)
 
 
 def _m(v: str, ccy: Currency = _EUR) -> Money:
@@ -111,6 +126,7 @@ def test_four_tile_summary_fixture() -> None:
         additional_dividend_income_eur=_eur("0"),
         additional_interest_income_eur=_eur("0"),
         as_of=datetime(2026, 12, 31),
+        isin_map=_E2E_MAP,
     )
     assert summary.year == 2026
     assert summary.total_tax_owed_eur.amount == Decimal("0")
@@ -131,6 +147,7 @@ def test_unclassified_ticker_error_surfaces_clearly() -> None:
         additional_dividend_income_eur=_eur("0"),
         additional_interest_income_eur=_eur("0"),
         as_of=_AS_OF,
+        isin_map=IsinMapDocument(),
     )
     with pytest.raises(InstrumentClassificationError):
         compute_per_position_harvest_impact(
@@ -143,4 +160,5 @@ def test_unclassified_ticker_error_surfaces_clearly() -> None:
             additional_dividend_income_eur=_eur("0"),
             additional_interest_income_eur=_eur("0"),
             as_of=_AS_OF,
+            isin_map=IsinMapDocument(),
         )
