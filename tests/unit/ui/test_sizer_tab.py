@@ -128,7 +128,7 @@ def test_sizer_tab_empty_portfolio_shows_info_only() -> None:
     with (
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics.get_repository") as mock_repo,
-        patch("app.ui.pages.analytics._cached_concentration_live_positions") as mock_live,
+        patch("app.ui.pages.analytics.get_live_positions_cached") as mock_live,
     ):
         mock_repo.return_value.load_all.return_value = []
         mock_live.return_value = {}
@@ -145,7 +145,7 @@ def test_sizer_tab_smoke_renders_inputs_and_result_cards() -> None:
     with (
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics.get_repository") as mock_repo,
-        patch("app.ui.pages.analytics._cached_concentration_live_positions") as mock_live,
+        patch("app.ui.pages.analytics.get_live_positions_cached") as mock_live,
         patch("app.ui.pages.analytics._cached_concentration_summary") as mock_summary,
         patch("app.ui.pages.analytics.compute_sizer_view") as mock_compute,
         patch("app.ui.pages.analytics.render_html") as mock_html,
@@ -180,7 +180,7 @@ def test_sizer_tab_live_eur_price_without_fx_rate_renders_results() -> None:
     with (
         patch("app.ui.pages.analytics.st") as mock_st,
         patch("app.ui.pages.analytics.get_repository") as mock_repo,
-        patch("app.ui.pages.analytics._cached_concentration_live_positions") as mock_live,
+        patch("app.ui.pages.analytics.get_live_positions_cached") as mock_live,
         patch("app.ui.pages.analytics._cached_concentration_summary") as mock_summary,
         patch("app.ui.pages.analytics.render_html") as mock_html,
     ):
