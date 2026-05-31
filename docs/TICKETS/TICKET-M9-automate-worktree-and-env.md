@@ -1,6 +1,6 @@
 # TICKET-M9 — Automate worktree creation and conda env activation in the agent ritual
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** MEDIUM
 **Estimated session length:** 1 hr
 **Drafted by:** Vivek + Claude Chat (2026-05-31)
