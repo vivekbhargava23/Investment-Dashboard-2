@@ -202,8 +202,9 @@ def render_candlestick(
             )
         )
     layout = base_layout(height=height, show_axes=True)
+    layout["xaxis"]["type"] = "date"
     layout["xaxis"]["rangeslider"] = {"visible": False}
-    layout["xaxis"]["tickformat"] = "%H:%M" if series.period.is_intraday else "%b %Y"
+    layout["xaxis"]["tickformat"] = "%H:%M" if series.period.is_intraday else "%b %d"
     layout["yaxis"]["tickprefix"] = f"{series.currency.value} "
     if overlays:
         layout["showlegend"] = True
@@ -348,6 +349,7 @@ def render_line_chart(
             )
         )
     layout = base_layout(height=height, show_axes=True)
+    layout["xaxis"]["type"] = "date"
     layout["yaxis"]["range"] = [y_min, y_max]
     if y_axis_mode == "currency":
         layout["yaxis"]["tickprefix"] = f"{series.currency.value} "
@@ -403,6 +405,7 @@ def render_drawdown_chart(
         ]
     )
     layout = base_layout(height=height, show_axes=True)
+    layout["xaxis"]["type"] = "date"
     layout["yaxis"]["range"] = [y_min, min(y_max, 0.01)]
     layout["yaxis"]["tickformat"] = ".1%"
     if chart_title is not None:
