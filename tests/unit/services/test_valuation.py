@@ -1,7 +1,6 @@
-import inspect
 from datetime import date, datetime
 from decimal import Decimal
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -9,11 +8,36 @@ from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.services.valuation import (
     clear_caches,
+    clear_live_positions_cache,
     compute_live_positions,
     compute_portfolio_summary,
+    get_live_positions_cached,
 )
 from tests.fakes.fx_feed import FakeFxProvider
 from tests.fakes.price_feed import FakePriceProvider
+
+
+class _FakeRepo:
+    def __init__(self, transactions: list[Transaction]) -> None:
+        self._transactions = transactions
+
+    def load_all(self) -> list[Transaction]:
+        return list(self._transactions)
+
+    def save_all(self, txs: object) -> None:  # type: ignore[override]
+        pass
+
+    def add(self, tx: Transaction) -> None:
+        self._transactions.append(tx)
+
+    def update(self, tx: Transaction) -> None:
+        pass
+
+    def delete(self, tx_id: str) -> None:
+        pass
+
+    def get(self, tx_id: str) -> Transaction:
+        raise KeyError(tx_id)
 
 
 @pytest.fixture
@@ -181,14 +205,13 @@ def test_portfolio_summary_aggregates_live_only(eur_buy: Transaction) -> None:
     )
 
 
-def test_service_has_no_state(eur_buy: Transaction) -> None:
-    # Verify that calling twice results in twice as many provider calls (no internal caching)
+def test_compute_live_positions_has_no_state(eur_buy: Transaction) -> None:
+    # compute_live_positions is stateless; two calls hit the provider twice.
     pp = FakePriceProvider(
         current_prices={"RHM.DE": Money(amount=Decimal("110"), currency=Currency.EUR)}
     )
     fp = FakeFxProvider()
 
-    # Wrap get_current_price to count calls
     original_method = pp.get_current_price
     pp.get_current_price = MagicMock(side_effect=original_method)  # type: ignore
 
@@ -198,37 +221,94 @@ def test_service_has_no_state(eur_buy: Transaction) -> None:
     assert pp.get_current_price.call_count == 2
 
 
-def test_service_no_module_state() -> None:
-    import app.services.valuation as valuation
+@pytest.fixture(autouse=True)
+def _clear_live_positions_cache() -> None:
+    clear_live_positions_cache()
+    yield  # type: ignore[misc]
+    clear_live_positions_cache()
 
-    allowed_names = [
-        "Sequence",
-        "datetime",
-        "Decimal",
-        "Literal",
-        "compute_positions",
-        "Transaction",
-        "Currency",
-        "Money",
-        "LivePosition",
-        "PortfolioSummary",
-        "FxProvider",
-        "FxRateUnavailableError",
-        "PriceProvider",
-        "PriceUnavailableError",
-    ]
-    for name, obj in inspect.getmembers(valuation):
-        if name.startswith("__"):
-            continue
-        if inspect.isfunction(obj) or inspect.ismodule(obj) or inspect.isclass(obj):
-            continue
-        # Allow type hint imports and standard imports
-        if name in allowed_names:
-            continue
 
-        pytest.fail(
-            f"Module app.services.valuation has unexpected member: {name} of type {type(obj)}"
-        )
+def test_get_live_positions_cached_hits_provider_once(eur_buy: Transaction) -> None:
+    pp = FakePriceProvider(
+        current_prices={"RHM.DE": Money(amount=Decimal("110"), currency=Currency.EUR)}
+    )
+    fp = FakeFxProvider()
+    repo = _FakeRepo([eur_buy])
+
+    original_method = pp.get_current_price
+    pp.get_current_price = MagicMock(side_effect=original_method)  # type: ignore
+
+    r1 = get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp)
+    r2 = get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp)
+
+    assert pp.get_current_price.call_count == 1
+    assert r1 is r2
+
+
+def test_get_live_positions_cached_miss_on_tx_change(eur_buy: Transaction) -> None:
+    pp = FakePriceProvider(
+        current_prices={
+            "RHM.DE": Money(amount=Decimal("110"), currency=Currency.EUR),
+            "LIVE2": Money(amount=Decimal("50"), currency=Currency.EUR),
+        }
+    )
+    fp = FakeFxProvider()
+    t2 = eur_buy.model_copy(update={"id": "t2", "ticker": "LIVE2"})
+    repo = _FakeRepo([eur_buy])
+
+    original_method = pp.get_current_price
+    pp.get_current_price = MagicMock(side_effect=original_method)  # type: ignore
+
+    get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp)
+    assert pp.get_current_price.call_count == 1
+
+    # Adding a transaction changes the signature → cache miss
+    repo.add(t2)
+    get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp)
+    assert pp.get_current_price.call_count == 3  # 2 tickers on second call
+
+
+def test_get_live_positions_cached_miss_after_ttl(eur_buy: Transaction) -> None:
+    pp = FakePriceProvider(
+        current_prices={"RHM.DE": Money(amount=Decimal("110"), currency=Currency.EUR)}
+    )
+    fp = FakeFxProvider()
+    repo = _FakeRepo([eur_buy])
+
+    original_method = pp.get_current_price
+    pp.get_current_price = MagicMock(side_effect=original_method)  # type: ignore
+
+    with patch("app.services.valuation.time") as mock_time:
+        mock_time.monotonic.return_value = 1000.0
+        get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp, ttl_seconds=60.0)
+        assert pp.get_current_price.call_count == 1
+
+        mock_time.monotonic.return_value = 1000.0 + 59.9
+        get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp, ttl_seconds=60.0)
+        assert pp.get_current_price.call_count == 1
+
+        mock_time.monotonic.return_value = 1000.0 + 61.0
+        get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp, ttl_seconds=60.0)
+        assert pp.get_current_price.call_count == 2
+
+
+def test_clear_live_positions_cache(eur_buy: Transaction) -> None:
+    pp = FakePriceProvider(
+        current_prices={"RHM.DE": Money(amount=Decimal("110"), currency=Currency.EUR)}
+    )
+    fp = FakeFxProvider()
+    repo = _FakeRepo([eur_buy])
+
+    original_method = pp.get_current_price
+    pp.get_current_price = MagicMock(side_effect=original_method)  # type: ignore
+
+    get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp)
+    assert pp.get_current_price.call_count == 1
+
+    clear_live_positions_cache()
+
+    get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp)
+    assert pp.get_current_price.call_count == 2
 
 
 def test_clear_caches() -> None:

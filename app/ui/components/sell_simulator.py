@@ -14,7 +14,6 @@ from decimal import Decimal
 import streamlit as st
 
 from app.domain.money import Currency, Money
-from app.domain.positions import LivePosition
 from app.domain.tax.classification import InstrumentClassificationError
 from app.domain.tax.models import TaxProfile
 from app.ports.tax_profile_repo import TaxProfileDocument
@@ -23,7 +22,7 @@ from app.services.sell_simulator import (
     SellSimulationRequest,
     simulate_sell,
 )
-from app.services.valuation import compute_live_positions
+from app.services.valuation import get_live_positions_cached
 from app.ui.format import format_date, format_eur, gain_class
 from app.ui.render import render_html
 from app.ui.wiring import (
@@ -34,13 +33,6 @@ from app.ui.wiring import (
     get_tax_profile_repo,
     get_ticker_resolver,
 )
-
-
-@st.cache_data(ttl=60, show_spinner=False)
-def _live_positions_cached(tx_ids: tuple[str, ...]) -> dict[str, LivePosition]:
-    """Compute live positions once per transaction set within the price TTL."""
-    transactions = get_repository().load_all()
-    return compute_live_positions(transactions, get_price_provider(), get_fx_provider())
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -207,17 +199,12 @@ def _render_position_after(sim: SellSimulation) -> None:
 
 def render_sell_simulator(default_ticker: str | None = None) -> None:
     """Render the embeddable sell simulator panel."""
+    live_positions = get_live_positions_cached(
+        repo=get_repository(),
+        price_provider=get_price_provider(),
+        fx_provider=get_fx_provider(),
+    )
     transactions = get_repository().load_all()
-    tx_ids = tuple(tx.id for tx in transactions)
-    try:
-        live_positions = _live_positions_cached(tx_ids)
-    except Exception:
-        _logger.warning("Falling back to uncached live positions", exc_info=True)
-        live_positions = compute_live_positions(
-            transactions,
-            get_price_provider(),
-            get_fx_provider(),
-        )
 
     open_tickers = sorted(live_positions.keys())
     if not open_tickers:

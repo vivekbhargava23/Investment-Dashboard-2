@@ -1,3 +1,4 @@
+import time
 from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
@@ -9,6 +10,21 @@ from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition, PortfolioSummary
 from app.ports.fx_feed import FxProvider, FxRateUnavailableError
 from app.ports.price_feed import PriceProvider, PriceUnavailableError
+from app.ports.repository import TransactionRepository
+
+# Module-level TTL cache for live positions. Process-global; not safe for multi-tenant use
+# (this is a single-user Streamlit app). Keyed by transactions signature so a portfolio
+# change automatically causes a cache miss.
+_live_positions_cache: dict[str, tuple[float, dict[str, LivePosition]]] = {}
+_TTL_SECONDS = 60.0
+
+
+def _tx_sig(transactions: list[Transaction]) -> str:
+    """Stable key over a transaction list; changes when any tx is added or removed."""
+    if not transactions:
+        return "empty"
+    sorted_ids = sorted(str(tx.id) for tx in transactions)
+    return f"{len(transactions)}:{sorted_ids[-1]}"
 
 
 def compute_live_positions(
@@ -95,6 +111,37 @@ def compute_live_positions(
         )
 
     return live_positions
+
+
+def get_live_positions_cached(
+    *,
+    repo: TransactionRepository,
+    price_provider: PriceProvider,
+    fx_provider: FxProvider,
+    ttl_seconds: float = _TTL_SECONDS,
+) -> dict[str, LivePosition]:
+    """Module-level TTL cache keyed by transactions signature.
+
+    Single source of truth across all UI pages. Process-global — not safe for
+    multi-tenant use; this app is single-user.
+    """
+    transactions = repo.load_all()
+    key = _tx_sig(transactions)
+    now = time.monotonic()
+
+    if key in _live_positions_cache:
+        ts, cached = _live_positions_cache[key]
+        if now - ts < ttl_seconds:
+            return cached
+
+    result = compute_live_positions(transactions, price_provider, fx_provider)
+    _live_positions_cache[key] = (now, result)
+    return result
+
+
+def clear_live_positions_cache() -> None:
+    """Invalidate the module-level live-positions cache."""
+    _live_positions_cache.clear()
 
 
 def compute_portfolio_summary(
