@@ -174,11 +174,18 @@ cat docs/TICKETS/TICKET-XXX-*.md
 
 If the ticket touches a specific module, also read that module's instruction file.
 
-### Step 5 — Branch and mark in-progress
+### Step 5 — Worktree, branch, and mark in-progress
+
+If the current working directory is the **main checkout** (i.e. `git rev-parse --abbrev-ref HEAD` returns `main`):
 
 ```bash
-git checkout -b ticket-XXX-short-name
+slug="ticket-$(echo TICKET-XXX | tr '[:upper:]' '[:lower:]' | sed -E 's/ticket-//')-short-name"
+worktree_path="../$(basename "$(git rev-parse --show-toplevel)")-$(echo TICKET-XXX | tr '[:upper:]' '[:lower:]' | sed -E 's/ticket-//')"
+git worktree add "$worktree_path" -b "$slug"
+cd "$worktree_path"
 ```
+
+If already inside a worktree (HEAD is not `main`): reuse it — confirm the branch name matches the ticket; no new worktree creation needed.
 
 Update the ticket file: `Status: QUEUED` → `Status: IN_PROGRESS` (decorative — nothing reads this).
 
@@ -209,6 +216,16 @@ pytest && ruff check . && mypy app/ && lint-imports
 
 If **any** check fails: **STOP**. See "Stop conditions" below.
 Do not commit. Do not push. Do not open a PR. Report the failure to Vivek.
+
+#### Conda env activation
+
+All shell calls that require Python (`pytest`, `ruff`, `mypy`, `lint-imports`, `streamlit`) must prefix with:
+
+```bash
+source "$(conda info --base)/etc/profile.d/conda.sh" && conda activate investment-dashboard && <command>
+```
+
+On systems with `mamba`, substitute `mamba` for `conda`. The agent never relies on the outer shell having the conda env already activated.
 
 ### Step 8 — Commit, log, and push
 
