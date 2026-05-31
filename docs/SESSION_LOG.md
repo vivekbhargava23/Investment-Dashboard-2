@@ -47,30 +47,68 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 ## 2026-05-31 — TICKET-R1
 **Surface:** Claude Code
 **Model:** sonnet-4.6
-**Duration:** ~30 min
+**Duration:** ~45 min
 **Branch:** ticket-r1-holiday-intraday-rangebreaks
-**PR:** TBD
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/124
 **Status at session end:** IN_REVIEW
 
 ### What got done
 - Added `_holiday_rangebreaks(series)` — computes missing weekdays within series window and returns Plotly `{"values": [...]}` rangebreaks for each holiday gap
 - Added `_intraday_overnight_rangebreaks(series)` — derives trading-hour bounds from min/max UTC hour observed; FX tickers (`=X`) return empty; falls back to `[22, 13]` default
 - Updated `render_candlestick`, `render_line_chart`, `render_drawdown_chart` to apply holiday breaks on daily paths and overnight breaks on intraday paths
-- Added 13 new unit tests covering `_holiday_rangebreaks`, `_intraday_overnight_rangebreaks`, and render-function wiring
+- Fixed root cause of rangebreaks being silently ignored: added explicit `xaxis.type='date'` (Plotly.js does not auto-detect date axis from UTC-aware ISO strings)
+- Fixed repeated x-axis month label: switched daily `tickformat` from `%b %Y` to `%b %d`
+- Added 15 new unit tests
 
 ### Files touched
-- `app/ui/components/charts.py` — two new helpers + updated render wiring
-- `tests/unit/ui/test_chart_components.py` — 13 new tests
+- `app/ui/components/charts.py` — two new helpers + updated render wiring + `type='date'` + `tickformat` fix
+- `tests/unit/ui/test_chart_components.py` — 15 new tests
 
 ### Tests
-509 passing → 522 passing (13 new)
+509 passing → 524 passing (15 new)
 
 ### Decisions made during the session
-- FX ticker detection via `ticker.endswith("=X")` (no adapter import needed; sufficient for all yfinance FX pairs)
-- No architectural decisions made
+- FX ticker detection via `ticker.endswith("=X")` — no adapter import needed
+- Root cause: Plotly.js ignores rangebreaks unless `xaxis.type` is explicitly `'date'`
 
 ### Out-of-scope items noticed
-- Per-exchange holiday calendars (pandas_market_calendars): out of scope per ticket; TICKET-R2 pending
+- Per-exchange holiday calendars (pandas_market_calendars): out of scope per ticket; see TICKET-R2
+
+### Tokens used (rough)
+~60k
+
+---
+
+## 2026-05-31 — TICKET-M8
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~30 min
+**Branch:** ticket-m8-file-sh-priority-ordering
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/125
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added Step 7 (priority-band ordering) to `tools/file.sh`: each newly-filed item is placed at the top of its priority band in Backlog using `updateProjectV2ItemPosition` GraphQL mutation
+- Failures in the reorder step are non-fatal (warning printed, drag to fix)
+- Updated Step 8 (commit/push) and Step 9 (summary) numbering; summary now shows each ticket's final Backlog rank and priority band
+- Updated AGENTS.md "What you do NOT do": replaced old board-ordering restriction with ADR-010-aligned wording
+- Updated METHODOLOGY.md anti-pattern: clarified that `tools/file.sh` may write both Status and Backlog position
+- Flipped ADR-010 status from Proposed → Accepted
+
+### Files touched
+- `tools/file.sh` — added Step 7 priority-band reorder, updated step numbering and summary
+- `AGENTS.md` — updated board-ordering anti-pattern line
+- `docs/METHODOLOGY.md` — updated "Writing scripts" anti-pattern line
+- `docs/DECISIONS/ADR-010-file-sh-priority-ordering.md` — Status: Proposed → Accepted
+
+### Tests
+870 passing → 870 passing (no Python changes)
+
+### Decisions made during the session
+No architectural decisions made.
+
+### Out-of-scope items noticed
+None.
 
 ### Tokens used (rough)
 ~40k
