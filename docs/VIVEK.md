@@ -26,27 +26,14 @@ If the script errors, paste the error back into chat. You don't debug it.
 
 ## Section 3 — Implementing a ticket (Claude Code)
 
-1. Say `next`.
-2. Agent reads the project board and shows you a numbered menu:
+1. `cd ~/Desktop/Apps/Investment-Dashboard-2`  (or any existing ticket worktree)
+2. `claude` (or `codex`, `aider`, `gemini`)
+3. Say `next` to see the menu, or `implement TICKET-XXX` to jump in.
+4. PR shows up. Review and merge.
 
-   ```
-   Up next (N tickets):
+You no longer create worktrees or activate conda by hand — the agent does both. To clean up local worktrees of merged tickets: `bash tools/cleanup-worktrees.sh` (safe to run any time; safe to run never).
 
-   Ready (vetted):
-     1. TICKET-XXX — Short title [HIGH] (issue #N)
-     2. TICKET-YYY — Another title [MEDIUM] (issue #M)
-   Backlog:
-     3. TICKET-ZZZ — Title [LOW] (issue #P)
-
-   Reply with:
-     <number>      pick a ticket and start implementing
-     reorder       open the board in your browser to drag-reorder (then re-run `next`)
-     drop N        close that ticket and remove from the board
-     cancel        do nothing
-   ```
-
-3. Reply with a number. Agent does the rest: branch, code, tests, commits, push, PR.
-4. Alternative: say `implement TICKET-XXX` to skip the menu.
+To start three tickets in parallel: open three terminals, run steps 1–3 in each, pick different ticket IDs in each. Three PRs come back.
 
 ---
 

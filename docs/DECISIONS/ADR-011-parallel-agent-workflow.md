@@ -1,6 +1,6 @@
 # ADR-011 — Parallel agent implementation via git worktrees; multi-CLI is first-class
 
-**Status:** Proposed
+**Status:** Accepted (2026-05-31)
 **Date:** 2026-05-31
 **Drafted by:** Vivek + Claude (Cowork session 2026-05-31)
 **Supersedes / amends:** None (extends `METHODOLOGY.md` "Single source of truth" and `AGENTS.md` Step 1)
