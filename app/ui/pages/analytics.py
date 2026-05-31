@@ -66,7 +66,7 @@ from app.services.analytics_technicals import (
     build_technicals_view,
 )
 from app.services.nav import get_nav_series
-from app.services.valuation import compute_live_positions, compute_portfolio_summary
+from app.services.valuation import compute_portfolio_summary, get_live_positions_cached
 from app.ui.cache_keys import transactions_signature
 from app.ui.components._chart_styles import (
     CORRELATION_COLORSCALES,
@@ -779,15 +779,17 @@ def _render_technicals_charts(view: TechnicalsView) -> None:
         )
 
 
-@st.cache_data(ttl=60, show_spinner=False)
-def _cached_concentration_live_positions(tx_sig: str) -> dict[str, LivePosition]:
-    transactions = get_repository().load_all()
-    return compute_live_positions(transactions, get_price_provider(), get_fx_provider())
+def _get_live_positions() -> dict[str, LivePosition]:
+    return get_live_positions_cached(
+        repo=get_repository(),
+        price_provider=get_price_provider(),
+        fx_provider=get_fx_provider(),
+    )
 
 
 @st.cache_data(ttl=60, show_spinner=False)
 def _cached_concentration_summary(tx_sig: str, as_of_iso: str) -> PortfolioSummary:
-    live_positions = _cached_concentration_live_positions(tx_sig)
+    live_positions = _get_live_positions()
     return compute_portfolio_summary(live_positions, datetime.fromisoformat(as_of_iso))
 
 
@@ -795,7 +797,7 @@ def _render_concentration_tab() -> None:
     transactions = get_repository().load_all()
     sig = transactions_signature(transactions)
     now_iso = datetime.now().isoformat()
-    live_positions = _cached_concentration_live_positions(sig)
+    live_positions = _get_live_positions()
     summary = _cached_concentration_summary(sig, now_iso)
     view = compute_concentration_view(list(live_positions.values()), summary)
     _render_concentration_view(view)
@@ -805,7 +807,7 @@ def _render_sizer_tab() -> None:
     transactions = get_repository().load_all()
     sig = transactions_signature(transactions)
     now_iso = datetime.now().isoformat()
-    live_positions = _cached_concentration_live_positions(sig)
+    live_positions = _get_live_positions()
     if not live_positions:
         st.info(_SIZER_EMPTY_STATE)
         return

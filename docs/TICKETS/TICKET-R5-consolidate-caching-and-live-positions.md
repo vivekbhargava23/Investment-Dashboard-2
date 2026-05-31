@@ -1,6 +1,6 @@
 # TICKET-R5 — Consolidate caching layers and live-positions fetch
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Estimated session length:** 2 hr
 **Drafted by:** Vivek + Claude Chat (2026-05-31)
