@@ -44,6 +44,42 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-05-31 — TICKET-M8
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~30 min
+**Branch:** ticket-m8-file-sh-priority-ordering
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added Step 7 (priority-band ordering) to `tools/file.sh`: each newly-filed item is placed at the top of its priority band in Backlog using `updateProjectV2ItemPosition` GraphQL mutation
+- Failures in the reorder step are non-fatal (warning printed, drag to fix)
+- Updated Step 8 (commit/push) and Step 9 (summary) numbering; summary now shows each ticket's final Backlog rank and priority band
+- Updated AGENTS.md "What you do NOT do": replaced old board-ordering restriction with ADR-010-aligned wording
+- Updated METHODOLOGY.md anti-pattern: clarified that `tools/file.sh` may write both Status and Backlog position
+- Flipped ADR-010 status from Proposed → Accepted
+
+### Files touched
+- `tools/file.sh` — added Step 7 priority-band reorder, updated step numbering and summary
+- `AGENTS.md` — updated board-ordering anti-pattern line
+- `docs/METHODOLOGY.md` — updated "Writing scripts" anti-pattern line
+- `docs/DECISIONS/ADR-010-file-sh-priority-ordering.md` — Status: Proposed → Accepted
+
+### Tests
+870 passing → 870 passing (no Python changes)
+
+### Decisions made during the session
+No architectural decisions made.
+
+### Out-of-scope items noticed
+None.
+
+### Tokens used (rough)
+~40k
+
+---
+
 ## 2026-05-31 — TICKET-C3
 **Surface:** Claude Code
 **Model:** sonnet-4.6
