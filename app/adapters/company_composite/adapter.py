@@ -34,6 +34,13 @@ class CompositeCompanyAdapter:
         results = [p.refresh_section(ticker, section) for p in self._providers]
         return _merge(ticker, results)
 
+    def get_quote_type(self, ticker: str) -> str | None:
+        for provider in self._providers:
+            qt = provider.get_quote_type(ticker)
+            if qt is not None:
+                return qt
+        return None
+
 
 def _merge(ticker: str, results: list[CompanyData]) -> CompanyData:
     if not results:
@@ -44,6 +51,7 @@ def _merge(ticker: str, results: list[CompanyData]) -> CompanyData:
         merged_errors.update(r.fetch_errors)
 
     # Collect all field values, last-writer-wins (unless there's a preference rule)
+    quote_type = None
     profile = None
     latest_quote = None
     price_history: list[PriceHistoryPoint] = []
@@ -59,6 +67,8 @@ def _merge(ticker: str, results: list[CompanyData]) -> CompanyData:
 
     for r in results:
         # yfinance sections: default last-writer-wins, but yfinance beats finnhub for these
+        if r.quote_type is not None:
+            quote_type = r.quote_type
         if r.profile is not None:
             profile = r.profile
         if r.latest_quote is not None:
@@ -92,6 +102,7 @@ def _merge(ticker: str, results: list[CompanyData]) -> CompanyData:
 
     return CompanyData(
         ticker=ticker,
+        quote_type=quote_type,
         profile=profile,
         latest_quote=latest_quote,
         price_history=price_history,
