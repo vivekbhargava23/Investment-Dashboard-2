@@ -1,6 +1,6 @@
 # TICKET-C3 — Split YfinanceAdapter into four per-protocol adapters
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** MEDIUM
 **Estimated session length:** 2 hr
 **Drafted by:** Vivek + Claude Chat (2026-05-31)
