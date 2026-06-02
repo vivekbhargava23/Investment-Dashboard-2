@@ -91,7 +91,7 @@ from app.ui.components.weight_bar import render_weight_bar
 from app.ui.format import format_eur, format_pct, format_shares, gain_class
 from app.ui.render import render_html
 from app.ui.wiring import (
-    get_fx_provider,
+    get_live_fx_provider,
     get_nav_snapshot_repo,
     get_ohlc_data_provider,
     get_price_provider,
@@ -379,7 +379,7 @@ def _render_correlation_tab() -> None:
     view = build_correlation_view(
         repo=get_repository(),
         price_feed=get_price_provider(),
-        fx_feed=get_fx_provider(),
+        fx_feed=get_live_fx_provider(),
         ohlc=get_ohlc_data_provider(),
         as_of=date.today(),
         window_days=int(window_days),
@@ -783,7 +783,7 @@ def _get_live_positions() -> dict[str, LivePosition]:
     return get_live_positions_cached(
         repo=get_repository(),
         price_provider=get_price_provider(),
-        fx_provider=get_fx_provider(),
+        fx_provider=get_live_fx_provider(),
     )
 
 

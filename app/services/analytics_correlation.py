@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.domain import analytics
 from app.domain.market_data import ChartPeriod, OhlcUnavailableError
-from app.ports.fx_feed import FxProvider
+from app.ports.fx_feed import LiveFxProvider
 from app.ports.market_data import OhlcDataProvider
 from app.ports.price_feed import PriceProvider
 from app.ports.repository import TransactionRepository
@@ -52,7 +52,7 @@ def build_correlation_view(
     *,
     repo: TransactionRepository,
     price_feed: PriceProvider,
-    fx_feed: FxProvider,
+    fx_feed: LiveFxProvider,
     ohlc: OhlcDataProvider,
     as_of: date,
     window_days: int,

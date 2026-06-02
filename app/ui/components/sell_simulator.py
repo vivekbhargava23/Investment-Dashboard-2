@@ -26,8 +26,8 @@ from app.services.valuation import get_live_positions_cached
 from app.ui.format import format_date, format_eur, gain_class
 from app.ui.render import render_html
 from app.ui.wiring import (
-    get_fx_provider,
     get_isin_map_repo,
+    get_live_fx_provider,
     get_price_provider,
     get_repository,
     get_tax_profile_repo,
@@ -202,7 +202,7 @@ def render_sell_simulator(default_ticker: str | None = None) -> None:
     live_positions = get_live_positions_cached(
         repo=get_repository(),
         price_provider=get_price_provider(),
-        fx_provider=get_fx_provider(),
+        fx_provider=get_live_fx_provider(),
     )
     transactions = get_repository().load_all()
 

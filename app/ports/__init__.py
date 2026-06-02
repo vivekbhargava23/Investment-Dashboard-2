@@ -1,6 +1,8 @@
 from app.ports.fx_feed import (
     FxProvider,
     FxRateUnavailableError,
+    HistoricalFxProvider,
+    LiveFxProvider,
     UnsupportedCurrencyPairError,
 )
 from app.ports.market_data import OhlcDataProvider
@@ -27,6 +29,8 @@ __all__ = [
     "PriceUnavailableError",
     "TickerNotFoundError",
     "FxProvider",
+    "HistoricalFxProvider",
+    "LiveFxProvider",
     "FxRateUnavailableError",
     "UnsupportedCurrencyPairError",
     "TickerResolver",

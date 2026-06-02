@@ -8,7 +8,7 @@ from app.domain.fifo import compute_positions
 from app.domain.models import Transaction
 from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition, PortfolioSummary
-from app.ports.fx_feed import FxProvider, FxRateUnavailableError
+from app.ports.fx_feed import FxRateUnavailableError, LiveFxProvider
 from app.ports.price_feed import PriceProvider, PriceUnavailableError
 from app.ports.repository import TransactionRepository
 
@@ -30,7 +30,7 @@ def _tx_sig(transactions: list[Transaction]) -> str:
 def compute_live_positions(
     transactions: Sequence[Transaction],
     price_provider: PriceProvider,
-    fx_provider: FxProvider,
+    fx_provider: LiveFxProvider,
 ) -> dict[str, LivePosition]:
     """
     Orchestrates FIFO position computation and live valuation.
@@ -117,7 +117,7 @@ def get_live_positions_cached(
     *,
     repo: TransactionRepository,
     price_provider: PriceProvider,
-    fx_provider: FxProvider,
+    fx_provider: LiveFxProvider,
     ttl_seconds: float = _TTL_SECONDS,
 ) -> dict[str, LivePosition]:
     """Module-level TTL cache keyed by transactions signature.
@@ -204,7 +204,7 @@ def compute_portfolio_summary(
 
 def clear_caches(
     price_provider: PriceProvider,
-    fx_provider: FxProvider,
+    fx_provider: LiveFxProvider,
 ) -> None:
     """
     Invalidates caches in the underlying providers.
