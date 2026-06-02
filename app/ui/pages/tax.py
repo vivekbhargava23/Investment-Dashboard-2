@@ -30,8 +30,8 @@ from app.ui.cache_keys import file_mtime_key, transactions_signature
 from app.ui.format import format_eur, format_pct, gain_class
 from app.ui.render import render_html
 from app.ui.wiring import (
-    get_fx_provider,
     get_isin_map_repo,
+    get_live_fx_provider,
     get_price_provider,
     get_repository,
     get_tax_profile_repo,
@@ -156,7 +156,7 @@ def _cached_harvest_report(tx_sig: str, profile_sig: str, isin_sig: str, year: i
     profile = TaxProfile(filing_status=doc.filing_status)
     txs = get_repository().load_all()
     isin_map = get_isin_map_repo().load()
-    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_fx_provider())
+    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_live_fx_provider())
     summary = _cached_tax_summary(tx_sig, profile_sig, isin_sig, year)
     as_of = datetime.now()
     return compute_per_position_harvest_impact(
@@ -181,7 +181,7 @@ def _cached_liquidation_summary(tx_sig: str, profile_sig: str, isin_sig: str, ye
     profile = TaxProfile(filing_status=doc.filing_status)
     txs = get_repository().load_all()
     isin_map = get_isin_map_repo().load()
-    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_fx_provider())
+    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_live_fx_provider())
     summary = _cached_tax_summary(tx_sig, profile_sig, isin_sig, year)
     as_of = datetime.now()
     return compute_tax_if_full_liquidation(
@@ -637,7 +637,7 @@ def render() -> None:
         st.error(f"Could not compute tax summary: {exc}")
         return
 
-    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_fx_provider())
+    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_live_fx_provider())
 
     _render_ytd_tiles(summary)
 

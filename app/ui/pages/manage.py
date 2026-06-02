@@ -28,7 +28,8 @@ from app.services.trading import build_transaction
 from app.services.valuation import clear_caches
 from app.ui.format import format_date, format_eur
 from app.ui.wiring import (
-    get_fx_provider,
+    get_historical_fx_provider,
+    get_live_fx_provider,
     get_price_provider,
     get_repository,
     get_ticker_resolver,
@@ -175,7 +176,7 @@ def _render_recording_preview(
         ecb_ref_line = ""
         deviation_note = ""
         try:
-            ecb_fx = get_fx_provider().get_historical_rate(currency, Currency.EUR, trade_date)
+            ecb_fx = get_historical_fx_provider().get_historical_rate(currency, Currency.EUR, trade_date)
             ecb_ref_amount = (hist.amount * ecb_fx).quantize(Decimal("0.01"))
             ecb_ref_eur = _eur(ecb_ref_amount)
             ecb_rate_str = ecb_fx.quantize(Decimal("0.0001"))
@@ -536,7 +537,7 @@ def _handle_add_submit(
                 fees_eur=fees_eur,
                 currency=currency,
                 price_provider=get_price_provider(),
-                fx_provider=get_fx_provider(),
+                fx_provider=get_historical_fx_provider(),
             )
             tx = tx.model_copy(update={"notes": notes})
 
@@ -568,7 +569,7 @@ def _handle_add_submit(
 
     st.cache_data.clear()
     if tx.ticker not in existing_tickers:
-        clear_caches(get_price_provider(), get_fx_provider())
+        clear_caches(get_price_provider(), get_live_fx_provider())
 
     st.session_state.manage_add_query = ""
     st.session_state.manage_add_resolved = None
@@ -750,7 +751,7 @@ def _handle_edit_submit(
             fees_eur=fees_eur,
             currency=currency,
             price_provider=get_price_provider(),
-            fx_provider=get_fx_provider(),
+            fx_provider=get_historical_fx_provider(),
         )
         tx = tx.model_copy(update={"id": tx_id, "notes": notes})
     except PriceUnavailableError as e:

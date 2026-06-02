@@ -15,7 +15,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
-from app.ports.fx_feed import FxProvider, FxRateUnavailableError
+from app.ports.fx_feed import FxRateUnavailableError, HistoricalFxProvider
 from app.ports.price_feed import PriceProvider
 
 _SIX_DP = Decimal("0.000001")
@@ -32,7 +32,7 @@ def build_transaction(
     fees_eur: Decimal,
     currency: Currency,
     price_provider: PriceProvider,
-    fx_provider: FxProvider,
+    fx_provider: HistoricalFxProvider,
 ) -> tuple[Transaction, Decimal | None]:
     """
     Construct a Transaction from EUR-native broker inputs.
