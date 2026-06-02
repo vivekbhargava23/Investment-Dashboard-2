@@ -15,6 +15,8 @@ def test_render_thesis_badge():
     assert "badge-green" in render_thesis_badge("intact")
     assert "amber" in render_thesis_badge("watch")
     assert "red" in render_thesis_badge("broken")
+    assert "unknown" in render_thesis_badge("unknown").lower()
+    assert "badge-grey" in render_thesis_badge("unknown")
     with pytest.raises(ValueError):
         render_thesis_badge("invalid") # type: ignore
 

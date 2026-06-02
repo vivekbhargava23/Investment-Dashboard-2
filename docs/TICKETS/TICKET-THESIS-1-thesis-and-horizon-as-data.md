@@ -1,6 +1,6 @@
 # TICKET-THESIS-1 — Thesis status & horizon as editable data, not hardcoded UI dicts
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** MEDIUM
 **Estimated session length:** 2 – 3 hr
 **Drafted by:** Vivek + Claude (Cowork review 2026-06-02)

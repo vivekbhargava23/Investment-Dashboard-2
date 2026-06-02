@@ -9,6 +9,7 @@ from app.adapters.fx_yfinance import YfinanceLiveFxAdapter
 from app.adapters.isin_map.repo import JsonIsinMapRepository
 from app.adapters.repo_json import JsonNavSnapshotRepository, JsonTransactionRepository
 from app.adapters.repo_json.tax_profile_repo import JsonTaxProfileRepository
+from app.adapters.thesis_map.repo import JsonThesisMapRepository
 from app.adapters.ticker_resolver_factory import build_ticker_resolver
 from app.adapters.yfinance_ohlc import YfinanceOhlcAdapter
 from app.adapters.yfinance_price import YfinancePriceAdapter
@@ -21,6 +22,7 @@ from app.ports.nav_repository import NavSnapshotRepository
 from app.ports.price_feed import PriceProvider
 from app.ports.repository import TransactionRepository
 from app.ports.tax_profile_repo import TaxProfileRepository
+from app.ports.thesis_map import ThesisMapRepository
 from app.ports.ticker_resolver import TickerResolver
 
 
@@ -85,6 +87,12 @@ def get_ohlc_data_provider() -> OhlcDataProvider:
 def get_isin_map_repo() -> IsinMapRepository:
     settings = get_settings()
     return JsonIsinMapRepository(settings.isin_map_json_path)
+
+
+@lru_cache(maxsize=1)
+def get_thesis_repo() -> ThesisMapRepository:
+    settings = get_settings()
+    return JsonThesisMapRepository(settings.thesis_json_path)
 
 
 @st.cache_resource
