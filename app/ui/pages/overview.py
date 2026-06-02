@@ -14,6 +14,7 @@ from app.services.valuation import compute_live_positions, compute_portfolio_sum
 from app.ui.cache_keys import transactions_signature
 from app.ui.components.badges import render_thesis_badge
 from app.ui.components.charts import render_candlestick
+from app.ui.components.period_selector import render_aggregation_toggle
 from app.ui.components.weight_bar import render_weight_bar
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
@@ -341,7 +342,7 @@ def render() -> None:
     # ── Position Chart ────────────────────────────────────────────────────────
     if tickers:
         render_html('<div style="margin-top: 24px; margin-bottom: 8px; font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em;">Position Chart</div>')
-        col_ticker, col_period = st.columns([1, 3])
+        col_ticker, col_period, col_freq = st.columns([1, 2, 1])
         with col_ticker:
             chart_ticker = st.selectbox(
                 "Ticker",
@@ -359,10 +360,12 @@ def render() -> None:
                 format_func=lambda p: _PERIOD_LABELS[p],
                 label_visibility="collapsed",
             )
+        with col_freq:
+            chart_freq = render_aggregation_toggle("overview_chart_freq", chart_period)
         if chart_ticker:
             ohlc_provider = get_ohlc_data_provider()
             try:
-                series = get_ohlc_history(chart_ticker, chart_period, provider=ohlc_provider)
+                series = get_ohlc_history(chart_ticker, chart_period, provider=ohlc_provider, freq=chart_freq)
                 render_candlestick(series, height=400)
             except OhlcUnavailableError as e:
                 st.warning(f"Chart unavailable: {e.reason}")

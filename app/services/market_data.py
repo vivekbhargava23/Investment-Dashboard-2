@@ -39,17 +39,19 @@ def get_ohlc_history(
     period: ChartPeriod,
     *,
     provider: OhlcDataProvider,
+    freq: AggregationFreq | None = None,
 ) -> OhlcSeries:
     """Return OHLC history with period-appropriate aggregation.
 
+    freq: explicit override; None falls back to _AGGREGATION default for the period.
     Caching is handled by the adapter; this service only owns aggregation.
     Raises OhlcUnavailableError if the provider has no data.
     """
     ticker = ticker.strip().upper()
     series = provider.get_ohlc_history(ticker, period)
-    freq = _AGGREGATION.get(period)
-    if freq is not None:
-        series = aggregate_ohlc_series(series, freq)
+    effective_freq = freq if freq is not None else _AGGREGATION.get(period)
+    if effective_freq is not None:
+        series = aggregate_ohlc_series(series, effective_freq)
     return series
 
 
