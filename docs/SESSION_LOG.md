@@ -2725,3 +2725,44 @@ Further polish applied to `ticket-A2-analytics-correlation` (same branch, no new
 ### Tokens used (rough)
 ~60k
 
+---
+
+## 2026-06-02 — TICKET-C4
+
+**Agent:** Claude Code (claude-sonnet-4-6)
+**Duration:** ~30 min
+**Branch:** ticket-c4-composite-ticker-resolver
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created `app/adapters/ticker_resolver_composite/adapter.py`: `CompositeTickerResolver` with primary + fallback merge logic (resolve/lookup/clear_cache). Each adapter's exceptions caught individually. Primary wins on symbol dedup.
+- Created `app/adapters/ticker_resolver_finnhub/adapter.py`: `FinnhubTickerResolverAdapter` using `/search` and `/stock/profile2` endpoints. Skips silently when API key is unset.
+- Created `app/adapters/ticker_resolver_factory.py`: `build_ticker_resolver` factory composing `cache(composite(yfinance, [finnhub]))`. Mirrors `company_factory.py` pattern.
+- Updated `app/ui/wiring.py`: `get_ticker_resolver` now delegates to the factory.
+- Created `tests/unit/adapters/test_ticker_resolver_composite.py`: 11 unit tests covering all four composite scenarios (primary fills limit, fallback fills gap, primary raises, both raise, dedup).
+- Created `tests/integration/test_finnhub_resolver.py`: 6 integration tests gated on `FINNHUB_API_KEY`.
+
+### Files touched
+- `app/adapters/ticker_resolver_composite/__init__.py` — new
+- `app/adapters/ticker_resolver_composite/adapter.py` — new
+- `app/adapters/ticker_resolver_finnhub/__init__.py` — new
+- `app/adapters/ticker_resolver_finnhub/adapter.py` — new
+- `app/adapters/ticker_resolver_factory.py` — new
+- `app/ui/wiring.py` — updated get_ticker_resolver to use factory
+- `tests/unit/adapters/test_ticker_resolver_composite.py` — new (11 tests)
+- `tests/integration/test_finnhub_resolver.py` — new (6 tests, env-gated)
+
+### Tests
+912 unit tests passing (was 901, +11)
+
+### Decisions made during the session
+- Composite adapter catches per-adapter exceptions so one source down never breaks the stack
+- Finnhub returns `displaySymbol` (e.g. `RHM:GR`) not `symbol`; using `displaySymbol` for consistency
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~40k
+
