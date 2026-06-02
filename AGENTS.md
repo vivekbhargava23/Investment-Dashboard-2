@@ -27,9 +27,12 @@ and `jq` on PATH. See `tools/README.md` for the full toolchain reference.
 
 ## Required reading (every session, in this order)
 
-1. `docs/CONTEXT.md` — auto-generated repo snapshot: code interfaces, UI surface, GitHub state, and board status (Up next, In progress, In review, Recently done). Gives a complete picture without re-exploring the codebase every session.
-2. `docs/METHODOLOGY.md` — how we work
-3. `docs/ARCHITECTURE.md` — the architecture rules (non-negotiable)
+1. `docs/METHODOLOGY.md` — how we work
+2. `docs/ARCHITECTURE.md` — the architecture rules (non-negotiable)
+
+For current repo state (interfaces, pages, board status), explore the codebase and query the
+board directly — there is no generated snapshot file. `docs/CONTEXT.md` and its
+auto-regenerating workflow were retired on 2026-06-03; reading the code is the source of truth.
 
 If the work touches a specific module, also read that module's instruction file
 (e.g. `app/domain/fifo/CLAUDE.md`). These per-module files contain module-specific
@@ -340,8 +343,7 @@ You do not need to do anything else.
 - Do NOT write to `main`.
 
 The merge itself landed all your branch commits onto `main`. GitHub Actions
-(`post-merge-housekeeping.yml`) moves the board item to `Done` and
-`update-context.yml` regenerates `CONTEXT.md` within seconds. Step 2 of the
+(`post-merge-housekeeping.yml`) moves the board item to `Done` within seconds. Step 2 of the
 next session verifies it landed; in the rare case the workflow failed, Step 2
 reconciles manually by moving the board item directly.
 
