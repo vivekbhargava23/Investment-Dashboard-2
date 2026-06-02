@@ -11,6 +11,8 @@ holds OhlcSeries with matching TTLs. The former service-level _cache was redunda
 after TICKET-022a added adapter-level OHLC caching.
 """
 
+from collections.abc import Sequence
+
 from app.domain.market_data import (
     AggregationFreq,
     ChartPeriod,
@@ -53,6 +55,30 @@ def get_ohlc_history(
     if effective_freq is not None:
         series = aggregate_ohlc_series(series, effective_freq)
     return series
+
+
+def get_ohlc_histories(
+    tickers: Sequence[str],
+    period: ChartPeriod,
+    *,
+    provider: OhlcDataProvider,
+    freq: AggregationFreq | None = None,
+) -> dict[str, OhlcSeries]:
+    """Batch OHLC history with period-appropriate aggregation.
+
+    One fetch for all tickers; per-ticker failures are omitted (never raised).
+    Keys are the normalised (stripped/upper-cased) tickers. Caching is handled by
+    the adapter; this service only owns aggregation.
+    """
+    normalised = [ticker.strip().upper() for ticker in tickers]
+    series_map = provider.get_ohlc_histories(normalised, period)
+    effective_freq = freq if freq is not None else _AGGREGATION.get(period)
+    if effective_freq is None:
+        return series_map
+    return {
+        ticker: aggregate_ohlc_series(series, effective_freq)
+        for ticker, series in series_map.items()
+    }
 
 
 def clear_market_data_caches(provider: OhlcDataProvider) -> None:

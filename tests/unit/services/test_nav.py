@@ -5,6 +5,7 @@ FakeNavSnapshotRepository from tests/fakes/nav.py is reused for downstream
 analytics ticket tests; the fakes here are the authoritative service-layer tests.
 """
 
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
@@ -119,6 +120,17 @@ class FlexibleFakeOhlcProvider:
         if ticker in self._series:
             return self._series[ticker]
         raise OhlcUnavailableError(f"Fake: {ticker} not configured")
+
+    def get_ohlc_histories(
+        self, tickers: Sequence[str], period: ChartPeriod
+    ) -> dict[str, OhlcSeries]:
+        result: dict[str, OhlcSeries] = {}
+        for ticker in tickers:
+            try:
+                result[ticker] = self.get_ohlc_history(ticker, period)
+            except OhlcUnavailableError:
+                pass
+        return result
 
     def clear_cache(self) -> None:
         pass

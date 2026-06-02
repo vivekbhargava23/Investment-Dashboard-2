@@ -14,7 +14,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, ConfigDict
 
 from app.domain import analytics
-from app.domain.market_data import ChartPeriod, OhlcSeries, OhlcUnavailableError
+from app.domain.market_data import ChartPeriod, OhlcSeries
 from app.domain.nav import DailyNavPoint
 from app.ports.market_data import OhlcDataProvider
 
@@ -101,16 +101,19 @@ def get_performance_view(
     aligned_navs = nav_values
 
     if benchmark != "None":
-        try:
-            symbol = _BENCHMARK_SYMBOLS[benchmark]
-            benchmark_series = ohlc_provider.get_ohlc_history(symbol, _chart_period(period))
+        # Single symbol, but routed through the batch API so there is one fetch path.
+        symbol = _BENCHMARK_SYMBOLS[benchmark]
+        benchmark_series = ohlc_provider.get_ohlc_histories(
+            [symbol], _chart_period(period)
+        ).get(symbol)
+        if benchmark_series is None:
+            benchmark_fetch_error = f"No OHLC data for {symbol}"
+        else:
             benchmark_by_date = _benchmark_closes_by_date(benchmark_series)
             aligned = _align_on_dates(list(zip(nav_dates, nav_values)), benchmark_by_date)
             aligned_dates = [row[0] for row in aligned]
             aligned_navs = [row[1] for row in aligned]
             benchmark_values = [row[2] for row in aligned]
-        except OhlcUnavailableError as exc:
-            benchmark_fetch_error = exc.reason
 
     if len(aligned_dates) < 2:
         return _empty_view(

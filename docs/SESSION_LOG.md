@@ -44,6 +44,52 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-03 — TICKET-PERF-1
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Duration:** ~90 min
+**Branch:** ticket-perf-1-batched-parallel-valuation
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added batch methods to the ports: `PriceProvider.get_current_prices` and
+  `OhlcDataProvider.get_ohlc_histories` (failed/missing tickers omitted, never raised).
+- Implemented batching in both yfinance adapters with a capped (8-worker)
+  `ThreadPoolExecutor`; cache is checked first, only misses are fetched, and a
+  shared per-ticker fetch/parse helper keeps single and batch paths from drifting.
+- Generalized `compute_live_positions`: one batched price fetch, one FX rate per
+  distinct non-EUR currency; any supported currency (e.g. JPY) now values correctly.
+  Missing price or missing FX rate → stale, never silently mis-valued.
+- Routed every call site through the batch path: overview trend column, analytics
+  correlation, NAV reconstruction (prices + FX series), and the single-symbol
+  technicals/performance fetches. No per-ticker network loop remains under `app/`.
+
+### Files touched
+- `app/ports/price_feed.py`, `app/ports/market_data.py` — batch method signatures
+- `app/adapters/yfinance_price/adapter.py`, `app/adapters/yfinance_ohlc/adapter.py` — parallel batch + shared helper
+- `app/services/valuation.py` — batched prices + general multi-currency FX
+- `app/services/market_data.py` — `get_ohlc_histories` service wrapper (aggregation-aware)
+- `app/services/analytics_correlation.py`, `app/services/nav.py`, `app/services/analytics_technicals.py`, `app/services/analytics_performance.py` — batch routing
+- `app/ui/pages/overview.py` — `_fetch_trend_texts` one-shot batch
+- `tests/fakes/{price_feed,ohlc}.py` + inline fakes — batch methods
+- `tests/unit/adapters/test_yfinance_batch.py` (new) + updated valuation/perf/technicals tests
+
+### Tests
+931 passing → 943 passing (12 new). ruff / mypy / lint-imports clean.
+
+### Decisions made during the session
+- Batch contract omits failed tickers (callers treat absence as stale); the
+  per-ticker upstream reason is no longer surfaced. Updated two tests whose
+  assertions depended on the old reason string. No new ADR needed.
+
+### Out-of-scope items noticed
+- The `_PLACEHOLDER_THESIS_STATUS`/`_HORIZON` dicts in overview.py are addressed
+  by TICKET-THESIS-1 (already filed) — left untouched.
+
+### Tokens used (rough)
+~140k
+
 ## 2026-06-02 — TICKET-C4
 **Surface:** Claude Code
 **Model:** sonnet-4.6

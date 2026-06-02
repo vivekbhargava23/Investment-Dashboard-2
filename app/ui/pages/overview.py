@@ -8,7 +8,7 @@ import streamlit as st
 from app.domain.market_data import ChartPeriod, OhlcUnavailableError
 from app.domain.positions import LivePosition, PortfolioSummary
 from app.domain.tax.models import TaxProfile, TaxYearSummary
-from app.services.market_data import get_ohlc_history
+from app.services.market_data import get_ohlc_histories, get_ohlc_history
 from app.services.tax_planning import compute_current_tax_summary
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
 from app.ui.cache_keys import transactions_signature
@@ -200,22 +200,20 @@ def _fetch_trend_texts(tickers: list[str]) -> dict[str, str]:
     Per-ticker errors are isolated: one failure never blocks other rows.
     """
     provider = get_ohlc_data_provider()
+    series_map = get_ohlc_histories(tickers, ChartPeriod.ONE_MONTH, provider=provider)
     trend_text_map: dict[str, str] = {}
 
     for ticker in tickers:
-        try:
-            series = get_ohlc_history(ticker, ChartPeriod.ONE_MONTH, provider=provider)
-            pct = series.period_change_pct
-            if pct is None:
-                trend_text_map[ticker] = "—"
-            elif pct >= 0:
-                color = "var(--green, #26a69a)"
-                trend_text_map[ticker] = f'<span style="color:{color};">↑ +{float(pct):.1f}%</span>'
-            else:
-                color = "var(--red, #ef5350)"
-                trend_text_map[ticker] = f'<span style="color:{color};">↓ {float(pct):.1f}%</span>'
-        except OhlcUnavailableError:
+        series = series_map.get(ticker.strip().upper())
+        pct = series.period_change_pct if series is not None else None
+        if pct is None:
             trend_text_map[ticker] = "—"
+        elif pct >= 0:
+            color = "var(--green, #26a69a)"
+            trend_text_map[ticker] = f'<span style="color:{color};">↑ +{float(pct):.1f}%</span>'
+        else:
+            color = "var(--red, #ef5350)"
+            trend_text_map[ticker] = f'<span style="color:{color};">↓ {float(pct):.1f}%</span>'
 
     return trend_text_map
 
