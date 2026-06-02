@@ -103,6 +103,14 @@ class YfinanceCompanyAdapter:
     ) -> CompanyData:
         return self.get_company(ticker)
 
+    def get_quote_type(self, ticker: str) -> str | None:
+        try:
+            info = yf.Ticker(ticker).info
+            qt = info.get("quoteType")
+            return str(qt) if qt is not None else None
+        except Exception:
+            return None
+
     def _build_profile(
         self,
         ticker: str,

@@ -12,29 +12,15 @@ from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.tax.classification import InstrumentKind
 from app.ports.ticker_resolver import TickerMatch
 from app.services.isin_remap import count_transactions_for_isin, rewrite_ticker_for_isin
+from app.ui.components.isin_mapper import KIND_LABEL, KIND_OPTIONS, suggest_kind
 from app.ui.components.ticker_searchbox import render_ticker_searchbox
 from app.ui.wiring import (
-    get_company_provider,
     get_isin_map_repo,
     get_repository,
     get_ticker_resolver,
 )
 
 _TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,29}$")
-
-_KIND_OPTIONS: list[InstrumentKind] = list(InstrumentKind)
-
-_KIND_LABEL: dict[InstrumentKind, str] = {
-    InstrumentKind.AKTIE: "Aktie",
-    InstrumentKind.AKTIENFONDS: "Aktienfonds (ETF)",
-    InstrumentKind.MISCHFONDS: "Mischfonds",
-    InstrumentKind.RENTENFONDS: "Rentenfonds",
-    InstrumentKind.IMMOBILIENFONDS: "Immobilienfonds",
-    InstrumentKind.IMMOBILIENFONDS_AUSLAND: "Immobilienfonds (Ausland)",
-    InstrumentKind.SONSTIGE: "Sonstige",
-    InstrumentKind.DIVIDENDE: "Dividende",
-    InstrumentKind.ZINSEN: "Zinsen",
-}
 
 _STATE_DEFAULTS: dict[str, Any] = {
     "mappings_editing_isin": None,
@@ -92,23 +78,6 @@ def _try_resolve(ticker: str) -> tuple[str | None, str | None]:
         return None, "Resolver offline — saved anyway, but live prices may not work."
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def _suggest_kind(ticker: str) -> InstrumentKind | None:
-    """Try to infer a default Tax kind from yfinance quoteType. Returns None if unavailable."""
-    try:
-        company = get_company_provider().get_company(ticker)
-        qt = company.quote_type
-        if qt == "EQUITY":
-            return InstrumentKind.AKTIE
-        if qt == "ETF":
-            return InstrumentKind.AKTIENFONDS
-        if qt == "MUTUALFUND":
-            return InstrumentKind.MISCHFONDS
-        return None
-    except Exception:
-        return None
-
-
 # ---------------------------------------------------------------------------
 # Unmapped section
 # ---------------------------------------------------------------------------
@@ -137,14 +106,14 @@ def _render_unmapped_section(
                 placeholder=f"Search for {mapping.name or 'this security'}…",
             )
         with col_kind:
-            suggested = _suggest_kind(selected_match.symbol) if selected_match else None
-            kind_options_with_none: list[InstrumentKind | None] = [None] + _KIND_OPTIONS
+            suggested = suggest_kind(selected_match.symbol) if selected_match else None
+            kind_options_with_none: list[InstrumentKind | None] = [None] + KIND_OPTIONS
             kind_index = kind_options_with_none.index(suggested) if suggested else 0
             selected_kind = st.selectbox(
                 "Tax kind",
                 options=kind_options_with_none,
                 index=kind_index,
-                format_func=lambda k: "— pick a kind —" if k is None else _KIND_LABEL.get(k, str(k)),
+                format_func=lambda k: "— pick a kind —" if k is None else KIND_LABEL.get(k, str(k)),
                 key=f"mappings_kind_unmapped_{isin}",
                 label_visibility="collapsed",
             )
@@ -168,11 +137,11 @@ def _render_unmapped_section(
                         updated_doc, _ = _save_mapping(isin, raw, selected_kind, doc)
                         get_isin_map_repo().save(updated_doc)
                         if hint:
-                            msg = f"Mapped {isin} → {raw} ({hint}), Tax kind: {_KIND_LABEL.get(selected_kind, selected_kind)}."
+                            msg = f"Mapped {isin} → {raw} ({hint}), Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}."
                         elif warn:
-                            msg = f"Mapped {isin} → {raw}. Warning: {warn}. Tax kind: {_KIND_LABEL.get(selected_kind, selected_kind)}."
+                            msg = f"Mapped {isin} → {raw}. Warning: {warn}. Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}."
                         else:
-                            msg = f"Mapped {isin} → {raw}, Tax kind: {_KIND_LABEL.get(selected_kind, selected_kind)}."
+                            msg = f"Mapped {isin} → {raw}, Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}."
                         st.session_state.mappings_feedback = ("success", msg)
                         st.rerun()
 
@@ -211,7 +180,7 @@ def _render_mapped_section(
         cols[1].write(mapping.name or "—")
         cols[2].write(f"`{mapping.ticker}`")
         if mapping.instrument_kind is not None:
-            cols[3].write(_KIND_LABEL.get(mapping.instrument_kind, mapping.instrument_kind.value))
+            cols[3].write(KIND_LABEL.get(mapping.instrument_kind, mapping.instrument_kind.value))
         else:
             cols[3].markdown("⚠ **unset**")
         cols[4].write(mapping.last_seen_in_csv.isoformat() if mapping.last_seen_in_csv else "—")
@@ -241,14 +210,14 @@ def _render_edit_row(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
             default_match=default_match,
         )
     with cols[3]:
-        suggested = _suggest_kind(selected_match.symbol) if selected_match and selected_match.symbol != (mapping.ticker or "") else mapping.instrument_kind
-        kind_options_with_none: list[InstrumentKind | None] = [None] + _KIND_OPTIONS
+        suggested = suggest_kind(selected_match.symbol) if selected_match and selected_match.symbol != (mapping.ticker or "") else mapping.instrument_kind
+        kind_options_with_none: list[InstrumentKind | None] = [None] + KIND_OPTIONS
         kind_index = kind_options_with_none.index(suggested) if suggested in kind_options_with_none else 0
         selected_kind = st.selectbox(
             "Tax kind",
             options=kind_options_with_none,
             index=kind_index,
-            format_func=lambda k: "— pick a kind —" if k is None else _KIND_LABEL.get(k, str(k)),
+            format_func=lambda k: "— pick a kind —" if k is None else KIND_LABEL.get(k, str(k)),
             key=f"mappings_edit_kind_{isin}",
             label_visibility="collapsed",
         )
@@ -275,11 +244,11 @@ def _render_edit_row(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
                     n = rewrite_ticker_for_isin(get_repository(), isin, raw)
                     st.session_state.mappings_editing_isin = None
                     if hint:
-                        msg = f"Updated {isin} → {raw} ({hint}), Tax kind: {_KIND_LABEL.get(selected_kind, selected_kind)}. Rewrote {n} transaction(s)."
+                        msg = f"Updated {isin} → {raw} ({hint}), Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}. Rewrote {n} transaction(s)."
                     elif warn:
-                        msg = f"Updated {isin} → {raw}. Warning: {warn}. Tax kind: {_KIND_LABEL.get(selected_kind, selected_kind)}. Rewrote {n} transaction(s)."
+                        msg = f"Updated {isin} → {raw}. Warning: {warn}. Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}. Rewrote {n} transaction(s)."
                     else:
-                        msg = f"Updated {isin} → {raw}, Tax kind: {_KIND_LABEL.get(selected_kind, selected_kind)}. Rewrote {n} transaction(s)."
+                        msg = f"Updated {isin} → {raw}, Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}. Rewrote {n} transaction(s)."
                     st.session_state.mappings_feedback = ("success", msg)
                     st.rerun()
     with cols[6]:
@@ -360,9 +329,3 @@ def render() -> None:
 
     st.divider()
     _render_mapped_section(mapped, doc)
-
-    st.divider()
-    st.info(
-        "ISINs are auto-added to this page when you run `tools/import_scalable_csv.py`. "
-        "Re-run the importer after mapping new ISINs to pull in their transactions."
-    )
