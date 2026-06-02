@@ -34,3 +34,11 @@ class CompanyDataProvider(Protocol):
         For non-cache adapters: equivalent to get_company (no cache to bypass).
         """
         ...
+
+    def get_quote_type(self, ticker: str) -> str | None:
+        """Return the yfinance quoteType (e.g. 'EQUITY', 'ETF', 'MUTUALFUND').
+
+        Cheaper than get_company() — must NOT pull price history or fundamentals.
+        Returns None if the ticker is unknown or the provider doesn't support this.
+        """
+        ...

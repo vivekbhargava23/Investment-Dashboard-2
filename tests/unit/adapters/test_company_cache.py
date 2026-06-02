@@ -48,6 +48,9 @@ class FakeInner:
         self.refresh_calls.append((ticker, section))
         return self._company
 
+    def get_quote_type(self, ticker: str) -> str | None:
+        return self._company.quote_type
+
 
 def _make_rich_company(ticker: str = "NVDA") -> CompanyData:
     return CompanyData(
@@ -227,3 +230,53 @@ def test_cache_root_created_if_missing(tmp_path: Path) -> None:
 
     assert nonexistent.exists()
     assert (nonexistent / "NVDA" / "profile.json").exists()
+
+
+# ── get_quote_type ────────────────────────────────────────────────────────────
+
+def test_get_quote_type_returns_cached_value(tmp_path: Path) -> None:
+    company = CompanyData(ticker="NVDA", quote_type="EQUITY",
+                          profile=CompanyProfile(ticker="NVDA", name="NVIDIA", currency="USD"))
+    inner = FakeInner(company)
+    adapter = CacheCompanyAdapter(inner, tmp_path, now=lambda: _FROZEN_NOW)
+    adapter.get_company("NVDA")  # warm cache
+
+    qt = adapter.get_quote_type("NVDA")
+
+    assert qt == "EQUITY"
+    # Should NOT call inner again — profile was already cached
+    call_count_before = len(inner.refresh_calls)
+    adapter.get_quote_type("NVDA")
+    assert len(inner.refresh_calls) == call_count_before
+
+
+def test_get_quote_type_delegates_to_inner_on_cache_miss(tmp_path: Path) -> None:
+    company = CompanyData(ticker="NVDA", quote_type="ETF",
+                          profile=CompanyProfile(ticker="NVDA", name="NVIDIA", currency="USD"))
+    inner = FakeInner(company)
+    adapter = CacheCompanyAdapter(inner, tmp_path, now=lambda: _FROZEN_NOW)
+    # No warm-up — cold cache
+
+    qt = adapter.get_quote_type("NVDA")
+
+    assert qt == "ETF"
+
+
+def test_quote_type_persisted_and_restored_from_profile_cache(tmp_path: Path) -> None:
+    company = CompanyData(ticker="NVDA", quote_type="EQUITY",
+                          profile=CompanyProfile(ticker="NVDA", name="NVIDIA", currency="USD"))
+    inner = FakeInner(company)
+    adapter = CacheCompanyAdapter(inner, tmp_path, now=lambda: _FROZEN_NOW)
+    adapter.get_company("NVDA")  # writes profile.json with quote_type
+
+    profile_raw = (tmp_path / "NVDA" / "profile.json").read_text()
+    import json as _json
+    data = _json.loads(profile_raw)
+    assert data["data"]["quote_type"] == "EQUITY"
+
+    # A fresh adapter reading the same cache should recover quote_type
+    adapter2 = CacheCompanyAdapter(
+        FakeInner(CompanyData(ticker="NVDA")), tmp_path, now=lambda: _FROZEN_NOW
+    )
+    result = adapter2.get_company("NVDA")
+    assert result.quote_type == "EQUITY"
