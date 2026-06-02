@@ -1,9 +1,13 @@
 # ADR-011 — Parallel agent implementation via git worktrees; multi-CLI is first-class
 
-**Status:** Accepted (2026-05-31)
+**Status:** Superseded by [ADR-012](ADR-012-retire-worktrees.md) (2026-06-02)
 **Date:** 2026-05-31
 **Drafted by:** Vivek + Claude (Cowork session 2026-05-31)
 **Supersedes / amends:** None (extends `METHODOLOGY.md` "Single source of truth" and `AGENTS.md` Step 1)
+
+> **Superseded.** The worktree-per-ticket mechanism was retired on 2026-06-02 (ADR-012) in
+> favour of plain branches in a single checkout. The *parallel/multi-CLI intent* of this ADR
+> still stands; only the worktree plumbing is gone. See ADR-012 for rationale.
 
 ---
 
