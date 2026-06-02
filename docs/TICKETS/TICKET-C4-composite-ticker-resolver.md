@@ -1,10 +1,10 @@
 # TICKET-C4 — Composite ticker resolver (yfinance + Finnhub fallback)
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** MEDIUM
 **Estimated session length:** 1 hr
 **Drafted by:** Vivek + Claude Chat (2026-05-31)
-**Implemented by:** TBD
+**Implemented by:** Claude Code (claude-sonnet-4-6, 2026-06-02)
 **Milestone:** Foundation
 
 ---
