@@ -9,10 +9,9 @@ from app.adapters.fx_yfinance import YfinanceLiveFxAdapter
 from app.adapters.isin_map.repo import JsonIsinMapRepository
 from app.adapters.repo_json import JsonNavSnapshotRepository, JsonTransactionRepository
 from app.adapters.repo_json.tax_profile_repo import JsonTaxProfileRepository
-from app.adapters.ticker_resolver_cached import CachedTickerResolver
+from app.adapters.ticker_resolver_factory import build_ticker_resolver
 from app.adapters.yfinance_ohlc import YfinanceOhlcAdapter
 from app.adapters.yfinance_price import YfinancePriceAdapter
-from app.adapters.yfinance_resolver import YfinanceResolverAdapter
 from app.config import get_settings
 from app.ports.company_data import CompanyDataProvider
 from app.ports.fx_feed import FxProvider, HistoricalFxProvider, LiveFxProvider
@@ -71,10 +70,7 @@ def get_fx_provider() -> FxProvider:
 @lru_cache(maxsize=1)
 def get_ticker_resolver() -> TickerResolver:
     settings = get_settings()
-    return CachedTickerResolver(
-        inner=YfinanceResolverAdapter(),
-        cache_path=settings.ticker_cache_json_path,
-    )
+    return build_ticker_resolver(cache_path=settings.ticker_cache_json_path)
 
 
 @lru_cache(maxsize=1)
