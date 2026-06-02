@@ -174,28 +174,18 @@ cat docs/TICKETS/TICKET-XXX-*.md
 
 If the ticket touches a specific module, also read that module's instruction file.
 
-### Step 5 — Worktree, branch, and mark in-progress
+### Step 5 — Branch and mark in-progress
 
-If the current working directory is the **main checkout** (i.e. `git rev-parse --abbrev-ref HEAD` returns `main`):
+Create a branch off `main` in the current checkout (ADR-012 — worktrees retired):
 
 ```bash
-# Prune any worktrees whose branch has already landed on main
-bash tools/cleanup-worktrees.sh || true
-
 slug="ticket-$(echo TICKET-XXX | tr '[:upper:]' '[:lower:]' | sed -E 's/ticket-//')-short-name"
-worktree_path="../$(basename "$(git rev-parse --show-toplevel)")-$(echo TICKET-XXX | tr '[:upper:]' '[:lower:]' | sed -E 's/ticket-//')"
-git worktree add "$worktree_path" -b "$slug"
-
-# Share the main checkout's runtime data directory (and .env if present)
-main_root="$(git rev-parse --show-toplevel)"
-rm -rf "$worktree_path/data"
-ln -s "$main_root/data" "$worktree_path/data"
-[ -f "$main_root/.env" ] && ln -s "$main_root/.env" "$worktree_path/.env" || true
-
-cd "$worktree_path"
+git checkout -b "$slug"
 ```
 
-If already inside a worktree (HEAD is not `main`): reuse it — confirm the branch name matches the ticket; no new worktree creation needed.
+If you are already on a feature branch (HEAD is not `main`) — e.g. Vivek `cd`'d in to
+address PR review comments — reuse it: confirm the branch name matches the ticket; do not
+create a new branch.
 
 Update the ticket file: `Status: QUEUED` → `Status: IN_PROGRESS` (decorative — nothing reads this).
 
@@ -220,33 +210,18 @@ source files under `app/` and `tests/`.
 
 ### Step 7 — Gate check (must pass before ANY commit)
 
+Activate the conda env and chain all four checks in one shell call:
+
 ```bash
-bash tools/run.sh <slug> bash -c 'pytest && ruff check . && mypy app/ && lint-imports'
+source "$(conda info --base)/etc/profile.d/conda.sh" && conda activate investment-dashboard && \
+  pytest && ruff check . && mypy app/ && lint-imports
 ```
 
 If **any** check fails: **STOP**. See "Stop conditions" below.
 Do not commit. Do not push. Do not open a PR. Report the failure to Vivek.
 
-#### Running commands in a worktree
-
-Use `bash tools/run.sh <slug> <cmd>` instead of inlining `cd … && source … && conda activate …`:
-
-```bash
-# Gate check (all four tools chained in one activation)
-bash tools/run.sh c3 bash -c 'pytest && ruff check . && mypy app/ && lint-imports'
-
-# Single tool
-bash tools/run.sh c3 pytest tests/unit
-```
-
-The slug is the worktree suffix: the `c3` worktree lives at `../Investment-Dashboard-2-c3`, slug is `c3`.
-Chain related checks into one `bash -c '...'` call to avoid re-activating the env each time.
-
-For commands run from the **main checkout** (e.g. Step 3 `pytest -q`), use the activation prefix directly — `run.sh` only targets worktrees:
-
-```bash
-source "$(conda info --base)/etc/profile.d/conda.sh" && conda activate investment-dashboard && pytest -q
-```
+Chain related checks into one command to avoid re-activating the env each time. The same
+activation prefix applies to every Python command in the ritual (e.g. Step 3 `pytest -q`).
 
 ### Step 8 — Commit, log, and push
 
@@ -300,18 +275,8 @@ Files changed: <count>
 Ready for your review.
 
 How to test this branch locally:
-  cd <absolute worktree path, e.g. /Users/vivekb2017/Desktop/Apps/Investment-Dashboard-2-xxx>
-  conda activate investment-dashboard
-  streamlit run app/ui/main.py
-```
-
-If the worktree was removed by cleanup before this summary is printed, use this fallback instead:
-
-```
-How to test this branch locally (fallback — worktree was pruned):
   cd ~/Desktop/Apps/Investment-Dashboard-2
-  git fetch origin
-  git checkout <branch-name>
+  git checkout <branch-name>          # already checked out if you ran the session here
   conda activate investment-dashboard
   streamlit run app/ui/main.py
 ```
