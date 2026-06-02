@@ -10,7 +10,11 @@ from app.domain.market_data import ChartPeriod, OhlcUnavailableError
 from app.ports.ticker_resolver import TickerMatch
 from app.services.market_data import get_ohlc_history
 from app.ui.components.charts import render_candlestick
-from app.ui.components.period_selector import _PERIOD_LABELS, render_period_selector
+from app.ui.components.period_selector import (
+    _PERIOD_LABELS,
+    render_aggregation_toggle,
+    render_period_selector,
+)
 from app.ui.components.ticker_searchbox import render_ticker_searchbox
 from app.ui.wiring import get_ohlc_data_provider, get_ticker_resolver
 
@@ -28,13 +32,15 @@ def render() -> None:
     ohlc_provider = get_ohlc_data_provider()
 
     # ── Input row ────────────────────────────────────────────────────────────
-    col_search, col_period = st.columns([0.7, 0.3])
+    col_search, col_period, col_freq = st.columns([0.55, 0.3, 0.15])
     with col_search:
         match: TickerMatch | None = render_ticker_searchbox(
             key="research_ticker", resolver=resolver
         )
     with col_period:
         period: ChartPeriod = render_period_selector("research_period", default="6M")
+    with col_freq:
+        agg_freq = render_aggregation_toggle("research_freq", period)
 
     # ── Empty state ───────────────────────────────────────────────────────────
     if match is None:
@@ -58,7 +64,7 @@ def render() -> None:
     series = None
     fetch_error: str | None = None
     try:
-        series = get_ohlc_history(match.symbol, period, provider=ohlc_provider)
+        series = get_ohlc_history(match.symbol, period, provider=ohlc_provider, freq=agg_freq)
     except OhlcUnavailableError as e:
         fetch_error = e.reason
 
