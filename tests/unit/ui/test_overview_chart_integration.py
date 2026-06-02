@@ -31,6 +31,21 @@ def test_trend_text_failure_does_not_break_other_tickers() -> None:
     assert trend_texts["RHM.DE"] != "—"
 
 
+def test_fetch_trend_texts_issues_single_batch_fetch() -> None:
+    """All tickers' OHLC come from one batched call, not one fetch per ticker."""
+    series_map = {
+        ("NVDA", ChartPeriod.ONE_MONTH): FAKE_SERIES_NVDA_6MO,
+        ("RHM.DE", ChartPeriod.ONE_MONTH): FAKE_SERIES_RHM_1Y,
+    }
+    provider = FakeOhlcDataProvider(series_map=series_map)
+
+    from unittest.mock import patch
+    with patch("app.ui.pages.overview.get_ohlc_data_provider", return_value=provider):
+        _fetch_trend_texts(["NVDA", "RHM.DE"])
+
+    assert provider.batch_call_count == 1
+
+
 def test_trend_text_positive_pct_uses_up_arrow() -> None:
     """NVDA 6MO fixture has positive period change → trend text contains ↑."""
     series_map = {("NVDA", ChartPeriod.ONE_MONTH): FAKE_SERIES_NVDA_6MO}

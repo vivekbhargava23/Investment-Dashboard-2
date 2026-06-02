@@ -18,13 +18,12 @@ from app.domain.market_data import (
     AggregationFreq,
     ChartPeriod,
     OhlcBar,
-    OhlcUnavailableError,
     aggregate_ohlc_series,
 )
 from app.domain.money import Currency
 from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 from app.ports.market_data import OhlcDataProvider
-from app.ports.price_feed import PriceProvider, PriceUnavailableError
+from app.ports.price_feed import PriceProvider
 from app.ports.repository import TransactionRepository
 
 # ── Constants ──────────────────────────────────────────────────────────────────
@@ -131,11 +130,11 @@ def build_technicals_view(
             else Currency.EUR
         )
 
-    # 2. Fetch OHLC — always use the max period to seed long-window SMAs
-    try:
-        raw_series = ohlc.get_ohlc_history(ticker, _FETCH_PERIOD)
-    except OhlcUnavailableError as exc:
-        raise OhlcUnavailable(f"{ticker}: {exc.reason}") from exc
+    # 2. Fetch OHLC — always use the max period to seed long-window SMAs.
+    #    Single symbol, but routed through the batch API so there is one fetch path.
+    raw_series = ohlc.get_ohlc_histories([ticker], _FETCH_PERIOD).get(ticker)
+    if raw_series is None:
+        raise OhlcUnavailable(f"{ticker}: no OHLC data for period {_FETCH_PERIOD.value}")
 
     series = aggregate_ohlc_series(raw_series, freq) if freq is not None else raw_series
 
@@ -172,13 +171,10 @@ def build_technicals_view(
         non_none = [v for v in rsi_slice if v is not None]
         visible_rsi = non_none if non_none else None
 
-    # 6. Live price fetch (best-effort; None on failure)
-    live_price: Decimal | None = None
-    try:
-        live_money = price_feed.get_current_price(ticker)
-        live_price = live_money.amount
-    except PriceUnavailableError:
-        live_price = None
+    # 6. Live price fetch (best-effort; None on failure). Single symbol, but routed
+    #    through the batch API so there is one fetch path.
+    live_money = price_feed.get_current_prices([ticker]).get(ticker)
+    live_price: Decimal | None = live_money.amount if live_money is not None else None
 
     day_open = visible_bars[-1].open if visible_bars else None
 
