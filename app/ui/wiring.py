@@ -4,6 +4,7 @@ from pathlib import Path
 import streamlit as st
 
 from app.adapters.company_factory import build_company_provider
+from app.adapters.fx_ecb import EcbFxAdapter
 from app.adapters.fx_yfinance import YfinanceLiveFxAdapter
 from app.adapters.isin_map.repo import JsonIsinMapRepository
 from app.adapters.repo_json import JsonNavSnapshotRepository, JsonTransactionRepository
@@ -14,7 +15,7 @@ from app.adapters.yfinance_price import YfinancePriceAdapter
 from app.adapters.yfinance_resolver import YfinanceResolverAdapter
 from app.config import get_settings
 from app.ports.company_data import CompanyDataProvider
-from app.ports.fx_feed import FxProvider
+from app.ports.fx_feed import FxProvider, HistoricalFxProvider, LiveFxProvider
 from app.ports.isin_map import IsinMapRepository
 from app.ports.market_data import OhlcDataProvider
 from app.ports.nav_repository import NavSnapshotRepository
@@ -51,7 +52,19 @@ def get_price_provider() -> PriceProvider:
 
 
 @lru_cache(maxsize=1)
+def get_historical_fx_provider() -> HistoricalFxProvider:
+    settings = get_settings()
+    return EcbFxAdapter(cache_path=settings.fx_cache_dir / "ecb.json")
+
+
+@lru_cache(maxsize=1)
+def get_live_fx_provider() -> LiveFxProvider:
+    return YfinanceLiveFxAdapter()
+
+
+@lru_cache(maxsize=1)
 def get_fx_provider() -> FxProvider:
+    """Back-compat shim. Prefer get_live_fx_provider() or get_historical_fx_provider()."""
     return YfinanceLiveFxAdapter()
 
 

@@ -18,8 +18,8 @@ from app.ui.components.weight_bar import render_weight_bar
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
 from app.ui.wiring import (
-    get_fx_provider,
     get_isin_map_repo,
+    get_live_fx_provider,
     get_ohlc_data_provider,
     get_price_provider,
     get_repository,
@@ -52,7 +52,7 @@ _PERIOD_LABELS: dict[ChartPeriod, str] = {
 @st.cache_data(ttl=60, show_spinner=False)
 def _cached_live_positions(tx_sig: str) -> dict[str, LivePosition]:
     transactions = get_repository().load_all()
-    return compute_live_positions(transactions, get_price_provider(), get_fx_provider())
+    return compute_live_positions(transactions, get_price_provider(), get_live_fx_provider())
 
 
 @st.cache_data(ttl=60, show_spinner=False)

@@ -25,12 +25,8 @@ class UnsupportedCurrencyPairError(FxRateUnavailableError):
     pass
 
 
-class FxProvider(Protocol):
-    """Abstract contract for fetching current and historical FX rates."""
-
-    def get_current_rate(self, base: Currency, quote: Currency) -> Decimal:
-        """Returns rate as quote_per_base (e.g., USD per 1 EUR)."""
-        ...
+class HistoricalFxProvider(Protocol):
+    """Contract for historical FX rates (cost-basis path, ADR-007)."""
 
     def get_historical_rate(
         self, base: Currency, quote: Currency, on_date: date
@@ -41,3 +37,21 @@ class FxProvider(Protocol):
     def clear_cache(self) -> None:
         """Invalidate all cached rates."""
         ...
+
+
+class LiveFxProvider(Protocol):
+    """Contract for live/current FX rates (valuation path, ADR-007)."""
+
+    def get_current_rate(self, base: Currency, quote: Currency) -> Decimal:
+        """Returns rate as quote_per_base (e.g., USD per 1 EUR)."""
+        ...
+
+    def clear_cache(self) -> None:
+        """Invalidate all cached rates."""
+        ...
+
+
+class FxProvider(HistoricalFxProvider, LiveFxProvider, Protocol):
+    """Combined FX protocol (back-compat). Prefer HistoricalFxProvider or LiveFxProvider."""
+
+    pass

@@ -5,7 +5,7 @@ import streamlit as st
 
 from app.domain.money import Currency
 from app.services.market_data import clear_market_data_caches
-from app.ui.wiring import get_fx_provider, get_ohlc_data_provider
+from app.ui.wiring import get_live_fx_provider, get_ohlc_data_provider
 
 PAGE_TITLES: dict[str, str] = {
     "overview": "Live Overview",
@@ -29,7 +29,7 @@ def render_topbar() -> None:
     title = PAGE_TITLES.get(current_page, "Investment Panel")
     
     try:
-        rate = get_fx_provider().get_current_rate(Currency.EUR, Currency.USD)
+        rate = get_live_fx_provider().get_current_rate(Currency.EUR, Currency.USD)
         fx_str = f"{rate:.4f}"
     except Exception:
         fx_str = "—"
