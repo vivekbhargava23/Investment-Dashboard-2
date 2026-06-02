@@ -121,3 +121,63 @@ def test_aggregation_applied_on_every_call() -> None:
     assert fake.call_count == 2  # adapter is called each time (adapter owns caching)
     assert len(r1.bars) == 1
     assert len(r2.bars) == 1
+
+
+# --- freq override ---
+
+def test_freq_none_matches_default_behaviour() -> None:
+    """freq=None uses _AGGREGATION default: 6M → no aggregation, bars unchanged."""
+    raw = _series(
+        _bar("2024-01-02"), _bar("2024-01-03"), _bar("2024-01-04"),
+        period=ChartPeriod.SIX_MONTH,
+    )
+    fake = FakeOhlcDataProvider(series_map={("NVDA", ChartPeriod.SIX_MONTH): raw})
+    result_default = svc.get_ohlc_history("NVDA", ChartPeriod.SIX_MONTH, provider=fake)
+    assert fake.call_count == 1
+    result_explicit_none = svc.get_ohlc_history(
+        "NVDA", ChartPeriod.SIX_MONTH, provider=fake, freq=None
+    )
+    assert len(result_default.bars) == len(result_explicit_none.bars) == 3
+
+
+def test_freq_week_on_six_month_returns_weekly_bars() -> None:
+    """freq='week' on a 6M period aggregates the daily bars to weekly."""
+    raw = _series(
+        # Week 1: Jan 2–5
+        _bar("2024-01-02"), _bar("2024-01-03"), _bar("2024-01-04"), _bar("2024-01-05"),
+        # Week 2: Jan 8–12
+        _bar("2024-01-08"), _bar("2024-01-09"),
+        period=ChartPeriod.SIX_MONTH,
+    )
+    fake = FakeOhlcDataProvider(series_map={("NVDA", ChartPeriod.SIX_MONTH): raw})
+    result = svc.get_ohlc_history("NVDA", ChartPeriod.SIX_MONTH, provider=fake, freq="week")
+    assert len(result.bars) == 2  # 6 daily bars across 2 weeks → 2 weekly bars
+
+
+def test_freq_override_on_auto_aggregated_period() -> None:
+    """freq='day' on a 1Y period (normally weekly) returns un-aggregated daily bars."""
+    raw = _series(
+        # Week 1 of 2024: Jan 2–5
+        _bar("2024-01-02"), _bar("2024-01-03"), _bar("2024-01-05"),
+        # Week 2 of 2024: Jan 8–12
+        _bar("2024-01-08"), _bar("2024-01-09"),
+        period=ChartPeriod.ONE_YEAR,
+    )
+    fake = FakeOhlcDataProvider(series_map={("NVDA", ChartPeriod.ONE_YEAR): raw})
+    result = svc.get_ohlc_history("NVDA", ChartPeriod.ONE_YEAR, provider=fake, freq="day")
+    assert len(result.bars) == 5  # daily aggregation keeps all 5 bars
+
+
+def test_freq_month_on_five_year_period() -> None:
+    """freq='month' is the default for 5Y — explicit passes produce identical results."""
+    raw = _series(
+        _bar("2024-01-02"), _bar("2024-01-15"), _bar("2024-01-31"),
+        _bar("2024-02-01"), _bar("2024-02-15"),
+        period=ChartPeriod.FIVE_YEAR,
+    )
+    fake = FakeOhlcDataProvider(series_map={("NVDA", ChartPeriod.FIVE_YEAR): raw})
+    result_auto = svc.get_ohlc_history("NVDA", ChartPeriod.FIVE_YEAR, provider=fake)
+    result_explicit = svc.get_ohlc_history(
+        "NVDA", ChartPeriod.FIVE_YEAR, provider=fake, freq="month"
+    )
+    assert len(result_auto.bars) == len(result_explicit.bars) == 2

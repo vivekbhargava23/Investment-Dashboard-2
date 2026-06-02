@@ -14,7 +14,13 @@ from pydantic import BaseModel, ConfigDict
 
 from app.domain import analytics
 from app.domain.fifo import compute_positions
-from app.domain.market_data import ChartPeriod, OhlcBar, OhlcUnavailableError
+from app.domain.market_data import (
+    AggregationFreq,
+    ChartPeriod,
+    OhlcBar,
+    OhlcUnavailableError,
+    aggregate_ohlc_series,
+)
 from app.domain.money import Currency
 from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 from app.ports.market_data import OhlcDataProvider
@@ -38,6 +44,13 @@ _PERIOD_TRADING_DAYS: dict[str, int] = {
     "1Y": 252,
     "2Y": 504,
     "5Y": 0,  # 0 = use all available bars
+}
+
+# Divisors to convert trading-day counts to coarser bar counts
+_FREQ_BAR_DIVISOR: dict[str, int] = {
+    "day": 1,
+    "week": 5,
+    "month": 21,
 }
 
 # Fetch the largest period to maximise history available for SMA seeding
@@ -94,6 +107,7 @@ def build_technicals_view(
     price_feed: PriceProvider,
     ohlc: OhlcDataProvider,
     as_of: date,
+    freq: AggregationFreq | None = None,
 ) -> TechnicalsView:
     """Compute the full technicals view for one owned position.
 
@@ -119,9 +133,11 @@ def build_technicals_view(
 
     # 2. Fetch OHLC — always use the max period to seed long-window SMAs
     try:
-        series = ohlc.get_ohlc_history(ticker, _FETCH_PERIOD)
+        raw_series = ohlc.get_ohlc_history(ticker, _FETCH_PERIOD)
     except OhlcUnavailableError as exc:
         raise OhlcUnavailable(f"{ticker}: {exc.reason}") from exc
+
+    series = aggregate_ohlc_series(raw_series, freq) if freq is not None else raw_series
 
     all_bars = list(series.bars)
     total_history_days = len(all_bars)
@@ -132,8 +148,11 @@ def build_technicals_view(
     sma_200_full = analytics.sma(all_closes, SMA_LONG_PERIOD)
     rsi_full = analytics.rsi(all_closes, RSI_PERIOD)  # [] if < RSI_PERIOD+1 bars
 
-    # 4. Determine the visible slice
+    # 4. Determine the visible slice (adjust bar count for coarser frequencies)
     period_days = _PERIOD_TRADING_DAYS.get(period, 130)
+    if freq is not None:
+        divisor = _FREQ_BAR_DIVISOR.get(freq, 1)
+        period_days = period_days // divisor if period_days > 0 else 0
     if period_days == 0 or period_days >= total_history_days:
         slice_start = 0
     else:

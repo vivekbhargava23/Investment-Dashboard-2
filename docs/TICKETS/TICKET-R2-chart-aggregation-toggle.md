@@ -1,6 +1,6 @@
 # TICKET-R2 — Daily/Weekly/Monthly aggregation toggle on chart pages
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** MEDIUM
 **Estimated session length:** 1 hr
 **Drafted by:** Vivek + Claude Chat (2026-05-31)
