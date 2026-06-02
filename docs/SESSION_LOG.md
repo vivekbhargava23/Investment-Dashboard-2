@@ -49,7 +49,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 **Model:** sonnet-4.6
 **Duration:** ~45 min
 **Branch:** ticket-c4-composite-ticker-resolver
-**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/129
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/130
 **Status at session end:** IN_REVIEW
 
 ### What got done
@@ -85,6 +85,44 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 ~50k
 
 ---
+
+## 2026-06-02 — TICKET-R2
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~45 min
+**Branch:** ticket-r2-chart-aggregation-toggle
+**PR:** TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `freq: AggregationFreq | None = None` to `get_ohlc_history` service; `None` preserves existing default behaviour
+- Added `render_aggregation_toggle(key, period)` in `period_selector.py`; shows Auto/Day/Week/Month with period-appropriate option hiding
+- Wired the toggle into Research, Overview Position Chart, and Analytics Technicals tab
+- Added `freq` param to `build_technicals_view`; aggregates bars and adjusts visible-slice count for coarser frequencies
+- Technicals MA overlay labels switch to "50-period MA" when freq is not "day"
+- Updated existing research page tests (input row grew from 2 to 3 columns)
+
+### Files touched
+- `app/services/market_data.py` — freq override param
+- `app/services/analytics_technicals.py` — freq param, aggregation, slice adjustment
+- `app/ui/components/period_selector.py` — render_aggregation_toggle
+- `app/ui/pages/research.py` — toggle wiring
+- `app/ui/pages/overview.py` — toggle wiring (Position Chart section)
+- `app/ui/pages/analytics.py` — toggle wiring (Technicals tab)
+- `tests/unit/services/test_market_data.py` — 4 new freq-override tests
+- `tests/unit/ui/test_research_page.py` — updated column counts for 3-col input row
+
+### Tests
+901 passing → 905 passing (4 new)
+
+### Decisions made during the session
+- No architectural decisions; freq override is purely additive
+
+### Out-of-scope items noticed
+- None
+
+### Tokens used (rough)
+~80k
 
 ## 2026-06-02 — TICKET-C1
 **Surface:** Claude Code
@@ -129,6 +167,58 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### Tokens used (rough)
 ~80k
+
+## 2026-05-31 — TICKET-CSV-13
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~90 min
+**Branch:** ticket-csv13-zero-touch-import
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/126
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `get_quote_type(ticker) -> str | None` to `CompanyDataProvider` port and all adapters
+  (YfinanceCompanyAdapter, CacheCompanyAdapter, CompositeCompanyAdapter, FinnhubCompanyAdapter)
+- Fixed `_merge_sections` and profile cache section to persist and restore `quote_type`
+  (pre-existing bug: cached `get_company()` always returned `quote_type=None`)
+- New service `app/services/isin_autoresolve.py`: resolves ISIN → ticker + InstrumentKind
+  using `resolver.resolve(ISIN)` (yfinance Search accepts ISINs) with scoring by EUR
+  preference, German-exchange suffix (.DE/.F/…), and name similarity via difflib
+- New component `app/ui/components/isin_mapper.py`: shared `suggest_kind`, `KIND_LABEL`,
+  `render_kind_selector`, `render_isin_mapper_row`, `build_mapping` — used by both pages
+- Import Workbench rewritten: auto-resolves all unmapped ISINs on upload; saves
+  high/medium-confidence results to `isin_map.json`; shows green "Auto-mapped N ISINs"
+  banner with per-ISIN Reject buttons; remaining manual ISINs get inline fuzzy search
+- Mappings page updated to import `suggest_kind`/`KIND_LABEL`/`KIND_OPTIONS` from shared
+  component; removed stale "re-run importer after mapping" footer
+- All auto-resolve decisions logged to `import_log.json` with confidence + reason fields
+- 22 new unit tests (autoresolve service + cache/composite get_quote_type coverage)
+
+### Files touched
+- `app/ports/company_data.py` — added `get_quote_type` to Protocol
+- `app/adapters/company_yfinance/adapter.py` — implemented `get_quote_type`
+- `app/adapters/company_cache/adapter.py` — implemented `get_quote_type`, fixed `quote_type` persistence
+- `app/adapters/company_composite/adapter.py` — implemented `get_quote_type`, fixed `_merge`
+- `app/adapters/company_finnhub/adapter.py` — stub `get_quote_type` (returns None)
+- `app/services/isin_autoresolve.py` — NEW
+- `app/ui/components/isin_mapper.py` — NEW
+- `app/ui/pages/import_workbench.py` — auto-resolve flow, new session-state keys
+- `app/ui/pages/mappings.py` — use shared component, remove stale footer
+- `tests/unit/services/test_isin_autoresolve.py` — NEW (19 tests)
+- `tests/unit/adapters/test_company_cache.py` — added `get_quote_type` to FakeInner + 3 new tests
+- `tests/unit/adapters/test_company_composite.py` — added `get_quote_type` to FakeProvider + 4 new tests
+- `tests/unit/services/test_company_service.py` — added `get_quote_type` to FakeProvider
+
+### Tests
+870 passing → 892 passing (22 new)
+
+### Decisions made during the session
+- Used `difflib.SequenceMatcher` (stdlib) for name similarity — no new dependency
+- Confidence drops to "low" if quoteType is unavailable or non-mappable, preventing
+  silent auto-mapping of exotic instruments (crypto, indices, etc.)
+
+### Out-of-scope items noticed
+- None
 
 ## 2026-05-31 — TICKET-R1
 **Surface:** Claude Code
