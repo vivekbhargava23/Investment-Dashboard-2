@@ -30,8 +30,8 @@ def test_empty_state_shows_info_when_no_match() -> None:
     ):
         mock_st.session_state = {}
         mock_st.radio.return_value = ChartPeriod.SIX_MONTH
-        # input row (2); second call for quick-pick buttons uses zip → 2 is fine
-        mock_st.columns.side_effect = _col_side_effects(2, 5)
+        # input row (3 — search, period, freq); quick-pick buttons (5)
+        mock_st.columns.side_effect = _col_side_effects(3, 5)
         research.render()
 
     info_calls = [str(c) for c in mock_st.info.call_args_list]
@@ -54,8 +54,8 @@ def test_header_renders_symbol_and_name_when_match_set() -> None:
     ):
         mock_st.session_state = {}
         mock_st.radio.return_value = ChartPeriod.SIX_MONTH
-        # input row (2), metrics row (3), action row (3)
-        mock_st.columns.side_effect = _col_side_effects(2, 3, 3)
+        # input row (3 — search, period, freq), metrics row (3), action row (3)
+        mock_st.columns.side_effect = _col_side_effects(3, 3, 3)
         mock_st.markdown.side_effect = lambda s, **kw: markdown_calls.append(str(s))
         research.render()
 
@@ -80,8 +80,8 @@ def test_warning_shown_when_ohlc_unavailable() -> None:
     ):
         mock_st.session_state = {}
         mock_st.radio.return_value = ChartPeriod.SIX_MONTH
-        # input row (2), action row (3) — no metrics row since series is None
-        mock_st.columns.side_effect = _col_side_effects(2, 3)
+        # input row (3 — search, period, freq), action row (3)
+        mock_st.columns.side_effect = _col_side_effects(3, 3)
         research.render()
 
     mock_st.warning.assert_called_once()
@@ -121,8 +121,8 @@ def test_simulate_buy_sets_session_state_and_navigates() -> None:
     ):
         mock_st.session_state = session_state
         mock_st.radio.return_value = ChartPeriod.SIX_MONTH
-        # input row (2), metrics row (3), action row (3)
-        mock_st.columns.side_effect = _col_side_effects(2, 3, 3)
+        # input row (3 — search, period, freq), metrics row (3), action row (3)
+        mock_st.columns.side_effect = _col_side_effects(3, 3, 3)
         # Simulate the "Simulate buy" button being clicked
         mock_st.button.side_effect = lambda label, **kw: label == "Simulate buy"
         research.render()

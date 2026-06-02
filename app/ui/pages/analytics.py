@@ -86,7 +86,11 @@ from app.ui.components.charts import (
     render_weight_bar_chart,
 )
 from app.ui.components.metric_card import render_metric_card
-from app.ui.components.period_selector import TECHNICALS_PERIODS, render_period_selector
+from app.ui.components.period_selector import (
+    TECHNICALS_PERIODS,
+    render_aggregation_toggle,
+    render_period_selector,
+)
 from app.ui.components.weight_bar import render_weight_bar
 from app.ui.format import format_eur, format_pct, format_shares, gain_class
 from app.ui.render import render_html
@@ -617,7 +621,7 @@ def _render_technicals_tab() -> None:
     if default_ticker not in open_tickers:
         default_ticker = open_tickers[0]
 
-    selector_col, period_col = st.columns([0.5, 0.5])
+    selector_col, period_col, freq_col = st.columns([0.4, 0.4, 0.2])
     with selector_col:
         selected_ticker: str = st.selectbox(
             "Ticker",
@@ -631,6 +635,8 @@ def _render_technicals_tab() -> None:
             options=TECHNICALS_PERIODS,
             default="6M",
         )
+    with freq_col:
+        selected_freq = render_aggregation_toggle("technicals_freq", selected_period)
 
     from app.ui.components.period_selector import _PERIOD_LABELS as _PL
 
@@ -644,6 +650,7 @@ def _render_technicals_tab() -> None:
             price_feed=price_feed,
             ohlc=ohlc_provider,
             as_of=date.today(),
+            freq=selected_freq,
         )
     except OhlcUnavailable as exc:
         st.error(f"Could not fetch OHLC for {selected_ticker}: {exc.args[0]}")
@@ -653,7 +660,7 @@ def _render_technicals_tab() -> None:
         return
 
     _render_technicals_badges(view)
-    _render_technicals_charts(view)
+    _render_technicals_charts(view, freq=selected_freq)
 
 
 def _render_technicals_badges(view: TechnicalsView) -> None:
@@ -732,7 +739,7 @@ def _render_technicals_badges(view: TechnicalsView) -> None:
     )
 
 
-def _render_technicals_charts(view: TechnicalsView) -> None:
+def _render_technicals_charts(view: TechnicalsView, *, freq: str | None = None) -> None:
     """Render the candlestick + overlay chart and the RSI panel."""
     from datetime import UTC
     from datetime import datetime as _dt
@@ -754,15 +761,17 @@ def _render_technicals_charts(view: TechnicalsView) -> None:
         fetched_at=_dt.now(UTC),
     )
 
+    # When using non-daily bars, the MA windows are in bars, not days
+    ma_suffix = " DMA" if freq is None or freq == "day" else "-period MA"
     timestamps = [bar.timestamp for bar in view.ohlc]
     overlays: list[Overlay] = []
     if any(v is not None for v in view.sma_50):
         overlays.append(
-            Overlay(name="50 DMA", x=timestamps, y=view.sma_50, style=SMA_50_STYLE)
+            Overlay(name=f"50{ma_suffix}", x=timestamps, y=view.sma_50, style=SMA_50_STYLE)
         )
     if any(v is not None for v in view.sma_200):
         overlays.append(
-            Overlay(name="200 DMA", x=timestamps, y=view.sma_200, style=SMA_200_STYLE)
+            Overlay(name=f"200{ma_suffix}", x=timestamps, y=view.sma_200, style=SMA_200_STYLE)
         )
 
     st.markdown(f"**{view.ticker}** — candlestick + MA overlays")

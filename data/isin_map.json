@@ -58,7 +58,7 @@
       "instrument_kind": "AKTIE"
     },
     "JP3721400004": {
-      "ticker": "5631.T",
+      "ticker": "J9R.F",
       "name": "Japan Steel Works",
       "status": "mapped",
       "last_seen_in_csv": "2026-03-24",
@@ -181,6 +181,27 @@
       "name": "NVIDIA",
       "status": "mapped",
       "last_seen_in_csv": "2026-04-24",
+      "instrument_kind": "AKTIE"
+    },
+    "JP3119600009": {
+      "ticker": "AJINF",
+      "name": "Ajinomoto",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-05-21",
+      "instrument_kind": "AKTIE"
+    },
+    "US15643U1043": {
+      "ticker": "US15643U1043",
+      "name": "Centrus Energy A",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-05-28",
+      "instrument_kind": "AKTIE"
+    },
+    "US81762P1021": {
+      "ticker": "US81762P1021",
+      "name": "ServiceNow",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-05-13",
       "instrument_kind": "AKTIE"
     }
   }

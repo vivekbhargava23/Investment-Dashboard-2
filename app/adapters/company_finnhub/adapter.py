@@ -66,6 +66,9 @@ class FinnhubCompanyAdapter:
     ) -> CompanyData:
         return self.get_company(ticker)
 
+    def get_quote_type(self, ticker: str) -> str | None:
+        return None  # Finnhub does not expose quoteType
+
     def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         url = f"{_BASE}{path}"
         p: dict[str, Any] = {"token": self._api_key}

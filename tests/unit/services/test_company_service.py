@@ -24,6 +24,9 @@ class FakeProvider:
         self.refresh_calls.append((ticker, section))
         return self._company
 
+    def get_quote_type(self, ticker: str) -> str | None:
+        return self._company.quote_type
+
 
 def _make_company(ticker: str) -> CompanyData:
     return CompanyData(
