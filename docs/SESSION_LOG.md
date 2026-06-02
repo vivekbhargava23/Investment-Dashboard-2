@@ -44,6 +44,48 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-02 — TICKET-C4
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~45 min
+**Branch:** ticket-c4-composite-ticker-resolver
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/129
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created `app/adapters/ticker_resolver_composite/adapter.py`: `CompositeTickerResolver` with primary + fallback merge logic. Primary wins on symbol dedup. Each adapter's exceptions caught individually so one source down cannot break the composite.
+- Created `app/adapters/ticker_resolver_finnhub/adapter.py`: `FinnhubTickerResolverAdapter` using `/search` and `/stock/profile2` endpoints. Skips silently when API key is unset.
+- Created `app/adapters/ticker_resolver_factory.py`: `build_ticker_resolver` factory composing `cache(composite(yfinance, [finnhub]))`. Reads `settings.finnhub_api_key` directly. Mirrors `company_factory.py` pattern.
+- Updated `app/ui/wiring.py`: `get_ticker_resolver` delegates to factory, passing `settings.finnhub_api_key`.
+- Created `tests/unit/adapters/test_ticker_resolver_composite.py`: 11 unit tests covering all four composite scenarios (primary fills limit, fallback fills gap, primary raises, both raise, dedup) plus lookup variants and clear_cache.
+- Created `tests/integration/test_finnhub_resolver.py`: 6 integration tests gated on `FINNHUB_API_KEY`.
+
+### Files touched
+- `app/adapters/ticker_resolver_composite/__init__.py` — new
+- `app/adapters/ticker_resolver_composite/adapter.py` — new
+- `app/adapters/ticker_resolver_finnhub/__init__.py` — new
+- `app/adapters/ticker_resolver_finnhub/adapter.py` — new
+- `app/adapters/ticker_resolver_factory.py` — new
+- `app/ui/wiring.py` — get_ticker_resolver now uses factory
+- `docs/TICKETS/TICKET-C4-composite-ticker-resolver.md` — Status QUEUED → IN_PROGRESS
+- `tests/unit/adapters/test_ticker_resolver_composite.py` — new (11 tests)
+- `tests/integration/test_finnhub_resolver.py` — new (6 tests, env-gated)
+
+### Tests
+901 passing → 912 passing (+11)
+
+### Decisions made during the session
+- Factory reads `settings.finnhub_api_key` instead of raw `os.environ` — consistent with company_factory pattern
+- `FinnhubTickerResolverAdapter.clear_cache` is a no-op (stateless); outer `CachedTickerResolver` covers it
+
+### Out-of-scope items noticed
+- (none)
+
+### Tokens used (rough)
+~50k
+
+---
+
 ## 2026-06-02 — TICKET-C1
 **Surface:** Claude Code
 **Model:** sonnet-4.6
