@@ -1,10 +1,10 @@
-"""Shared period radio-selector for chart pages (Research, Technicals)."""
+"""Shared period radio-selector and aggregation toggle for chart pages."""
 
 from __future__ import annotations
 
 import streamlit as st
 
-from app.domain.market_data import ChartPeriod
+from app.domain.market_data import AggregationFreq, ChartPeriod
 
 _PERIOD_LABELS: dict[ChartPeriod, str] = {
     ChartPeriod.ONE_DAY: "1D",
@@ -55,6 +55,51 @@ def render_period_selector(
         key=key,
         index=default_index,
         format_func=lambda p: _PERIOD_LABELS[p],
+        label_visibility="collapsed",
+    )
+    return selected
+
+
+# Aggregation freqs available per period. Intraday periods (1D/5D) only support
+# "Auto" because coarser weekly/monthly buckets add no value on 1-5 day charts.
+_AVAILABLE_FREQS: dict[ChartPeriod, list[AggregationFreq]] = {
+    ChartPeriod.ONE_DAY: [],
+    ChartPeriod.FIVE_DAY: ["day"],
+    ChartPeriod.ONE_MONTH: ["day", "week"],
+    ChartPeriod.THREE_MONTH: ["day", "week"],
+    ChartPeriod.SIX_MONTH: ["day", "week"],
+    ChartPeriod.ONE_YEAR: ["day", "week"],
+    ChartPeriod.TWO_YEAR: ["day", "week"],
+    ChartPeriod.FIVE_YEAR: ["day", "week", "month"],
+    ChartPeriod.YEAR_TO_DATE: ["day", "week", "month"],
+}
+
+_FREQ_LABELS: dict[AggregationFreq, str] = {
+    "day": "Day",
+    "week": "Week",
+    "month": "Month",
+}
+
+
+def render_aggregation_toggle(key: str, period: ChartPeriod) -> AggregationFreq | None:
+    """Render an aggregation toggle and return the selected freq or None for Auto.
+
+    Options shown depend on the period; options that produce fewer than ~3 bars
+    (or don't make sense for intraday data) are hidden.
+    Returns None when "Auto" is selected (default behaviour).
+    """
+    available = _AVAILABLE_FREQS.get(period, [])
+    options: list[AggregationFreq | None] = [None] + list(available)
+    labels: dict[AggregationFreq | None, str] = {None: "Auto"}
+    labels.update({f: _FREQ_LABELS[f] for f in available})
+
+    selected: AggregationFreq | None = st.radio(
+        "Aggregation",
+        options=options,
+        horizontal=True,
+        key=key,
+        index=0,
+        format_func=lambda f: labels[f],
         label_visibility="collapsed",
     )
     return selected
