@@ -1,13 +1,13 @@
 # ruff: noqa: E501
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
 
 import streamlit as st
 
 from app.domain.market_data import ChartPeriod, OhlcUnavailableError
 from app.domain.positions import LivePosition, PortfolioSummary
 from app.domain.tax.models import TaxProfile, TaxYearSummary
+from app.domain.thesis_map import ThesisEntry, ThesisStatus
 from app.services.market_data import get_ohlc_histories, get_ohlc_history
 from app.services.tax_planning import compute_current_tax_summary
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
@@ -25,17 +25,15 @@ from app.ui.wiring import (
     get_price_provider,
     get_repository,
     get_tax_profile_repo,
+    get_thesis_repo,
 )
 
-_PLACEHOLDER_THESIS_STATUS: dict[str, Literal["intact", "watch", "broken"]] = {
-    "NVDA": "intact", "RHM.DE": "intact", "MU": "intact", "HY9H.F": "intact",
-    "MRVL": "intact", "APD": "watch", "ANET": "intact", "AVGO": "intact",
-    "ETN": "intact", "ASX": "intact", "VUSA.DE": "intact", "5631.T": "intact",
-}
-_PLACEHOLDER_HORIZON: dict[str, Literal["H1", "H2", "H3"]] = {
-    "NVDA": "H1", "ETN": "H1", "ANET": "H1",
-    "RHM.DE": "H2", "MU": "H2", "HY9H.F": "H2", "MRVL": "H2", "APD": "H2",
-    "AVGO": "H2", "ASX": "H2", "VUSA.DE": "H3", "5631.T": "H3",
+# Pill colour per thesis status; "unknown" (no entry in data/thesis.json) is neutral grey.
+_THESIS_PILL_CLASS: dict[ThesisStatus | str, str] = {
+    "intact": "badge-green",
+    "watch": "badge-amber",
+    "broken": "badge-red",
+    "unknown": "badge-grey",
 }
 _PERIOD_LABELS: dict[ChartPeriod, str] = {
     ChartPeriod.ONE_DAY: "1D",
@@ -88,6 +86,7 @@ def _build_positions_table_html(
     summary: PortfolioSummary,
     trend_data: dict[str, str] | None = None,
     name_lookup: dict[str, str] | None = None,
+    thesis_entries: dict[str, ThesisEntry] | None = None,
 ) -> str:
     """trend_data maps ticker → pre-formatted trend cell HTML (e.g. '↑ +2.3%' or '—')."""
     sorted_positions = sorted(
@@ -97,6 +96,7 @@ def _build_positions_table_html(
     )
 
     _name_lookup = name_lookup or {}
+    _thesis_entries = thesis_entries or {}
     tbody_rows: list[str] = []
     for p in sorted_positions:
         ticker = p.position.ticker
@@ -105,8 +105,9 @@ def _build_positions_table_html(
         shares = f"{p.position.open_shares:g}"
         cost = format_eur(p.position.cost_basis_eur, signed=False).replace("€", "")
         lots = len(p.position.open_lots)
-        horizon = _PLACEHOLDER_HORIZON.get(ticker, "H2")
-        thesis = render_thesis_badge(_PLACEHOLDER_THESIS_STATUS.get(ticker, "intact"))
+        entry = _thesis_entries.get(ticker)
+        horizon = entry.horizon if entry is not None else "—"
+        thesis = render_thesis_badge(entry.thesis if entry is not None else "unknown")
 
         is_stale = p.live_price_native is None or p.live_value_eur is None or p.unrealised_gain_eur is None
         row_class = "stale" if is_stale else ""
@@ -259,22 +260,21 @@ def render() -> None:
         </div>
     """)
 
+    thesis_doc = get_thesis_repo().load()
+    thesis_entries = thesis_doc.entries
+
+    def _status_of(ticker: str) -> ThesisStatus | str:
+        entry = thesis_entries.get(ticker)
+        return entry.thesis if entry is not None else "unknown"
+
     # Intentionally split sum across lines to avoid E501
-    intact_count = sum(
-        1 for t in live_positions
-        if _PLACEHOLDER_THESIS_STATUS.get(t, "intact") == "intact"
-    )
-    watch_count = sum(
-        1 for t in live_positions
-        if _PLACEHOLDER_THESIS_STATUS.get(t, "intact") == "watch"
-    )
-    broken_count = sum(
-        1 for t in live_positions
-        if _PLACEHOLDER_THESIS_STATUS.get(t, "intact") == "broken"
-    )
+    intact_count = sum(1 for t in live_positions if _status_of(t) == "intact")
+    watch_count = sum(1 for t in live_positions if _status_of(t) == "watch")
+    broken_count = sum(1 for t in live_positions if _status_of(t) == "broken")
+    unknown_count = sum(1 for t in live_positions if _status_of(t) == "unknown")
 
     thesis_pill_html = "".join([
-        f'<span class="badge {"badge-green" if _PLACEHOLDER_THESIS_STATUS.get(t, "intact") == "intact" else "badge-amber" if _PLACEHOLDER_THESIS_STATUS.get(t, "intact") == "watch" else "badge-red"}" style="margin-right: 2px;">{t}</span>'
+        f'<span class="badge {_THESIS_PILL_CLASS[_status_of(t)]}" style="margin-right: 2px;">{t}</span>'
         for t in live_positions
     ])
 
@@ -290,7 +290,9 @@ def render() -> None:
                 <div class="metric-value sm" style="font-size: 14px;">
                     <span class="gain-positive">{intact_count} intact</span> ·
                     <span class="gain-amber">{watch_count} watch</span> ·
-                    <span class="gain-negative">{broken_count} broken</span>
+                    <span class="gain-negative">{broken_count} broken</span>{
+                        f' · <span style="color: var(--text3);">{unknown_count} unknown</span>' if unknown_count else ""
+                    }
                 </div>
             </div>
             <div class="metric-card">
@@ -323,7 +325,7 @@ def render() -> None:
     tickers = list(live_positions.keys())
     trend_text_map = _fetch_trend_texts(tickers)
 
-    table_html = _build_positions_table_html(live_positions, summary, trend_data=trend_text_map, name_lookup=name_lookup)
+    table_html = _build_positions_table_html(live_positions, summary, trend_data=trend_text_map, name_lookup=name_lookup, thesis_entries=thesis_entries)
     render_html(f'<div class="metric-card" style="padding: 0; overflow-x: auto;">{table_html}</div>')
 
     status_text = f"● LIVE · refreshed {now.strftime('%H:%M')}"
