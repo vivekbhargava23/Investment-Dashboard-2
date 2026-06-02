@@ -3,7 +3,15 @@
 > **You are the implementation agent working on Vivek's investment dashboard.**
 > Vivek **does not write code, run tests, commit, push, or open PRs**. You do all of that.
 > Vivek **reviews PRs and merges them**. That is his only role in the implementation loop.
-> Before doing anything, read the four files listed under "Required reading" below.
+> Before doing anything, read the files listed under "Required reading" below.
+>
+> **READ EVERY INSTRUCTION FILE IN FULL — every line, top to bottom, to EOF.** Do not read
+> the first N lines and proceed. Do not skim, sample, or assume the rest. If your
+> file-reading tool returns a truncated view (e.g. only the first 100 lines), page through
+> with offsets until you reach the end of the file *before you act*. A session that read part
+> of `AGENTS.md` (or any required file) and then started implementing is a **failed session** —
+> stop and re-read. "I read the first 100 lines" is never acceptable. This applies to this
+> file and every file under "Required reading" and every per-module `CLAUDE.md` you open.
 
 ---
 
@@ -26,6 +34,9 @@ and `jq` on PATH. See `tools/README.md` for the full toolchain reference.
 If the work touches a specific module, also read that module's instruction file
 (e.g. `app/domain/fifo/CLAUDE.md`). These per-module files contain module-specific
 context and constraints. Read them even if your CLI does not auto-load them.
+
+**Read each of these files completely — every line, to the end — not just the top.** See the
+full-read mandate in the banner at the top of this file. Partial reads are a stop condition.
 
 ---
 
@@ -53,6 +64,25 @@ context and constraints. Read them even if your CLI does not auto-load them.
 4. **Conventional commits only.** `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`. One logical change per commit. A single PR may contain multiple commits, but each commit must be logically coherent on its own.
 5. **You never push to `main` directly.** `main` is branch-protected. If you find yourself wanting to push to main, stop — you have made a mistake.
 6. **You never merge your own PRs.** Vivek merges. You open them.
+7. **Implement comprehensively — production-grade, no partial application.** If a ticket's change recurs in more than one place (the same chart, helper, query, or pattern reused across pages or modules), update *every* occurrence — leaving analogous sites un-updated is a failed ticket. Never skip reading a file the change depends on to save tokens; read the full context first.
+
+---
+
+## Model selection
+
+Every ticket header carries a model recommendation:
+
+`**Recommended model:** Opus | Sonnet | Haiku — <one-line reason>`
+
+Choose by capability. When a ticket sits between tiers, pick the higher one.
+
+| Model | Use for | Examples |
+|---|---|---|
+| **Haiku 4.5** | Mechanical, low-judgment work; no business logic. | Doc edits, dead-code deletion, pure renames, string/config changes |
+| **Sonnet 4.6** | Well-scoped changes confined to one area, with clear acceptance criteria, strong existing tests, and low blast radius. | One page, one service, or one adapter; a self-contained component |
+| **Opus 4.6** | Cross-cutting or high-risk work where a plausible-but-wrong answer is costly or hard to detect. | Changes spanning ports + adapters + multiple pages; concurrency / parallel fetch; cache correctness & invalidation; money / tax / FIFO math; data migrations |
+
+Step 0's `next` menu surfaces this model in brackets (e.g. `[Opus]`) so Vivek knows which model to launch *before* picking a ticket.
 
 ---
 
@@ -76,16 +106,16 @@ via Step 0 below, then proceed from Step 1.
 gh project item-list 2 --owner @me --format json --limit 100
 ```
 
-Filter out items whose linked issue is closed. Present as a numbered menu:
+Filter out items whose linked issue is closed. For each remaining ticket, read its `**Recommended model:**` header field (see "Model selection" above) and surface it in brackets; if a ticket lacks the field, infer the model from the rubric and append a `?`. Present as a numbered menu:
 
 ```
 Up next (N tickets):
 
 Ready (vetted):
-  1. TICKET-XXX — Title [HIGH] (issue #N)
-  2. TICKET-YYY — Title [MEDIUM] (issue #M)
+  1. TICKET-XXX — Title [HIGH] [Opus] (issue #N)
+  2. TICKET-YYY — Title [MEDIUM] [Sonnet] (issue #M)
 Backlog:
-  3. TICKET-ZZZ — Title [LOW] (issue #P)
+  3. TICKET-ZZZ — Title [LOW] [Haiku] (issue #P)
 
 Reply with:
   <number>      pick a ticket and start implementing

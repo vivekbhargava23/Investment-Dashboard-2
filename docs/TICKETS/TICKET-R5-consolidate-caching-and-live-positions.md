@@ -5,6 +5,7 @@
 **Estimated session length:** 2 hr
 **Drafted by:** Vivek + Claude Chat (2026-05-31)
 **Implemented by:** TBD
+**Recommended model:** Opus — cache correctness and invalidation across multiple pages; partial clears cause stale/divergent data that is hard to detect. See expanded scope (2026-06-02) below.
 **Milestone:** UI polish
 
 ---
@@ -95,3 +96,41 @@ The top-bar Refresh button calls this and only this.
 - Assumes `clear_market_data_caches` is the only place that nukes data caches. If other call sites exist, they get migrated in this ticket.
 - Risk: cross-user data leak if this is ever multi-tenant. Not a concern today (single-user app), but document in `services/valuation.py` that the module-level cache is process-global.
 - This ticket is HIGH priority because the cache divergence is a *correctness* risk (a stale OHLC in one layer can disagree with the other after a partial clear), not just an efficiency one.
+
+---
+
+## Update — 2026-06-02 (Cowork review): partially implemented + newly found gaps
+
+`get_live_positions_cached` / `clear_live_positions_cache` already exist in
+`services/valuation.py`, but the consolidation was never finished and the review surfaced
+two correctness gaps not in the original plan. Fold all of this into one comprehensive pass:
+
+- [ ] **A fourth page-local cache was added after this ticket was written.**
+  `app/ui/pages/overview.py:52` defines its *own* `@st.cache_data` `_cached_live_positions`
+  (and `_cached_portfolio_summary`) calling `compute_live_positions` directly — bypassing
+  `get_live_positions_cached`. This is exactly the "switching Overview → Tax refetches
+  everything" slowness. Route Overview through the shared cache like every other page and
+  delete the Overview-local wrappers. (The original acceptance list missed this file.)
+- [ ] **The cache key misses in-place edits.** `transactions_signature` = `f"{len(txs)}:{max_id}"`
+  (`app/ui/cache_keys.py:11`). Editing a transaction's shares/price/date without adding or
+  removing a row leaves count and max-id unchanged → the signature doesn't change → caches
+  serve stale numbers. Make the signature reflect *content* (a short hash over each tx's
+  `id, shares, price, trade_date`) or key on `file_mtime_key(portfolio.json)` (helper already
+  in `cache_keys.py:19`). After this, correctness no longer depends on remembering to call `clear()`.
+- [ ] **Deduplicate the signature function.** `valuation.py::_tx_sig` (valuation.py:22) is a
+  byte-for-byte copy of `cache_keys.transactions_signature`. Collapse to one shared
+  implementation; both layers import it.
+- [ ] **Every mutation clears every layer.** `app/ui/pages/manage.py` calls
+  `st.cache_data.clear()` after edits (manage.py:570/635/778) but not
+  `clear_live_positions_cache()` nor the adapter caches → Tax/Analytics can show stale data
+  for up to 60s after an edit. Route all mutations and the top-bar Refresh through the single
+  `clear_market_data_caches()` so one call clears all three layers.
+
+**Added acceptance criteria:**
+
+- [ ] Overview uses `get_live_positions_cached`; no `_cached_*` live-position wrapper remains in any page or component.
+- [ ] Editing an existing transaction (no add/remove) invalidates the live-positions cache (unit test: change a tx in place, assert recompute).
+- [ ] Exactly one `transactions_signature` / `_tx_sig` implementation exists.
+- [ ] After any `manage.py` mutation, a subsequent page render recomputes (no stale read), verified without a manual Refresh.
+
+**Coordinate with TICKET-PERF-1:** both touch `compute_live_positions`; whichever lands second rebases.
