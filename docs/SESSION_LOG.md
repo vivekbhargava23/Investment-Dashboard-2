@@ -44,6 +44,50 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-02 — TICKET-C1
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~60 min
+**Branch:** ticket-c1-fx-ecb-adapter
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/TBD
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Split `FxProvider` protocol into `HistoricalFxProvider` (cost-basis) and `LiveFxProvider` (valuation); kept `FxProvider` as combined back-compat protocol
+- Added `app/adapters/fx_ecb/adapter.py` — `EcbFxAdapter` fetches ECB daily reference rates from `eurofxref-hist.zip`, caches as `data/fx_cache/ecb.json`, derives cross rates via EUR base, walks back up to 7 days for weekends/holidays
+- Updated `app/ui/wiring.py` — added `get_historical_fx_provider()` (ECB) and `get_live_fx_provider()` (yfinance); `get_fx_provider()` kept as back-compat shim
+- Routed all cost-basis call sites (manage.py transaction recording and ECB deviation check) to `get_historical_fx_provider()`
+- Routed all live-valuation call sites (overview, tax, analytics, topbar, sell simulator) to `get_live_fx_provider()`
+- Updated service signatures: `build_transaction` → `HistoricalFxProvider`, `compute_live_positions` / `get_live_positions_cached` / `clear_caches` / `build_correlation_view` → `LiveFxProvider`
+
+### Files touched
+- `app/ports/fx_feed.py` — added `HistoricalFxProvider`, `LiveFxProvider`; `FxProvider` now extends both
+- `app/ports/__init__.py` — exported new protocols
+- `app/adapters/fx_ecb/__init__.py` — new
+- `app/adapters/fx_ecb/adapter.py` — new `EcbFxAdapter`
+- `app/services/trading.py` — `fx_provider: FxProvider` → `HistoricalFxProvider`
+- `app/services/valuation.py` — `fx_provider: FxProvider` → `LiveFxProvider` (all 3 signatures)
+- `app/services/analytics_correlation.py` — `fx_feed: FxProvider` → `LiveFxProvider`
+- `app/ui/wiring.py` — added `get_historical_fx_provider`, `get_live_fx_provider`
+- `app/ui/pages/manage.py` — historical calls → `get_historical_fx_provider()`; clear_caches → `get_live_fx_provider()`
+- `app/ui/pages/overview.py`, `tax.py`, `analytics.py` — live calls → `get_live_fx_provider()`
+- `app/ui/components/topbar.py`, `sell_simulator.py` — live calls → `get_live_fx_provider()`
+- `tests/unit/adapters/test_fx_ecb.py` — new; 16 tests covering CSV parsing, cold/warm/memory cache, weekend walk-back, cross-rate derivation, EUR special cases, error conditions
+
+### Tests
+901 passing → 901 passing (16 new ECB tests included; previously skipped slots taken)
+
+### Decisions made during the session
+- `parse_ecb_zip` extracted as a module-level function (not a method) so tests can inject fixture zip bytes without needing a full adapter
+- `_fetch_ecb_zip` extracted as a module-level function so `monkeypatch` can replace it cleanly without network calls
+- `get_fx_provider()` shim creates a separate `YfinanceLiveFxAdapter` instance rather than delegating to `get_live_fx_provider()` to avoid returning a `LiveFxProvider` where `FxProvider` is expected (type safety without `# type: ignore`)
+
+### Out-of-scope items noticed
+- None
+
+### Tokens used (rough)
+~80k
+
 ## 2026-05-31 — TICKET-R1
 **Surface:** Claude Code
 **Model:** sonnet-4.6
