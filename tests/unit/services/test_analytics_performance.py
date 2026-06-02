@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
@@ -71,6 +72,17 @@ class FakeOhlcProvider:
             raise OhlcUnavailableError(f"rate limit for {ticker}")
         return self.series_by_ticker[ticker]
 
+    def get_ohlc_histories(
+        self, tickers: Sequence[str], period: ChartPeriod
+    ) -> dict[str, OhlcSeries]:
+        result: dict[str, OhlcSeries] = {}
+        for ticker in tickers:
+            try:
+                result[ticker] = self.get_ohlc_history(ticker, period)
+            except (OhlcUnavailableError, KeyError):
+                pass
+        return result
+
     def clear_cache(self) -> None:
         pass
 
@@ -135,7 +147,8 @@ def test_benchmark_fetch_failure_returns_portfolio_view_with_error() -> None:
         today=date(2025, 1, 4),
     )
 
-    assert view.benchmark_fetch_error == "rate limit for SPY"
+    # The batch fetch omits failed symbols (per-ticker reason is not surfaced).
+    assert view.benchmark_fetch_error == "No OHLC data for SPY"
     assert view.benchmark_indexed is None
     assert view.alpha_pct is None
     assert view.portfolio_indexed[0] == Decimal("100")

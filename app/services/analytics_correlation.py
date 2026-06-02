@@ -7,7 +7,7 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict
 
 from app.domain import analytics
-from app.domain.market_data import ChartPeriod, OhlcUnavailableError
+from app.domain.market_data import ChartPeriod, OhlcSeries
 from app.ports.fx_feed import LiveFxProvider
 from app.ports.market_data import OhlcDataProvider
 from app.ports.price_feed import PriceProvider
@@ -72,16 +72,15 @@ def build_correlation_view(
             clusters=[],
         )
 
+    # One batched OHLC fetch for every included ticker (was N serial round-trips).
+    series_map = ohlc.get_ohlc_histories(live_tickers, _period_for_window(window_days))
+
     closes_by_ticker: dict[str, dict[date, Decimal]] = {}
     skipped: list[SkippedTicker] = []
     minimum_days = max(2, window_days - 1)
     for ticker in live_tickers:
-        daily_closes = _daily_closes_by_date(
-            ticker=ticker,
-            ohlc=ohlc,
-            period=_period_for_window(window_days),
-            as_of=as_of,
-        )
+        series = series_map.get(ticker)
+        daily_closes = _daily_closes_from_series(series, as_of) if series else {}
         available_days = len(daily_closes)
         if available_days < minimum_days:
             skipped.append(
@@ -134,18 +133,10 @@ def _period_for_window(window_days: int) -> ChartPeriod:
     return ChartPeriod.ONE_YEAR
 
 
-def _daily_closes_by_date(
-    *,
-    ticker: str,
-    ohlc: OhlcDataProvider,
-    period: ChartPeriod,
+def _daily_closes_from_series(
+    series: OhlcSeries,
     as_of: date,
 ) -> dict[date, Decimal]:
-    try:
-        series = ohlc.get_ohlc_history(ticker, period)
-    except OhlcUnavailableError:
-        return {}
-
     closes: dict[date, Decimal] = {}
     for bar in series.bars:
         day = bar.timestamp.date()

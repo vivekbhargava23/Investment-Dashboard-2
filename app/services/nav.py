@@ -25,7 +25,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from app.domain.fifo import compute_positions
-from app.domain.market_data import ChartPeriod, OhlcUnavailableError
+from app.domain.market_data import ChartPeriod
 from app.domain.models import Transaction
 from app.domain.money import Currency, Money
 from app.domain.nav import DailyNavPoint
@@ -178,18 +178,19 @@ def _fetch_closes(
     period: ChartPeriod,
 ) -> dict[str, dict[date, Decimal]]:
     """Fetch OHLC and return ticker → {date → close_price}."""
+    series_map = provider.get_ohlc_histories(list(tickers), period)
     result: dict[str, dict[date, Decimal]] = {}
     for ticker in tickers:
-        try:
-            series = provider.get_ohlc_history(ticker, period)
-            result[ticker] = {bar.timestamp.date(): bar.close for bar in series.bars}
-        except OhlcUnavailableError:
+        series = series_map.get(ticker)
+        if series is None:
             _log.warning(
                 "No OHLC data for %s (period=%s); ticker will contribute zero",
                 ticker,
                 period,
             )
             result[ticker] = {}
+        else:
+            result[ticker] = {bar.timestamp.date(): bar.close for bar in series.bars}
     return result
 
 
@@ -200,22 +201,27 @@ def _fetch_fx_closes(
 ) -> dict[Currency, dict[date, Decimal]]:
     """Fetch FX tickers and return currency → {date → rate (native per 1 EUR)}."""
     result: dict[Currency, dict[date, Decimal]] = {}
+    ccy_to_fx_ticker: dict[Currency, str] = {}
     for currency in currencies:
         fx_ticker = _FX_TICKER.get(currency)
         if fx_ticker is None:
             _log.warning("No FX ticker configured for %s; positions will contribute zero", currency)
             result[currency] = {}
-            continue
-        try:
-            series = provider.get_ohlc_history(fx_ticker, period)
-            result[currency] = {bar.timestamp.date(): bar.close for bar in series.bars}
-        except OhlcUnavailableError:
+        else:
+            ccy_to_fx_ticker[currency] = fx_ticker
+
+    series_map = provider.get_ohlc_histories(list(ccy_to_fx_ticker.values()), period)
+    for currency, fx_ticker in ccy_to_fx_ticker.items():
+        series = series_map.get(fx_ticker)
+        if series is None:
             _log.warning(
                 "No FX data for %s; %s positions will contribute zero",
                 fx_ticker,
                 currency,
             )
             result[currency] = {}
+        else:
+            result[currency] = {bar.timestamp.date(): bar.close for bar in series.bars}
     return result
 
 

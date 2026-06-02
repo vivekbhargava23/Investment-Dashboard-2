@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import date
 from typing import Protocol
 
@@ -24,6 +25,14 @@ class PriceProvider(Protocol):
 
     def get_current_price(self, ticker: str) -> Money:
         """Fetch the most recent traded price for a ticker."""
+        ...
+
+    def get_current_prices(self, tickers: Sequence[str]) -> dict[str, Money]:
+        """Batch fetch current prices.
+
+        Missing/failed tickers are simply absent from the result dict (callers
+        treat absence as stale). Never raises for a single bad ticker.
+        """
         ...
 
     def get_historical_close(self, ticker: str, on_date: date) -> Money:

@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -54,6 +55,7 @@ class FakeOhlcDataProvider:
         }
         self._raise_for: set[tuple[str, ChartPeriod]] = raise_for or set()
         self.call_count = 0
+        self.batch_call_count = 0
         self.clear_cache_count = 0
 
     def get_ohlc_history(self, ticker: str, period: ChartPeriod) -> OhlcSeries:
@@ -64,6 +66,18 @@ class FakeOhlcDataProvider:
         if key in self._series_map:
             return self._series_map[key]
         raise OhlcUnavailableError(reason=f"Fake: {ticker} {period} not in series_map")
+
+    def get_ohlc_histories(
+        self, tickers: Sequence[str], period: ChartPeriod
+    ) -> dict[str, OhlcSeries]:
+        self.batch_call_count += 1
+        result: dict[str, OhlcSeries] = {}
+        for ticker in tickers:
+            try:
+                result[ticker] = self.get_ohlc_history(ticker, period)
+            except OhlcUnavailableError:
+                pass
+        return result
 
     def clear_cache(self) -> None:
         self.clear_cache_count += 1
