@@ -51,6 +51,9 @@ class FakePriceProvider:
     def get_current_price(self, ticker: str) -> Money:
         return Money(amount=self._price, currency=self._currency)
 
+    def get_current_prices(self, tickers: Sequence[str]) -> dict[str, Money]:
+        return {ticker: self.get_current_price(ticker) for ticker in tickers}
+
     def get_historical_close(self, ticker: str, on_date: date) -> Money:
         return Money(amount=self._price, currency=self._currency)
 
@@ -61,6 +64,9 @@ class FakePriceProvider:
 class FailingPriceProvider:
     def get_current_price(self, ticker: str) -> Money:
         raise PriceUnavailableError(ticker, "network error")
+
+    def get_current_prices(self, tickers: Sequence[str]) -> dict[str, Money]:
+        return {}
 
     def get_historical_close(self, ticker: str, on_date: date) -> Money:
         raise PriceUnavailableError(ticker, "network error")
@@ -85,6 +91,17 @@ class FakeOhlcProvider:
             fetched_at=datetime(2026, 5, 9, tzinfo=UTC),
         )
 
+    def get_ohlc_histories(
+        self, tickers: Sequence[str], period: ChartPeriod
+    ) -> dict[str, OhlcSeries]:
+        result: dict[str, OhlcSeries] = {}
+        for ticker in tickers:
+            try:
+                result[ticker] = self.get_ohlc_history(ticker, period)
+            except OhlcUnavailableError:
+                pass
+        return result
+
     def clear_cache(self) -> None:
         pass
 
@@ -92,6 +109,11 @@ class FakeOhlcProvider:
 class RaisingOhlcProvider:
     def get_ohlc_history(self, ticker: str, period: ChartPeriod) -> OhlcSeries:
         raise OhlcUnavailableError("feed offline")
+
+    def get_ohlc_histories(
+        self, tickers: Sequence[str], period: ChartPeriod
+    ) -> dict[str, OhlcSeries]:
+        return {}
 
     def clear_cache(self) -> None:
         pass
@@ -237,8 +259,9 @@ class TestBuildTechnicalsView:
                 ohlc=RaisingOhlcProvider(),
                 as_of=date(2026, 5, 9),
             )
-        # The original reason is preserved in args[0]
-        assert "feed offline" in exc_info.value.args[0]
+        # The batch fetch omits failed tickers; the service reports a clear message.
+        assert "RHM.DE" in exc_info.value.args[0]
+        assert "no OHLC data" in exc_info.value.args[0]
 
     def test_sma_seeded_from_before_visible_window(self) -> None:
         """250 bars + period='1M' (≈21 visible days): first visible SMA(200) is non-None.

@@ -9,7 +9,7 @@ from app.domain.models import Transaction
 from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition, PortfolioSummary
 from app.ports.fx_feed import FxRateUnavailableError, LiveFxProvider
-from app.ports.price_feed import PriceProvider, PriceUnavailableError
+from app.ports.price_feed import PriceProvider
 from app.ports.repository import TransactionRepository
 
 # Module-level TTL cache for live positions. Process-global; not safe for multi-tenant use
@@ -27,6 +27,23 @@ def _tx_sig(transactions: list[Transaction]) -> str:
     return f"{len(transactions)}:{sorted_ids[-1]}"
 
 
+def _live_fx_rates(
+    currencies: set[Currency], fx_provider: LiveFxProvider
+) -> dict[Currency, Decimal]:
+    """Fetch one EUR->ccy rate per distinct non-EUR currency.
+
+    Returns ccy -> rate where rate is "native per 1 EUR" (as the provider reports).
+    Currencies whose rate is unavailable are omitted (callers treat absence as stale).
+    """
+    rates: dict[Currency, Decimal] = {}
+    for ccy in currencies:
+        try:
+            rates[ccy] = fx_provider.get_current_rate(Currency.EUR, ccy)
+        except FxRateUnavailableError:
+            continue
+    return rates
+
+
 def compute_live_positions(
     transactions: Sequence[Transaction],
     price_provider: PriceProvider,
@@ -34,14 +51,22 @@ def compute_live_positions(
 ) -> dict[str, LivePosition]:
     """
     Orchestrates FIFO position computation and live valuation.
+
+    Prices are fetched in a single batch; FX rates are fetched once per distinct
+    non-EUR currency. A position is stale if its price is missing or its currency's
+    FX rate is unavailable.
     """
     positions = compute_positions(transactions)
     live_positions: dict[str, LivePosition] = {}
 
-    try:
-        usd_to_eur = fx_provider.get_current_rate(Currency.EUR, Currency.USD)
-    except FxRateUnavailableError:
-        usd_to_eur = None
+    # One batched price fetch for the whole portfolio. Missing tickers are absent.
+    prices = price_provider.get_current_prices(list(positions.keys()))
+
+    # One FX fetch per distinct foreign currency actually present in the live prices.
+    foreign_currencies: set[Currency] = {
+        price.currency for price in prices.values() if price.currency != Currency.EUR
+    }
+    fx_rates = _live_fx_rates(foreign_currencies, fx_provider)
 
     for ticker, position in positions.items():
         live_price_native: Money | None = None
@@ -52,28 +77,30 @@ def compute_live_positions(
         staleness_reason: str | None = None
 
         try:
-            live_price_native = price_provider.get_current_price(ticker)
+            live_price_native = prices.get(ticker)
 
-            if live_price_native.currency == Currency.EUR:
+            if live_price_native is None:
+                staleness_reason = "Live price unavailable"
+            elif live_price_native.currency == Currency.EUR:
                 live_value_eur = Money(
                     amount=position.open_shares * live_price_native.amount,
                     currency=Currency.EUR,
                 )
-            elif live_price_native.currency == Currency.USD:
-                if usd_to_eur is not None:
-                    # live_price_native is in USD. We need how many EUR per 1 USD.
-                    # usd_to_eur from provider is "USD per 1 EUR".
-                    # So 1 USD = 1 / usd_to_eur EUR.
-                    rate_eur_per_usd = Decimal("1") / usd_to_eur
-                    current_fx_rate = rate_eur_per_usd
+            else:
+                ccy = live_price_native.currency
+                native_per_eur = fx_rates.get(ccy)
+                if native_per_eur is not None:
+                    # Provider rate is "native per 1 EUR"; invert to EUR per 1 native.
+                    rate_eur_per_native = Decimal("1") / native_per_eur
+                    current_fx_rate = rate_eur_per_native
                     live_value_eur = Money(
-                        amount=position.open_shares * live_price_native.amount * rate_eur_per_usd,
+                        amount=position.open_shares
+                        * live_price_native.amount
+                        * rate_eur_per_native,
                         currency=Currency.EUR,
                     )
                 else:
-                    staleness_reason = "FX rate USD/EUR unavailable"
-            else:
-                staleness_reason = f"Unsupported currency: {live_price_native.currency}"
+                    staleness_reason = f"FX rate {ccy}/EUR unavailable"
 
             if live_value_eur is not None:
                 unrealised_gain_eur = Money(
@@ -87,18 +114,13 @@ def compute_live_positions(
                 else:
                     unrealised_gain_pct = None
 
-        except PriceUnavailableError as e:
-            staleness_reason = e.reason
-            live_price_native = None
-            live_value_eur = None
-            unrealised_gain_eur = None
-            unrealised_gain_pct = None
         except Exception as e:
             staleness_reason = str(e)
             live_price_native = None
             live_value_eur = None
             unrealised_gain_eur = None
             unrealised_gain_pct = None
+            current_fx_rate = None
 
         live_positions[ticker] = LivePosition(
             position=position,

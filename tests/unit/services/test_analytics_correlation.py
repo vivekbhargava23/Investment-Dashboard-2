@@ -54,6 +54,9 @@ class FakePriceProvider:
     def get_current_price(self, ticker: str) -> Money:
         return Money(amount=Decimal("100"), currency=Currency.USD)
 
+    def get_current_prices(self, tickers: Sequence[str]) -> dict[str, Money]:
+        return {ticker: self.get_current_price(ticker) for ticker in tickers}
+
     def get_historical_close(self, ticker: str, on_date: date) -> Money:
         return Money(amount=Decimal("100"), currency=Currency.USD)
 
@@ -100,6 +103,15 @@ class FakeOhlcProvider:
             bars=bars,
             fetched_at=datetime(2026, 5, 9, tzinfo=UTC),
         )
+
+    def get_ohlc_histories(
+        self, tickers: Sequence[str], period: ChartPeriod
+    ) -> dict[str, OhlcSeries]:
+        result: dict[str, OhlcSeries] = {}
+        for ticker in tickers:
+            if ticker in self._closes:
+                result[ticker] = self.get_ohlc_history(ticker, period)
+        return result
 
     def clear_cache(self) -> None:
         return None
