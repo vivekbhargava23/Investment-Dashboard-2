@@ -138,6 +138,7 @@ cython_debug/
 data/*
 !data/.gitkeep
 !data/isin_map.json
+!data/thesis.json
 data/scalable_raw.csv
 data/companies/
 data/*.json.pre-tx-migration
