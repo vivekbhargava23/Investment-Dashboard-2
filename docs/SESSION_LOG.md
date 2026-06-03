@@ -44,6 +44,53 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-03 — TICKET-THESIS-1
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Duration:** ~45 min
+**Branch:** ticket-thesis-1-thesis-data
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Moved the two hardcoded ticker→value dicts (`_PLACEHOLDER_THESIS_STATUS`,
+  `_PLACEHOLDER_HORIZON`) out of `overview.py` into an editable data file,
+  mirroring the `isin_map` data+repo pattern (ADR-006).
+- New domain model (`ThesisEntry`, `ThesisMapDocument`), port
+  (`ThesisMapRepository`), and JSON adapter (`JsonThesisMapRepository`).
+- `data/thesis.json` seeded from the previous placeholder values; gitignore-
+  allowlisted like `isin_map.json`; wired via `get_thesis_repo()`.
+- Unknown holdings now render an honest `"unknown"`/`"—"` badge instead of a
+  false `"intact"`/`"H2"`. `render_thesis_badge()` gained a neutral `badge-grey`
+  `"unknown"` state; the Thesis Status KPI shows an unknown count when present.
+
+### Files touched
+- `app/domain/thesis_map.py`, `app/ports/thesis_map.py`,
+  `app/adapters/thesis_map/{__init__,repo}.py` — new model/port/adapter
+- `app/config.py`, `.gitignore`, `app/ui/wiring.py` — config + allowlist + wiring
+- `data/thesis.json` — seed data
+- `app/ui/components/badges.py` — `"unknown"` badge state
+- `app/ui/pages/overview.py` — read from repo; removed the two dicts
+- `tests/unit/test_thesis_map_repo.py`, `tests/unit/ui/test_overview_thesis.py` — new
+- `tests/unit/ui/test_components.py`, `tests/unit/ui/test_overview_render.py` — updated
+
+### Tests
+943 passing → 951 passing (8 net new). Removed `test_placeholder_thesis_status_defaults`
+(it asserted the silent-default bug this ticket fixes).
+
+### Decisions made during the session
+- Named the new module `thesis_map` (not the `thesis.py` stub named in
+  `app/domain/CLAUDE.md`, which did not exist) to mirror `isin_map` exactly.
+- No architectural decisions; follows the existing ADR-006 data-as-classification
+  precedent.
+
+### Out-of-scope items noticed
+- `company.py` "Risk & Thesis" tab is still a coming-soon stub (Panel framework);
+  `analytics_views.thesis_status` is always `None` — neither read the old dicts.
+
+### Tokens used (rough)
+~70k
+
 ## 2026-06-03 — TICKET-PERF-1
 **Surface:** Claude Code
 **Model:** opus-4.8

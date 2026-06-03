@@ -3,7 +3,6 @@ from decimal import Decimal
 
 from app.domain.models import Currency, Money
 from app.domain.positions import LivePosition, OpenLot, PortfolioSummary, Position
-from app.ui.pages.overview import _PLACEHOLDER_THESIS_STATUS
 
 
 def _dummy_position() -> Position:
@@ -80,10 +79,6 @@ def test_stale_rows_sort_to_bottom():
     
     assert sorted_positions[0] == p_live
     assert sorted_positions[1] == p_stale
-
-def test_placeholder_thesis_status_defaults():
-    assert _PLACEHOLDER_THESIS_STATUS.get("UNKNOWN_TICKER", "intact") == "intact"
-
 
 # ---------------------------------------------------------------------------
 # Regression tests for TICKET-008b: positions-table HTML leak

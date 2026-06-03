@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "entries": {
+    "NVDA": { "thesis": "intact", "horizon": "H1" },
+    "ETN": { "thesis": "intact", "horizon": "H1" },
+    "ANET": { "thesis": "intact", "horizon": "H1" },
+    "RHM.DE": { "thesis": "intact", "horizon": "H2" },
+    "MU": { "thesis": "intact", "horizon": "H2" },
+    "HY9H.F": { "thesis": "intact", "horizon": "H2" },
+    "MRVL": { "thesis": "intact", "horizon": "H2" },
+    "APD": { "thesis": "watch", "horizon": "H2" },
+    "AVGO": { "thesis": "intact", "horizon": "H2" },
+    "ASX": { "thesis": "intact", "horizon": "H2" },
+    "VUSA.DE": { "thesis": "intact", "horizon": "H3" },
+    "5631.T": { "thesis": "intact", "horizon": "H3" }
+  }
+}
