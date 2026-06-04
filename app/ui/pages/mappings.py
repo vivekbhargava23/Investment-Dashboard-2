@@ -2,6 +2,7 @@
 """Mappings page — ISIN → ticker resolution UI (TICKET-CSV-2)."""
 from __future__ import annotations
 
+import html
 import logging
 import re
 from typing import Any
@@ -96,7 +97,10 @@ def _render_unmapped_section(
         with col_name:
             name = mapping.name or "—"
             if len(name) > 40:
-                st.markdown(f'<span title="{name}">{name[:38]}…</span>', unsafe_allow_html=True)
+                # Data-derived name → escape before HTML interpolation (title attr + text).
+                full_safe = html.escape(name)
+                truncated_safe = html.escape(name[:38])
+                st.markdown(f'<span title="{full_safe}">{truncated_safe}…</span>', unsafe_allow_html=True)
             else:
                 st.write(name)
         with col_ticker:
