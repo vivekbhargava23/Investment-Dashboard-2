@@ -44,6 +44,38 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-04 — TICKET-ROBUST-1
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Duration:** ~50 min
+**Branch:** ticket-robust-1-surface-errors-and-escape-html
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Router (`app/ui/main.py`): replaced `except Exception: pass` → "Coming Soon" with a real error surface. `render_page()` now distinguishes the not-built case (missing module file or no `render` attr → placeholder) from a crash (import/`render()` raised → `logging.exception` + visible error; `st.exception` in dev, friendly message in prod). Moved the Streamlit bootstrap into a `main()` guarded by `if __name__ == "__main__"` so the router helpers are unit-testable without page-render side effects.
+- HTML-escaping audit: applied `html.escape()` to every data-derived string interpolated into a `render_html` / `unsafe_allow_html` builder under `app/ui/` — overview positions table (name, ticker) + thesis pills, sell-simulator header ticker, mappings unmapped-name tooltip, analytics concentration table (ticker, name), company snapshot header (name, ticker, ISIN) + next-catalyst (kind, detail), and tax exposure/harvest tables (tickers). Left static/computed interpolation (formatted EUR, enum values, controlled labels) unescaped per spec.
+
+### Files touched
+- `app/ui/main.py` — router error surface + `main()` guard
+- `app/ui/pages/overview.py`, `mappings.py`, `analytics.py`, `company.py`, `tax.py` — escape data-derived strings
+- `app/ui/components/sell_simulator.py` — escape ticker in header
+- `tests/unit/ui/test_main_router.py` — new: 8 router tests (placeholder vs error vs render; dev vs prod surface)
+- `tests/unit/ui/test_overview_render.py` — new: positions-table escaping tests (name, ticker)
+
+### Tests
+951 passing → 960 passing (9 new). ruff / mypy / lint-imports clean.
+
+### Decisions made during the session
+- Used `if __name__ == "__main__"` to guard the Streamlit bootstrap. Verified against Streamlit 1.57 source: `streamlit run` execs the script in a module named `"__main__"`, so the guard fires under the app and is skipped on `import app.ui.main` in tests. No architectural decision (no ADR needed).
+- Treated import-time errors as crashes (error surface), not as the not-built case — only a missing file or missing `render` attr yields "Coming Soon".
+
+### Out-of-scope items noticed
+- `app/ui/components/topbar.py` and `app/ui/main.py` (CSS) still call `st.markdown(..., unsafe_allow_html=True)` directly (pre-existing convention violation vs `app/ui/CLAUDE.md`), but both interpolate only static strings — no injection risk, left as-is.
+
+### Tokens used (rough)
+~110k
+
 ## 2026-06-04 — TICKET-CLEAN-1
 **Surface:** Claude Code
 **Model:** sonnet-4.6
