@@ -54,7 +54,7 @@ def test_portfolio_section_items() -> None:
     tools_start = html.index("TOOLS")
     portfolio_block = html[port_start:tools_start]
 
-    expected_ids = ["overview", "tax", "analytics", "research", "company"]
+    expected_ids = ["overview", "tax", "analytics", "company"]
     for page_id in expected_ids:
         assert f'href="/?page={page_id}"' in portfolio_block, (
             f"Expected {page_id} in PORTFOLIO section"
@@ -139,8 +139,8 @@ def test_no_badge_renders_no_nav_badge_span() -> None:
 
 
 def test_nav_items_total_count() -> None:
-    """NAV_ITEMS has exactly 9 entries after dropping stub pages (ADR-008)."""
-    assert len(NAV_ITEMS) == 9
+    """NAV_ITEMS has exactly 8 entries after retiring Research (TICKET-RD0)."""
+    assert len(NAV_ITEMS) == 8
 
 
 def test_sections_cover_all_items() -> None:

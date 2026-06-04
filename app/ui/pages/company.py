@@ -21,6 +21,7 @@ from app.ui.components.chart_theme import (
     styled_line_trace,
 )
 from app.ui.components.ticker_searchbox import render_ticker_searchbox
+from app.ui.focus import get_focus_ticker, set_focus_ticker
 from app.ui.format import format_multiple, format_pct, format_relative_time
 from app.ui.pages._snapshot_helpers import (
     compute_ebit_margin,
@@ -436,26 +437,33 @@ def render() -> None:
     with title_col:
         st.title("Company Deep Dive")
 
-    selected_ticker = st.session_state.get("company_selected_ticker")
+    resolver = get_ticker_resolver()
+    focus = get_focus_ticker()
+    # Default the page to the global focus ticker when nothing was selected here yet.
+    selected_ticker = st.session_state.get("company_selected_ticker") or focus
     with refresh_col:
         if st.button("🔄 Refresh", key="company_refresh", use_container_width=True):
             if selected_ticker:
                 _refresh_all_sections(str(selected_ticker))
                 st.rerun()
 
+    default_match = resolver.lookup(focus) if focus else None
     match = render_ticker_searchbox(
         "company_ticker",
-        get_ticker_resolver(),
+        resolver,
         placeholder="Search by ticker or company name...",
+        default_match=default_match,
     )
     if match is not None:
         selected_ticker = match.symbol.upper()
         st.session_state["company_selected_ticker"] = selected_ticker
+        set_focus_ticker(selected_ticker)
 
     recent_ticker = _render_recent_tickers()
     if recent_ticker is not None:
         selected_ticker = recent_ticker
         st.session_state["company_selected_ticker"] = selected_ticker
+        set_focus_ticker(selected_ticker)
 
     if not selected_ticker:
         st.info("Search for a company to load the deep dive shell.")

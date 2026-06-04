@@ -7,6 +7,7 @@ import streamlit as st
 from app.config import get_settings
 from app.ui.components.sidebar import render_sidebar
 from app.ui.components.topbar import render_topbar
+from app.ui.focus import set_focus_ticker
 
 logger = logging.getLogger(__name__)
 
@@ -96,10 +97,18 @@ def main() -> None:
     # Sync session state with query params
     query_params = st.query_params
     if "page" in query_params:
-        st.session_state.current_page = query_params["page"]
+        page = query_params["page"]
+        # Research was retired in TICKET-RD0 (it was a subset of Company).
+        # Redirect any lingering ?page=research links to Company.
+        st.session_state.current_page = "company" if page == "research" else page
 
     if "current_page" not in st.session_state:
         st.session_state.current_page = "overview"
+
+    # Mirror the focus ticker (?ticker=) into session state alongside ?page=,
+    # so a focused ticker survives a full rerun and is shareable via URL.
+    if "ticker" in query_params:
+        set_focus_ticker(query_params["ticker"])
 
     # Main Layout
     col_sidebar, col_main = st.columns([0.18, 0.82], gap="small")

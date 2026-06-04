@@ -17,6 +17,7 @@ from app.ui.components.badges import render_thesis_badge
 from app.ui.components.charts import render_candlestick
 from app.ui.components.period_selector import render_aggregation_toggle
 from app.ui.components.weight_bar import render_weight_bar
+from app.ui.focus import get_focus_ticker, set_focus_ticker
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
 from app.ui.wiring import (
@@ -152,8 +153,11 @@ def _build_positions_table_html(
 
         weight_html = render_weight_bar(weight_pct, scale_max=Decimal("100"))
 
+        # ticker= sets the global focus (synced in main.py); sim_ticker= is the
+        # simulator's own handoff param (consumed in simulator.py), kept separate
+        # so the focus param is never clobbered by the simulator.
         sim_link = (
-            f'<a href="/?page=simulator&ticker={ticker_safe}" target="_self" '
+            f'<a href="/?page=simulator&ticker={ticker_safe}&sim_ticker={ticker_safe}" target="_self" '
             f'title="Simulate sell" style="color: var(--text3); text-decoration: none; font-size: 14px;">⚡</a>'
         )
         trend_cell = (trend_data or {}).get(ticker, "—")
@@ -222,6 +226,16 @@ def _fetch_trend_texts(tickers: list[str]) -> dict[str, str]:
             trend_text_map[ticker] = f'<span style="color:{color};">↓ {float(pct):.1f}%</span>'
 
     return trend_text_map
+
+
+def _focus_from_chart_selection() -> None:
+    """Write the global focus when the user picks a ticker in the position chart.
+
+    Wired as the selectbox ``on_change`` so it fires only on real user
+    interaction — never on initial render — and so it can't clobber a focus set
+    elsewhere (e.g. the topbar) just by re-rendering the page.
+    """
+    set_focus_ticker(st.session_state.get("overview_chart_ticker"))
 
 
 def render() -> None:
@@ -349,10 +363,16 @@ def render() -> None:
         render_html('<div style="margin-top: 24px; margin-bottom: 8px; font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em;">Position Chart</div>')
         col_ticker, col_period, col_freq = st.columns([1, 2, 1])
         with col_ticker:
+            # Seed the chart from the global focus on first render, and write the
+            # focus back whenever the user picks a different position here.
+            focus = get_focus_ticker()
+            if focus in tickers and "overview_chart_ticker" not in st.session_state:
+                st.session_state["overview_chart_ticker"] = focus
             chart_ticker = st.selectbox(
                 "Ticker",
                 options=tickers,
                 key="overview_chart_ticker",
+                on_change=_focus_from_chart_selection,
                 label_visibility="collapsed",
             )
         with col_period:
