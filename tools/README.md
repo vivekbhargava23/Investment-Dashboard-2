@@ -7,6 +7,71 @@ See `docs/METHODOLOGY.md` for why these scripts exist.
 
 ## Scripts
 
+### `gate.sh`
+
+Activates the `investment-dashboard` conda environment and runs the full local
+gate: `pytest`, `ruff check .`, `mypy app/`, and `lint-imports`. It exits on the
+first failure and names the failed check.
+
+**Usage:**
+
+```bash
+bash tools/gate.sh
+```
+
+### `next.sh`
+
+Prints the ranked Ready/Backlog ticket menu from the GitHub Projects board. The
+menu includes priority, recommended model, dependency blockers, and unblock score.
+Blocked tickets are shown, not hidden.
+
+**Usage:**
+
+```bash
+bash tools/next.sh
+```
+
+### `start_ticket.sh`
+
+Starts a ticket from `main`: reconciles closed `In review` board items to `Done`,
+checks for a clean tree, pulls, creates or reuses the feature branch, marks the
+ticket file `IN_PROGRESS`, and moves the board item to `In progress`.
+
+**Usage:**
+
+```bash
+bash tools/start_ticket.sh TICKET-M9
+```
+
+### `finish_ticket.sh`
+
+Finishes a ticket after the implementation and session-log commits exist. It
+reruns `gate.sh`, pushes the current branch, moves the board item to `In review`,
+and opens the PR with a `Closes #N` footer.
+
+**Usage:**
+
+```bash
+bash tools/finish_ticket.sh TICKET-M9
+```
+
+### `doctor.sh`
+
+Non-mutating diagnostics for local workflow state: dirty tree, current branch,
+retired workflow files, board sanity, and dependency blockers.
+
+**Usage:**
+
+```bash
+bash tools/doctor.sh
+```
+
+### `ticket_workflow.py`
+
+Shared implementation behind `next.sh`, `start_ticket.sh`, `finish_ticket.sh`,
+and `doctor.sh`. Keep CLI behavior behind the shell entry points; import pure
+helpers in tests when dependency parsing or ranking changes.
+
 ### `file.sh`
 
 Files one or more `docs/TICKETS/TICKET-*.md` drafts as GitHub issues and
@@ -78,6 +143,7 @@ No GNU-only constructs (`mapfile`, `grep -P`, `${var,,}`, `declare -A`, etc.) ar
 | `git` | any recent | Must be authenticated to the repo |
 | `gh` | any recent | Must be authenticated (`gh auth login`) |
 | `jq` | 1.6+ | `brew install jq` if missing |
+| `python3` | 3.11+ | Used by `ticket_workflow.py`; the project conda env satisfies this |
 
 ### macOS invocation
 
