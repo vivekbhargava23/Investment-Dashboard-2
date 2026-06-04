@@ -1,6 +1,5 @@
 # TICKET-RD5 — NAV history backfill + capture
 
-**Status:** DRAFT
 **Priority:** HIGH
 **Milestone:** Dashboard Redesign
 **Recommended model:** Opus — reconstruction correctness over money/FX history; deterministic results matter.

@@ -1,6 +1,5 @@
 # TICKET-RD2 — Sortable positions table
 
-**Status:** DRAFT
 **Priority:** HIGH
 **Milestone:** Dashboard Redesign
 **Recommended model:** Sonnet — additive feature on an existing component + a pure sort function.

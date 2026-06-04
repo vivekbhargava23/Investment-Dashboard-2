@@ -1,5 +1,6 @@
 # TICKET-M10 — Truth-up the workflow docs and resolve the ghost housekeeping action
 
+**Status:** IN_PROGRESS
 **Priority:** MEDIUM
 **Milestone:** Workflow Tooling
 **Recommended model:** Sonnet — well-scoped, but touches `file.sh` logic and a CI workflow, not just prose.
