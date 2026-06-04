@@ -32,7 +32,8 @@ This build prevents all four:
 
 1. **Per-module instruction files** keep context small. A 30-line file in `app/domain/fifo/CLAUDE.md` is worth more than a 500-line root file. (These are named `CLAUDE.md` by convention because Claude Code auto-loads them; other agents should read them when directed by `AGENTS.md`.)
 2. **Tickets are written in chat first.** The implementation agent receives complete tickets and executes. No thinking happens in implementation sessions.
-3. **One ticket per session.** When the ticket is done, the session ends. Next ticket = next session.
+3. **One coherent PR per session.** When the independently-reviewable change is done,
+   the session ends. Next change = next session.
 4. **The repo is the source of truth.** Chat reads current interfaces, pages, and board state directly from the repo — no snapshot file needed.
 
 ---
@@ -94,6 +95,17 @@ The `**Status:**` line in ticket files (e.g. `QUEUED`, `IN_PROGRESS`) is **decor
 - **HIGH** — core feature for the current Milestone.
 - **MEDIUM** — polish or quality-of-life on shipped work.
 - **LOW** — speculative, or contingent on a design decision not yet made.
+
+## Ticket sizing and PR scope
+
+Target one coherent, independently-reviewable change per PR, roughly 1-2 hours of
+implementation work. A PR may close several tightly-coupled tickets when reviewing,
+testing, and merging them separately would create artificial churn; use multiple
+`Closes #N` lines in the PR body when that happens.
+
+Do not combine unrelated work just because it is nearby. If a change requires a
+separate mental model, separate review surface, or separate rollback decision, it gets
+its own ticket and PR.
 
 ---
 

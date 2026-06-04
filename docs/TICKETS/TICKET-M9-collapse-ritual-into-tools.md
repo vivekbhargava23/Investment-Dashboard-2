@@ -1,6 +1,7 @@
 # TICKET-M9 — Collapse the session ritual into tools (cut token + permission overhead)
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Workflow Tooling
 **Recommended model:** Opus — cross-cutting change spanning new shell tooling, the permission allowlist, a rewrite of the AGENTS.md ritual, and dependency-aware `next` logic. A plausible-but-wrong rewrite of the ritual is costly and hard to detect.
 **Estimated session length:** 2 – 3 hr
