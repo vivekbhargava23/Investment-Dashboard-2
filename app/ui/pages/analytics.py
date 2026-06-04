@@ -1073,8 +1073,8 @@ def _build_concentration_table_html(view: ConcentrationView) -> str:
         )
         rows.append(
             "<tr>"
-            f"<td><strong>{row.ticker}</strong></td>"
-            f'<td style="color: var(--text2);">{row.name}</td>'
+            f"<td><strong>{html.escape(row.ticker)}</strong></td>"
+            f'<td style="color: var(--text2);">{html.escape(row.name)}</td>'
             f'<td style="color: var(--text3);">{row.currency.value}</td>'
             f'<td class="font-mono text-right">{value}</td>'
             f'<td class="font-mono">{weight_bar}</td>'

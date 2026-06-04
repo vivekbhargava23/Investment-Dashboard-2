@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -130,11 +131,11 @@ def _render_snapshot_header(data: CompanyData) -> None:
         if profile is None:
             st.warning("Company data unavailable")
         else:
-            render_html(f"<h2 style='margin:0'>{profile.name}</h2>")
-            isin_text = f" · ISIN {profile.isin}" if profile.isin else ""
+            render_html(f"<h2 style='margin:0'>{html.escape(profile.name)}</h2>")
+            isin_text = f" · ISIN {html.escape(profile.isin)}" if profile.isin else ""
             render_html(
                 f"<p style='margin:0;font-size:1rem;font-weight:600'>"
-                f"{profile.ticker}{isin_text}</p>"
+                f"{html.escape(profile.ticker)}{isin_text}</p>"
             )
             parts = [p for p in (profile.sector, profile.industry, profile.country) if p]
             if parts:
@@ -419,12 +420,13 @@ def _render_next_catalyst(data: CompanyData, today: date) -> None:
         return
 
     days_until = (catalyst.date - today).days
-    kind_label = catalyst.kind.replace("_", " ").title()
-    detail = f" · {catalyst.detail}" if catalyst.detail else ""
+    kind_label = html.escape(catalyst.kind.replace("_", " ").title())
+    detail = f" · {html.escape(catalyst.detail)}" if catalyst.detail else ""
     countdown = f"in {days_until} days" if days_until >= 0 else f"{abs(days_until)} days ago"
+    date_str = catalyst.date.strftime("%b %d, %Y")
     render_html(
         f"<div style='padding:8px 12px;border-left:3px solid #4f6f8f;margin:4px 0'>"
-        f"<b>📅 {kind_label}</b>{detail} · {catalyst.date.strftime('%b %d, %Y')} · {countdown}"
+        f"<b>📅 {kind_label}</b>{detail} · {date_str} · {countdown}"
         f"</div>"
     )
 
