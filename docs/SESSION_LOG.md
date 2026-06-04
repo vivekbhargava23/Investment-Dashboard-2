@@ -44,6 +44,51 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-04 — TICKET-RD0
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~60 min
+**Branch:** ticket-rd0-navigation-focus-spine
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Created `app/ui/focus.py` with three functions: `resolve_initial_focus(session, query, owned)` (pure, query > session > first-owned > None), `get_focus_ticker()` (reads session state), `set_focus_ticker(symbol)` (writes session state + `?ticker=` query param).
+- `main.py`: syncs `?ticker=` query param into `st.session_state["focus_ticker"]` alongside the existing `?page=` sync; routes legacy `?page=research` → `company`.
+- `topbar.py`: restructured to three columns (title/focus-searchbox/refresh); added focus ticker searchbox using `render_ticker_searchbox` + `get_ticker_resolver` that calls `set_focus_ticker` on selection; removed `research` from `PAGE_TITLES`.
+- `sidebar.py`: removed `research` from `NAV_ITEMS`; fixed `_SECTIONS` from `(0,5)(5,6)(6,9)` → `(0,4)(4,5)(5,8)` to stay consistent.
+- `company.py`: defaults `selected_ticker` to `get_focus_ticker()` when no session state; calls `set_focus_ticker` on both searchbox selection and recent-ticker click.
+- `overview.py`: position chart selectbox calls `set_focus_ticker(chart_ticker)` after selection; sim links already pass `?ticker=` in the URL (auto-synced by `main.py`).
+- Deleted `app/ui/pages/research.py` and `tests/unit/ui/test_research_page.py`.
+- Added `tests/unit/ui/test_focus.py` (11 tests covering resolve precedence, round-trip, get/set).
+- Updated `test_sidebar_structure.py` and `test_components.py` to reflect NAV_ITEMS count 9 → 8 and removed `research` from portfolio section.
+
+### Files touched
+- `app/ui/focus.py` — new module
+- `app/ui/main.py` — ticker query-param sync + research redirect
+- `app/ui/components/topbar.py` — focus selector + layout
+- `app/ui/components/sidebar.py` — removed research, fixed _SECTIONS
+- `app/ui/pages/company.py` — focus default + set on selection
+- `app/ui/pages/overview.py` — set focus on chart ticker change
+- `app/ui/pages/research.py` — deleted
+- `tests/unit/ui/test_focus.py` — new (11 tests)
+- `tests/unit/ui/test_research_page.py` — deleted
+- `tests/unit/ui/test_sidebar_structure.py` — updated for removed research
+- `tests/unit/ui/test_components.py` — updated NAV_ITEMS count
+
+### Tests
+960 passing → 966 passing (11 new focus tests, 5 research tests removed, net +6)
+91 skipped (unchanged)
+
+### Decisions made during the session
+- No architectural decisions; all changes are in the nav/UI layer within existing ADRs.
+
+### Out-of-scope items noticed
+- `topbar.py` still calls `st.markdown(..., unsafe_allow_html=True)` directly (pre-existing violation of ui/CLAUDE.md render rule); not in scope for this ticket.
+
+### Tokens used (rough)
+~40k
+
 ## 2026-06-04 — TICKET-ROBUST-1
 **Surface:** Claude Code
 **Model:** opus-4.8
