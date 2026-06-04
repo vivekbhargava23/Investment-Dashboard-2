@@ -215,6 +215,40 @@ def test_positions_table_html_empty_positions() -> None:
 
 
 # ---------------------------------------------------------------------------
+# TICKET-ROBUST-1: data-derived strings must be HTML-escaped before render_html
+# ---------------------------------------------------------------------------
+
+def test_positions_table_escapes_company_name() -> None:
+    """A company name containing markup renders as literal text, not as HTML."""
+    from app.ui.pages.overview import _build_positions_table_html
+
+    positions = {"ACME": _make_live_position("ACME", "5", "400")}
+    summary = _make_summary(positions)
+    name_lookup = {"ACME": 'Acme <b>test</b> & "Co"'}
+
+    html = _build_positions_table_html(positions, summary, name_lookup=name_lookup)
+
+    # Raw markup must NOT appear — it would break layout / inject into the page.
+    assert "<b>test</b>" not in html
+    # Escaped form must appear instead.
+    assert "Acme &lt;b&gt;test&lt;/b&gt; &amp; &quot;Co&quot;" in html
+
+
+def test_positions_table_escapes_ticker() -> None:
+    """A ticker containing markup is escaped in both the cell and the sim link."""
+    from app.ui.pages.overview import _build_positions_table_html
+
+    evil = 'X<img src=x>'
+    positions = {evil: _make_live_position(evil, "5", "400")}
+    summary = _make_summary(positions)
+
+    html = _build_positions_table_html(positions, summary)
+
+    assert "<img src=x>" not in html
+    assert "X&lt;img src=x&gt;" in html
+
+
+# ---------------------------------------------------------------------------
 # TICKET-CSV-10: CCY column removed, name lookup, price tooltip
 # ---------------------------------------------------------------------------
 

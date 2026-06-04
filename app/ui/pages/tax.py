@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import html
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -340,7 +341,7 @@ def _render_tax_exposure(
         render_html(f"""
             <div style="background: var(--amber-bg); border: 1px solid var(--amber); border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 12px; color: var(--amber);">
                 &#9888; {len(stale_tickers)} position(s) have stale prices and are excluded from tax exposure estimates:
-                {", ".join(stale_tickers)}. Refresh from Live Overview when prices return.
+                {", ".join(html.escape(t) for t in stale_tickers)}. Refresh from Live Overview when prices return.
             </div>
         """)
 
@@ -411,13 +412,14 @@ def _render_harvest_table(
             gain_str = format_eur(impact.unrealised_gain_eur, signed=True)
             g_class = gain_class(impact.unrealised_gain_eur.amount)
             kind_label = _KIND_LABEL.get(impact.instrument_kind, impact.instrument_kind.value)
+            ticker_safe = html.escape(impact.ticker)
             sim_link = (
-                f'<a href="/?page=simulator&ticker={impact.ticker}" target="_self" '
+                f'<a href="/?page=simulator&ticker={ticker_safe}" target="_self" '
                 f'title="Simulate sell" style="color: var(--text3); text-decoration: none;">⚡</a>'
             )
             rows += (
                 f'<tr>'
-                f'<td><strong>{impact.ticker}</strong></td>'
+                f'<td><strong>{ticker_safe}</strong></td>'
                 f'<td class="font-mono text-right {g_class}">{gain_str}</td>'
                 f'<td class="font-mono text-right {tax_class}">{tax_label}</td>'
                 f'<td class="font-mono text-right">{format_eur(hdroom_after)}</td>'
@@ -443,7 +445,7 @@ def _render_harvest_table(
         """)
 
     if harvest_report.stale_tickers:
-        render_html(f'<div style="font-size: 11px; color: var(--text3); margin-top: 8px;">Excluded due to stale prices: {", ".join(harvest_report.stale_tickers)}</div>')
+        render_html(f'<div style="font-size: 11px; color: var(--text3); margin-top: 8px;">Excluded due to stale prices: {", ".join(html.escape(t) for t in harvest_report.stale_tickers)}</div>')
 
 
 def _render_loss_harvest_table(harvest_report: HarvestImpactReport) -> None:
@@ -462,7 +464,7 @@ def _render_loss_harvest_table(harvest_report: HarvestImpactReport) -> None:
         pot = "Aktien-Pot" if impact.instrument_kind == InstrumentKind.AKTIE else "General-Pot"
         rows += (
             f'<tr>'
-            f'<td><strong>{impact.ticker}</strong></td>'
+            f'<td><strong>{html.escape(impact.ticker)}</strong></td>'
             f'<td class="font-mono text-right gain-negative">{format_eur(loss, signed=True)}</td>'
             f'<td style="color: var(--text3);">{pot}</td>'
             f'<td style="color: var(--text3);">{_KIND_LABEL.get(impact.instrument_kind, impact.instrument_kind.value)}</td>'
