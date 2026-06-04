@@ -1,4 +1,3 @@
-from functools import lru_cache
 from pathlib import Path
 
 import streamlit as st
@@ -15,7 +14,7 @@ from app.adapters.yfinance_ohlc import YfinanceOhlcAdapter
 from app.adapters.yfinance_price import YfinancePriceAdapter
 from app.config import get_settings
 from app.ports.company_data import CompanyDataProvider
-from app.ports.fx_feed import FxProvider, HistoricalFxProvider, LiveFxProvider
+from app.ports.fx_feed import HistoricalFxProvider, LiveFxProvider
 from app.ports.isin_map import IsinMapRepository
 from app.ports.market_data import OhlcDataProvider
 from app.ports.nav_repository import NavSnapshotRepository
@@ -26,13 +25,13 @@ from app.ports.thesis_map import ThesisMapRepository
 from app.ports.ticker_resolver import TickerResolver
 
 
-@lru_cache(maxsize=1)
+@st.cache_resource
 def get_nav_snapshot_repo() -> NavSnapshotRepository:
     settings = get_settings()
     return JsonNavSnapshotRepository(settings.nav_snapshots_json_path)
 
 
-@lru_cache(maxsize=1)
+@st.cache_resource
 def get_repository() -> TransactionRepository:
     settings = get_settings()
     return JsonTransactionRepository(
@@ -41,35 +40,29 @@ def get_repository() -> TransactionRepository:
     )
 
 
-@lru_cache(maxsize=1)
+@st.cache_resource
 def get_tax_profile_repo() -> TaxProfileRepository:
     settings = get_settings()
     return JsonTaxProfileRepository(Path(settings.tax_profile_json_path))
 
 
-@lru_cache(maxsize=1)
+@st.cache_resource
 def get_price_provider() -> PriceProvider:
     return YfinancePriceAdapter()
 
 
-@lru_cache(maxsize=1)
+@st.cache_resource
 def get_historical_fx_provider() -> HistoricalFxProvider:
     settings = get_settings()
     return EcbFxAdapter(cache_path=settings.fx_cache_dir / "ecb.json")
 
 
-@lru_cache(maxsize=1)
+@st.cache_resource
 def get_live_fx_provider() -> LiveFxProvider:
     return YfinanceLiveFxAdapter()
 
 
-@lru_cache(maxsize=1)
-def get_fx_provider() -> FxProvider:
-    """Back-compat shim. Prefer get_live_fx_provider() or get_historical_fx_provider()."""
-    return YfinanceLiveFxAdapter()
-
-
-@lru_cache(maxsize=1)
+@st.cache_resource
 def get_ticker_resolver() -> TickerResolver:
     settings = get_settings()
     return build_ticker_resolver(
@@ -78,18 +71,18 @@ def get_ticker_resolver() -> TickerResolver:
     )
 
 
-@lru_cache(maxsize=1)
+@st.cache_resource
 def get_ohlc_data_provider() -> OhlcDataProvider:
     return YfinanceOhlcAdapter()
 
 
-@lru_cache(maxsize=1)
+@st.cache_resource
 def get_isin_map_repo() -> IsinMapRepository:
     settings = get_settings()
     return JsonIsinMapRepository(settings.isin_map_json_path)
 
 
-@lru_cache(maxsize=1)
+@st.cache_resource
 def get_thesis_repo() -> ThesisMapRepository:
     settings = get_settings()
     return JsonThesisMapRepository(settings.thesis_json_path)

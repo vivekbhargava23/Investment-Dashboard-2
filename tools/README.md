@@ -39,32 +39,6 @@ the `update-context.yml` GitHub Action on every merge to main.
 python tools/regen_context.py
 ```
 
-### `cleanup-worktrees.sh`
-
-Removes local git worktrees whose upstream branches no longer exist (i.e. branches deleted after a PR merge). Safe and idempotent; never touches the main checkout. Uses `--force` — safe for merged tickets, which should never have uncommitted changes.
-
-**Usage:**
-
-```bash
-bash tools/cleanup-worktrees.sh
-```
-
-### `run.sh`
-
-Runs a command inside a named worktree with the `investment-dashboard` conda env active. Eliminates the `cd … && source … && conda activate …` boilerplate. Chain multiple tools with `bash -c '...'`.
-
-**Usage:**
-
-```bash
-bash tools/run.sh <worktree-slug> <command...>
-
-# Examples
-bash tools/run.sh c3 pytest tests/unit
-bash tools/run.sh c3 bash -c 'pytest && ruff check . && mypy app/ && lint-imports'
-```
-
----
-
 ### `backfill_isin_from_csv.py`
 
 Idempotently backfills the `isin` field onto `scalable_csv` transactions

@@ -1,6 +1,6 @@
 # TICKET-CLEAN-1 — Remove dead code (post-ADR-012 worktree tooling, FX shim, wiring idiom)
 
-**Status:** QUEUED
+**Status:** IN_PROGRESS
 **Priority:** LOW
 **Estimated session length:** 1 – 1.5 hr
 **Drafted by:** Vivek + Claude (Cowork review 2026-06-02)
