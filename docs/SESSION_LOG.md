@@ -44,6 +44,52 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 00:13 — TICKET-M9
+**Surface:** Codex
+**Model:** gpt-5
+**Duration:** ~2 hr
+**Branch:** ticket-m9-collapse-ritual-tools
+**PR:** (pending)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added workflow entry points: `tools/gate.sh`, `start_ticket.sh`, `finish_ticket.sh`, `next.sh`, and `doctor.sh`
+- Added `tools/ticket_workflow.py` for board lookup, dependency parsing/ranking, branch/status moves, PR creation, and diagnostics
+- Rewrote `AGENTS.md` around script entry points; reduced line count from 382 to 170
+- Updated `docs/METHODOLOGY.md` from one-ticket sessions to one coherent, independently-reviewable PR
+- Tightened `.claude/settings.local.json` to named workflow scripts plus standard read/edit/git rules and explicit main-push deny rules
+- Added unit coverage for duplicate M9 ticket-file resolution, dependency parsing, blocker detection, and ranking
+
+### Files touched
+- `AGENTS.md` — collapsed the ritual into script calls
+- `.claude/settings.local.json` — tightened allowlist and main-push deny list
+- `tools/ticket_workflow.py` — shared workflow implementation
+- `tools/{gate,start_ticket,finish_ticket,next,doctor}.sh` — shell entry points
+- `tools/README.md` — documented the new workflow scripts
+- `docs/METHODOLOGY.md` — updated PR sizing/scope guidance
+- `tests/unit/tools/test_ticket_workflow.py` — new dependency/ranking tests
+- `docs/TICKETS/TICKET-M9-collapse-ritual-into-tools.md` — marked IN_PROGRESS
+
+### Tests
+960 passing → 963 passing (3 new)
+
+Manual checks:
+- `shellcheck tools/gate.sh tools/start_ticket.sh tools/finish_ticket.sh tools/next.sh tools/doctor.sh`
+- `bash tools/next.sh` against the live board: RD1/RD4/RD0/RD5 eligible; RD6/RD2/RD3/RD7 blocked by expected prerequisites
+- `bash tools/start_ticket.sh TICKET-M9` reused the current branch and kept the card In progress
+- `bash tools/gate.sh` passed: 963 passed, 91 skipped; ruff, mypy, lint-imports clean
+
+### Decisions made during the session
+- Implemented dependency parsing/ranking in Python behind shell wrappers so shellcheck stays simple and the ranking logic is unit-testable.
+- Treat local ticket files with `**Status:** MERGED` as satisfied dependencies when an old dependency is absent from the active board page.
+- Codex cannot exercise Claude Code's permission-prompt UI; the allowlist was tightened and script entry points were run directly.
+
+### Out-of-scope items noticed
+- `TICKET-R4` has no `**Recommended model:**` field; `next.sh` correctly surfaces `[?]`.
+
+### Tokens used (rough)
+~90k
+
 ## 2026-06-04 — TICKET-M10
 **Surface:** Claude Code
 **Model:** sonnet-4.6
@@ -3052,4 +3098,3 @@ Further polish applied to `ticket-A2-analytics-correlation` (same branch, no new
 
 ### Tokens used (rough)
 ~60k
-
