@@ -1,6 +1,5 @@
 # TICKET-RD3 — Unified ticker searchbox on all pickers
 
-**Status:** DRAFT
 **Priority:** MEDIUM
 **Milestone:** Dashboard Redesign
 **Recommended model:** Sonnet — one wrapper component + four call-site swaps with tests.

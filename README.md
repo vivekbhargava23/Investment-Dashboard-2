@@ -6,10 +6,6 @@ If you're Vivek (or any future maintainer), start with [`docs/VIVEK.md`](docs/VI
 
 Ticket workflow is documented in `docs/VIVEK.md`. The GitHub Projects board at https://github.com/users/vivekbhargava23/projects/2 is the source of truth for ticket state and ordering.
 
-### For chat sessions
-
-Chat surfaces in the Projects folder have `docs/CONTEXT.md` automatically available. It contains the current project state (sourced from the GitHub Projects board), code interfaces, UI surface, and GitHub activity (open issues, open PRs, recent merges). No manual paste required — open a chat and start drafting.
-
 Personal investment dashboard for tracking a Scalable Capital portfolio — German tax-aware (FIFO, Sparerpauschbetrag), FX-aware, with live valuations and decision-support tooling.
 
 ## Setup
@@ -70,4 +66,3 @@ lint-imports
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Methodology](docs/METHODOLOGY.md)
-- [Context snapshot](docs/CONTEXT.md)

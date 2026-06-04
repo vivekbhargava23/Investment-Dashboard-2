@@ -1,6 +1,5 @@
 # TICKET-RD4 — Split analytics.py + "explain this number" component
 
-**Status:** DRAFT
 **Priority:** HIGH
 **Milestone:** Dashboard Redesign
 **Recommended model:** Sonnet — a mechanical package split plus a new reusable component with one wired usage.
