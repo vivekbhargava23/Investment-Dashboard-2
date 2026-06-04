@@ -44,6 +44,38 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-04 — TICKET-CLEAN-1
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~30 min
+**Branch:** ticket-clean-1-remove-dead-code
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Deleted `tools/run.sh` and `tools/cleanup-worktrees.sh` (worktree tooling, dead post-ADR-012); removed entries from `tools/README.md` and the `cleanup-worktrees.sh` mention from `docs/VIVEK.md`.
+- Removed `get_fx_provider()` back-compat shim from `app/ui/wiring.py` (no live callers; also removed now-unused `FxProvider` import).
+- Standardized all provider singletons in `wiring.py` from `@lru_cache(maxsize=1)` to `@st.cache_resource` — matching the idiom already used by `get_company_provider`.
+
+### Files touched
+- `tools/run.sh` — deleted
+- `tools/cleanup-worktrees.sh` — deleted
+- `tools/README.md` — removed entries for deleted scripts
+- `docs/VIVEK.md` — removed cleanup-worktrees reference; cleaned worktree paragraph
+- `app/ui/wiring.py` — removed `get_fx_provider` shim + `FxProvider` import; converted all `@lru_cache(maxsize=1)` to `@st.cache_resource`
+
+### Tests
+951 passing, 91 skipped (no change — deletion-only ticket)
+
+### Decisions made during the session
+- No architectural decisions. Used `@st.cache_resource` as the single singleton idiom (already used by `get_company_provider`; Streamlit-correct for cross-session resources).
+
+### Out-of-scope items noticed
+- `tools/README.md` still documents `regen_context.py`, which was retired on 2026-06-03. Not touched — separate ticket if needed.
+
+### Tokens used (rough)
+~20k
+
 ## 2026-06-03 — TICKET-THESIS-1
 **Surface:** Claude Code
 **Model:** opus-4.8
