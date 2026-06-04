@@ -427,7 +427,7 @@ def print_next_menu(entries: Sequence[TicketEntry]) -> None:
     print("")
     for index, entry in enumerate(ranked, start=1):
         blockers = blockers_for(entry, entries_by_id)
-        blocked = f" blocked by {', '.join(blockers)}" if blockers else ""
+        blocked = f" ⛔ blocked by {', '.join(blockers)}" if blockers else ""
         score = unblock_score(entry, entries)
         score_text = f" unblocks {score}" if score and not blockers else ""
         print(
@@ -650,14 +650,7 @@ def finish_ticket(ticket_arg: str, root: Path) -> None:
 
     run(["git", "push", "-u", "origin", branch])
     set_project_status(entry, "In review")
-    body = (
-        f"Implements {entry.ticket_id}.\n\n"
-        "Manual verification notes:\n"
-        "- Workflow entry points are narrowed to named scripts in `.claude/settings.local.json`.\n"
-        "- Claude Code permission prompts must be checked in Claude Code; "
-        "Codex cannot exercise that UI.\n\n"
-        f"Closes #{entry.issue_number}"
-    )
+    body = f"Implements {entry.ticket_id}.\n\nCloses #{entry.issue_number}"
     pr_url = run(
         [
             "gh",
