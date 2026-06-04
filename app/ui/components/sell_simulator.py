@@ -7,6 +7,7 @@ realised gain, marginal tax, position change) without writing any data.
 
 from __future__ import annotations
 
+import html
 import logging
 from datetime import date
 from decimal import Decimal
@@ -365,7 +366,7 @@ def render_sell_simulator(default_ticker: str | None = None) -> None:
     )
     render_html(f"""
         <div style="padding: 10px 14px; background: var(--surface2); border-radius: 6px; margin-bottom: 12px; font-size: 13px;">
-            Simulating: SELL <strong>{request.shares:g} {ticker}</strong>
+            Simulating: SELL <strong>{request.shares:g} {html.escape(ticker)}</strong>
             on {format_date(sell_date)}
             at {format_eur(sell_price)} ·
             implied proceeds <strong>{format_eur(proceed_eur)}</strong>

@@ -1,4 +1,5 @@
 # ruff: noqa: E501
+import html
 from datetime import datetime
 from decimal import Decimal
 
@@ -101,6 +102,10 @@ def _build_positions_table_html(
     for p in sorted_positions:
         ticker = p.position.ticker
         name = _name_lookup.get(ticker, ticker)
+        # Data-derived strings (portfolio ticker, isin_map name) must be escaped
+        # before interpolation — render_html emits with unsafe_allow_html=True.
+        ticker_safe = html.escape(ticker)
+        name_safe = html.escape(name)
 
         shares = f"{p.position.open_shares:g}"
         cost = format_eur(p.position.cost_basis_eur, signed=False).replace("€", "")
@@ -148,14 +153,14 @@ def _build_positions_table_html(
         weight_html = render_weight_bar(weight_pct, scale_max=Decimal("100"))
 
         sim_link = (
-            f'<a href="/?page=simulator&ticker={ticker}" target="_self" '
+            f'<a href="/?page=simulator&ticker={ticker_safe}" target="_self" '
             f'title="Simulate sell" style="color: var(--text3); text-decoration: none; font-size: 14px;">⚡</a>'
         )
         trend_cell = (trend_data or {}).get(ticker, "—")
         tbody_rows.append(
             f'<tr class="{row_class}">'
-            f'<td><strong>{ticker}</strong></td>'
-            f'<td style="color: var(--text2);">{name}</td>'
+            f'<td><strong>{ticker_safe}</strong></td>'
+            f'<td style="color: var(--text2);">{name_safe}</td>'
             f'{price_cell}'
             f'<td class="font-mono text-right">{shares}</td>'
             f'<td class="font-mono text-right">{cost}</td>'
@@ -274,7 +279,7 @@ def render() -> None:
     unknown_count = sum(1 for t in live_positions if _status_of(t) == "unknown")
 
     thesis_pill_html = "".join([
-        f'<span class="badge {_THESIS_PILL_CLASS[_status_of(t)]}" style="margin-right: 2px;">{t}</span>'
+        f'<span class="badge {_THESIS_PILL_CLASS[_status_of(t)]}" style="margin-right: 2px;">{html.escape(t)}</span>'
         for t in live_positions
     ])
 
