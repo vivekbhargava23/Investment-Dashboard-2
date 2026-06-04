@@ -44,6 +44,49 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-04 — TICKET-RD0
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Duration:** ~60 min
+**Branch:** ticket-rd0-navigation-and-focus
+**PR:** _pending_
+**Status at session end:** IN_REVIEW
+
+### What got done
+- New `app/ui/focus.py`: a persistent "focus ticker" shared across pages. `get_focus_ticker()` / `set_focus_ticker(symbol)` mirror session state to the `?ticker=` query param; `resolve_initial_focus(session, query, owned)` is a pure, unit-tested helper with precedence `query > session > first owned > None` (symbols normalized; blanks ignored at every level).
+- `main.py`: syncs `?ticker=` into session state alongside the existing `?page=` sync; routes legacy `?page=research` → `company`.
+- `topbar.py`: added a global focus selector (reuses `render_ticker_searchbox` + `get_ticker_resolver`), seeded from the current focus and writing it on selection; dropped the `research` title from `PAGE_TITLES`.
+- `company.py`: defaults its searchbox to `get_focus_ticker()` and writes the global focus on searchbox/recent-ticker selection.
+- `overview.py`: the ⚡ sim link now carries `ticker=` (focus, synced in main) plus `sim_ticker=` (simulator handoff); the position-chart selectbox is seeded from the focus and writes it back via an `on_change` callback (so re-renders never clobber a focus set elsewhere).
+- `simulator.py`: handoff param renamed `ticker=` → `sim_ticker=` so it stays separate from the focus param (chosen over sharing the param — Vivek's call).
+- Retired Research: removed it from `NAV_ITEMS`, recomputed `_SECTIONS` ranges (PORTFOLIO 0–4 / TOOLS 4–5 / SETTINGS 5–8), deleted `app/ui/pages/research.py`.
+
+### Files touched
+- `app/ui/focus.py` — new focus-ticker helpers
+- `app/ui/main.py` — `?ticker=` sync + legacy research redirect
+- `app/ui/components/topbar.py` — focus selector; drop research title
+- `app/ui/components/sidebar.py` — drop research nav item; recompute `_SECTIONS`
+- `app/ui/pages/company.py` — default to / write global focus
+- `app/ui/pages/overview.py` — sim link focus param + chart selection sets focus
+- `app/ui/pages/simulator.py` — handoff param → `sim_ticker=`
+- `app/ui/pages/research.py` — deleted
+- `tests/unit/ui/test_focus.py` — new (12 cases: precedence + round-trip)
+- `tests/unit/ui/test_research_page.py` — deleted
+- `tests/unit/ui/test_sidebar_structure.py` — drop research from expected ids; count 9→8
+- `tests/unit/ui/test_components.py` — nav-items count 9→8
+
+### Tests
+966 passing → 966 passing, 91 skipped (added `test_focus.py`, removed `test_research_page.py`)
+
+### Decisions made during the session
+- Focus and simulator handoff use **separate** query params (`?ticker=` vs `?sim_ticker=`) rather than sharing `?ticker=` — Vivek's call, avoids the simulator's delete-after-read clobbering the focus. No ADR needed.
+
+### Out-of-scope items noticed
+- Unified ticker searchbox on every picker is RD3 (not touched here).
+
+### Process note
+- Stumbled: an implementation commit landed on local `main` (HEAD had drifted off the feature branch). Caught immediately; recovered by repointing the feature branch to the commit and `git reset --hard origin/main` on main. Nothing was pushed, so `origin/main` and branch protection were never involved.
+
 ## 2026-06-04 — TICKET-ROBUST-1
 **Surface:** Claude Code
 **Model:** opus-4.8
