@@ -243,18 +243,21 @@ source files under `app/` and `tests/`.
 
 ### Step 7 — Gate check (must pass before ANY commit)
 
-Activate the conda env and chain all four checks in one shell call:
+Run the full validation chain via the gate script:
 
 ```bash
-source "$(conda info --base)/etc/profile.d/conda.sh" && conda activate investment-dashboard && \
-  pytest && ruff check . && mypy app/ && lint-imports
+bash scripts/gate.sh
 ```
 
-If **any** check fails: **STOP**. See "Stop conditions" below.
-Do not commit. Do not push. Do not open a PR. Report the failure to Vivek.
+This activates the `investment-dashboard` conda env and runs all four checks
+(`pytest`, `ruff check .`, `mypy app/`, `lint-imports`), then exits non-zero if any
+fail. **Do not** invoke the checks as a hand-chained
+`source "$(conda info --base)/..." && conda activate ... && pytest && ...` command — the
+`$(...)` command substitution forces a permission prompt on every run. `scripts/gate.sh`
+is a static, pre-approved invocation (see `.claude/settings.local.json`).
 
-Chain related checks into one command to avoid re-activating the env each time. The same
-activation prefix applies to every Python command in the ritual (e.g. Step 3 `pytest -q`).
+If the gate fails: **STOP**. See "Stop conditions" below.
+Do not commit. Do not push. Do not open a PR. Report the failure to Vivek.
 
 ### Step 8 — Commit, log, and push
 
