@@ -405,10 +405,18 @@ if [ -n "$final_backlog_json" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Step 8 — Commit and push
+# Step 8 — Strip decorative Status lines, commit, and push
 # ---------------------------------------------------------------------------
 echo ""
 echo "Committing ticket files..."
+
+# Strip any "**Status:** <value>" lines before committing.
+# METHODOLOGY.md §ticket-lifecycle states there is no DRAFT/QUEUED status after filing.
+# Use a temp-file swap for POSIX portability (BSD sed -i requires an extension arg).
+for f in "${VALID_FILES[@]}"; do
+  tmp_f="${f}.strip.tmp"
+  sed '/^\*\*Status:\*\*/d' "$f" > "$tmp_f" && mv "$tmp_f" "$f"
+done
 
 # Build commit message: "docs: file TICKET-XXX[, TICKET-YYY, ...]"
 ids_csv="$(IFS=', '; echo "${CREATED_IDS[*]}")"

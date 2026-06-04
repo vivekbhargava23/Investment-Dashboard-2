@@ -33,7 +33,7 @@ This build prevents all four:
 1. **Per-module instruction files** keep context small. A 30-line file in `app/domain/fifo/CLAUDE.md` is worth more than a 500-line root file. (These are named `CLAUDE.md` by convention because Claude Code auto-loads them; other agents should read them when directed by `AGENTS.md`.)
 2. **Tickets are written in chat first.** The implementation agent receives complete tickets and executes. No thinking happens in implementation sessions.
 3. **One ticket per session.** When the ticket is done, the session ends. Next ticket = next session.
-4. **`CONTEXT.md` is auto-available.** Chat in the Projects folder sees `docs/CONTEXT.md` automatically — no manual paste required.
+4. **The repo is the source of truth.** Chat reads current interfaces, pages, and board state directly from the repo — no snapshot file needed.
 
 ---
 
@@ -64,11 +64,11 @@ All transitions are managed by the agent or by the post-merge GitHub Action. Viv
 | Backlog → Ready | Vivek (drag on board) | Ticket is vetted and next in line |
 | Ready/Backlog → In progress | Implementation agent | Step 5 of the ritual (branching) |
 | In progress → In review | Implementation agent | Step 8c of the ritual (after push) |
-| In review → Done | Post-merge GitHub Action | PR merged to main |
+| In review → Done | Implementation agent Step 2 (next session) | Verified after merge; reconciled manually if needed |
 
 **Note:** The agent does NOT update status to Done in the same session it opens the PR.
-The Done transition happens when the post-merge action fires. Step 2 of the next session
-verifies it landed; in the rare case the action failed, Step 2 reconciles manually.
+The Done transition happens in Step 2 of the next session, which queries the board for
+`In review` items whose linked issue is closed and moves them to Done.
 
 ## Ticket lifecycle states (board columns)
 
@@ -162,7 +162,7 @@ Before a ticket moves from chat draft → filed, walk this list. Each item is a 
 - [ ] **No silent fallback to a default value without surfacing it.** If the form's "FX rate auto-fill" can quietly fall back to `1.0` when yfinance is offline, that is silent corruption waiting to happen. Every fallback path either (a) surfaces a banner the user must acknowledge, or (b) refuses to submit. *Lesson from TICKET-009 (2026-05-04).*
 - [ ] **Test cases include at least one that would catch the real-world failure mode.** "Tests pass" is necessary, not sufficient — a test that asserts the form *constructs a Transaction* says nothing about whether the form *records the right values*. Aim for one acceptance test per spec rule that would observably fail if the rule were violated.
 - [ ] **Ticket file includes `**Milestone:**` field.** `tools/file.sh` extracts it from the body; missing milestone causes a warning (issue filed without milestone).
-- [ ] **Re-check the parking lot.** Review CONTEXT.md "Up next" and "In progress" sections. If a new ticket resolves an open question noted in CONTEXT.md, mention it in the ticket body.
+- [ ] **Re-check open issues.** Scan the GitHub Projects board for open items. If a new ticket resolves a known open question, mention it in the ticket body.
 
 The first two items are about the *spec*; the last three are about the *implementation*. Both can be checked at draft time. None of them require running code.
 
@@ -188,21 +188,19 @@ No heredoc, no `cat | bash`, no `POSITION:` field, no `ID: / TITLE:` header bloc
 
 ### Required reads
 
-Before drafting any ticket, chat must have access to `docs/CONTEXT.md` (auto-generated, current with main). `CONTEXT.md` provides project state, code signatures, and the current UI surface. No manual paste required.
-
-`CONTEXT.md` is committed to main on every merge (via the `update-context.yml` GitHub Action) and is included in the Projects folder automatically.
+Before drafting any ticket, chat must read the current repo state: the relevant source files in `app/`, the open issues and board state via the GitHub Projects board, and any module-level `CLAUDE.md` files for the area being changed. No snapshot file is needed — read the code directly.
 
 ### Mandatory verification before drafting
 
 Chat must perform these four checks before writing a ticket spec:
 
-1. **Locate the affected code in CONTEXT.md.** If the ticket touches `function_name` or `ClassName`, find it in the `Public interfaces` section and confirm its current signature and field set. If chat cannot locate what it is about to modify, ask Vivek before drafting — do not invent a signature.
+1. **Locate the affected code in the repo.** If the ticket touches `function_name` or `ClassName`, read the relevant source file and confirm its current signature and field set. If chat cannot locate what it is about to modify, ask Vivek before drafting — do not invent a signature.
 
-2. **For UI tickets, require a screenshot or page description from Vivek.** CONTEXT.md's `UI surface` section lists page filenames and docstrings, not what the rendered page actually looks like. Chat must say: *"Please share a screenshot or describe what's currently on the [page] page before I draft this."*
+2. **For UI tickets, require a screenshot or page description from Vivek.** The page filenames alone don't describe what the rendered page actually looks like. Chat must say: *"Please share a screenshot or describe what's currently on the [page] page before I draft this."*
 
-3. **State assumptions explicitly in the ticket's Notes section.** Every assumption that could not be verified from CONTEXT.md gets written down. Example: *"Assumes `OpenLot.split()` does not exist and will be created. Confirm before implementing."* This gives the agent a chance to catch a wrong assumption before writing code, rather than discovering the mismatch mid-implementation.
+3. **State assumptions explicitly in the ticket's Notes section.** Every assumption that could not be verified from the source gets written down. Example: *"Assumes `OpenLot.split()` does not exist and will be created. Confirm before implementing."* This gives the agent a chance to catch a wrong assumption before writing code, rather than discovering the mismatch mid-implementation.
 
-4. **Check for conflicts.** Scan `Open issues` and `Recent merges` in CONTEXT.md. If something equivalent is already in flight or was just merged, flag it to Vivek before drafting.
+4. **Check for conflicts.** Query the GitHub Projects board for open issues and recently merged PRs. If something equivalent is already in flight or was just merged, flag it to Vivek before drafting.
 
 ### The agent's recourse when an assumption is wrong
 

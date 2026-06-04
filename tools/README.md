@@ -28,17 +28,6 @@ Idempotent setup of GitHub labels and milestones. Run once per fresh repo clone.
 bash tools/setup_github.sh
 ```
 
-### `regen_context.py`
-
-Regenerates `docs/CONTEXT.md` from the live repo state. Run automatically by
-the `update-context.yml` GitHub Action on every merge to main.
-
-**Usage:**
-
-```bash
-python tools/regen_context.py
-```
-
 ### `backfill_isin_from_csv.py`
 
 Idempotently backfills the `isin` field onto `scalable_csv` transactions

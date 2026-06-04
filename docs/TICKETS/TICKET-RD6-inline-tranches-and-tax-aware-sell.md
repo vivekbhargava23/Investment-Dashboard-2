@@ -1,6 +1,5 @@
 # TICKET-RD6 — Inline tranches + tax-aware sell on the overview
 
-**Status:** DRAFT
 **Priority:** HIGH
 **Milestone:** Dashboard Redesign
 **Recommended model:** Opus — surfaces FIFO + German tax math at the decision point; correctness is costly to get wrong.

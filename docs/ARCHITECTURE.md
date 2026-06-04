@@ -111,7 +111,6 @@ investment-dashboard/
 │   ├── VIVEK.md
 │   ├── METHODOLOGY.md
 │   ├── ARCHITECTURE.md
-│   ├── CONTEXT.md
 │   ├── DECISIONS/
 │   └── TICKETS/
 ├── app/
