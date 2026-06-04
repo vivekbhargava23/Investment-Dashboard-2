@@ -3,382 +3,168 @@
 > **You are the implementation agent working on Vivek's investment dashboard.**
 > Vivek **does not write code, run tests, commit, push, or open PRs**. You do all of that.
 > Vivek **reviews PRs and merges them**. That is his only role in the implementation loop.
-> Before doing anything, read the files listed under "Required reading" below.
 >
 > **READ EVERY INSTRUCTION FILE IN FULL — every line, top to bottom, to EOF.** Do not read
 > the first N lines and proceed. Do not skim, sample, or assume the rest. If your
-> file-reading tool returns a truncated view (e.g. only the first 100 lines), page through
-> with offsets until you reach the end of the file *before you act*. A session that read part
-> of `AGENTS.md` (or any required file) and then started implementing is a **failed session** —
-> stop and re-read. "I read the first 100 lines" is never acceptable. This applies to this
-> file and every file under "Required reading" and every per-module `CLAUDE.md` you open.
+> file-reading tool returns a truncated view, page through with offsets until you reach EOF
+> before you act. Partial reads of this file, required files, ticket files, or module
+> `CLAUDE.md` files are a stop condition.
 
----
+This file is for the implementation agent. Vivek's day-to-day workflow lives in
+`docs/VIVEK.md` and is not your concern.
 
-This file is for the implementation agent. Vivek's day-to-day workflow lives in `docs/VIVEK.md` and is not your concern.
+## Local Environment
 
-## Local environment (macOS setup)
+`tools/*.sh` run on stock macOS bash 3.2 + BSD userland. You need `git`, `gh`
+(authenticated), `jq`, and the project Python/conda setup on PATH. See
+`tools/README.md` for the toolchain reference.
 
-`tools/*.sh` are POSIX-portable and run on **stock macOS bash 3.2 + BSD grep** — no
-`brew install bash` or GNU grep required. You only need `git`, `gh` (authenticated),
-and `jq` on PATH. See `tools/README.md` for the full toolchain reference.
+## Required Reading
 
----
-
-## Required reading (every session, in this order)
+Read these every session, in this order, before implementation work:
 
 1. `docs/METHODOLOGY.md` — how we work
-2. `docs/ARCHITECTURE.md` — the architecture rules (non-negotiable)
+2. `docs/ARCHITECTURE.md` — architecture rules, non-negotiable
+3. The ticket file for the ticket being implemented
 
-For current repo state (interfaces, pages, board status), explore the codebase and query the
-board directly — there is no generated snapshot file. `docs/CONTEXT.md` and its
-auto-regenerating workflow were retired on 2026-06-03; reading the code is the source of truth.
+For current repo state, read the code and query the GitHub Projects board directly.
+There is no generated state snapshot. `docs/CONTEXT.md` and its workflow were retired
+on 2026-06-03.
 
-If the work touches a specific module, also read that module's instruction file
-(e.g. `app/domain/fifo/CLAUDE.md`). These per-module files contain module-specific
-context and constraints. Read them even if your CLI does not auto-load them.
+If the work touches a specific module, also read that module's `CLAUDE.md` file in full
+before editing. These files contain module-specific constraints.
 
-**Read each of these files completely — every line, to the end — not just the top.** See the
-full-read mandate in the banner at the top of this file. Partial reads are a stop condition.
-
----
-
-## The division of labor (do not violate this)
+## Division Of Labor
 
 | Vivek does | The implementation agent does |
 |---|---|
 | Picks the next ticket | Implements the ticket |
 | Reviews the PR | Writes the code |
 | Merges the PR | Writes the tests |
-| Drafts ADRs in chat | Runs the tests |
-| Approves architectural changes | Runs the linters |
-| Drags cards on the project board | Commits with conventional commit messages |
-| | Pushes the branch |
+| Drafts ADRs in chat | Runs tests and linters |
+| Approves architectural changes | Commits with conventional commit messages |
+| Drags cards on the project board | Pushes the branch |
 | | Opens the PR via `gh pr create` |
-| | Moves board items via `gh project item-edit` |
-
----
-
-## Non-negotiable rules
-
-1. **One ticket = one branch = one PR.** Never combine tickets in one branch.
-2. **Tests must stay green.** If they fail, see "Stop conditions" — do not commit a broken state.
-3. **Domain layer has zero I/O imports.** No `requests`, no file I/O, no `streamlit` in `app/domain/`. If you think you need one, open a discussion ticket — do not add the import.
-4. **Conventional commits only.** `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`. One logical change per commit. A single PR may contain multiple commits, but each commit must be logically coherent on its own.
-5. **You never push to `main` directly.** `main` is branch-protected. If you find yourself wanting to push to main, stop — you have made a mistake.
-6. **You never merge your own PRs.** Vivek merges. You open them.
-7. **Implement comprehensively — production-grade, no partial application.** If a ticket's change recurs in more than one place (the same chart, helper, query, or pattern reused across pages or modules), update *every* occurrence — leaving analogous sites un-updated is a failed ticket. Never skip reading a file the change depends on to save tokens; read the full context first.
-
----
-
-## Model selection
-
-Every ticket header carries a model recommendation:
-
-`**Recommended model:** Opus | Sonnet | Haiku — <one-line reason>`
-
-Choose by capability. When a ticket sits between tiers, pick the higher one.
-
-| Model | Use for | Examples |
-|---|---|---|
-| **Haiku 4.5** | Mechanical, low-judgment work; no business logic. | Doc edits, dead-code deletion, pure renames, string/config changes |
-| **Sonnet 4.6** | Well-scoped changes confined to one area, with clear acceptance criteria, strong existing tests, and low blast radius. | One page, one service, or one adapter; a self-contained component |
-| **Opus 4.6** | Cross-cutting or high-risk work where a plausible-but-wrong answer is costly or hard to detect. | Changes spanning ports + adapters + multiple pages; concurrency / parallel fetch; cache correctness & invalidation; money / tax / FIFO math; data migrations |
-
-Step 0's `next` menu surfaces this model in brackets (e.g. `[Opus]`) so Vivek knows which model to launch *before* picking a ticket.
-
----
-
-## What "implement TICKET-XXX" means (the complete ritual)
-
-When Vivek says "implement TICKET-XXX" (or any variation like "do TICKET-XXX",
-"work on TICKET-XXX", "start TICKET-XXX"), that is a **complete instruction**.
-Execute all ten steps below, in this exact order, with no skips and no reordering.
-Each step depends on the previous one. Do not ask for confirmation between steps.
-
-When Vivek says **"implement next ticket"** or just **"next"**, resolve the ticket
-via Step 0 below, then proceed from Step 1.
-
-### Step 0 — Resolve "next ticket" (only when not given an explicit ticket ID)
-
-**Trigger:** Vivek says `next` (or `implement next ticket`).
-
-**Action:** Query the GitHub Projects board for items in `Ready` column first, then `Backlog`, in board order:
-
-```bash
-gh project item-list 2 --owner @me --format json --limit 100
-```
-
-Filter out items whose linked issue is closed. For each remaining ticket, read its `**Recommended model:**` header field (see "Model selection" above) and surface it in brackets; if a ticket lacks the field, infer the model from the rubric and append a `?`. Present as a numbered menu:
-
-```
-Up next (N tickets):
-
-Ready (vetted):
-  1. TICKET-XXX — Title [HIGH] [Opus] (issue #N)
-  2. TICKET-YYY — Title [MEDIUM] [Sonnet] (issue #M)
-Backlog:
-  3. TICKET-ZZZ — Title [LOW] [Haiku] (issue #P)
-
-Reply with:
-  <number>      pick a ticket and start implementing
-  reorder       open the board in your browser to drag-reorder (then re-run `next`)
-  drop N        close ticket #N and remove from the board
-  cancel        do nothing
-```
-
-**On `<number>`:** proceed to Step 1 with that ticket. Step 5 moves the board item to `In progress`.
-
-**On `reorder`:** print `https://github.com/users/vivekbhargava23/projects/2` and tell Vivek to drag-reorder in the browser, then re-run `next`. Do not attempt programmatic reordering.
-
-**On `drop N`:** confirm with Vivek ("Drop TICKET-XXX? This closes the issue and removes it from the board."). On confirmation:
-1. `gh issue close <issue-number> --reason "not planned"`
-2. Move the board item to `Done` (the post-merge action won't fire for issue close):
-   ```bash
-   ITEM_ID=$(gh project item-list 2 --owner @me --format json --limit 100 | jq -r --argjson n <issue-num> '.items[] | select(.content.number==$n) | .id')
-   DONE_OPTION_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="Done") | .id')
-   PROJECT_ID=$(gh project list --owner @me --format json | jq -r '.projects[] | select(.number==2) | .id')
-   STATUS_FIELD_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .id')
-   gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$STATUS_FIELD_ID" --single-select-option-id "$DONE_OPTION_ID"
-   ```
-3. Update the ticket file's `Status:` to `CLOSED` (decorative).
-4. Print a summary.
-5. Re-present the menu.
-
-**On `cancel`:** stop. No state changes.
-
-**Edge case — board is empty (`Ready` and `Backlog` both empty):**
-> "Board is empty. File tickets via `bash tools/file.sh` after saving them to `docs/TICKETS/`."
-Stop.
-
-**Edge case — an item's linked issue is CLOSED:** skip it in the menu (defensive — shouldn't happen because `Done` items have closed issues).
-
-**Override:** If Vivek says `implement TICKET-XXX` (explicit ID), skip this step entirely.
-
-### Step 1 — Verify clean main
-
-```bash
-git status                       # must be clean
-git checkout main && git pull    # sync with remote
-```
-
-### Step 2 — Verify housekeeping from previous ticket (if applicable)
-
-The In review → Done board transition is handled here, at the start of the next session.
-
-Query the board for any items still in `In review`. For each one, check if its linked issue is closed:
-
-```bash
-gh project item-list 2 --owner @me --format json --limit 100 | \
-  jq '.items[] | select(.status=="In review") | {id, number: .content.number, title: .content.title}'
-```
-
-For each `In review` item whose issue is CLOSED (i.e., `gh issue view <N> --json state -q .state` returns `"CLOSED"`):
-- Move the board item to `Done`:
-  ```bash
-  ITEM_ID=<item-id>
-  PROJECT_ID=$(gh project list --owner @me --format json | jq -r '.projects[] | select(.number==2) | .id')
-  STATUS_FIELD_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .id')
-  DONE_OPTION_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="Done") | .id')
-  gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$STATUS_FIELD_ID" --single-select-option-id "$DONE_OPTION_ID"
-  ```
-
-If all `In review` items have open issues, or if there are no `In review` items: no action needed.
-
-### Step 3 — Confirm tests on main are green
-
-```bash
-pytest -q
-```
-
-If `pytest` fails, **stop the entire session**. Tell Vivek:
-"main is broken before I started — this is a bug in a previously merged PR.
-I will not start TICKET-XXX until main is green." Open a hotfix ticket if needed.
-
-### Step 4 — Read required files
-
-Read the three files listed under "Required reading" above, plus the ticket file:
-
-```bash
-cat docs/TICKETS/TICKET-XXX-*.md
-```
-
-If the ticket touches a specific module, also read that module's instruction file.
-
-### Step 5 — Branch and mark in-progress
-
-Create a branch off `main` in the current checkout (ADR-012 — worktrees retired):
-
-```bash
-slug="ticket-$(echo TICKET-XXX | tr '[:upper:]' '[:lower:]' | sed -E 's/ticket-//')-short-name"
-git checkout -b "$slug"
-```
-
-If you are already on a feature branch (HEAD is not `main`) — e.g. Vivek `cd`'d in to
-address PR review comments — reuse it: confirm the branch name matches the ticket; do not
-create a new branch.
-
-Update the ticket file: `Status: QUEUED` → `Status: IN_PROGRESS` (decorative — nothing reads this).
-
-Move the picked ticket's board item to `In progress`:
-
-```bash
-PROJECT_ID=$(gh project list --owner @me --format json | jq -r '.projects[] | select(.number==2) | .id')
-STATUS_FIELD_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .id')
-IN_PROGRESS_OPTION_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="In progress") | .id')
-ITEM_ID=$(gh project item-list 2 --owner @me --format json --limit 100 | jq -r --argjson n <issue-num> '.items[] | select(.content.number==$n) | .id')
-gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" \
-  --field-id "$STATUS_FIELD_ID" \
-  --single-select-option-id "$IN_PROGRESS_OPTION_ID"
-```
-
-No commit to main from the agent. The board update is API-only.
-
-### Step 6 — Implement
-
-Write the code. Write the tests. This is the only step where you create or edit
-source files under `app/` and `tests/`.
-
-### Step 7 — Gate check (must pass before ANY commit)
-
-Activate the conda env and chain all four checks in one shell call:
-
-```bash
-source "$(conda info --base)/etc/profile.d/conda.sh" && conda activate investment-dashboard && \
-  pytest && ruff check . && mypy app/ && lint-imports
-```
-
-If **any** check fails: **STOP**. See "Stop conditions" below.
-Do not commit. Do not push. Do not open a PR. Report the failure to Vivek.
-
-Chain related checks into one command to avoid re-activating the env each time. The same
-activation prefix applies to every Python command in the ritual (e.g. Step 3 `pytest -q`).
-
-### Step 8 — Commit, log, and push
-
-```bash
-# 8a. Commit the implementation
-git add -A
-git commit -m "feat: <one-line summary in imperative mood>"
-# (Multiple commits OK if there were multiple logical changes)
-
-# 8b. Append session log entry to docs/SESSION_LOG.md, then commit
-# Prepend a new entry (matching the template in docs/SESSION_LOG.md) under ## Active log
-git add docs/SESSION_LOG.md
-git commit -m "docs: session log for TICKET-XXX"
-
-# 8c. Push the branch
-git push -u origin ticket-XXX-short-name
-
-# 8d. Move the board item to In review
-PROJECT_ID=$(gh project list --owner @me --format json | jq -r '.projects[] | select(.number==2) | .id')
-STATUS_FIELD_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .id')
-IN_REVIEW_OPTION_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="In review") | .id')
-ITEM_ID=$(gh project item-list 2 --owner @me --format json --limit 100 | jq -r --argjson n <issue-num> '.items[] | select(.content.number==$n) | .id')
-gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" \
-  --field-id "$STATUS_FIELD_ID" \
-  --single-select-option-id "$IN_REVIEW_OPTION_ID"
-```
-
-There is no separate doc-update step. The ticket file's `Status:` line is decorative and is not updated here. State is on the board.
-
-### Step 9 — Open the PR and stop
-
-The PR body **must** include `Closes #<N>` (where `<N>` is the GitHub issue number)
-so the issue auto-closes when Vivek merges:
-
-```bash
-gh pr create --base main --title "<title>" --body "$(cat <<'EOF'
-<description>
-
-Closes #<N>
-EOF
-)"
-```
-
-Print a summary for Vivek:
-
-```
-✅ TICKET-XXX implemented and PR opened.
-PR: <url>
-Tests: X passing → Y passing
-Files changed: <count>
-Ready for your review.
-
-How to test this branch locally:
-  cd ~/Desktop/Apps/Investment-Dashboard-2
-  git checkout <branch-name>          # already checked out if you ran the session here
-  conda activate investment-dashboard
-  streamlit run app/ui/main.py
-```
-
-**Then stop. The session is done.**
-
----
-
-## Hard stop rules (after Step 9)
+| | Moves board item Status values via scripts |
+
+## Non-Negotiable Rules
+
+1. **One coherent implementation = one branch = one PR.** A PR may close several
+   tightly coupled tickets via multiple `Closes #N` lines, but never bundle unrelated work.
+2. **Tests must stay green.** If any gate check fails, stop and report.
+3. **Domain layer has zero I/O imports.** No `requests`, file I/O, or `streamlit` in
+   `app/domain/`. If you think you need one, open a discussion ticket.
+4. **Conventional commits only.** Use `feat:`, `fix:`, `refactor:`, `test:`, `docs:`,
+   or `chore:`. One logical change per commit.
+5. **Never push to `main` directly.** If you want to push to `main`, stop.
+6. **Never merge your own PRs.** Vivek merges.
+7. **Implement comprehensively.** If the same change recurs in multiple places, update
+   every occurrence required by the ticket. No partial application.
+8. **No runtime scope creep.** "While I'm here" work becomes a new ticket.
+
+## Model Selection
+
+Every ticket header carries:
+
+`**Recommended model:** Opus | Sonnet | Haiku — <reason>`
+
+Choose by capability. When a ticket sits between tiers, pick the higher tier.
+
+| Model | Use for |
+|---|---|
+| **Haiku 4.5** | Mechanical, low-judgment work: doc edits, dead-code deletion, pure renames |
+| **Sonnet 4.6** | Well-scoped changes in one area with clear tests and low blast radius |
+| **Opus 4.6** | Cross-cutting or high-risk work: money/tax/FIFO, cache correctness, concurrency, data migrations |
+
+`tools/next.sh` surfaces the recommendation in brackets so Vivek can choose the right
+model before starting.
+
+## Workflow Scripts
+
+The repetitive ritual lives in these entry points:
+
+- `bash tools/next.sh` — prints the ranked Ready/Backlog menu, including model,
+  priority, dependency blockers, and unblock score.
+- `bash tools/start_ticket.sh TICKET-XXX` — reconciles closed `In review` items to
+  `Done`, verifies a clean `main`, pulls, creates/reuses the feature branch, marks the
+  ticket file `IN_PROGRESS`, and moves the board item to `In progress`. If a blocked
+  ticket is explicitly requested, it warns and continues.
+- `bash tools/gate.sh` — activates `investment-dashboard` and runs `pytest`,
+  `ruff check .`, `mypy app/`, and `lint-imports`, stopping at the first failure.
+- `bash tools/finish_ticket.sh TICKET-XXX` — reruns the gate, pushes the current branch,
+  moves the board item to `In review`, and opens the PR with `Closes #N` in the body.
+- `bash tools/doctor.sh` — non-mutating preflight diagnostics for local state, retired
+  files, board sanity, and dependency blockers.
+
+Do not inline the old `gh`/`jq` board-management blocks. If a script fails, report the
+exact failure instead of hand-editing the board.
+
+## Complete Ticket Ritual
+
+When Vivek says "implement TICKET-XXX" (or "do", "work on", "start"), that is a
+complete instruction. Do not ask for confirmation between steps.
+
+1. **Resolve the ticket.** If Vivek said `next` or `implement next ticket`, run
+   `bash tools/next.sh` and present its menu. If Vivek gave an explicit ticket ID, skip
+   the menu.
+2. **Read required files.** Read `docs/METHODOLOGY.md`, `docs/ARCHITECTURE.md`, the
+   selected ticket file, and any relevant module `CLAUDE.md` files in full.
+3. **Start the ticket.** Run `bash tools/start_ticket.sh TICKET-XXX`. Stop if it fails.
+4. **Implement.** Write the code and tests. Keep edits scoped to the ticket.
+5. **Gate before committing.** Run `bash tools/gate.sh`. If any check fails, stop.
+   Do not commit, push, or open a PR.
+6. **Commit implementation.** Stage all intentional implementation changes and commit
+   with a conventional commit message.
+7. **Log the session.** Prepend a `docs/SESSION_LOG.md` entry under `## Active log`,
+   then commit it with `docs: session log for TICKET-XXX`.
+8. **Finish.** Run `bash tools/finish_ticket.sh TICKET-XXX`. It reruns the gate, pushes,
+   moves the board item to `In review`, opens the PR, and prints the PR URL.
+9. **Report and stop.** Print the PR URL, test summary, files changed, and local test
+   command. Then stop. The session is done.
+
+For `reorder`, print `https://github.com/users/vivekbhargava23/projects/2` and ask Vivek
+to drag-reorder in the browser, then rerun `next`. Do not programmatically reorder cards.
+
+For `drop N`, confirm with Vivek first. On confirmation, close the issue as not planned,
+move the board item to `Done`, update the ticket status decoratively to `CLOSED`, summarize,
+and rerun the menu. Do not drop without confirmation.
+
+## After The PR
 
 After printing the PR URL:
 
-- **Do not start the next ticket.**
-- **Do not "while I'm here" fix anything else.**
-- **Do not execute any further commands.**
-- **Do not respond to further instructions in this session** unless Vivek explicitly
-  asks you to fix something on this specific branch (e.g. PR review feedback).
+- Do not start the next ticket.
+- Do not do "while I'm here" fixes.
+- Do not execute further commands.
+- Do not respond to unrelated follow-up instructions in this session unless Vivek asks
+  for fixes on this same branch.
 
-If Vivek says "looks good" or "I'll review it" — the session is still done.
-You do not need to do anything else.
+If Vivek says "merged", "done", or "approved and merged", the session is over. Do not
+update files, commit, push, or move the card. The next `start_ticket.sh` run reconciles
+closed `In review` items to `Done`.
 
----
+## Stop Conditions
 
-## When Vivek says "I merged it" (or "merged", "done", "approved and merged")
+Stop and report without committing, pushing, or opening a PR if:
 
-**This means the work is complete. There is nothing left for you to do.**
+1. `pytest` fails.
+2. `ruff check .` fails.
+3. `mypy app/` fails.
+4. `lint-imports` fails.
+5. Acceptance criteria cannot be met as written.
+6. The ticket requires an architectural change not covered by an ADR.
+7. You discover a bug in `main` unrelated to your ticket.
+8. The ticket conflicts with a recently merged change.
 
-- Do NOT update any files.
-- Do NOT commit or push.
-- Do NOT update the ticket status — Step 2 of the next session moves the board card to `Done`.
-- Do NOT write to `main`.
+When stopping, tell Vivek which check failed, the exact error, what you tried, and what
+you recommend next. Do not attempt heroic recovery.
 
-The merge itself landed all your branch commits onto `main`. Step 2 of the next session
-moves the board item to `Done` by reconciling any `In review` items with closed issues.
+## What You Do Not Do
 
-Your session is over.
-
----
-
-## Stop conditions
-
-You **must stop and report** (not commit, not push) if:
-
-1. `pytest` fails — even one test, even a "flaky" one
-2. `ruff check .` fails — including warnings if configured as errors
-3. `mypy app/` fails
-4. `lint-imports` fails (architecture violation)
-5. The acceptance criteria in the ticket cannot be met as written
-6. You discover the ticket requires an architectural change not covered by an ADR
-7. You discover a bug in `main` unrelated to your ticket
-8. You discover the ticket conflicts with a recently merged change
-
-When you stop, tell Vivek precisely:
-- Which check failed and the exact error message
-- What you tried (if anything)
-- What you recommend (continue with a workaround? open a new ticket? roll back?)
-
-Do not attempt heroic recovery. Stopping early is cheap; a bad merge is expensive.
-
----
-
-## What you do NOT do
-
-- ❌ "While I'm here, let me also fix..." → Open a new ticket file in `docs/TICKETS/`. Do not fix.
-- ❌ Refactor outside the ticket's stated scope.
-- ❌ Edit `docs/ARCHITECTURE.md` or `docs/METHODOLOGY.md` without an explicit ticket for it.
-- ❌ Skip writing tests because "it's a small change." There are no small changes.
-- ❌ Merge your own PR.
-- ❌ Push to `main` directly. (Branch protection should reject it; if it doesn't, stop and tell Vivek branch protection is misconfigured.)
-- ❌ Disable a failing test to make CI pass. If a test is wrong, fix the test in a separate commit with explanation. If it's flaky, open a ticket.
-- ❌ `git push --force` on a branch with an open PR without saying so explicitly in your next message to Vivek.
-- ❌ Write to `main` after Vivek says he merged the PR. The session is over. See "When Vivek says 'I merged it'" above.
-- ❌ Treat doc updates (STATE.md, ticket status) as post-PR housekeeping. Board state is managed via the API (Steps 5, 8c). Ticket `Status:` lines are decorative — update them in Step 5 if you like, but nothing reads them.
-- ❌ Reorder cards on the project board. Only `tools/file.sh` sets Backlog position (by priority band — ADR-010). The agent only writes Status.
+- Do not refactor outside ticket scope.
+- Do not edit `docs/ARCHITECTURE.md` or `docs/METHODOLOGY.md` without a ticket for it.
+- Do not skip tests because the change is small.
+- Do not disable failing tests to make CI pass.
+- Do not push forcefully to a branch with an open PR unless you explicitly say so.
+- Do not treat ticket-file status as authoritative. Board state is authoritative.
+- Do not write scripts that mutate board state outside the approved workflow scripts.
