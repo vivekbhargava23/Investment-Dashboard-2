@@ -44,6 +44,45 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-04 — TICKET-M10
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~30 min
+**Branch:** ticket-m10-workflow-doc-truth-up
+**PR:** (pending)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Removed all CONTEXT.md / regen_context.py / update-context.yml references from active docs (README.md, VIVEK.md, METHODOLOGY.md, ARCHITECTURE.md, tools/README.md, AGENTS.md)
+- Deleted `.github/workflows/post-merge-housekeeping.yml` (was a no-op); In review → Done transition is now owned by Step 2 of the next session
+- Updated lifecycle table and board-transition prose in AGENTS.md and METHODOLOGY.md to reflect Step 2 as the sole Done-transition mechanism
+- Added POSIX-portable Status-line stripping to `tools/file.sh` (sed temp-file swap before commit)
+- Stripped `**Status:** DRAFT` from all eight TICKET-RD*.md files (one-time cleanup)
+
+### Files touched
+- `README.md` — removed "For chat sessions" block and dead CONTEXT.md docs link
+- `docs/VIVEK.md` — removed CONTEXT.md references in sections 1, 5, 7, cross-reference
+- `docs/METHODOLOGY.md` — updated token-efficiency contract item 4, lifecycle table, Step 2 note, verification protocol "Required reads" and four mandatory checks
+- `docs/ARCHITECTURE.md` — removed CONTEXT.md from file layout diagram
+- `tools/README.md` — removed regen_context.py section (lines 31–39)
+- `tools/file.sh` — added Status-line stripping before git commit (Step 8)
+- `AGENTS.md` — updated Step 2 and "When Vivek says 'I merged it'" to remove post-merge action references
+- `.github/workflows/post-merge-housekeeping.yml` — deleted
+- `docs/TICKETS/TICKET-RD{0-7}*.md` — stripped **Status:** DRAFT lines
+- `docs/TICKETS/TICKET-M10-workflow-doc-truth-up.md` — marked IN_PROGRESS
+
+### Tests
+960 passing → 960 passing (no test changes needed)
+
+### Decisions made during the session
+- Chose Option B (delete ghost workflow) over Option A (rewrite it): GITHUB_TOKEN lacks the `project` OAuth scope needed to mutate user-owned Projects v2 boards from Actions; Step 2 already handles Done reconciliation robustly.
+
+### Out-of-scope items noticed
+- Old closed ticket files (TICKET-C2, TICKET-026, TICKET-CSV-1) and ADRs (ADR-008, ADR-011) still reference regen_context/CONTEXT.md as historical context — left as-is; they describe completed work.
+
+### Tokens used (rough)
+~50k
+
 ## 2026-06-04 — TICKET-ROBUST-1
 **Surface:** Claude Code
 **Model:** opus-4.8

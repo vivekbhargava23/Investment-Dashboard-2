@@ -164,8 +164,7 @@ git checkout main && git pull    # sync with remote
 
 ### Step 2 — Verify housekeeping from previous ticket (if applicable)
 
-GitHub Actions runs `post-merge-housekeeping.yml` within seconds of every merge.
-By the time you start the next session, the board card should already be in `Done`.
+The In review → Done board transition is handled here, at the start of the next session.
 
 Query the board for any items still in `In review`. For each one, check if its linked issue is closed:
 
@@ -183,7 +182,6 @@ For each `In review` item whose issue is CLOSED (i.e., `gh issue view <N> --json
   DONE_OPTION_ID=$(gh project field-list 2 --owner @me --format json | jq -r '.fields[] | select(.name=="Status") | .options[] | select(.name=="Done") | .id')
   gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$STATUS_FIELD_ID" --single-select-option-id "$DONE_OPTION_ID"
   ```
-- This is defense-in-depth — the post-merge action should have already done this.
 
 If all `In review` items have open issues, or if there are no `In review` items: no action needed.
 
@@ -339,13 +337,11 @@ You do not need to do anything else.
 
 - Do NOT update any files.
 - Do NOT commit or push.
-- Do NOT update the ticket status — the post-merge action moves the board card to `Done`.
+- Do NOT update the ticket status — Step 2 of the next session moves the board card to `Done`.
 - Do NOT write to `main`.
 
-The merge itself landed all your branch commits onto `main`. GitHub Actions
-(`post-merge-housekeeping.yml`) moves the board item to `Done` within seconds. Step 2 of the
-next session verifies it landed; in the rare case the workflow failed, Step 2
-reconciles manually by moving the board item directly.
+The merge itself landed all your branch commits onto `main`. Step 2 of the next session
+moves the board item to `Done` by reconciling any `In review` items with closed issues.
 
 Your session is over.
 

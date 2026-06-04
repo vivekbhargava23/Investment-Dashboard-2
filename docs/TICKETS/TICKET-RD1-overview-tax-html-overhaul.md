@@ -1,6 +1,5 @@
 # TICKET-RD1 — Overview & Tax HTML overhaul (components, drop thesis columns)
 
-**Status:** DRAFT
 **Priority:** HIGH
 **Milestone:** Dashboard Redesign
 **Recommended model:** Sonnet — cohesive refactor of two pages' HTML into reusable components.

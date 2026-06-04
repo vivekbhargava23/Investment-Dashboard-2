@@ -1,6 +1,5 @@
 # TICKET-RD7 — Concentration + effective-number-of-stocks block
 
-**Status:** DRAFT
 **Priority:** MEDIUM
 **Milestone:** Dashboard Redesign
 **Recommended model:** Sonnet — one small pure domain function + a presentation block; clear tests.

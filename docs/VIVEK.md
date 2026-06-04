@@ -7,8 +7,7 @@
 ## Section 1 — Drafting a ticket (in chat)
 
 1. Open a chat in the Projects folder.
-2. `docs/CONTEXT.md` is already there — auto-synced from main on every merge. Chat reads it. You don't need to paste anything else most of the time.
-3. Describe what you want.
+2. Describe what you want. Chat will read the repo directly for current state (public interfaces, pages, board status).
 4. For UI changes, share a screenshot or page description when chat asks. (Chat will require this per the verification protocol.)
 5. Chat verifies its assumptions, asks clarifying questions if needed, then outputs one `.md` file per ticket. No shell blocks. No heredocs. Just the file.
 
@@ -45,7 +44,7 @@ The agent handles conda activation. To start multiple tickets in parallel: open 
 
 ## Section 5 — After merge
 
-GitHub Action handles housekeeping: the board card moves to Done and CONTEXT.md regenerates. You do nothing. Next session is ready.
+The next implementation session's Step 2 reconciles the board: any card still in `In review` with a closed issue is moved to Done. You do nothing. Next session is ready.
 
 ---
 
@@ -68,7 +67,7 @@ No script needed. The agent never reorders cards programmatically.
 - **Agent stops mid-ritual** → read the stop reason, file a hotfix ticket in a new chat if needed.
 - **PR needs changes** → comment on GitHub, then say `address PR review comments on TICKET-XXX` in a new Claude Code session.
 - **You find a bug after merge** → file a new ticket in chat.
-- **Board looks stale** → Action updates it on every merge. If still stale, it's a tooling bug — file a ticket.
+- **Board looks stale** → Step 2 of the next session reconciles it. If still stale after that, file a ticket.
 - **You want to drop a ticket entirely** → say `next`, then `drop N`. Agent confirms, closes issue, moves card to Done.
 - **You want to pick a specific ticket** → say `implement TICKET-XXX` directly.
 
@@ -85,4 +84,4 @@ No script needed. The agent never reorders cards programmatically.
 
 ## Cross-reference
 
-`AGENTS.md` is the agent's rulebook. `METHODOLOGY.md` is the why. `ARCHITECTURE.md` is the code layer rules. `CONTEXT.md` is the auto-generated repo snapshot sourced from the board and GitHub.
+`AGENTS.md` is the agent's rulebook. `METHODOLOGY.md` is the why. `ARCHITECTURE.md` is the code layer rules.
