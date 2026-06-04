@@ -31,11 +31,7 @@ If the script errors, paste the error back into chat. You don't debug it.
 3. Say `next` to see the menu, or `implement TICKET-XXX` to jump in.
 4. PR shows up. Review and merge.
 
-You no longer create worktrees or activate conda by hand — the agent does both. To clean up local worktrees of merged tickets: `bash tools/cleanup-worktrees.sh` (safe to run any time; safe to run never).
-
-All worktrees share the main checkout's `data/` directory automatically (per ADR-011). Upload the CSV once in main; every worktree sees it. The agent handles the symlinking.
-
-To start three tickets in parallel: open three terminals, run steps 1–3 in each, pick different ticket IDs in each. Three PRs come back.
+The agent handles conda activation. To start multiple tickets in parallel: open multiple terminals, run steps 1–3 in each, pick different ticket IDs in each. Multiple PRs come back.
 
 ---
 
