@@ -96,7 +96,13 @@ def main() -> None:
     # Sync session state with query params
     query_params = st.query_params
     if "page" in query_params:
-        st.session_state.current_page = query_params["page"]
+        page = query_params["page"]
+        # Route legacy research URL to company
+        if page == "research":
+            page = "company"
+        st.session_state.current_page = page
+    if "ticker" in query_params:
+        st.session_state["focus_ticker"] = query_params["ticker"]
 
     if "current_page" not in st.session_state:
         st.session_state.current_page = "overview"

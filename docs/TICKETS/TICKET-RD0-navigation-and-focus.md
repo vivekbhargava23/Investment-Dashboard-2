@@ -1,6 +1,6 @@
 # TICKET-RD0 — Navigation & focus spine (focus ticker + retire Research)
 
-**Status:** DRAFT
+**Status:** IN_PROGRESS
 **Priority:** HIGH
 **Milestone:** Dashboard Redesign
 **Recommended model:** Sonnet — cohesive changes in the nav layer; clear criteria.

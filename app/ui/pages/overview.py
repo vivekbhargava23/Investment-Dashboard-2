@@ -17,6 +17,7 @@ from app.ui.components.badges import render_thesis_badge
 from app.ui.components.charts import render_candlestick
 from app.ui.components.period_selector import render_aggregation_toggle
 from app.ui.components.weight_bar import render_weight_bar
+from app.ui.focus import set_focus_ticker
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
 from app.ui.wiring import (
@@ -368,6 +369,7 @@ def render() -> None:
         with col_freq:
             chart_freq = render_aggregation_toggle("overview_chart_freq", chart_period)
         if chart_ticker:
+            set_focus_ticker(chart_ticker)
             ohlc_provider = get_ohlc_data_provider()
             try:
                 series = get_ohlc_history(chart_ticker, chart_period, provider=ohlc_provider, freq=chart_freq)
