@@ -44,6 +44,60 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — TICKET-CSV-15
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Duration:** ~30 min
+**Branch:** ticket-csv-15-consolidate-the-csv-importer-port
+**PR:** (opened at session end)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `RowStatus.VALIDATION_ERROR` to `app/domain/csv_import.py`.
+- Ported the three import guards from the dead `run_import` into the live planner
+  (`app/adapters/scalable_csv/planner.py`) as pure helpers returning an error message
+  instead of raising: `_check_currency` (EUR-only), `_check_amount` (abs(amount) ≈
+  abs(shares×price) within €0.01, tolerance preserved exactly), `_check_sign`
+  (directional sign per row type). `_validate_row` runs them last, on rows that would
+  otherwise be NEW; a failure emits `VALIDATION_ERROR` / `SKIP` with `error_message`.
+  Per-row visibility replaces `run_import`'s all-or-nothing raise.
+- Wired `VALIDATION_ERROR` into `import_workbench.py`: 🔴 status color, `_BLOCKED_STATUSES`,
+  and the filter-chip list (so it counts in `_count_blocked` and is surfaced, not silent).
+- Deleted the dead path: `app/adapters/scalable_csv/importer.py` (run_import/ImportSummary),
+  its re-exports in `__init__.py`, and `tests/unit/test_scalable_csv_importer.py`.
+- Added validation-guard tests to the existing planner suite
+  (`tests/unit/adapters/test_csv_import_planner.py`): amount mismatch, within-tolerance,
+  wrong sign (Buy and Sell), non-EUR, plus guards-don't-fire-for-already-imported/unmapped.
+
+### Files touched
+- `app/domain/csv_import.py` — new `VALIDATION_ERROR` enum member
+- `app/adapters/scalable_csv/planner.py` — ported guards + `_validate_row` wiring
+- `app/adapters/scalable_csv/__init__.py` — dropped run_import/ImportSummary re-exports
+- `app/ui/pages/import_workbench.py` — VALIDATION_ERROR color/blocked/chip
+- `tests/unit/adapters/test_csv_import_planner.py` — guard tests
+- deleted `app/adapters/scalable_csv/importer.py`, `tests/unit/test_scalable_csv_importer.py`,
+  `tools/import_scalable_csv.py`
+
+### Tests
+963 passing (gate green: ruff, mypy app/, lint-imports all clean).
+
+### Decisions made during the session
+- **Ticket premise correction (Vivek-approved).** The ticket claimed `run_import` had only
+  two consumers and "No page or script calls it." `tools/import_scalable_csv.py` — the
+  pre-workbench batch CLI — was a third, live consumer. Stopped before any change and
+  surfaced it; Vivek chose option 1 (delete the CLI as part of the same dead-path
+  consolidation, since the Import Workbench supersedes it).
+- Ported guards to the **existing** planner test file (`test_csv_import_planner.py`) rather
+  than the ticket's proposed new `tests/unit/adapters/scalable_csv/test_planner.py`. The
+  pre-existing-behaviour cases the ticket wanted re-homed (transfer skip, out-of-scope,
+  already-imported, content dedup) were already covered there; a second file would split
+  planner tests across two locations.
+- Guards run only on rows that would otherwise be NEW (after dedup/mapping), per the
+  ticket's "after a row is otherwise NEW/INSERT" instruction.
+
+### Out-of-scope items noticed
+- None.
+
 ## 2026-06-05 — TICKET-CSV-16
 **Surface:** Claude Code
 **Model:** opus-4.8
