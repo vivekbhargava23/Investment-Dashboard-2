@@ -129,6 +129,24 @@ For `drop N`, confirm with Vivek first. On confirmation, close the issue as not 
 move the board item to `Done`, update the ticket status decoratively to `CLOSED`, summarize,
 and rerun the menu. Do not drop without confirmation.
 
+## Visual Verification (UI tickets)
+
+If a ticket changes anything user-visible (any page in `app/ui/pages/`), do not
+rely on `pytest` alone — Streamlit rendering and rerun behaviour are exactly what
+tests miss (the TICKET-008b HTML leak passed every test). Before opening the PR:
+
+1. Drive the running app and capture **before/after** screenshots using the
+   `screenshot-app` skill (`.claude/skills/screenshot-app/SKILL.md`). It launches
+   against an isolated sandbox data dir via `tools/app_sandbox.sh` — never the real
+   `data/` — and drives the page with Playwright.
+2. **Look at each screenshot.** A blank or red-traceback frame is a failed launch
+   to report, not a pass.
+3. Commit the keepers to `docs/screenshots/<ticket-slug>/` (with a short README) and
+   embed them in the PR body via raw GitHub URLs so they render.
+
+This is the default for UI work, not an optional extra. Skip it only for tickets
+with no rendered surface (pure domain/services/adapters changes).
+
 ## After The PR
 
 After printing the PR URL:
