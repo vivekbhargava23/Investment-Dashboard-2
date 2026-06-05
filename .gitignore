@@ -151,5 +151,7 @@ data/ticker_cache.json
 .DS_Store
 
 .DS_Store
-.claude/
+# Ignore local Claude settings, but share committed project skills.
+.claude/*
+!.claude/skills/
 memory/
