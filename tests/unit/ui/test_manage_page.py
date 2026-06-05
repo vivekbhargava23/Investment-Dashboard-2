@@ -8,7 +8,12 @@ from decimal import Decimal
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.ports.ticker_resolver import TickerMatch
-from app.ui.pages.manage import _init_state, _match_label, _tx_to_form_values
+from app.ui.pages.manage import (
+    _init_state,
+    _match_label,
+    _tx_to_form_values,
+    sort_transactions,
+)
 
 
 def _eur_tx(**kwargs) -> Transaction:  # type: ignore[no-untyped-def]
@@ -139,3 +144,52 @@ def test_match_label_jpy() -> None:
     label = _match_label(m)
     assert "5631.T" in label
     assert "JPY" in label
+
+
+# ---------------------------------------------------------------------------
+# TICKET-RD2: sort_transactions — pure ordering for the All Transactions table
+# ---------------------------------------------------------------------------
+
+def _tickers(txs: list[Transaction]) -> list[str]:
+    return [t.ticker for t in txs]
+
+
+# ".DE" tickers infer EUR, matching the EUR price the helper passes (ADR-005).
+
+def test_sort_transactions_default_is_date_descending() -> None:
+    old = _eur_tx(ticker="OLD.DE", trade_date=date(2024, 1, 1))
+    new = _eur_tx(ticker="NEW.DE", trade_date=date(2026, 1, 1))
+    assert _tickers(sort_transactions([old, new])) == ["NEW.DE", "OLD.DE"]
+
+
+def test_sort_transactions_date_ascending() -> None:
+    old = _eur_tx(ticker="OLD.DE", trade_date=date(2024, 1, 1))
+    new = _eur_tx(ticker="NEW.DE", trade_date=date(2026, 1, 1))
+    assert _tickers(sort_transactions([new, old], "date", "asc")) == ["OLD.DE", "NEW.DE"]
+
+
+def test_sort_transactions_ticker_both_directions() -> None:
+    a = _eur_tx(ticker="AAA.DE")
+    z = _eur_tx(ticker="ZZZ.DE")
+    assert _tickers(sort_transactions([z, a], "ticker", "asc")) == ["AAA.DE", "ZZZ.DE"]
+    assert _tickers(sort_transactions([a, z], "ticker", "desc")) == ["ZZZ.DE", "AAA.DE"]
+
+
+def test_sort_transactions_shares_descending() -> None:
+    few = _eur_tx(ticker="FEW.DE", shares=Decimal("2"))
+    many = _eur_tx(ticker="MANY.DE", shares=Decimal("20"))
+    assert _tickers(sort_transactions([few, many], "shares", "desc")) == ["MANY.DE", "FEW.DE"]
+
+
+def test_sort_transactions_cost_ascending() -> None:
+    cheap = _eur_tx(ticker="CHEAP.DE", shares=Decimal("1"),
+                    price_native=Money(amount=Decimal("10"), currency=Currency.EUR))
+    pricey = _eur_tx(ticker="PRICEY.DE", shares=Decimal("1"),
+                     price_native=Money(amount=Decimal("1000"), currency=Currency.EUR))
+    assert _tickers(sort_transactions([pricey, cheap], "cost", "asc")) == ["CHEAP.DE", "PRICEY.DE"]
+
+
+def test_sort_transactions_unknown_key_falls_back_to_date_desc() -> None:
+    old = _eur_tx(ticker="OLD.DE", trade_date=date(2024, 1, 1))
+    new = _eur_tx(ticker="NEW.DE", trade_date=date(2026, 1, 1))
+    assert _tickers(sort_transactions([old, new], "bogus", "sideways")) == ["NEW.DE", "OLD.DE"]

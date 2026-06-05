@@ -13,7 +13,11 @@ from app.ui.cache_keys import transactions_signature
 from app.ui.components.charts import render_candlestick
 from app.ui.components.metric_card import build_metric_card
 from app.ui.components.period_selector import render_aggregation_toggle
-from app.ui.components.positions_table import render_positions_table
+from app.ui.components.positions_table import (
+    DEFAULT_DIRECTION,
+    DEFAULT_SORT_KEY,
+    render_positions_table,
+)
 from app.ui.components.progress_bar import render_progress_bar
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
@@ -72,19 +76,22 @@ def _cached_tax_summary_for_overview(tx_sig: str, year: int) -> TaxYearSummary |
         return None
 
 
-def _fetch_trend_texts(tickers: list[str]) -> dict[str, str]:
-    """Fetch 30-day OHLC for each ticker and return HTML trend text for the table.
+def _fetch_trend(tickers: list[str]) -> tuple[dict[str, str], dict[str, float | None]]:
+    """Fetch 30-day OHLC once and return (trend HTML, numeric trend) per ticker.
 
-    ticker → HTML span like '↑ +2.3%' (green) or '↓ -1.1%' (red) or '—' on error.
-    Per-ticker errors are isolated: one failure never blocks other rows.
+    The HTML map drives the table cell ('↑ +2.3%' green / '↓ -1.1%' red / '—');
+    the numeric map drives sorting by the Trend column. Per-ticker errors are
+    isolated: one failure never blocks other rows (its value is None → '—').
     """
     provider = get_ohlc_data_provider()
     series_map = get_ohlc_histories(tickers, ChartPeriod.ONE_MONTH, provider=provider)
     trend_text_map: dict[str, str] = {}
+    trend_value_map: dict[str, float | None] = {}
 
     for ticker in tickers:
         series = series_map.get(ticker.strip().upper())
         pct = series.period_change_pct if series is not None else None
+        trend_value_map[ticker] = float(pct) if pct is not None else None
         if pct is None:
             trend_text_map[ticker] = "—"
         elif pct >= 0:
@@ -92,7 +99,12 @@ def _fetch_trend_texts(tickers: list[str]) -> dict[str, str]:
         else:
             trend_text_map[ticker] = f'<span class="gain-negative">↓ {float(pct):.1f}%</span>'
 
-    return trend_text_map
+    return trend_text_map, trend_value_map
+
+
+def _fetch_trend_texts(tickers: list[str]) -> dict[str, str]:
+    """Back-compat shim: the trend HTML map only (see ``_fetch_trend``)."""
+    return _fetch_trend(tickers)[0]
 
 
 def render() -> None:
@@ -179,10 +191,19 @@ def render() -> None:
     }
 
     tickers = list(live_positions.keys())
-    trend_text_map = _fetch_trend_texts(tickers)
+    trend_text_map, trend_value_map = _fetch_trend(tickers)
+
+    sort_key = st.query_params.get("sort", DEFAULT_SORT_KEY)
+    direction = st.query_params.get("dir", DEFAULT_DIRECTION)
 
     render_positions_table(
-        live_positions, summary, trend_data=trend_text_map, name_lookup=name_lookup
+        live_positions,
+        summary,
+        trend_data=trend_text_map,
+        name_lookup=name_lookup,
+        sort_key=sort_key,
+        direction=direction,
+        trend_values=trend_value_map,
     )
 
     status_text = f"● LIVE · refreshed {now.strftime('%H:%M')}"

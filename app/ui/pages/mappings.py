@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import logging
 import re
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,7 @@ from app.services.isin_remap import (
 )
 from app.ui.components.isin_mapper import KIND_LABEL, KIND_OPTIONS, suggest_kind
 from app.ui.components.ticker_searchbox import render_ticker_searchbox
+from app.ui.render import render_html
 from app.ui.wiring import (
     get_isin_map_repo,
     get_repository,
@@ -31,6 +33,59 @@ _TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,29}$")
 # Column widths for the Mapped table: ISIN, Name, Ticker, Tax kind, Last seen,
 # then four action slots (Edit, Kind, Unmap, Remove).
 _MAPPED_COLS = [1.8, 2.2, 1.0, 1.3, 1.0, 0.7, 0.7, 0.8, 0.9]
+
+# ── Sortable Mapped table (TICKET-RD2) ──────────────────────────────────────
+# Column key (None = action column), label. Order matches _MAPPED_COLS.
+_MAPPED_COLUMNS: tuple[tuple[str | None, str], ...] = (
+    ("isin", "ISIN"),
+    ("name", "Name"),
+    ("ticker", "Ticker"),
+    ("kind", "Tax kind"),
+    ("last_seen", "Last seen"),
+    (None, ""),
+    (None, ""),
+    (None, ""),
+    (None, ""),
+)
+_MAP_SORT_KEYS: frozenset[str] = frozenset(k for k, _ in _MAPPED_COLUMNS if k)
+_MAP_TEXT_KEYS: frozenset[str] = frozenset({"isin", "name", "ticker", "kind"})
+_MAP_DEFAULT_KEY = "isin"
+_MAP_DEFAULT_DIR = "asc"
+
+_MAP_SORT_FNS = {
+    "isin": lambda kv: kv[0],
+    "name": lambda kv: (kv[1].name or "").lower(),
+    "ticker": lambda kv: (kv[1].ticker or "").lower(),
+    "kind": lambda kv: kv[1].instrument_kind.value if kv[1].instrument_kind else "",
+    "last_seen": lambda kv: kv[1].last_seen_in_csv or date.min,
+}
+
+
+def sort_mappings(
+    items: list[tuple[str, Any]],
+    sort_key: str = _MAP_DEFAULT_KEY,
+    direction: str = _MAP_DEFAULT_DIR,
+) -> list[tuple[str, Any]]:
+    """Pure sort for (isin, mapping) pairs. Unknown key/direction → ISIN asc."""
+    if sort_key not in _MAP_SORT_FNS:
+        sort_key = _MAP_DEFAULT_KEY
+    if direction not in ("asc", "desc"):
+        direction = _MAP_DEFAULT_DIR
+    return sorted(items, key=_MAP_SORT_FNS[sort_key], reverse=direction == "desc")
+
+
+def _map_header_link(key: str, label: str, sort_key: str, direction: str) -> str:
+    is_active = key == sort_key
+    if is_active:
+        next_dir = "asc" if direction == "desc" else "desc"
+        arrow = " ▼" if direction == "desc" else " ▲"
+        cls = "sort-link active"
+    else:
+        next_dir = "asc" if key in _MAP_TEXT_KEYS else "desc"
+        arrow = ""
+        cls = "sort-link"
+    href = f"/?page=mappings&mapsort={key}&mapdir={next_dir}"
+    return f'<a class="{cls}" href="{href}" target="_self"><strong>{label}{arrow}</strong></a>'
 
 _STATE_DEFAULTS: dict[str, Any] = {
     "mappings_editing_isin": None,
@@ -254,15 +309,23 @@ def _render_mapped_section(
         st.info("No mapped ISINs yet.")
         return
 
+    sort_key = st.query_params.get("mapsort", _MAP_DEFAULT_KEY)
+    direction = st.query_params.get("mapdir", _MAP_DEFAULT_DIR)
+    if sort_key not in _MAP_SORT_KEYS:
+        sort_key = _MAP_DEFAULT_KEY
+
     header = st.columns(_MAPPED_COLS)
-    for col, label in zip(header, ["ISIN", "Name", "Ticker", "Tax kind", "Last seen", "", "", "", ""]):
-        col.markdown(f"**{label}**")
+    for col, (key, label) in zip(header, _MAPPED_COLUMNS):
+        if key is None:
+            continue
+        with col:
+            render_html(_map_header_link(key, label, sort_key, direction))
 
     editing_isin = st.session_state.mappings_editing_isin
     kind_editing_isin = st.session_state.mappings_kind_editing_isin
     confirming_isin = st.session_state.mappings_confirming_remove_isin
 
-    for isin, mapping in mapped.items():
+    for isin, mapping in sort_mappings(list(mapped.items()), sort_key, direction):
         if isin == confirming_isin:
             _render_remove_confirmation(isin, mapping, doc)
             continue

@@ -20,6 +20,7 @@ from app.ui.pages.mappings import (
     _set_instrument_kind,
     _unmap_isin,
     _validate_ticker,
+    sort_mappings,
 )
 
 # ---------------------------------------------------------------------------
@@ -463,3 +464,64 @@ def test_delete_transactions_for_isin_leaves_none_isin_txs_alone() -> None:
 
     assert removed == 1
     assert [t.id for t in fake_repo.load_all()] == ["tx2"]
+
+
+# ---------------------------------------------------------------------------
+# TICKET-RD2: sort_mappings — pure ordering for the Mapped table
+# ---------------------------------------------------------------------------
+
+def _mapped(
+    isin: str, *, name: str, ticker: str, kind=None, last_seen=None
+) -> tuple[str, IsinMapping]:
+    return isin, IsinMapping(
+        ticker=ticker, name=name, status="mapped",
+        instrument_kind=kind, last_seen_in_csv=last_seen,
+    )
+
+
+def _isins(items: list[tuple[str, IsinMapping]]) -> list[str]:
+    return [isin for isin, _ in items]
+
+
+def test_sort_mappings_default_is_isin_ascending() -> None:
+    a = _mapped("DE0000000001", name="Zeta", ticker="ZZZ")
+    b = _mapped("US0000000002", name="Alpha", ticker="AAA")
+    assert _isins(sort_mappings([b, a])) == ["DE0000000001", "US0000000002"]
+
+
+def test_sort_mappings_isin_descending() -> None:
+    a = _mapped("DE0000000001", name="Zeta", ticker="ZZZ")
+    b = _mapped("US0000000002", name="Alpha", ticker="AAA")
+    assert _isins(sort_mappings([a, b], "isin", "desc")) == ["US0000000002", "DE0000000001"]
+
+
+def test_sort_mappings_by_name() -> None:
+    a = _mapped("X1", name="Zeta", ticker="ZZZ")
+    b = _mapped("X2", name="Alpha", ticker="AAA")
+    assert _isins(sort_mappings([a, b], "name", "asc")) == ["X2", "X1"]
+
+
+def test_sort_mappings_by_ticker_descending() -> None:
+    a = _mapped("X1", name="One", ticker="AAA")
+    b = _mapped("X2", name="Two", ticker="ZZZ")
+    assert _isins(sort_mappings([a, b], "ticker", "desc")) == ["X2", "X1"]
+
+
+def test_sort_mappings_by_last_seen_none_sorts_first_ascending() -> None:
+    seen = _mapped("X1", name="Seen", ticker="AAA", last_seen=date(2026, 1, 1))
+    never = _mapped("X2", name="Never", ticker="BBB", last_seen=None)
+    # None → date.min, so ascending puts the never-seen entry first.
+    assert _isins(sort_mappings([seen, never], "last_seen", "asc")) == ["X2", "X1"]
+
+
+def test_sort_mappings_by_kind_unset_sorts_first_ascending() -> None:
+    from app.domain.tax.classification import InstrumentKind
+    with_kind = _mapped("X1", name="Has", ticker="AAA", kind=InstrumentKind.AKTIE)
+    no_kind = _mapped("X2", name="None", ticker="BBB", kind=None)
+    assert _isins(sort_mappings([with_kind, no_kind], "kind", "asc")) == ["X2", "X1"]
+
+
+def test_sort_mappings_unknown_key_falls_back_to_isin_asc() -> None:
+    a = _mapped("DE0000000001", name="Zeta", ticker="ZZZ")
+    b = _mapped("US0000000002", name="Alpha", ticker="AAA")
+    assert _isins(sort_mappings([b, a], "bogus", "sideways")) == ["DE0000000001", "US0000000002"]

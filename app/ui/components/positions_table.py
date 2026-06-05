@@ -12,32 +12,139 @@ preserves the escaping TICKET-ROBUST-1 added.
 from __future__ import annotations
 
 import html
+from collections.abc import Sequence
 from decimal import Decimal
+from typing import Any
 
 from app.domain.positions import LivePosition, PortfolioSummary
 from app.ui.components.weight_bar import render_weight_bar
 from app.ui.format import format_eur
 from app.ui.render import render_html
 
-_HEADER = (
-    '<table class="positions-table">'
-    "<thead>"
-    "<tr>"
-    "<th>Ticker</th>"
-    "<th>Name</th>"
-    '<th class="text-right">Price (€)</th>'
-    '<th class="text-right">Shares</th>'
-    '<th class="text-right">Cost (€)</th>'
-    '<th class="text-right">Value (€)</th>'
-    '<th class="text-right">Gain (€)</th>'
-    "<th>Weight</th>"
-    '<th class="text-right">Trend 30D</th>'
-    '<th class="text-center">Lots</th>'
-    '<th class="text-center">Sim</th>'
-    "</tr>"
-    "</thead>"
-    "<tbody>"
+# Sortable columns and the keys the URL accepts (TICKET-RD2). The two trailing
+# columns (Lots, Sim) carry ``None`` because they are decoration, not data.
+_COLUMNS: tuple[tuple[str | None, str, str], ...] = (
+    ("ticker", "Ticker", ""),
+    ("name", "Name", ""),
+    ("price", "Price (€)", "text-right"),
+    ("shares", "Shares", "text-right"),
+    ("cost", "Cost (€)", "text-right"),
+    ("value", "Value (€)", "text-right"),
+    ("gain", "Gain (€)", "text-right"),
+    ("weight", "Weight", ""),
+    ("trend", "Trend 30D", "text-right"),
+    (None, "Lots", "text-center"),
+    (None, "Sim", "text-center"),
 )
+SORT_KEYS: frozenset[str] = frozenset(key for key, _, _ in _COLUMNS if key)
+DEFAULT_SORT_KEY = "value"
+DEFAULT_DIRECTION = "desc"
+# Text columns read more naturally A→Z on first click; numeric columns biggest-first.
+_TEXT_KEYS: frozenset[str] = frozenset({"ticker", "name"})
+
+
+def _is_stale(p: LivePosition) -> bool:
+    return (
+        p.live_price_native is None
+        or p.live_value_eur is None
+        or p.unrealised_gain_eur is None
+    )
+
+
+def _sort_value(
+    p: LivePosition,
+    sort_key: str,
+    name_lookup: dict[str, str],
+    trend_values: dict[str, float | None],
+) -> Any:
+    """Sortable scalar for a *non-stale* position. Stale rows are partitioned out
+    before this is called, so the live-price fields are safe to read."""
+    ticker = p.position.ticker
+    if sort_key == "ticker":
+        return ticker.lower()
+    if sort_key == "name":
+        return (name_lookup.get(ticker) or ticker).lower()
+    if sort_key == "shares":
+        return float(p.position.open_shares)
+    if sort_key == "cost":
+        return float(p.position.cost_basis_eur.amount)
+    if sort_key == "gain":
+        return float(p.unrealised_gain_eur.amount) if p.unrealised_gain_eur else 0.0
+    if sort_key == "price":
+        if p.live_value_eur is not None and p.position.open_shares:
+            return float(p.live_value_eur.amount) / float(p.position.open_shares)
+        return 0.0
+    if sort_key == "trend":
+        v = trend_values.get(ticker)
+        return float(v) if v is not None else 0.0
+    # "value" and "weight" share an ordering — weight is value / total.
+    return float(p.live_value_eur.amount) if p.live_value_eur is not None else 0.0
+
+
+def sort_positions(
+    positions: Sequence[LivePosition],
+    sort_key: str = DEFAULT_SORT_KEY,
+    direction: str = DEFAULT_DIRECTION,
+    *,
+    name_lookup: dict[str, str] | None = None,
+    trend_values: dict[str, float | None] | None = None,
+) -> list[LivePosition]:
+    """Return positions ordered by ``sort_key`` / ``direction``.
+
+    Stale rows (missing live price/value/gain) always sort to the bottom in both
+    directions — they never displace real data. Unknown keys/directions fall back
+    to the default (value descending), so a junk URL degrades gracefully.
+    """
+    name_lookup = name_lookup or {}
+    trend_values = trend_values or {}
+    if sort_key not in SORT_KEYS:
+        sort_key = DEFAULT_SORT_KEY
+    if direction not in ("asc", "desc"):
+        direction = DEFAULT_DIRECTION
+
+    live = [p for p in positions if not _is_stale(p)]
+    stale = [p for p in positions if _is_stale(p)]
+    live.sort(
+        key=lambda p: _sort_value(p, sort_key, name_lookup, trend_values),
+        reverse=direction == "desc",
+    )
+    # Deterministic, direction-independent order for the always-last stale rows.
+    stale.sort(key=lambda p: p.position.ticker)
+    return live + stale
+
+
+def _build_header(sort_key: str, direction: str) -> str:
+    """Header row where each data column is a link toggling ``?sort=&dir=``.
+
+    The active column shows ▲/▼ and its link flips the direction; an inactive
+    column links to its natural default (A→Z for text, biggest-first for numbers).
+    """
+    cells: list[str] = []
+    for key, label, css in _COLUMNS:
+        cls = f' class="{css}"' if css else ""
+        if key is None:
+            cells.append(f"<th{cls}>{label}</th>")
+            continue
+        is_active = key == sort_key
+        if is_active:
+            next_dir = "asc" if direction == "desc" else "desc"
+            arrow = " ▼" if direction == "desc" else " ▲"
+            link_cls = "sort-link active"
+        else:
+            next_dir = "asc" if key in _TEXT_KEYS else "desc"
+            arrow = ""
+            link_cls = "sort-link"
+        href = f"/?page=overview&sort={key}&dir={next_dir}"
+        cells.append(
+            f"<th{cls}>"
+            f'<a class="{link_cls}" href="{href}" target="_self">{label}{arrow}</a>'
+            f"</th>"
+        )
+    return (
+        '<table class="positions-table"><thead><tr>'
+        + "".join(cells)
+        + "</tr></thead><tbody>"
+    )
 
 
 def build_positions_table_html(
@@ -45,15 +152,29 @@ def build_positions_table_html(
     summary: PortfolioSummary,
     trend_data: dict[str, str] | None = None,
     name_lookup: dict[str, str] | None = None,
+    *,
+    sort_key: str = DEFAULT_SORT_KEY,
+    direction: str = DEFAULT_DIRECTION,
+    trend_values: dict[str, float | None] | None = None,
 ) -> str:
-    """trend_data maps ticker → pre-formatted trend cell HTML (e.g. '↑ +2.3%' or '—')."""
-    sorted_positions = sorted(
-        positions.values(),
-        key=lambda p: float(p.live_value_eur.amount) if p.live_value_eur is not None else -1.0,
-        reverse=True,
-    )
+    """trend_data maps ticker → pre-formatted trend cell HTML (e.g. '↑ +2.3%' or '—').
+
+    trend_values maps ticker → numeric 30D change (used only for sorting by trend).
+    """
+    if sort_key not in SORT_KEYS:
+        sort_key = DEFAULT_SORT_KEY
+    if direction not in ("asc", "desc"):
+        direction = DEFAULT_DIRECTION
 
     _name_lookup = name_lookup or {}
+    sorted_positions = sort_positions(
+        list(positions.values()),
+        sort_key,
+        direction,
+        name_lookup=_name_lookup,
+        trend_values=trend_values,
+    )
+
     tbody_rows: list[str] = []
     for p in sorted_positions:
         ticker = p.position.ticker
@@ -126,7 +247,7 @@ def build_positions_table_html(
             f'</tr>'
         )
 
-    return _HEADER + "".join(tbody_rows) + "</tbody></table>"
+    return _build_header(sort_key, direction) + "".join(tbody_rows) + "</tbody></table>"
 
 
 def render_positions_table(
@@ -134,9 +255,19 @@ def render_positions_table(
     summary: PortfolioSummary,
     trend_data: dict[str, str] | None = None,
     name_lookup: dict[str, str] | None = None,
+    *,
+    sort_key: str = DEFAULT_SORT_KEY,
+    direction: str = DEFAULT_DIRECTION,
+    trend_values: dict[str, float | None] | None = None,
 ) -> None:
     """Render the positions table inside a scrollable card."""
     table_html = build_positions_table_html(
-        positions, summary, trend_data=trend_data, name_lookup=name_lookup
+        positions,
+        summary,
+        trend_data=trend_data,
+        name_lookup=name_lookup,
+        sort_key=sort_key,
+        direction=direction,
+        trend_values=trend_values,
     )
     render_html(f'<div class="metric-card table-card">{table_html}</div>')
