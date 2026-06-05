@@ -44,6 +44,47 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — TICKET-PANEL-1
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Branch:** ticket-panel-1-catalysts-data-layer-model-port
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Built the catalysts data layer per ADR-013, mirroring the thesis_map stack.
+- Domain: frozen `CatalystEvent` / `CatalystsDocument`; pure helpers `upcoming`,
+  `for_ticker`, `time_band`; categorisation rules `categorise` / `default_impact`.
+- Port `CatalystsRepository`, `JsonCatalystsRepository` (atomic write,
+  missing-file → empty doc), service functions `get_portfolio_catalysts` /
+  `get_position_catalysts`, and a `get_catalysts_repo()` wiring provider.
+- Seeded `data/catalysts.json` (whitelisted in `.gitignore`): central-bank
+  dates marked `confirmed`, position earnings marked `estimated`, all with
+  non-empty sources. No rendering (deferred to PANEL-2).
+
+### Files touched
+- `app/domain/catalysts.py`, `app/ports/catalysts.py`,
+  `app/adapters/catalysts/{__init__,repo}.py`, `app/services/catalysts.py` — new
+- `app/ui/wiring.py`, `app/config.py`, `.gitignore` — wiring + seed whitelist
+- `data/catalysts.json` — new seed
+- `tests/unit/domain/test_catalysts.py`, `tests/unit/services/test_catalysts.py`,
+  `tests/integration/test_catalysts_repo.py` — new
+
+### Tests
+1049 → 1069 passing (20 new); ruff, mypy, lint-imports all clean.
+
+### Decisions made during the session
+- No architectural decisions; followed ADR-013 as written.
+- ADR-013 Status line still reads "Proposed"; proceeded on Vivek's explicit
+  instruction since the design is complete.
+- Seed dates I could not verify to the day are marked `estimated` (honesty
+  mandate); exact curation happens later in a Cowork chat with web search.
+
+### Out-of-scope items noticed
+- PANEL-2 (timeline UI) — intentionally deferred.
+
+### Tokens used (rough)
+~45k
+
 ## 2026-06-05 — TICKET-RD11
 **Surface:** Claude Code
 **Model:** opus-4.8
