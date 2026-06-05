@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 
 from app.domain.positions import LivePosition
-from app.ui.components.positions_table import _weight_bar_css, build_positions_dataframe
+from app.ui.components.positions_table import build_positions_dataframe, weight_bar_text
 from tests.unit.ui.test_overview_render import (
     _make_live_position,
     _make_live_position_usd,
@@ -152,30 +152,31 @@ def test_stale_row_keeps_book_fields() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Weight bar colour-coding (gain-tinted, green/red/grey)
+# Weight bar text (Unicode block bar + %)
 # ---------------------------------------------------------------------------
 
-def test_weight_bar_green_when_gain_positive() -> None:
-    css = _weight_bar_css(50.0, 100.0, 100.0)
-    assert "38, 166, 154" in css  # green
-    assert "50.0%" in css
+def test_weight_bar_shows_percent() -> None:
+    assert "16.4%" in weight_bar_text(16.4, 100.0)
 
 
-def test_weight_bar_red_when_gain_negative() -> None:
-    css = _weight_bar_css(20.0, -100.0, 100.0)
-    assert "239, 83, 80" in css  # red
+def test_weight_bar_full_when_at_max() -> None:
+    bar = weight_bar_text(50.0, 50.0, width=10)
+    assert bar.startswith("██████████")  # 10/10 filled
+    assert "·" not in bar.split(" ")[0]
 
 
-def test_weight_bar_grey_when_gain_missing() -> None:
-    css = _weight_bar_css(20.0, None, 100.0)
-    assert "120, 120, 120" in css  # neutral grey
+def test_weight_bar_half_when_half_of_max() -> None:
+    bar = weight_bar_text(25.0, 50.0, width=10)
+    blocks = bar.split(" ")[0]
+    assert blocks.count("█") == 5
+    assert blocks.count("·") == 5
 
 
 def test_weight_bar_empty_when_weight_missing() -> None:
-    assert _weight_bar_css(None, 100.0, 100.0) == ""
+    assert weight_bar_text(None, 100.0) == ""
 
 
-def test_weight_bar_scales_to_weight_max() -> None:
-    # weight 25 against a max of 50 → bar fills 50%.
-    css = _weight_bar_css(25.0, 10.0, 50.0)
-    assert "50.0%" in css
+def test_weight_bar_more_blocks_for_larger_weight() -> None:
+    big = weight_bar_text(40.0, 50.0, width=10).split(" ")[0].count("█")
+    small = weight_bar_text(10.0, 50.0, width=10).split(" ")[0].count("█")
+    assert big > small
