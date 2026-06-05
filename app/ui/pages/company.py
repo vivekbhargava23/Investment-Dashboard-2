@@ -12,7 +12,9 @@ import streamlit as st
 
 from app.domain.company import CompanyData
 from app.ports.company_data import CompanyDataError
+from app.services.catalysts import get_position_catalysts
 from app.services.company import get_company, refresh_company_section
+from app.ui.components.catalysts_timeline import render_catalysts_timeline
 from app.ui.components.chart_theme import (
     DEFAULT_STYLE,
     ChartStyle,
@@ -36,7 +38,7 @@ from app.ui.pages._snapshot_helpers import (
     filter_price_history,
 )
 from app.ui.render import render_html
-from app.ui.wiring import get_company_provider, get_ticker_resolver
+from app.ui.wiring import get_catalysts_repo, get_company_provider, get_ticker_resolver
 
 _COMPANY_CACHE_ROOT = Path("data/companies")
 _SECTIONS: tuple[Literal["profile", "prices", "financials"], ...] = (
@@ -431,6 +433,21 @@ def _render_next_catalyst(data: CompanyData, today: date) -> None:
     )
 
 
+def _render_position_catalysts(ticker: str, today: date) -> None:
+    """Per-position catalysts timeline (PANEL-2) for the Company Deep Dive.
+
+    Reuses the shared timeline component in ``position`` mode — the page's ticker
+    is already context, so events don't repeat it. Surfaces the curated file's
+    ``updated`` date so staleness is visible.
+    """
+    repo = get_catalysts_repo()
+    events = get_position_catalysts(ticker, as_of=today, repo=repo)
+    render_html("<div class='section-eyebrow mt-16 mb-8'>Catalysts</div>")
+    render_catalysts_timeline(
+        events, as_of=today, mode="position", updated=repo.load().updated
+    )
+
+
 def render() -> None:
     title_col, refresh_col = st.columns([0.78, 0.22])
     with title_col:
@@ -507,6 +524,9 @@ def render() -> None:
         st.divider()
 
         _render_next_catalyst(data, datetime.now(UTC).date())
+        st.divider()
+
+        _render_position_catalysts(str(selected_ticker), datetime.now(UTC).date())
     with tabs[1]:
         st.info(
             "📋 Business tab coming soon — waiting for segment data sources and Panel framework."

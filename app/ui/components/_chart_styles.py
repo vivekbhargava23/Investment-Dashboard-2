@@ -55,6 +55,20 @@ RETURN_COLORSCALE: ColorScale = [
 ]
 
 
+# Single source of category → colour for the catalysts timeline (PANEL-2),
+# reused by the legend, the timeline dots, and the companion table. Drawn from the
+# light-theme "Clean" accent palette (chart_theme.STYLE_CLEAN.accent_colors) so the
+# timeline stays close to the dashboard's current light direction.
+CATALYST_CATEGORY_COLORS: dict[str, str] = {
+    "earnings": "#4f6f8f",
+    "macro": "#c9953a",
+    "product": "#4d908e",
+    "regulatory": "#b77982",
+    "dividend": "#87a878",
+    "lockup": "#8c8c84",
+}
+
+
 # SMA overlay styles for the Technicals tab candlestick chart.
 # Amber (#F59E0B) matches the existing "moderate" bucket in CORRELATION_BUCKET_COLORS.
 # Blue (#3B82F6, Tailwind blue-500) is visible on both light and dark chart backgrounds.
