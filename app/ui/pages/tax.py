@@ -28,6 +28,8 @@ from app.services.tax_planning import (
 )
 from app.services.valuation import get_live_positions_cached
 from app.ui.cache_keys import file_mtime_key, transactions_signature
+from app.ui.components.metric_card import build_metric_card
+from app.ui.components.progress_bar import render_progress_bar
 from app.ui.format import format_eur, format_pct, gain_class
 from app.ui.render import render_html
 from app.ui.wiring import (
@@ -246,47 +248,53 @@ def _render_ytd_tiles(summary: TaxYearSummary) -> None:
         f"+ {format_eur(general_pot_remaining)} general pot"
     )
 
-    render_html(f"""
-        <div class="metric-row cols-4">
-            <div class="metric-card">
-                <div class="metric-label">Sparerpauschbetrag</div>
-                <div class="metric-value sm">{format_eur(total_allowance)}</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">
-                    {format_eur(consumed)} used · {format_eur(remaining_allowance)} remaining
-                </div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Realised Gains YTD (gross)</div>
-                <div class="metric-value sm {net_class}">{format_eur(Money(amount=net_gross, currency=_EUR), signed=True)}</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">
-                    {format_eur(Money(amount=gross_losses, currency=_EUR), signed=True)} losses · gross {format_eur(Money(amount=gross_gains, currency=_EUR))}
-                </div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Loss Pot Carried-In</div>
-                <div class="metric-value sm">{format_eur(summary.aktien_pot.prior_year_carryforward_eur + summary.general_pot.prior_year_carryforward_eur)}</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">{pot_subtitle}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Tax Headroom</div>
-                <div class="metric-value sm gain-positive">{format_eur(headroom)}</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">{headroom_subtitle}</div>
-            </div>
-        </div>
-    """)
+    losses_str = format_eur(Money(amount=gross_losses, currency=_EUR), signed=True)
+    gains_str = format_eur(Money(amount=gross_gains, currency=_EUR))
+    loss_pot_carried = format_eur(
+        summary.aktien_pot.prior_year_carryforward_eur
+        + summary.general_pot.prior_year_carryforward_eur
+    )
+    render_html(
+        '<div class="metric-row cols-4">'
+        + build_metric_card(
+            "Sparerpauschbetrag",
+            format_eur(total_allowance),
+            size="sm",
+            sub_value=f"{format_eur(consumed)} used · {format_eur(remaining_allowance)} remaining",
+        )
+        + build_metric_card(
+            "Realised Gains YTD (gross)",
+            format_eur(Money(amount=net_gross, currency=_EUR), signed=True),
+            value_class=net_class,
+            size="sm",
+            sub_value=f"{losses_str} losses · gross {gains_str}",
+        )
+        + build_metric_card(
+            "Loss Pot Carried-In",
+            loss_pot_carried,
+            size="sm",
+            sub_value=pot_subtitle,
+        )
+        + build_metric_card(
+            "Tax Headroom",
+            format_eur(headroom),
+            value_class="gain-positive",
+            size="sm",
+            sub_value=headroom_subtitle,
+        )
+        + "</div>"
+    )
 
     # Progress bar
-    render_html(f"""
-        <div class="tax-progress-wrap">
-            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text3); margin-bottom: 4px;">
-                <span>Sparerpauschbetrag consumed</span>
-                <span class="font-mono">{allowance_pct:.0f}% · {format_eur(consumed)} / {format_eur(total_allowance)}</span>
-            </div>
-            <div style="width: 100%; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden;">
-                <div style="width: {allowance_pct:.1f}%; height: 100%; background: var(--green); border-radius: 4px;"></div>
-            </div>
-        </div>
-    """)
+    render_html(
+        '<div class="tax-progress-wrap">'
+        '<div class="flex-between text-meta mb-4">'
+        "<span>Sparerpauschbetrag consumed</span>"
+        f'<span class="font-mono">{allowance_pct:.0f}% · {format_eur(consumed)} / {format_eur(total_allowance)}</span>'
+        "</div>"
+        f"{render_progress_bar(allowance_pct, height_px=8)}"
+        "</div>"
+    )
 
 
 def _render_tax_exposure(
@@ -328,50 +336,57 @@ def _render_tax_exposure(
     taxable_subtitle = "fully sheltered ✓" if taxable_gain.amount == 0 else "after Teilfreistellung, offsets, allowance"
     taxable_class = "gain-positive" if taxable_gain.amount == 0 else ""
 
-    render_html("""
-        <div style="margin-top: 24px; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--text);">
-            Total Tax Exposure
-        </div>
-        <div style="font-size: 11px; color: var(--text3); margin-bottom: 12px;">
-            What would you owe if every position were closed today?
-        </div>
-    """)
+    render_html(
+        '<div class="section-title mt-24 mb-8">Total Tax Exposure</div>'
+        '<div class="text-meta mb-12">What would you owe if every position were closed today?</div>'
+    )
 
     if stale_tickers:
-        render_html(f"""
-            <div style="background: var(--amber-bg); border: 1px solid var(--amber); border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 12px; color: var(--amber);">
-                &#9888; {len(stale_tickers)} position(s) have stale prices and are excluded from tax exposure estimates:
-                {", ".join(html.escape(t) for t in stale_tickers)}. Refresh from Live Overview when prices return.
-            </div>
-        """)
+        render_html(
+            '<div class="warn-box">'
+            f"&#9888; {len(stale_tickers)} position(s) have stale prices and are excluded "
+            "from tax exposure estimates: "
+            f'{", ".join(html.escape(t) for t in stale_tickers)}. '
+            "Refresh from Live Overview when prices return."
+            "</div>"
+        )
 
-    render_html(f"""
-        <div class="metric-row cols-4">
-            <div class="metric-card">
-                <div class="metric-label">Net Unrealised Gain</div>
-                <div class="metric-value sm {ur_class}">{format_eur(Money(amount=net_unrealised, currency=_EUR), signed=True)}</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">{ur_pct}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Sheltered (Allowance + Loss Pot)</div>
-                <div class="metric-value sm">{format_eur(sheltered_total)}</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">absorbed if liquidated today</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Taxable Gain</div>
-                <div class="metric-value sm {taxable_class}">{format_eur(taxable_gain)}</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">{taxable_subtitle}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Tax Owed (if closed today)</div>
-                <div class="metric-value sm {tax_class}">{format_eur(tax_owed)}</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">{tax_subtitle}</div>
-            </div>
-        </div>
-        <div style="font-size: 10px; color: var(--text3); margin-top: 6px;">
-            &#9888; Vorabpauschale not included for accumulating ETFs (TICKET-010b)
-        </div>
-    """)
+    render_html(
+        '<div class="metric-row cols-4">'
+        + build_metric_card(
+            "Net Unrealised Gain",
+            format_eur(Money(amount=net_unrealised, currency=_EUR), signed=True),
+            value_class=ur_class,
+            size="sm",
+            sub_value=ur_pct,
+        )
+        + build_metric_card(
+            "Sheltered (Allowance + Loss Pot)",
+            format_eur(sheltered_total),
+            size="sm",
+            sub_value="absorbed if liquidated today",
+        )
+        + build_metric_card(
+            "Taxable Gain",
+            format_eur(taxable_gain),
+            value_class=taxable_class or None,
+            size="sm",
+            sub_value=taxable_subtitle,
+        )
+        + build_metric_card(
+            "Tax Owed (if closed today)",
+            format_eur(tax_owed),
+            value_class=tax_class,
+            size="sm",
+            sub_value=tax_subtitle,
+        )
+        + "</div>"
+    )
+    render_html(
+        '<div class="text-note mt-6">'
+        "&#9888; Vorabpauschale not included for accumulating ETFs (TICKET-010b)"
+        "</div>"
+    )
 
 
 def _render_harvest_table(
@@ -385,24 +400,28 @@ def _render_harvest_table(
         reverse=True,
     )
 
-    render_html(f"""
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 24px; margin-bottom: 4px;">
-            <div>
-                <div style="font-size: 13px; font-weight: 600; color: var(--text);">Harvest Opportunity</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 2px;">
-                    Positions with unrealised gains — largest first.
-                    "Tax if Realised" is computed sequentially: row N assumes rows above it have already been sold.
-                </div>
-            </div>
-            <div class="metric-card" style="min-width: 160px; text-align: right;">
-                <div class="metric-label">Tax-free headroom</div>
-                <div class="metric-value sm gain-positive">{format_eur(headroom)}</div>
-            </div>
-        </div>
-    """)
+    headroom_card = build_metric_card(
+        "Tax-free headroom",
+        format_eur(headroom),
+        value_class="gain-positive",
+        size="sm",
+        card_class="headroom-card",
+    )
+    render_html(
+        '<div class="flex-between mt-24 mb-4">'
+        "<div>"
+        '<div class="section-title">Harvest Opportunity</div>'
+        '<div class="text-meta mt-2">'
+        "Positions with unrealised gains — largest first. "
+        '"Tax if Realised" is computed sequentially: row N assumes rows above it have already been sold.'
+        "</div>"
+        "</div>"
+        f"{headroom_card}"
+        "</div>"
+    )
 
     if not positive_impacts:
-        render_html('<div style="font-size: 12px; color: var(--text3); padding: 12px 0;">No positions with unrealised gains.</div>')
+        render_html('<div class="empty-note">No positions with unrealised gains.</div>')
     else:
         sequential = compute_sequential_harvest_impacts(positive_impacts, headroom)
         rows = ""
@@ -414,8 +433,8 @@ def _render_harvest_table(
             kind_label = _KIND_LABEL.get(impact.instrument_kind, impact.instrument_kind.value)
             ticker_safe = html.escape(impact.ticker)
             sim_link = (
-                f'<a href="/?page=simulator&ticker={ticker_safe}" target="_self" '
-                f'title="Simulate sell" style="color: var(--text3); text-decoration: none;">⚡</a>'
+                f'<a class="sim-link" href="/?page=simulator&ticker={ticker_safe}" target="_self" '
+                f'title="Simulate sell">⚡</a>'
             )
             rows += (
                 f'<tr>'
@@ -423,29 +442,28 @@ def _render_harvest_table(
                 f'<td class="font-mono text-right {g_class}">{gain_str}</td>'
                 f'<td class="font-mono text-right {tax_class}">{tax_label}</td>'
                 f'<td class="font-mono text-right">{format_eur(hdroom_after)}</td>'
-                f'<td style="color: var(--text3);">{kind_label}</td>'
+                f'<td class="col-meta">{kind_label}</td>'
                 f'<td class="text-center">{sim_link}</td>'
                 f'</tr>'
             )
 
-        render_html(f"""
-            <table class="harvest-table" style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                <thead>
-                    <tr style="border-bottom: 1px solid var(--border); color: var(--text3); text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em;">
-                        <th style="padding: 6px 4px; text-align: left;">Ticker</th>
-                        <th style="padding: 6px 4px; text-align: right;">Gain (€)</th>
-                        <th style="padding: 6px 4px; text-align: right;">Tax if Realised</th>
-                        <th style="padding: 6px 4px; text-align: right;">Headroom Left</th>
-                        <th style="padding: 6px 4px; text-align: left;">Kind</th>
-                        <th style="padding: 6px 4px; text-align: center;">Sim</th>
-                    </tr>
-                </thead>
-                <tbody>{rows}</tbody>
-            </table>
-        """)
+        render_html(
+            '<table class="harvest-table">'
+            "<thead><tr>"
+            "<th>Ticker</th>"
+            '<th class="text-right">Gain (€)</th>'
+            '<th class="text-right">Tax if Realised</th>'
+            '<th class="text-right">Headroom Left</th>'
+            "<th>Kind</th>"
+            '<th class="text-center">Sim</th>'
+            "</tr></thead>"
+            f"<tbody>{rows}</tbody>"
+            "</table>"
+        )
 
     if harvest_report.stale_tickers:
-        render_html(f'<div style="font-size: 11px; color: var(--text3); margin-top: 8px;">Excluded due to stale prices: {", ".join(html.escape(t) for t in harvest_report.stale_tickers)}</div>')
+        excluded = ", ".join(html.escape(t) for t in harvest_report.stale_tickers)
+        render_html(f'<div class="text-meta mt-8">Excluded due to stale prices: {excluded}</div>')
 
 
 def _render_loss_harvest_table(harvest_report: HarvestImpactReport) -> None:
@@ -456,7 +474,7 @@ def _render_loss_harvest_table(harvest_report: HarvestImpactReport) -> None:
     if not loss_impacts:
         return
 
-    render_html('<div style="margin-top: 24px; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px;">Loss Harvesting</div>')
+    render_html('<div class="section-title mt-24 mb-8">Loss Harvesting</div>')
 
     rows = ""
     for impact in loss_impacts:
@@ -466,24 +484,22 @@ def _render_loss_harvest_table(harvest_report: HarvestImpactReport) -> None:
             f'<tr>'
             f'<td><strong>{html.escape(impact.ticker)}</strong></td>'
             f'<td class="font-mono text-right gain-negative">{format_eur(loss, signed=True)}</td>'
-            f'<td style="color: var(--text3);">{pot}</td>'
-            f'<td style="color: var(--text3);">{_KIND_LABEL.get(impact.instrument_kind, impact.instrument_kind.value)}</td>'
+            f'<td class="col-meta">{pot}</td>'
+            f'<td class="col-meta">{_KIND_LABEL.get(impact.instrument_kind, impact.instrument_kind.value)}</td>'
             f'</tr>'
         )
 
-    render_html(f"""
-        <table class="harvest-table" style="width: 100%; border-collapse: collapse; font-size: 13px;">
-            <thead>
-                <tr style="border-bottom: 1px solid var(--border); color: var(--text3); text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em;">
-                    <th style="padding: 6px 4px; text-align: left;">Ticker</th>
-                    <th style="padding: 6px 4px; text-align: right;">Loss (€)</th>
-                    <th style="padding: 6px 4px; text-align: left;">Pot it feeds</th>
-                    <th style="padding: 6px 4px; text-align: left;">Kind</th>
-                </tr>
-            </thead>
-            <tbody>{rows}</tbody>
-        </table>
-    """)
+    render_html(
+        '<table class="harvest-table">'
+        "<thead><tr>"
+        "<th>Ticker</th>"
+        '<th class="text-right">Loss (€)</th>'
+        "<th>Pot it feeds</th>"
+        "<th>Kind</th>"
+        "</tr></thead>"
+        f"<tbody>{rows}</tbody>"
+        "</table>"
+    )
 
 
 def _render_profile_editor(year: int) -> None:
@@ -628,7 +644,7 @@ def render() -> None:
     profile_sig = _tax_profile_signature()
     isin_sig = _isin_map_signature()
 
-    render_html('<div style="font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px;">YTD Tax Summary</div>')
+    render_html('<div class="section-title mb-12">YTD Tax Summary</div>')
 
     try:
         summary = _cached_tax_summary(tx_sig, profile_sig, isin_sig, year)
@@ -672,8 +688,4 @@ def render() -> None:
     if stale_count:
         status_text = f"● PARTIAL · {stale_count} of {len(live_positions)} positions stale"
 
-    render_html(f"""
-        <div style="margin-top: 16px; font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text3); text-align: right;">
-            {status_text}
-        </div>
-    """)
+    render_html(f'<div class="status-line mt-16">{status_text}</div>')
