@@ -13,6 +13,7 @@ class RowStatus(StrEnum):
     CONFLICT_WITH_MANUAL = "conflict_with_manual"
     NEW = "new"
     UNMAPPED_ISIN = "unmapped_isin"
+    IGNORED_ISIN = "ignored_isin"
     OUT_OF_SCOPE_V1 = "out_of_scope_v1"
     INTERNAL_TRANSFER = "internal_transfer"
     CANCELLED_OR_EXPIRED = "cancelled_or_expired"
