@@ -44,6 +44,45 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — TICKET-CSV-14
+**Surface:** Claude Code
+**Model:** sonnet-4.6
+**Duration:** ~45 min
+**Branch:** ticket-csv-14-ignored-isin-status-skip-rows
+**PR:** (pending)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Extended `IsinMapping.status` to `"mapped" | "unmapped" | "ignored"`
+- Bumped `IsinMapDocument.version` default to 2; added v1→v2 migration (atomic rewrite on first load)
+- CSV importer silently skips ignored ISINs: no counter bump, no `unmapped_isins` entry, updates `last_seen_in_csv`
+- Added `RowStatus.IGNORED_ISIN` to domain enum; planner routes ignored ISINs there (prevents crash on `assert mapping.ticker is not None`)
+- Import Workbench: IGNORED_ISIN wired into status display, filter chips, and blocked row counts
+- Mappings page: "Ignore" button on each unmapped row; "Ignored ISINs" expander with "Restore" button; caption shows `· N ignored` when non-zero
+- Extracted `_ignore_isin` / `_restore_isin` helpers for testability
+
+### Files touched
+- `app/domain/isin_map.py` — status literal + version bump + docstring
+- `app/adapters/isin_map/repo.py` — `_migrate_v1_to_v2`, `_atomic_write` helper, SCHEMA_VERSION=2
+- `app/adapters/scalable_csv/importer.py` — ignored branch before unmapped check
+- `app/adapters/scalable_csv/planner.py` — IGNORED_ISIN branch before unmapped check
+- `app/domain/csv_import.py` — added `IGNORED_ISIN` to RowStatus
+- `app/ui/pages/import_workbench.py` — status display, filter chips, blocked counts
+- `app/ui/pages/mappings.py` — Ignore button, Ignored section, caption, helper functions
+- `tests/unit/test_isin_map_repo.py` — migration tests + updated version assertions
+- `tests/unit/test_scalable_csv_importer.py` — ignored ISIN skip/no-flip/mixed tests
+- `tests/unit/ui/test_mappings_page.py` — ignore/restore helper tests
+
+### Tests
+974 passing, 91 skipped (all green)
+
+### Decisions made during the session
+- Added `RowStatus.IGNORED_ISIN` to avoid a crash in the planner (ticket spec omitted this but the grep check surfaced the bug)
+- No architectural decisions beyond ticket spec
+
+### Out-of-scope items noticed
+- `_update_last_seen` in importer.py does not preserve `instrument_kind` for mapped entries — existing bug, not touched
+
 ## 2026-06-05 00:13 — TICKET-M9
 **Surface:** Codex
 **Model:** gpt-5
