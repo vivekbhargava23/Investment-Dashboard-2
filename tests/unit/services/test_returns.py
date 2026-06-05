@@ -4,8 +4,14 @@ from decimal import Decimal
 from app.domain.market_data import ChartPeriod, OhlcBar, OhlcSeries
 from app.domain.money import Currency
 from app.domain.returns import ALL_WINDOWS, ReturnWindow
-from app.services.returns import compute_returns_by_period
+from app.services.returns import (
+    compute_return_stats_by_period,
+    compute_returns_by_period,
+)
 from tests.fakes.ohlc import FakeOhlcDataProvider
+
+# The returns service fetches a 2Y daily window so the 1Y window is covered.
+_FETCH_PERIOD = ChartPeriod.TWO_YEAR
 
 
 def _bar(day: str, close: str) -> OhlcBar:
@@ -37,7 +43,7 @@ _AS_OF = date(2024, 5, 31)
 
 
 def _provider(**series: OhlcSeries) -> FakeOhlcDataProvider:
-    series_map = {(ticker, ChartPeriod.ONE_YEAR): s for ticker, s in series.items()}
+    series_map = {(ticker, _FETCH_PERIOD): s for ticker, s in series.items()}
     return FakeOhlcDataProvider(series_map=series_map)
 
 
@@ -85,3 +91,21 @@ def test_windows_argument_restricts_computed_windows() -> None:
 def test_empty_ticker_list_returns_empty_map() -> None:
     fake = _provider(AAA=_AAA)
     assert compute_returns_by_period([], as_of=_AS_OF, provider=fake) == {}
+
+
+def test_stats_carry_pct_and_window_high_low() -> None:
+    fake = _provider(AAA=_AAA)
+    result = compute_return_stats_by_period(["AAA"], as_of=_AS_OF, provider=fake)
+
+    d30 = result["AAA"][ReturnWindow.D30]
+    assert d30 is not None
+    assert d30.pct == Decimal("30")
+    # _AAA bars collapse OHLC to close → window high/low are the max/min closes.
+    assert d30.high == Decimal("130")
+    assert d30.low == Decimal("100")
+
+
+def test_stats_unservable_ticker_yields_all_none() -> None:
+    fake = _provider(AAA=_AAA)
+    result = compute_return_stats_by_period(["BBB"], as_of=_AS_OF, provider=fake)
+    assert result["BBB"] == {window: None for window in ALL_WINDOWS}
