@@ -48,37 +48,40 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 **Surface:** Claude Code
 **Model:** opus-4.8
 **Branch:** ticket-rd2-sortable-positions-table
-**PR:** (see PR opened this session)
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/169
 **Status at session end:** IN_REVIEW
 
 ### What got done
-- Sortable Overview positions table (the ticket): pure `sort_positions()` keyed on
-  ticker/name/price/shares/cost/value/gain/weight/trend; clickable column headers
-  toggle `?sort=&dir=` (active column shows ▲/▼ and flips on re-click). Default with
-  no params stays value-desc; stale rows always sort to the bottom both directions.
-- Per Vivek's explicit "do it here only" (one branch) the same treatment was applied
-  to two more tables in the same PR rather than split into follow-up tickets:
-  Manage Portfolio "All Transactions" (`sort_transactions`, `?txsort=&txdir=`) and
-  ISIN Mappings "Mapped" (`sort_mappings`, `?mapsort=&mapdir=`) — both keep their
-  per-row action buttons (edit/delete/unmap/remove).
-- `dark.css`: `.sort-link` / `.sort-link.active` header styling.
+- Sortable tables across three pages. Per Vivek's "do it here only", all three land
+  in one branch rather than split into follow-up tickets.
+- **First cut** used clickable column-header links toggling `?sort=&dir=`. Vivek flagged
+  the UX: every header click reran the whole Streamlit page (full repaint, scroll jump,
+  live-price refetch). **Reworked** onto `st.dataframe`, which sorts/searches client-side
+  with no rerun — same widget the CSV-import workbench uses.
+- **Overview positions table** (the ticket): `build_positions_dataframe()` → `st.dataframe`
+  with `column_config` (ProgressColumn weight, LinkColumn ⚡ Sim, NumberColumn formats) +
+  a pandas Styler for green/red gain & trend. Trend is a numeric column now.
+- **Manage → All Transactions** and **ISIN Mappings → Mapped**: `st.dataframe` with
+  single-row selection; per-row actions (edit/delete; edit/kind/unmap/remove) moved to an
+  action bar that appears for the selected row, since `st.dataframe` can't host inline
+  buttons.
 
 ### Files touched
-- `app/ui/components/positions_table.py` — sort_positions + dynamic sortable header
-- `app/ui/pages/overview.py` — read ?sort/?dir; numeric trend values for trend sort
-- `app/ui/pages/manage.py` — sort_transactions + sortable headers
-- `app/ui/pages/mappings.py` — sort_mappings + sortable headers
-- `app/ui/styles/dark.css` — sort-link styles
-- `tests/unit/ui/test_positions_table.py`, `test_manage_page.py`, `test_mappings_page.py` — sort tests
-- `docs/screenshots/rd2-sortable-tables/` — visual verification
+- `app/ui/components/positions_table.py` — dataframe builder + st.dataframe render
+- `app/ui/pages/overview.py` — numeric `_fetch_trend_values`; drop ?sort/?dir
+- `app/ui/pages/manage.py` — transactions dataframe + row-select action bar
+- `app/ui/pages/mappings.py` — mapped dataframe + row-select action bar
+- `app/ui/styles/dark.css` — removed the interim .sort-link styles
+- `tests/unit/ui/test_positions_table.py`, `test_manage_page.py`, `test_mappings_page.py`,
+  `test_overview_chart_integration.py` — dataframe-builder tests
 
 ### Tests
-gate green: pytest (1016 passed, 91 skipped) + ruff + mypy + lint-imports. ~30 new sort tests.
+gate green: pytest (987 passed, 91 skipped) + ruff + mypy + lint-imports.
 
 ### Notes
-Spec signature `sort_positions(positions, sort_key, direction)` was extended with
-keyword-only `name_lookup=`/`trend_values=` because Name and Trend aren't on
-`LivePosition` — backward-compatible with the documented positional form.
+- `st.dataframe` escapes its own content, so the manual `html.escape` the HTML table
+  needed (ROBUST-1 / 008b) is no longer applicable for these grids.
+- Screenshots intentionally skipped this session at Vivek's request.
 
 ## 2026-06-05 — TICKET-RD1
 **Surface:** Claude Code
