@@ -38,6 +38,19 @@ def _live(ticker: str, value_eur: str) -> LivePosition:
     )
 
 
+def _live_usd(ticker: str, value_eur: str, *, fx: str, price_usd: str) -> LivePosition:
+    """A non-stale USD-native LivePosition with an explicit EUR-per-USD FX rate."""
+    return LivePosition(
+        position=_make_position_with_lot(ticker, "1", "100"),
+        live_price_native=Money(amount=Decimal(price_usd), currency=Currency.USD),
+        live_value_eur=Money(amount=Decimal(value_eur), currency=Currency.EUR),
+        unrealised_gain_eur=Money(amount=Decimal("0"), currency=Currency.EUR),
+        unrealised_gain_pct=Decimal("0"),
+        current_fx_rate=Decimal(fx),
+        staleness_reason=None,
+    )
+
+
 def _stale(ticker: str) -> LivePosition:
     return LivePosition(
         position=_make_position_with_lot(ticker, "1", "100"),
@@ -142,14 +155,28 @@ def test_none_return_is_neutral_and_hover_says_na() -> None:
 # Hover shows the window high/low (candlestick-style), in native currency
 # ---------------------------------------------------------------------------
 
-def test_hover_shows_window_high_low() -> None:
+def test_hover_shows_window_high_low_in_eur() -> None:
+    # EUR-native position → factor 1, prices shown directly in EUR (German format).
     positions = {"AAA": _live("AAA", "100")}
     stats = _stats(AAA=_stat(Decimal("3"), high="142.50", low="118.00"))
     fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={})
     assert fig is not None
     hover = fig.data[0].customdata[0]
-    assert "high EUR 142.50" in hover
-    assert "low EUR 118.00" in hover
+    assert "high €142,50" in hover
+    assert "low €118,00" in hover
+
+
+def test_hover_high_low_converted_to_eur_at_current_fx() -> None:
+    # USD-native high/low are converted at current FX (EUR per USD = 0.90).
+    positions = {"AAA": _live_usd("AAA", "180", fx="0.90", price_usd="200")}
+    stats = _stats(AAA=_stat(Decimal("3"), high="200.00", low="150.00"))
+    fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={})
+    assert fig is not None
+    hover = fig.data[0].customdata[0]
+    # 200 * 0.90 = 180.00; 150 * 0.90 = 135.00 — and no USD anywhere.
+    assert "high €180,00" in hover
+    assert "low €135,00" in hover
+    assert "USD" not in hover
 
 
 def test_hovering_is_enabled() -> None:

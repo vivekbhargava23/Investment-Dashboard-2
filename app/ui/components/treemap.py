@@ -19,7 +19,7 @@ from decimal import Decimal
 import plotly.graph_objects as go
 import streamlit as st
 
-from app.domain.money import Money
+from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition
 from app.domain.returns import ReturnWindow, WindowStats
 from app.ui.components._chart_styles import (
@@ -51,7 +51,7 @@ class _Tile:
     name: str
     value: Money
     weight_pct: float
-    currency: str
+    eur_per_native: Decimal  # current FX rate used to show the high/low in EUR
     stats: WindowStats | None
 
 
@@ -81,13 +81,20 @@ def _renderable_tiles(
         assert value is not None  # narrowed by the filter above
         assert p.live_price_native is not None  # non-stale ⇒ native price present
         weight = float(value.amount / total * 100) if total > 0 else 0.0
+        # EUR-per-native for the high/low: 1 for EUR positions; the live FX rate
+        # (already EUR-per-native) otherwise. Shown at current FX, matching how the
+        # rest of the page's live EUR figures are derived.
+        if p.live_price_native.currency == Currency.EUR or p.current_fx_rate is None:
+            eur_per_native = Decimal("1")
+        else:
+            eur_per_native = p.current_fx_rate
         tiles.append(
             _Tile(
                 ticker=p.ticker,
                 name=name_lookup.get(p.ticker, ""),
                 value=value,
                 weight_pct=weight,
-                currency=p.live_price_native.currency.value,
+                eur_per_native=eur_per_native,
                 stats=stats_map.get(p.ticker, {}).get(window),
             )
         )
@@ -108,9 +115,10 @@ def _tile_hover(tile: _Tile, window: ReturnWindow, ret_text: str) -> str:
         f"{window.value} return: {ret_text}",
     ]
     if tile.stats is not None:
+        high_eur = Money(amount=tile.stats.high * tile.eur_per_native, currency=Currency.EUR)
+        low_eur = Money(amount=tile.stats.low * tile.eur_per_native, currency=Currency.EUR)
         lines.append(
-            f"<br>{window.value} high {tile.currency} {tile.stats.high:,.2f}"
-            f" · low {tile.currency} {tile.stats.low:,.2f}"
+            f"<br>{window.value} high {format_eur(high_eur)} · low {format_eur(low_eur)}"
         )
     return "".join(lines)
 
