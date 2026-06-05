@@ -1,6 +1,7 @@
 # TICKET-RD1 — Overview & Tax HTML overhaul (components, drop thesis columns)
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Dashboard Redesign
 **Recommended model:** Sonnet — cohesive refactor of two pages' HTML into reusable components.
 **Estimated session length:** 2 – 2.5 hr
