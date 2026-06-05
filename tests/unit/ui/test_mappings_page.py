@@ -17,6 +17,8 @@ from app.ui.pages.mappings import (
     _init_state,
     _restore_isin,
     _save_mapping,
+    _set_instrument_kind,
+    _unmap_isin,
     _validate_ticker,
 )
 
@@ -134,7 +136,8 @@ def test_init_state_sets_all_defaults() -> None:
     state: dict = {}
     _init_state(state)
     assert state["mappings_editing_isin"] is None
-    assert state["mappings_confirming_delete_isin"] is None
+    assert state["mappings_kind_editing_isin"] is None
+    assert state["mappings_confirming_remove_isin"] is None
     assert state["mappings_feedback"] is None
     assert "mappings_edit_ticker_value" not in state
 
@@ -353,3 +356,110 @@ def test_ignore_and_restore_round_trip() -> None:
     after_restore = _restore_isin(isin, after_ignore)
     assert after_restore.entries[isin].status == "unmapped"
     assert after_restore.entries[isin].instrument_kind is None
+
+
+# ---------------------------------------------------------------------------
+# _set_instrument_kind (change tax-kind in place)
+# ---------------------------------------------------------------------------
+
+
+def test_set_instrument_kind_changes_only_kind() -> None:
+    from app.domain.tax.classification import InstrumentKind
+    isin = "DE0007030009"
+    doc = _make_doc(**{
+        isin: IsinMapping(ticker="RHM.DE", name="Rheinmetall", status="mapped",
+                          last_seen_in_csv=date(2026, 3, 30),
+                          instrument_kind=InstrumentKind.AKTIE)
+    })
+    updated = _set_instrument_kind(isin, InstrumentKind.AKTIENFONDS, doc)
+    entry = updated.entries[isin]
+    assert entry.instrument_kind == InstrumentKind.AKTIENFONDS
+    # Everything else is untouched.
+    assert entry.ticker == "RHM.DE"
+    assert entry.status == "mapped"
+    assert entry.name == "Rheinmetall"
+    assert entry.last_seen_in_csv == date(2026, 3, 30)
+
+
+def test_set_instrument_kind_preserves_other_entries() -> None:
+    from app.domain.tax.classification import InstrumentKind
+    doc = _make_doc(**{
+        "US67066G1040": IsinMapping(ticker="NVDA", name="NVIDIA", status="mapped",
+                                    instrument_kind=InstrumentKind.AKTIE),
+        "DE0007030009": IsinMapping(ticker="RHM.DE", name="Rheinmetall", status="mapped",
+                                    instrument_kind=InstrumentKind.AKTIE),
+    })
+    updated = _set_instrument_kind("DE0007030009", InstrumentKind.AKTIENFONDS, doc)
+    assert updated.entries["US67066G1040"].instrument_kind == InstrumentKind.AKTIE
+
+
+# ---------------------------------------------------------------------------
+# _unmap_isin (reset to unmapped, drop ticker + kind)
+# ---------------------------------------------------------------------------
+
+
+def test_unmap_isin_resets_ticker_and_kind() -> None:
+    from app.domain.tax.classification import InstrumentKind
+    isin = "DE0007030009"
+    doc = _make_doc(**{
+        isin: IsinMapping(ticker="RHM.DE", name="Rheinmetall", status="mapped",
+                          last_seen_in_csv=date(2026, 3, 30),
+                          instrument_kind=InstrumentKind.AKTIE)
+    })
+    updated = _unmap_isin(isin, doc)
+    entry = updated.entries[isin]
+    assert entry.status == "unmapped"
+    assert entry.ticker is None
+    assert entry.instrument_kind is None
+    # name and last_seen are kept.
+    assert entry.name == "Rheinmetall"
+    assert entry.last_seen_in_csv == date(2026, 3, 30)
+
+
+# ---------------------------------------------------------------------------
+# delete_transactions_for_isin (the purge service)
+# ---------------------------------------------------------------------------
+
+
+def test_delete_transactions_for_isin_purges_matching_and_returns_count() -> None:
+    from app.services.isin_remap import delete_transactions_for_isin
+    isin = "CH0491507486"
+    txs = [
+        _make_tx("tx1", "CH0491507486.SG", isin),
+        _make_tx("tx2", "CH0491507486.SG", isin),
+        _make_tx("tx3", "NVDA", "US67066G1040"),
+    ]
+    fake_repo = _FakeRepo(txs)
+
+    removed = delete_transactions_for_isin(fake_repo, isin)
+
+    assert removed == 2
+    remaining = fake_repo.load_all()
+    assert [t.id for t in remaining] == ["tx3"]
+
+
+def test_delete_transactions_for_isin_noop_when_no_match() -> None:
+    from app.services.isin_remap import delete_transactions_for_isin
+    txs = [_make_tx("tx1", "NVDA", "US67066G1040")]
+    fake_repo = _FakeRepo(txs)
+
+    removed = delete_transactions_for_isin(fake_repo, "CH0491507486")
+
+    assert removed == 0
+    # Repository untouched: no save_all call.
+    assert fake_repo.save_calls == []
+
+
+def test_delete_transactions_for_isin_leaves_none_isin_txs_alone() -> None:
+    """Manually-added transactions (isin=None) are never caught by a purge."""
+    from app.services.isin_remap import delete_transactions_for_isin
+    txs = [
+        _make_tx("tx1", "CH0491507486.SG", "CH0491507486"),
+        _make_tx("tx2", "MANUAL", None),
+    ]
+    fake_repo = _FakeRepo(txs)
+
+    removed = delete_transactions_for_isin(fake_repo, "CH0491507486")
+
+    assert removed == 1
+    assert [t.id for t in fake_repo.load_all()] == ["tx2"]
