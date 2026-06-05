@@ -171,6 +171,9 @@ def build_treemap_figure(
         )
     )
     layout = base_layout(height=height, show_axes=False)
+    # base_layout(show_axes=False) sets hovermode=False, which disables hovering
+    # entirely. A treemap hovers per-tile, so force "closest" to re-enable it.
+    layout["hovermode"] = "closest"
     fig.update_layout(**layout)
     return fig
 

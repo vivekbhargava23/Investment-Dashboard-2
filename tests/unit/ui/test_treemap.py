@@ -152,6 +152,16 @@ def test_hover_shows_window_high_low() -> None:
     assert "low EUR 118.00" in hover
 
 
+def test_hovering_is_enabled() -> None:
+    # base_layout(show_axes=False) sets hovermode=False (disables the tooltip);
+    # the treemap must re-enable it or the hover never appears (regression guard).
+    positions = {"AAA": _live("AAA", "100")}
+    stats = _stats(AAA=_stat(Decimal("1")))
+    fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={})
+    assert fig is not None
+    assert fig.layout.hovermode == "closest"
+
+
 # ---------------------------------------------------------------------------
 # Test case 4 — stale positions excluded
 # ---------------------------------------------------------------------------
