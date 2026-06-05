@@ -2,6 +2,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from app.adapters.catalysts.repo import JsonCatalystsRepository
 from app.adapters.company_factory import build_company_provider
 from app.adapters.fx_ecb import EcbFxAdapter
 from app.adapters.fx_yfinance import YfinanceLiveFxAdapter
@@ -13,6 +14,7 @@ from app.adapters.ticker_resolver_factory import build_ticker_resolver
 from app.adapters.yfinance_ohlc import YfinanceOhlcAdapter
 from app.adapters.yfinance_price import YfinancePriceAdapter
 from app.config import get_settings
+from app.ports.catalysts import CatalystsRepository
 from app.ports.company_data import CompanyDataProvider
 from app.ports.fx_feed import HistoricalFxProvider, LiveFxProvider
 from app.ports.isin_map import IsinMapRepository
@@ -86,6 +88,12 @@ def get_isin_map_repo() -> IsinMapRepository:
 def get_thesis_repo() -> ThesisMapRepository:
     settings = get_settings()
     return JsonThesisMapRepository(settings.thesis_json_path)
+
+
+@st.cache_resource
+def get_catalysts_repo() -> CatalystsRepository:
+    settings = get_settings()
+    return JsonCatalystsRepository(settings.catalysts_json_path)
 
 
 @st.cache_resource

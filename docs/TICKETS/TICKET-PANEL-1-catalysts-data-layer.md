@@ -1,6 +1,7 @@
 # TICKET-PANEL-1 — Catalysts data layer (model, port, JSON adapter, rules, seed)
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Investment Panel
 **Recommended model:** Sonnet — mirrors the existing `thesis_map` data layer (model + port + JSON adapter) plus pure categorisation helpers and a service. Clear tests, low blast radius.
 **Estimated session length:** 2 – 2.5 hr

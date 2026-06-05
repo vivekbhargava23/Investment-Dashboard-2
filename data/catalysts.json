@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "updated": "2026-06-05",
+  "events": [
+    {
+      "ticker": null,
+      "date": "2026-06-17",
+      "label": "FOMC rate decision (Jun)",
+      "category": "macro",
+      "impact": "med",
+      "scope": "portfolio",
+      "date_confidence": "confirmed",
+      "source": "federalreserve.gov/monetarypolicy/fomccalendars.htm",
+      "notes": "Two-day meeting Jun 16-17; statement on day two."
+    },
+    {
+      "ticker": null,
+      "date": "2026-07-29",
+      "label": "FOMC rate decision (Jul)",
+      "category": "macro",
+      "impact": "med",
+      "scope": "portfolio",
+      "date_confidence": "confirmed",
+      "source": "federalreserve.gov/monetarypolicy/fomccalendars.htm",
+      "notes": "Two-day meeting Jul 28-29; statement on day two."
+    },
+    {
+      "ticker": null,
+      "date": "2026-06-11",
+      "label": "US CPI release (May data)",
+      "category": "macro",
+      "impact": "med",
+      "scope": "portfolio",
+      "date_confidence": "estimated",
+      "source": "bls.gov/schedule/news_release/cpi.htm",
+      "notes": "Estimated from BLS monthly cadence; confirm exact release date on the BLS schedule."
+    },
+    {
+      "ticker": null,
+      "date": "2026-07-23",
+      "label": "ECB monetary policy decision",
+      "category": "macro",
+      "impact": "med",
+      "scope": "portfolio",
+      "date_confidence": "estimated",
+      "source": "ecb.europa.eu/press/calendars/mgcgc",
+      "notes": "Estimated from the ECB Governing Council cadence; confirm against the published 2026 calendar."
+    },
+    {
+      "ticker": "ANET",
+      "date": "2026-08-05",
+      "label": "Q2 2026 earnings",
+      "category": "earnings",
+      "impact": "high",
+      "scope": "position",
+      "date_confidence": "estimated",
+      "source": "investors.arista.com",
+      "notes": "Estimated from prior-quarter cadence; confirm on Arista IR."
+    },
+    {
+      "ticker": "MRVL",
+      "date": "2026-08-28",
+      "label": "Q2 FY27 earnings",
+      "category": "earnings",
+      "impact": "high",
+      "scope": "position",
+      "date_confidence": "estimated",
+      "source": "investor.marvell.com",
+      "notes": "Estimated from prior-quarter cadence; confirm on Marvell IR."
+    },
+    {
+      "ticker": "NVDA",
+      "date": "2026-08-26",
+      "label": "Q2 FY27 earnings",
+      "category": "earnings",
+      "impact": "high",
+      "scope": "position",
+      "date_confidence": "estimated",
+      "source": "investor.nvidia.com",
+      "notes": "Estimated from prior-quarter cadence; confirm on NVIDIA IR."
+    },
+    {
+      "ticker": "AVGO",
+      "date": "2026-09-04",
+      "label": "Q3 FY26 earnings",
+      "category": "earnings",
+      "impact": "high",
+      "scope": "position",
+      "date_confidence": "estimated",
+      "source": "investors.broadcom.com",
+      "notes": "Estimated from prior-quarter cadence; confirm on Broadcom IR."
+    },
+    {
+      "ticker": "MU",
+      "date": "2026-09-24",
+      "label": "Q4 FY26 earnings",
+      "category": "earnings",
+      "impact": "high",
+      "scope": "position",
+      "date_confidence": "estimated",
+      "source": "investors.micron.com",
+      "notes": "Estimated from prior-quarter cadence; confirm on Micron IR."
+    }
+  ]
+}
