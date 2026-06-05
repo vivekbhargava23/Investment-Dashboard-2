@@ -1,15 +1,23 @@
-# TICKET-TAX-1 — Fix `StreamlitDuplicateElementKey` on the Tax page when classification fails
+# TICKET-TAX-1 — Surface classification failures correctly: Tax-page duplicate key + Overview silent dash
 
 **Priority:** HIGH
-**Estimated session length:** 30 min
-**Recommended model:** Haiku — mechanical bug fix in a single UI file plus one regression test. Low blast radius.
-**Drafted by:** Vivek + Claude Chat (2026-06-05)
+**Estimated session length:** 45 min
+**Recommended model:** Sonnet — two UI pages, one cached-helper change, plus cache-key reasoning. Originally Haiku for Part A alone; Part B (added 2026-06-05) widens scope past a single-file mechanical fix.
+**Drafted by:** Vivek + Claude Chat (2026-06-05); Part B added by Vivek + Claude Code (2026-06-05)
 **Implemented by:** TBD
 **Milestone:** Investment Panel
 
+> **Theme:** when instrument classification can't complete (a held ticker is missing
+> from the ISIN map), the app handles it wrong in two places. **Part A** — the Tax
+> page crashes on a duplicate Streamlit key. **Part B** — the Live Overview silently
+> swallows the error and renders `—` for the tax tiles, giving no hint why. Both are
+> "classification failure surfaced badly"; fix them together.
+
 ---
 
-## Problem
+## Part A — Tax page `StreamlitDuplicateElementKey`
+
+### Problem
 
 The Tax page crashes with `StreamlitDuplicateElementKey: ... key='tax_open_mappings'` whenever an `InstrumentClassificationError` is raised from more than one of the three cached helpers on the same render. The whole page fails to load — not just the failing section — because the duplicate-key exception escapes to `app/ui/main.py:render_page`.
 
@@ -141,12 +149,92 @@ Add a second test (or extend Step 1): when only the liquidation and harvest help
 
 ---
 
+## Part B — Live Overview tax tiles render `—`
+
+### Problem
+
+On the Live Overview, the **Sparerpauschbetrag** and **Tax Headroom** KPI tiles show
+`—` even when the Tax Dashboard shows real numbers for the same portfolio. Observed
+2026-06-05: a portfolio with realised gains shows values on Tax, dashes on Overview.
+
+Root cause — two compounding mistakes in `app/ui/pages/overview.py`:
+
+1. `_cached_tax_summary_for_overview` calls `compute_current_tax_summary(...)` **without
+   passing `isin_map`** (`overview.py:62`). The service defaults `isin_map` to an empty
+   `IsinMapDocument()` (`app/services/tax_planning.py:43`), so the engine can't classify
+   the held instruments and raises `InstrumentClassificationError`. The Tax page does it
+   right — it passes `isin_map=isin_map` (`tax.py`'s `_cached_tax_summary`).
+2. The helper wraps the whole body in a blanket `except Exception: return None`
+   (`overview.py:71`). The classification error is swallowed, `tax_summary` becomes
+   `None`, and the tiles fall back to `—` with no banner — the banned "silent fallback
+   to a default without surfacing it" anti-pattern (see `docs/METHODOLOGY.md`).
+
+This is independent of Part A (different page, different helper) but is the same theme:
+a classification failure handled badly.
+
+> Note: RD1 (#140) did not introduce this — it only restyled the tiles. The `None →
+> "—"` path predates it. Verify against `main` before implementing.
+
+### Solution
+
+In `app/ui/pages/overview.py`:
+
+1. **Pass the real ISIN map** into `_cached_tax_summary_for_overview`:
+   `compute_current_tax_summary(..., isin_map=get_isin_map_repo().load())`.
+   `get_isin_map_repo` is already imported and used elsewhere in the file.
+2. **Make the cache key honest.** The helper is `@st.cache_data` keyed on
+   `(tx_sig, year)`; add an ISIN-map signature parameter (reuse the same
+   `file_mtime_key`/signature approach the Tax page uses for its isin cache key) so the
+   Overview tiles refresh when the user remaps a ticker.
+3. **Stop swallowing the classification error silently.** Narrow the bare
+   `except Exception`: on `InstrumentClassificationError`, still return `None` *but*
+   have `render()` show a one-line caption under/near the tiles (e.g. "Tax tiles need
+   ISIN mappings — open Mappings") instead of a bare `—`. Keep returning `None` for
+   genuinely-unexpected exceptions, but do not hide the classification case. (Match
+   Part A's "surface, don't crash or hide" intent; do not widen behaviour into a
+   full second copy of the Tax-page banner — a caption is enough on the Overview.)
+
+### Execution (Part B)
+
+1. **Regression test first** (`tests/unit/ui/test_overview_helpers.py` or a sibling):
+   build a portfolio whose held ticker is absent from the ISIN map, patch the price/FX
+   ports so positions are live, and assert that `_cached_tax_summary_for_overview`
+   (called with the real, populated map) returns a non-`None` `TaxYearSummary` — i.e.
+   the tiles would render numbers. A companion test: with an *empty* map and a held
+   ticker, the helper must not silently return `None` without the render path emitting
+   the "needs mappings" caption. The first test fails on `main` today.
+2. Apply the three solution changes above.
+3. Manually verify on the running app (use `tools/app_sandbox.sh` + a seeded
+   `portfolio.json` and a populated `isin_map.json`): the Overview Sparerpauschbetrag
+   and Tax Headroom tiles show the same figures as the Tax Dashboard.
+
+### Acceptance criteria (Part B)
+
+- [ ] `_cached_tax_summary_for_overview` passes `isin_map=get_isin_map_repo().load()`.
+- [ ] The helper's `@st.cache_data` key includes an ISIN-map signature so remapping a
+      ticker refreshes the Overview tiles.
+- [ ] The blanket `except Exception: return None` no longer hides classification
+      failures: when classification can't complete, the Overview shows a short
+      "needs ISIN mappings" caption rather than a bare `—`.
+- [ ] With a fully-mapped portfolio, the Overview tax tiles match the Tax Dashboard
+      figures (manual smoke).
+- [ ] Regression test passes; would fail again if the `isin_map` argument is removed.
+
+---
+
 ## Out of scope
 
-- Any change to the cached helpers (`_cached_tax_summary`, `_cached_liquidation_summary`, `_cached_harvest_report`) or to the tax engine. This is a pure UI presentation fix.
-- Auto-creating ISIN entries from the warning button. The button just navigates; the user still does the mapping work on the Mappings page.
-- Hiding the Tax page from the nav when classification can't complete. Out of scope; tracked separately if needed.
-- The underlying `AY7.F` mapping itself — that's a data fix the user will do via the UI after this lands.
+- **Part A only:** no change to the Tax-page cached helpers
+  (`_cached_tax_summary`, `_cached_liquidation_summary`, `_cached_harvest_report`) or to
+  the tax engine — Part A is a pure UI presentation fix. (Part B *does* change exactly
+  one Overview helper, `_cached_tax_summary_for_overview`, and the tax engine still is
+  not touched.)
+- Auto-creating ISIN entries from the warning button/caption. The control just
+  navigates; the user still does the mapping work on the Mappings page.
+- Hiding the Tax page (or the Overview tiles) from the nav when classification can't
+  complete. Tracked separately if needed.
+- The underlying missing mapping itself (`AY7.F` or whichever ticker) — that's a data
+  fix the user does via the UI after this lands.
 
 ---
 
