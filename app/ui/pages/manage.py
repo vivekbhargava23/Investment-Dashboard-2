@@ -797,7 +797,6 @@ def _handle_edit_submit(
 # Danger zone — erase imported data (TICKET-CSV-17)
 # ---------------------------------------------------------------------------
 
-_ERASE_CONFIRM_WORD = "ERASE"
 _ANY_SOURCE = "Any source"
 
 
@@ -851,11 +850,12 @@ def _render_full_erase(txs: list[Transaction]) -> None:
     also_clear_map = st.checkbox(
         "Also clear ISIN → ticker mappings", key="danger_full_clear_map"
     )
-    confirm = st.text_input(
-        f"Type {_ERASE_CONFIRM_WORD} to enable the button below",
+    confirm = st.checkbox(
+        f"I understand this permanently deletes all {n} transaction(s)",
         key="danger_full_confirm",
+        disabled=n == 0 and not also_clear_map,
     )
-    enabled = confirm.strip() == _ERASE_CONFIRM_WORD and (n > 0 or also_clear_map)
+    enabled = confirm and (n > 0 or also_clear_map)
     if st.button(
         "Erase everything", type="primary", disabled=not enabled, key="danger_full_btn"
     ):
@@ -978,6 +978,9 @@ def render() -> None:
         st.error(f"Could not load transactions: {e}")
         txs = []
 
+    _render_danger_zone(txs)
+
+    st.divider()
     _render_transactions_table(txs)
 
     editing_id = st.session_state.manage_editing_tx_id
@@ -988,6 +991,3 @@ def render() -> None:
             _render_edit_form(tx_to_edit)
         else:
             st.session_state.manage_editing_tx_id = None
-
-    st.divider()
-    _render_danger_zone(txs)
