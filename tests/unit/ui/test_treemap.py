@@ -127,7 +127,7 @@ def test_none_return_is_neutral_and_hover_says_na() -> None:
     assert fig is not None
     trace = fig.data[0]
     colors_by_label = dict(zip(trace.labels, trace.marker.colors))
-    hover_by_label = dict(zip(trace.labels, trace.hovertext))
+    hover_by_label = dict(zip(trace.labels, trace.customdata))
     text_by_label = dict(zip(trace.labels, trace.text))
     # neutral colour = cmid value (0.0), not red/green
     assert colors_by_label["AAA"] == 0.0
@@ -147,7 +147,7 @@ def test_hover_shows_window_high_low() -> None:
     stats = _stats(AAA=_stat(Decimal("3"), high="142.50", low="118.00"))
     fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={})
     assert fig is not None
-    hover = fig.data[0].hovertext[0]
+    hover = fig.data[0].customdata[0]
     assert "high EUR 142.50" in hover
     assert "low EUR 118.00" in hover
 
@@ -196,6 +196,6 @@ def test_hover_weight_is_share_of_total_value() -> None:
     stats = _stats(AAA=_stat(Decimal("1")), BBB=_stat(Decimal("1")))
     fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={})
     assert fig is not None
-    hover_by_label = dict(zip(fig.data[0].labels, fig.data[0].hovertext))
+    hover_by_label = dict(zip(fig.data[0].labels, fig.data[0].customdata))
     assert "75.0% of portfolio" in hover_by_label["AAA"]
     assert "25.0% of portfolio" in hover_by_label["BBB"]

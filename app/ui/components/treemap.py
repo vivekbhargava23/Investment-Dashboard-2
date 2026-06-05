@@ -155,8 +155,10 @@ def build_treemap_figure(
             values=values,
             text=tile_texts,
             texttemplate="%{text}",
-            hovertext=hover,
-            hovertemplate="%{hovertext}<extra></extra>",
+            # Hover content goes through customdata — treemap does not expose a
+            # %{hovertext} token, so the hover string is carried per-node here.
+            customdata=hover,
+            hovertemplate="%{customdata}<extra></extra>",
             marker={
                 "colors": colors,
                 "colorscale": RETURN_COLORSCALE,
