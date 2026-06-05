@@ -3,19 +3,15 @@ from datetime import date, datetime
 
 import streamlit as st
 
-from app.config import get_settings
-from app.domain.catalysts import CatalystEvent
 from app.domain.market_data import ChartPeriod, OhlcUnavailableError
 from app.domain.positions import LivePosition, PortfolioSummary
 from app.domain.returns import ReturnWindow, WindowStats
 from app.domain.tax.models import TaxProfile, TaxYearSummary
-from app.services.catalysts import get_portfolio_catalysts
 from app.services.market_data import get_ohlc_histories, get_ohlc_history
 from app.services.returns import compute_return_stats_by_period
 from app.services.tax_planning import compute_current_tax_summary
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
-from app.ui.cache_keys import file_mtime_key, transactions_signature
-from app.ui.components.catalysts_timeline import render_catalysts_timeline
+from app.ui.cache_keys import transactions_signature
 from app.ui.components.charts import render_candlestick
 from app.ui.components.metric_card import build_metric_card
 from app.ui.components.perf_heatmap import render_heatmap
@@ -29,7 +25,6 @@ from app.ui.components.treemap import render_treemap
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
 from app.ui.wiring import (
-    get_catalysts_repo,
     get_isin_map_repo,
     get_live_fx_provider,
     get_ohlc_data_provider,
@@ -100,22 +95,6 @@ def _cached_return_stats_by_period(
         tickers,
         as_of=date.fromisoformat(as_of_iso),
         provider=get_ohlc_data_provider(),
-    )
-
-
-@st.cache_data(ttl=60, show_spinner=False)
-def _cached_portfolio_catalysts(
-    tx_sig: str, as_of_iso: str, catalysts_sig: str
-) -> list[CatalystEvent]:
-    """Upcoming catalysts for the held set + book-wide events, cached once.
-
-    Keyed on the transactions signature (held tickers), the `as_of` date, and the
-    catalysts file's mtime signature so a curated edit to the tiny file invalidates
-    the cache without a manual refresh.
-    """
-    held = list(_cached_live_positions(tx_sig).keys())
-    return get_portfolio_catalysts(
-        held, as_of=date.fromisoformat(as_of_iso), repo=get_catalysts_repo()
     )
 
 
@@ -261,22 +240,6 @@ def render() -> None:
             stats_map,
             name_lookup=name_lookup,
         )
-
-    # ── Catalysts Timeline ────────────────────────────────────────────────────
-    # Portfolio-wide upcoming catalysts (PANEL-2): events across all holdings plus
-    # book-wide macro events, grouped into time bands. Held tickers come from the
-    # live positions above; the curated catalysts file is tiny and cached per
-    # session, invalidated by its mtime.
-    render_html('<div class="section-eyebrow mt-24 mb-8">Catalysts</div>')
-    catalysts_doc = get_catalysts_repo().load()
-    catalysts_sig = file_mtime_key(get_settings().catalysts_json_path)
-    portfolio_catalysts = _cached_portfolio_catalysts(sig, now.date().isoformat(), catalysts_sig)
-    render_catalysts_timeline(
-        portfolio_catalysts,
-        as_of=now.date(),
-        mode="portfolio",
-        updated=catalysts_doc.updated,
-    )
 
     # ── Position Chart ────────────────────────────────────────────────────────
     if tickers:

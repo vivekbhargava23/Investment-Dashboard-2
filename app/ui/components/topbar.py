@@ -13,6 +13,7 @@ PAGE_TITLES: dict[str, str] = {
     "tax": "Tax Dashboard",
     "research": "Research",
     "company": "Company Deep Dive",
+    "catalysts": "Catalysts",
     "simulator": "Sell Simulator",
     "manage": "Manage Portfolio",
     "mappings": "ISIN Mappings",

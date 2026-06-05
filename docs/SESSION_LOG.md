@@ -61,15 +61,20 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
   today marker; ticker labels position markers in portfolio mode. Hover text escaped.
 - One source of category→colour (`CATALYST_CATEGORY_COLORS` in `_chart_styles.py`),
   reused by legend and markers.
-- Wired portfolio mode into Overview (cached on tx-sig + as_of + catalysts file mtime)
-  and per-position mode into the Company Deep Dive Snapshot tab.
+- Portfolio mode lives on its **own `Catalysts` sidebar page** (Vivek: not wanted on
+  Overview — "put it on some other sidebar like research"). Held tickers come from
+  FIFO `compute_positions` (offline, no live fetch). Per-position mode stays on the
+  Company Deep Dive Snapshot tab.
 
 ### Files touched
 - `app/ui/components/catalysts_timeline.py` — new
 - `app/ui/components/_chart_styles.py` — category colour tokens
-- `app/ui/pages/overview.py`, `app/ui/pages/company.py` — wiring
+- `app/ui/pages/catalysts.py` — new dedicated page
+- `app/ui/pages/company.py` — per-position wiring
+- `app/ui/pages/overview.py` — removed the catalysts section
+- `app/ui/components/sidebar.py`, `app/ui/components/topbar.py` — register the page
 - `app/ui/styles/dark.css` — legend styles
-- `tests/unit/ui/test_catalysts_timeline.py` — new
+- `tests/unit/ui/test_catalysts_timeline.py` — new; sidebar/component nav tests updated
 
 ### Tests
 1064 → 1084 passing (20 new). `ruff`, `mypy`, `lint-imports` all clean.
