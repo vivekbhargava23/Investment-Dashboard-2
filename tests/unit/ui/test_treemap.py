@@ -69,7 +69,7 @@ def _stat(pct: Decimal | None, *, high: str = "1", low: str = "1") -> WindowStat
 
 def _stats(**rows: WindowStats | None) -> StatsMap:
     """Build a stats map where each kwarg sets the 30D stats for that ticker."""
-    return {ticker: {ReturnWindow.D30: stat} for ticker, stat in rows.items()}
+    return {ticker: {ReturnWindow.M1: stat} for ticker, stat in rows.items()}
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +83,7 @@ def test_values_match_live_value_eur() -> None:
         "CCC": _live("CCC", "250"),
     }
     stats = _stats(AAA=_stat(Decimal("1")), BBB=_stat(Decimal("2")), CCC=_stat(Decimal("3")))
-    fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={})
+    fig = build_treemap_figure(positions, stats, ReturnWindow.M1, name_lookup={})
     assert fig is not None
     trace = fig.data[0]
     assert trace.type == "treemap"
@@ -98,7 +98,7 @@ def test_values_match_live_value_eur() -> None:
 def test_clamp_is_symmetric_and_colors_carry_raw_returns() -> None:
     positions = {"UP": _live("UP", "100"), "DOWN": _live("DOWN", "100")}
     stats = _stats(UP=_stat(Decimal("30")), DOWN=_stat(Decimal("-30")))
-    fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={})
+    fig = build_treemap_figure(positions, stats, ReturnWindow.M1, name_lookup={})
     assert fig is not None
     marker = fig.data[0].marker
     # cmin/cmax are symmetric ±RETURN_CLAMP_PCT; out-of-range returns are clamped
@@ -118,7 +118,7 @@ def test_clamp_is_symmetric_and_colors_carry_raw_returns() -> None:
 def test_tile_text_shows_return_percent() -> None:
     positions = {"AAA": _live("AAA", "100")}
     stats = _stats(AAA=_stat(Decimal("4.2")))
-    fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={"AAA": "Alpha"})
+    fig = build_treemap_figure(positions, stats, ReturnWindow.M1, name_lookup={"AAA": "Alpha"})
     assert fig is not None
     text = fig.data[0].text[0]
     assert "AAA" in text
@@ -133,10 +133,10 @@ def test_tile_text_shows_return_percent() -> None:
 def test_none_return_is_neutral_and_hover_says_na() -> None:
     positions = {"AAA": _live("AAA", "750"), "BBB": _live("BBB", "250")}
     stats: StatsMap = {
-        "AAA": {ReturnWindow.D30: None},
-        "BBB": {ReturnWindow.D30: _stat(Decimal("5"))},
+        "AAA": {ReturnWindow.M1: None},
+        "BBB": {ReturnWindow.M1: _stat(Decimal("5"))},
     }
-    fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={"AAA": "Alpha"})
+    fig = build_treemap_figure(positions, stats, ReturnWindow.M1, name_lookup={"AAA": "Alpha"})
     assert fig is not None
     trace = fig.data[0]
     colors_by_label = dict(zip(trace.labels, trace.marker.colors))
@@ -144,11 +144,11 @@ def test_none_return_is_neutral_and_hover_says_na() -> None:
     text_by_label = dict(zip(trace.labels, trace.text))
     # neutral colour = cmid value (0.0), not red/green
     assert colors_by_label["AAA"] == 0.0
-    assert "30D return: n/a" in hover_by_label["AAA"]
+    assert "1M return: n/a" in hover_by_label["AAA"]
     assert text_by_label["AAA"].endswith("n/a")
     # never a fabricated 0% return for the n/a tile
     assert "return: 0.0%" not in hover_by_label["AAA"]
-    assert "30D return: +5.0%" in hover_by_label["BBB"]
+    assert "1M return: +5.0%" in hover_by_label["BBB"]
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +159,7 @@ def test_hover_shows_window_high_low_in_eur() -> None:
     # EUR-native position → factor 1, prices shown directly in EUR (German format).
     positions = {"AAA": _live("AAA", "100")}
     stats = _stats(AAA=_stat(Decimal("3"), high="142.50", low="118.00"))
-    fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={})
+    fig = build_treemap_figure(positions, stats, ReturnWindow.M1, name_lookup={})
     assert fig is not None
     hover = fig.data[0].customdata[0]
     assert "high €142,50" in hover
@@ -170,7 +170,7 @@ def test_hover_high_low_converted_to_eur_at_current_fx() -> None:
     # USD-native high/low are converted at current FX (EUR per USD = 0.90).
     positions = {"AAA": _live_usd("AAA", "180", fx="0.90", price_usd="200")}
     stats = _stats(AAA=_stat(Decimal("3"), high="200.00", low="150.00"))
-    fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={})
+    fig = build_treemap_figure(positions, stats, ReturnWindow.M1, name_lookup={})
     assert fig is not None
     hover = fig.data[0].customdata[0]
     # 200 * 0.90 = 180.00; 150 * 0.90 = 135.00 — and no USD anywhere.
@@ -184,7 +184,7 @@ def test_hovering_is_enabled() -> None:
     # the treemap must re-enable it or the hover never appears (regression guard).
     positions = {"AAA": _live("AAA", "100")}
     stats = _stats(AAA=_stat(Decimal("1")))
-    fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={})
+    fig = build_treemap_figure(positions, stats, ReturnWindow.M1, name_lookup={})
     assert fig is not None
     assert fig.layout.hovermode == "closest"
 
@@ -196,20 +196,20 @@ def test_hovering_is_enabled() -> None:
 def test_stale_position_absent_from_figure() -> None:
     positions = {"LIVE": _live("LIVE", "400"), "STALE": _stale("STALE")}
     stats = _stats(LIVE=_stat(Decimal("2")))
-    fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={})
+    fig = build_treemap_figure(positions, stats, ReturnWindow.M1, name_lookup={})
     assert fig is not None
     assert list(fig.data[0].labels) == ["LIVE"]
 
 
 def test_all_stale_returns_none_figure() -> None:
     positions = {"S1": _stale("S1"), "S2": _stale("S2")}
-    fig = build_treemap_figure(positions, {}, ReturnWindow.D30, name_lookup={})
+    fig = build_treemap_figure(positions, {}, ReturnWindow.M1, name_lookup={})
     assert fig is None
 
 
 def test_render_treemap_shows_placeholder_when_empty() -> None:
     with patch("app.ui.components.treemap.st") as mock_st:
-        render_treemap({}, {}, ReturnWindow.D30, name_lookup={})
+        render_treemap({}, {}, ReturnWindow.M1, name_lookup={})
         mock_st.info.assert_called_once()
         mock_st.plotly_chart.assert_not_called()
 
@@ -218,7 +218,7 @@ def test_render_treemap_draws_figure() -> None:
     positions = {"AAA": _live("AAA", "100")}
     stats = _stats(AAA=_stat(Decimal("1")))
     with patch("app.ui.components.treemap.st") as mock_st:
-        render_treemap(positions, stats, ReturnWindow.D30, name_lookup={})
+        render_treemap(positions, stats, ReturnWindow.M1, name_lookup={})
         mock_st.plotly_chart.assert_called_once()
         fig = mock_st.plotly_chart.call_args[0][0]
         assert isinstance(fig, go.Figure)
@@ -231,7 +231,7 @@ def test_render_treemap_draws_figure() -> None:
 def test_hover_weight_is_share_of_total_value() -> None:
     positions = {"AAA": _live("AAA", "750"), "BBB": _live("BBB", "250")}
     stats = _stats(AAA=_stat(Decimal("1")), BBB=_stat(Decimal("1")))
-    fig = build_treemap_figure(positions, stats, ReturnWindow.D30, name_lookup={})
+    fig = build_treemap_figure(positions, stats, ReturnWindow.M1, name_lookup={})
     assert fig is not None
     hover_by_label = dict(zip(fig.data[0].labels, fig.data[0].customdata))
     assert "75.0% of portfolio" in hover_by_label["AAA"]

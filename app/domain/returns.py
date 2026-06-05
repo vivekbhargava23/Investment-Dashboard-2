@@ -25,32 +25,53 @@ from app.domain.market_data import OhlcBar, OhlcSeries
 
 
 class ReturnWindow(StrEnum):
+    """Return-measurement windows, mirroring the app-wide ``ChartPeriod`` labels.
+
+    Using the same label set as ``ChartPeriod`` (1D / 5D / 1M / 3M / 6M / 1Y / 2Y /
+    5Y / YTD) keeps the treemap/heatmap colour windows consistent with every chart
+    page's period selector, instead of inventing a separate ``7D``/``30D`` set.
+    """
+
     D1 = "1D"
-    D7 = "7D"
-    D30 = "30D"
+    D5 = "5D"
+    M1 = "1M"
     M3 = "3M"
     M6 = "6M"
     Y1 = "1Y"
+    Y2 = "2Y"
+    Y5 = "5Y"
     YTD = "YTD"
 
 
 ALL_WINDOWS: tuple[ReturnWindow, ...] = (
     ReturnWindow.D1,
-    ReturnWindow.D7,
-    ReturnWindow.D30,
+    ReturnWindow.D5,
+    ReturnWindow.M1,
     ReturnWindow.M3,
     ReturnWindow.M6,
     ReturnWindow.Y1,
+    ReturnWindow.Y2,
+    ReturnWindow.Y5,
     ReturnWindow.YTD,
 )
 
+# Bar-count lookback for the short, trading-session windows. ``D1`` is the latest
+# close vs the prior close (2 bars); ``D5`` is a trading-week return (6 bars span 5
+# sessions). Anchoring these on bar count, not calendar days, keeps "5D" honest as
+# five trading days rather than a calendar week.
+_LOOKBACK_BARS: dict[ReturnWindow, int] = {
+    ReturnWindow.D1: 2,
+    ReturnWindow.D5: 6,
+}
+
 # Calendar-day lookback per fixed-day window.
 _LOOKBACK_DAYS: dict[ReturnWindow, int] = {
-    ReturnWindow.D7: 7,
-    ReturnWindow.D30: 30,
+    ReturnWindow.M1: 30,
     ReturnWindow.M3: 90,
     ReturnWindow.M6: 180,
     ReturnWindow.Y1: 365,
+    ReturnWindow.Y2: 730,
+    ReturnWindow.Y5: 1825,
 }
 
 
@@ -83,8 +104,11 @@ def _window_bars(
     if len(bars) < 2:
         return None
 
-    if window is ReturnWindow.D1:
-        return bars[-2:]
+    if window in _LOOKBACK_BARS:
+        count = _LOOKBACK_BARS[window]
+        if len(bars) < count:
+            return None
+        return bars[-count:]
 
     if window in _LOOKBACK_DAYS:
         cutoff = as_of - timedelta(days=_LOOKBACK_DAYS[window])
@@ -120,8 +144,9 @@ def period_return(
 
     All windows end at the latest bar dated on/before `as_of`:
       - ``D1``  — vs the immediately preceding available close.
-      - ``D7`` / ``D30`` / ``M3`` / ``M6`` / ``Y1`` — vs the most recent close
-        on/before ``as_of − N days``.
+      - ``D5``  — vs the close five trading sessions back (6-bar span).
+      - ``M1`` / ``M3`` / ``M6`` / ``Y1`` / ``Y2`` / ``Y5`` — vs the most recent
+        close on/before ``as_of − N days``.
       - ``YTD`` — vs the last close of the prior calendar year, or the first close
         of the current year if the series does not reach into the prior year.
 
