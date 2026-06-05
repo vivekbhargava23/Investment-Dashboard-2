@@ -1,6 +1,7 @@
 # TICKET-CSV-17 — "Erase imported data": guarded full reset + scoped (partial) reset
 
 **Priority:** MEDIUM
+**Status:** IN_PROGRESS
 **Estimated session length:** 2 hr
 **Recommended model:** Opus — destructive data operation on the book of record; confirmation + backup correctness matter.
 **Drafted by:** Vivek + Claude Code (session 2026-06-05)
