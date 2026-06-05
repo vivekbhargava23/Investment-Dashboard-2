@@ -37,6 +37,19 @@ def _live(ticker: str, value_eur: str = "100") -> LivePosition:
     )
 
 
+def _stale(ticker: str) -> LivePosition:
+    """A stale holding — no live value, so it can't be sized and sorts last."""
+    return LivePosition(
+        position=_make_position_with_lot(ticker, "1", "100"),
+        live_price_native=None,
+        live_value_eur=None,
+        unrealised_gain_eur=None,
+        unrealised_gain_pct=None,
+        current_fx_rate=None,
+        staleness_reason="price feed unavailable",
+    )
+
+
 def _stat(pct: Decimal | None) -> WindowStats:
     return WindowStats(pct=pct, high=Decimal("1"), low=Decimal("1"))
 
@@ -47,18 +60,22 @@ def _m1(**rows: Decimal | None) -> StatsMap:
 
 
 # ---------------------------------------------------------------------------
-# Test case 1 — rows ordered by sort-window desc; cells show the return percent
+# Test case 1 — rows ordered by holding size (live EUR value) desc; cell text
 # ---------------------------------------------------------------------------
 
-def test_rows_ordered_by_sort_window_desc_with_cell_text() -> None:
-    positions = {"AAA": _live("AAA"), "BBB": _live("BBB"), "CCC": _live("CCC")}
+def test_rows_ordered_by_holding_value_desc_with_cell_text() -> None:
+    positions = {
+        "AAA": _live("AAA", "250"),
+        "BBB": _live("BBB", "1000"),
+        "CCC": _live("CCC", "500"),
+    }
     stats = _m1(AAA=Decimal("1"), BBB=Decimal("3"), CCC=Decimal("2"))
     fig = build_heatmap_figure(positions, stats, name_lookup={})
     assert fig is not None
     trace = fig.data[0]
-    # Best 1M first (data order is best→worst; the y-axis is reversed for display).
+    # Biggest holding first (data order largest→smallest; y-axis reversed for display).
     assert list(trace.y) == ["BBB", "CCC", "AAA"]
-    # The 1M cell of the top row (BBB) prints its formatted return.
+    # The 1M cell of the top row (BBB, the biggest holding) prints its return.
     assert trace.text[0][_M1_COL] == "+3.0%"
     assert trace.text[2][_M1_COL] == "+1.0%"
 
@@ -78,20 +95,24 @@ def test_row_label_includes_company_name() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test case 2 — None sort-window sorts last regardless of other windows
+# Test case 2 — stale (unvalued) holdings sort last regardless of return
 # ---------------------------------------------------------------------------
 
-def test_none_sort_window_sorts_last() -> None:
-    positions = {"AAA": _live("AAA"), "BBB": _live("BBB"), "CCC": _live("CCC")}
-    # BBB has no 1M return but a strong 1D return — it must still sort last.
+def test_stale_holding_sorts_last() -> None:
+    positions = {
+        "AAA": _live("AAA", "1000"),
+        "STALE": _stale("STALE"),
+        "CCC": _live("CCC", "500"),
+    }
+    # STALE has a huge return but no live value — it must still sort last.
     stats: StatsMap = {
-        "AAA": {ReturnWindow.M1: _stat(Decimal("5"))},
-        "BBB": {ReturnWindow.M1: None, ReturnWindow.D1: _stat(Decimal("99"))},
+        "AAA": {ReturnWindow.M1: _stat(Decimal("1"))},
+        "STALE": {ReturnWindow.M1: _stat(Decimal("99"))},
         "CCC": {ReturnWindow.M1: _stat(Decimal("2"))},
     }
     fig = build_heatmap_figure(positions, stats, name_lookup={})
     assert fig is not None
-    assert list(fig.data[0].y) == ["AAA", "CCC", "BBB"]
+    assert list(fig.data[0].y) == ["AAA", "CCC", "STALE"]
 
 
 # ---------------------------------------------------------------------------

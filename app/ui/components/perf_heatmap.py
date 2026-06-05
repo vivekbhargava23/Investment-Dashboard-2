@@ -7,9 +7,10 @@ treemap (RD10) — the scale lives in ``_chart_styles`` so the two can't drift. 
 return % is printed in-cell; ``None`` cells show an em dash on the neutral colour,
 never a fabricated 0%.
 
-Rows are sorted by ``sort_window`` return descending, with ``None`` tickers last
-(consistent with the positions table's stale-last rule). The returns come from
-RD9's cached stats map (the same one the treemap reads) — no second OHLC fetch.
+Rows are sorted by **current holding fraction** (live EUR value) descending — the
+largest position on top — with stale (no live value) holdings last, consistent with
+the positions table's stale-last rule. The returns come from RD9's cached stats map
+(the same one the treemap reads) — no second OHLC fetch.
 """
 
 from __future__ import annotations
@@ -40,6 +41,7 @@ _CELL_TEXT_COLOR = "#111827"
 class _Row:
     ticker: str
     label: str  # "TICKER (Company)" or just "TICKER"
+    value: Decimal | None  # live EUR value (holding size); None when stale → last
     pcts: dict[ReturnWindow, Decimal | None]
 
 
@@ -51,10 +53,13 @@ def _rows(
     positions: dict[str, LivePosition],
     stats_map: dict[str, dict[ReturnWindow, WindowStats | None]],
     windows: Sequence[ReturnWindow],
-    sort_window: ReturnWindow,
     name_lookup: dict[str, str],
 ) -> list[_Row]:
-    """One row per held ticker, sorted by ``sort_window`` desc with ``None`` last."""
+    """One row per held ticker, sorted by holding size (live EUR value) desc.
+
+    Stale holdings (no live value) can't be sized, so they sort last — the same
+    stale-last rule the positions table uses.
+    """
     rows: list[_Row] = []
     for p in positions.values():
         window_stats = stats_map.get(p.ticker, {})
@@ -62,12 +67,15 @@ def _rows(
             w: (stat.pct if (stat := window_stats.get(w)) is not None else None)
             for w in windows
         }
-        rows.append(_Row(p.ticker, _row_label(p.ticker, name_lookup.get(p.ticker, "")), pcts))
+        value = p.live_value_eur.amount if p.live_value_eur is not None else None
+        rows.append(
+            _Row(p.ticker, _row_label(p.ticker, name_lookup.get(p.ticker, "")), value, pcts)
+        )
 
     def sort_key(row: _Row) -> tuple[bool, Decimal]:
-        pct = row.pcts.get(sort_window)
-        # Primary key puts None last; secondary sorts the rest by return desc.
-        return (pct is None, -(pct if pct is not None else Decimal("0")))
+        # Primary key puts stale (valueless) holdings last; secondary sorts the
+        # rest by holding size descending — the biggest position on top.
+        return (row.value is None, -(row.value if row.value is not None else Decimal("0")))
 
     rows.sort(key=sort_key)
     return rows
@@ -79,18 +87,18 @@ def build_heatmap_figure(
     *,
     name_lookup: dict[str, str],
     windows: Sequence[ReturnWindow] = ALL_WINDOWS,
-    sort_window: ReturnWindow = ReturnWindow.M1,
     clamp_pct: Decimal = RETURN_CLAMP_PCT,
     height: int | None = None,
 ) -> go.Figure | None:
     """Build the performance heatmap, or ``None`` when there are no holdings.
 
-    Colour = each cell's window return clamped to ±``clamp_pct`` on the shared
-    ``RETURN_COLORSCALE`` (``zmid=0``). A ``None`` return colours neutral (0.0 on
-    the scale lands on the midpoint), prints ``—`` in the cell, and says ``n/a`` in
-    the hover — never a fabricated 0%.
+    Rows are sorted by holding size (live EUR value) descending. Colour = each
+    cell's window return clamped to ±``clamp_pct`` on the shared ``RETURN_COLORSCALE``
+    (``zmid=0``). A ``None`` return colours neutral (0.0 on the scale lands on the
+    midpoint), prints ``—`` in the cell, and says ``n/a`` in the hover — never a
+    fabricated 0%.
     """
-    rows = _rows(positions, stats_map, windows, sort_window, name_lookup)
+    rows = _rows(positions, stats_map, windows, name_lookup)
     if not rows:
         return None
 
@@ -168,7 +176,6 @@ def render_heatmap(
     stats_map: dict[str, dict[ReturnWindow, WindowStats | None]],
     *,
     name_lookup: dict[str, str],
-    sort_window: ReturnWindow = ReturnWindow.M1,
     height: int | None = None,
 ) -> None:
     """Render the performance heatmap, or a placeholder when there are no holdings."""
@@ -176,7 +183,6 @@ def render_heatmap(
         positions,
         stats_map,
         name_lookup=name_lookup,
-        sort_window=sort_window,
         height=height,
     )
     if fig is None:

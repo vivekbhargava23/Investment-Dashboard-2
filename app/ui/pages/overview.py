@@ -231,8 +231,9 @@ def render() -> None:
         )
 
         # ── Performance Heatmap ───────────────────────────────────────────────
-        # Every holding's return across all windows at once, sorted by 1M desc.
-        # Reads the same cached stats map as the treemap — no second OHLC fetch.
+        # Every holding's return across all windows at once, rows ordered by
+        # holding size (largest position on top). Reads the same cached stats map
+        # as the treemap — no second OHLC fetch.
         render_html('<div class="section-eyebrow mt-24 mb-8">Performance</div>')
         render_heatmap(
             live_positions,
