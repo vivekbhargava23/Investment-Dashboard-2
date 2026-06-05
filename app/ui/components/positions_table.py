@@ -85,15 +85,18 @@ def _sign_color(v: object) -> str:
         return "color: #26a69a"
     if n < 0:
         return "color: #ef5350"
-    return "color: var(--text3)"
+    return "color: #9aa0a6"
 
 
-def _weight_bar_css(weight: object, gain: object, weight_max: float) -> str:
-    """A coloured bar for the Weight cell, drawn as a left-anchored CSS gradient.
+_WEIGHT_BAR_WIDTH = 16
 
-    The bar length scales to the largest weight; the colour tracks the position's
-    gain — green when up, red when down, grey when stale (no gain). Returns ``""``
-    for a blank weight (stale row)."""
+
+def weight_bar_text(weight: object, weight_max: float, width: int = _WEIGHT_BAR_WIDTH) -> str:
+    """Render the weight as a Unicode block bar plus its percentage, e.g.
+    ``████████········ 16.4%``. ``st.dataframe`` is a canvas grid that ignores
+    CSS gradients, so the bar is drawn as text (and tinted via the ``color``
+    Styler rule, which the grid does honour). Bar length scales to the largest
+    weight. Returns ``""`` for a blank (stale) weight."""
     if weight is None or (isinstance(weight, float) and pd.isna(weight)):
         return ""
     try:
@@ -101,14 +104,8 @@ def _weight_bar_css(weight: object, gain: object, weight_max: float) -> str:
     except (TypeError, ValueError):
         return ""
     pct = min(100.0, w / weight_max * 100) if weight_max > 0 else 0.0
-
-    if gain is None or (isinstance(gain, float) and pd.isna(gain)):
-        color = "rgba(120, 120, 120, 0.45)"  # stale → neutral grey
-    elif float(gain) >= 0:  # type: ignore[arg-type]
-        color = "rgba(38, 166, 154, 0.45)"  # green
-    else:
-        color = "rgba(239, 83, 80, 0.45)"  # red
-    return f"background: linear-gradient(90deg, {color} {pct:.1f}%, transparent {pct:.1f}%)"
+    filled = round(pct / 100 * width)
+    return "█" * filled + "·" * (width - filled) + f" {w:.1f}%"
 
 
 def render_positions_table(
@@ -129,14 +126,24 @@ def render_positions_table(
     weight_max = float(df["Weight (%)"].max()) if df["Weight (%)"].notna().any() else 100.0
     columns = list(df.columns)
 
-    def _weight_styles(row: pd.Series) -> list[str]:
-        # One CSS string per column; only the Weight cell gets the gain-tinted bar.
-        bar = _weight_bar_css(row["Weight (%)"], row["Gain (€)"], weight_max)
-        return [bar if col == "Weight (%)" else "" for col in columns]
+    # Replace the numeric Weight with its text bar for display (the source df keeps
+    # the number, which the tests and any sorting rely on).
+    display = df.copy()
+    display["Weight (%)"] = [weight_bar_text(w, weight_max) for w in df["Weight (%)"]]
 
-    styler = df.style.map(_sign_color, subset=["Gain (€)", "Trend 30D (%)"]).apply(
-        _weight_styles, axis=1
-    )
+    def _row_styles(row: pd.Series) -> list[str]:
+        # Gain & Trend tint by their own sign; the Weight bar tints by the gain sign.
+        out: list[str] = []
+        for col in columns:
+            if col in ("Gain (€)", "Trend 30D (%)"):
+                out.append(_sign_color(row[col]))
+            elif col == "Weight (%)":
+                out.append(_sign_color(df.loc[row.name, "Gain (€)"]))
+            else:
+                out.append("")
+        return out
+
+    styler = display.style.apply(_row_styles, axis=1)
 
     st.dataframe(
         styler,
@@ -150,7 +157,7 @@ def render_positions_table(
             "Cost (€)": st.column_config.NumberColumn(format="€%.2f"),
             "Value (€)": st.column_config.NumberColumn(format="€%.2f"),
             "Gain (€)": st.column_config.NumberColumn(format="€%+.2f"),
-            "Weight (%)": st.column_config.NumberColumn(format="%.1f%%"),
+            "Weight (%)": st.column_config.TextColumn(width="medium"),
             "Trend 30D (%)": st.column_config.NumberColumn(format="%+.1f%%"),
             "Lots": st.column_config.NumberColumn(format="%d"),
             "Sim": st.column_config.LinkColumn(display_text="⚡ Sim", width="small"),
