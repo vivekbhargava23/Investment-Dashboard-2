@@ -49,12 +49,37 @@ _STATUS_COLORS: dict[str, str] = {
     RowStatus.ALREADY_IMPORTED: "⚪",
     RowStatus.CONFLICT_WITH_MANUAL: "🟡",
     RowStatus.UNMAPPED_ISIN: "🔴",
-    RowStatus.IGNORED_ISIN: "⬜",
     RowStatus.INTERNAL_TRANSFER: "⬜",
     RowStatus.OUT_OF_SCOPE_V1: "⬜",
     RowStatus.CANCELLED_OR_EXPIRED: "⬜",
     RowStatus.PARSE_ERROR: "🔴",
 }
+
+# Ignored ISINs are deliberately invisible in the workbench. The user marked them
+# dead on the Mappings page and asked never to be reminded again, so they are
+# excluded from the row table, the filter chips, and every count. The
+# Mappings → Ignored expander remains the one place to review or restore them.
+_SILENT_STATUSES: frozenset[RowStatus] = frozenset({RowStatus.IGNORED_ISIN})
+
+# Rows that can't be imported and genuinely need the user's attention. Ignored
+# ISINs are NOT here — silencing them is the whole point.
+_BLOCKED_STATUSES: frozenset[RowStatus] = frozenset({
+    RowStatus.UNMAPPED_ISIN,
+    RowStatus.INTERNAL_TRANSFER,
+    RowStatus.OUT_OF_SCOPE_V1,
+    RowStatus.CANCELLED_OR_EXPIRED,
+    RowStatus.PARSE_ERROR,
+})
+
+
+def _surfaced_rows(plan: ImportPlan) -> list[PlannedRow]:
+    """Rows shown to the user; silent statuses (ignored ISINs) are dropped."""
+    return [r for r in plan.rows if r.status not in _SILENT_STATUSES]
+
+
+def _count_blocked(plan: ImportPlan) -> int:
+    """Count rows that block the import and need attention. Ignored ISINs excluded."""
+    return sum(1 for r in plan.rows if r.status in _BLOCKED_STATUSES)
 
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
@@ -329,12 +354,7 @@ def _render_upload_section(log_path: Path) -> bool:
     n_new = counts.get(RowStatus.NEW, 0)
     n_already = counts.get(RowStatus.ALREADY_IMPORTED, 0)
     n_conflicts = counts.get(RowStatus.CONFLICT_WITH_MANUAL, 0)
-    n_blocked = sum(
-        counts.get(s, 0)
-        for s in (RowStatus.UNMAPPED_ISIN, RowStatus.IGNORED_ISIN, RowStatus.INTERNAL_TRANSFER,
-                  RowStatus.OUT_OF_SCOPE_V1, RowStatus.CANCELLED_OR_EXPIRED,
-                  RowStatus.PARSE_ERROR)
-    )
+    n_blocked = _count_blocked(active_plan)
 
     parts = [
         f"**{file_name}** — Parsed {len(parsed_rows)} rows",
@@ -390,7 +410,6 @@ def _render_filter_chips(plan: ImportPlan) -> str | None:
         (RowStatus.ALREADY_IMPORTED, "already imported"),
         (RowStatus.CONFLICT_WITH_MANUAL, "conflicts"),
         (RowStatus.UNMAPPED_ISIN, "unmapped ISIN"),
-        (RowStatus.IGNORED_ISIN, "ignored ISIN"),
         (RowStatus.INTERNAL_TRANSFER, "internal transfer"),
         (RowStatus.OUT_OF_SCOPE_V1, "out of scope"),
         (RowStatus.CANCELLED_OR_EXPIRED, "cancelled/expired"),
@@ -398,7 +417,7 @@ def _render_filter_chips(plan: ImportPlan) -> str | None:
 
     cols = st.columns(len(statuses) + 1)
     with cols[0]:
-        label = f"All ({len(plan.rows)})"
+        label = f"All ({len(_surfaced_rows(plan))})"
         all_btn_type: str = "primary" if active is None else "secondary"
         if st.button(label, key="iw_filter_all", type=all_btn_type):  # type: ignore[arg-type]
             st.session_state[_KEY_FILTER] = None
@@ -425,7 +444,7 @@ def _render_planned_changes(plan: ImportPlan) -> None:
     active_filter = _render_filter_chips(plan)
 
     rows_to_show = [
-        r for r in plan.rows
+        r for r in _surfaced_rows(plan)
         if active_filter is None or r.status == active_filter
     ]
 
@@ -614,11 +633,7 @@ def _render_apply_bar(
     excludes: set[str] = st.session_state.get(_KEY_EXCLUDES, set())
     n_ready = _count_ready(plan, conflicts, excludes)
     n_conflicts = sum(1 for r in plan.rows if r.status == RowStatus.CONFLICT_WITH_MANUAL)
-    _BLOCKED = (
-        RowStatus.UNMAPPED_ISIN, RowStatus.IGNORED_ISIN, RowStatus.INTERNAL_TRANSFER,
-        RowStatus.OUT_OF_SCOPE_V1, RowStatus.CANCELLED_OR_EXPIRED, RowStatus.PARSE_ERROR,
-    )
-    n_blocked = sum(1 for r in plan.rows if r.status in _BLOCKED)
+    n_blocked = _count_blocked(plan)
 
     st.divider()
     st.caption(

@@ -44,6 +44,39 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — TICKET-CSV-14 (review fix)
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Duration:** ~30 min
+**Branch:** ticket-csv-14-ignored-isin-status-skip-rows
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/155
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Found that the original implementation made `ignored` ISINs *visible* in the live
+  Import Workbench (planner path) — counted as "blocked", shown in the table, and
+  given a filter chip — directly contradicting the ticket's "ignored is silent" intent.
+  The silent-skip logic in `run_import` was on a dead path (tests-only; the app imports
+  via `plan_import`/the workbench).
+- Made `ignored` truly silent on the live path: ignored rows are excluded from the
+  planned-changes table, the filter chips, the "All (N)" count, and both "blocked"
+  counters. The Mappings → Ignored expander remains the audit/restore surface.
+- Unified the two divergent "blocked" computations into one `_count_blocked` helper and
+  added `_surfaced_rows`; both are now unit-tested.
+
+### Files touched
+- `app/ui/pages/import_workbench.py` — `_SILENT_STATUSES`/`_BLOCKED_STATUSES`,
+  `_surfaced_rows`, `_count_blocked`; table, chips, and counts now exclude ignored rows
+- `tests/unit/ui/test_import_workbench.py` — 3 new tests for silence/blocked-count
+
+### Tests
+974 → 977 passing (3 new). ruff, mypy, lint-imports clean.
+
+### Notes
+- Broader "foolproof importer" work (inline ignore in the workbench, auto-suggest
+  ignore, fail-closed import + portfolio↔map integrity guard, post-import positions
+  view) drafted as follow-up tickets for Vivek to vet. Not in this PR.
+
 ## 2026-06-05 — TICKET-CSV-14
 **Surface:** Claude Code
 **Model:** sonnet-4.6
