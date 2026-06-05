@@ -70,6 +70,20 @@ body {
 .gain-amber { color: var(--amber); }
 
 /* Positions table */
+.positions-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 13px;
+}
+.positions-table thead tr {
+    border-bottom: 1px solid var(--border);
+    color: var(--text3);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+}
+.positions-table th { padding: 8px 4px; }
 .positions-table tbody tr {
     border-bottom: 1px solid var(--border2);
 }
@@ -278,6 +292,30 @@ body {
   line-height: 1.1;
 }
 .metric-value.sm { font-size: 18px; }
+.metric-value.lg { font-size: 30px; }
+
+/* Metric sub-line (subtitle under the value) */
+.metric-sub {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 4px;
+}
+.metric-sub.green { color: var(--green); }
+.metric-sub.red   { color: var(--red); }
+.metric-sub.grey  { color: var(--text3); }
+.metric-sub.amber { color: var(--amber); }
+
+/* Compact right-aligned card (e.g. harvest tax-free headroom) */
+.headroom-card {
+  min-width: 160px;
+  text-align: right;
+}
+
+/* Card wrapping a horizontal-scroll table */
+.table-card {
+  padding: 0;
+  overflow-x: auto;
+}
 
 /* Badges */
 .badge {
@@ -302,6 +340,22 @@ body {
     margin-bottom: 24px;
 }
 
+.harvest-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.harvest-table thead tr {
+    border-bottom: 1px solid var(--border);
+    color: var(--text3);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+}
+.harvest-table th {
+    padding: 6px 4px;
+    text-align: left;
+}
 .harvest-table tbody tr {
     border-bottom: 1px solid var(--border2);
 }
@@ -312,3 +366,87 @@ body {
     padding: 8px 4px;
     vertical-align: middle;
 }
+
+/* ── Table cell helpers (Overview positions + Tax harvest tables) ── */
+.col-name { color: var(--text2); }
+.col-meta { color: var(--text3); }
+.col-trend { font-size: 11px; }
+.sim-link {
+    color: var(--text3);
+    text-decoration: none;
+    font-size: 14px;
+}
+
+/* ── Section headings, captions, status lines ── */
+.section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+.section-eyebrow {
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.text-meta {
+    font-size: 11px;
+    color: var(--text3);
+}
+.text-note {
+    font-size: 10px;
+    color: var(--text3);
+}
+.empty-note {
+    font-size: 12px;
+    color: var(--text3);
+    padding: 12px 0;
+}
+.status-line {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text3);
+    text-align: right;
+}
+
+/* ── Layout helpers ── */
+.flex-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+/* Amber warning box (e.g. stale-price notice) */
+.warn-box {
+    background: var(--amber-bg);
+    border: 1px solid var(--amber);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--amber);
+}
+
+/* Horizontal progress bar (rendered via components/progress_bar.py) */
+.progress-track {
+    width: 100%;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.progress-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 4px;
+}
+
+/* ── Spacing utilities ── */
+.mt-2  { margin-top: 2px; }
+.mt-6  { margin-top: 6px; }
+.mt-8  { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; }
+.mb-4  { margin-bottom: 4px; }
+.mb-8  { margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
+.mb-24 { margin-bottom: 24px; }

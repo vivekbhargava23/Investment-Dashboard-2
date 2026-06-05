@@ -1,22 +1,20 @@
 # ruff: noqa: E501
-import html
 from datetime import datetime
-from decimal import Decimal
 
 import streamlit as st
 
 from app.domain.market_data import ChartPeriod, OhlcUnavailableError
 from app.domain.positions import LivePosition, PortfolioSummary
 from app.domain.tax.models import TaxProfile, TaxYearSummary
-from app.domain.thesis_map import ThesisEntry, ThesisStatus
 from app.services.market_data import get_ohlc_histories, get_ohlc_history
 from app.services.tax_planning import compute_current_tax_summary
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
 from app.ui.cache_keys import transactions_signature
-from app.ui.components.badges import render_thesis_badge
 from app.ui.components.charts import render_candlestick
+from app.ui.components.metric_card import build_metric_card
 from app.ui.components.period_selector import render_aggregation_toggle
-from app.ui.components.weight_bar import render_weight_bar
+from app.ui.components.positions_table import render_positions_table
+from app.ui.components.progress_bar import render_progress_bar
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
 from app.ui.wiring import (
@@ -26,16 +24,8 @@ from app.ui.wiring import (
     get_price_provider,
     get_repository,
     get_tax_profile_repo,
-    get_thesis_repo,
 )
 
-# Pill colour per thesis status; "unknown" (no entry in data/thesis.json) is neutral grey.
-_THESIS_PILL_CLASS: dict[ThesisStatus | str, str] = {
-    "intact": "badge-green",
-    "watch": "badge-amber",
-    "broken": "badge-red",
-    "unknown": "badge-grey",
-}
 _PERIOD_LABELS: dict[ChartPeriod, str] = {
     ChartPeriod.ONE_DAY: "1D",
     ChartPeriod.FIVE_DAY: "5D",
@@ -82,123 +72,6 @@ def _cached_tax_summary_for_overview(tx_sig: str, year: int) -> TaxYearSummary |
         return None
 
 
-def _build_positions_table_html(
-    positions: dict[str, LivePosition],
-    summary: PortfolioSummary,
-    trend_data: dict[str, str] | None = None,
-    name_lookup: dict[str, str] | None = None,
-    thesis_entries: dict[str, ThesisEntry] | None = None,
-) -> str:
-    """trend_data maps ticker → pre-formatted trend cell HTML (e.g. '↑ +2.3%' or '—')."""
-    sorted_positions = sorted(
-        positions.values(),
-        key=lambda p: float(p.live_value_eur.amount) if p.live_value_eur is not None else -1.0,
-        reverse=True,
-    )
-
-    _name_lookup = name_lookup or {}
-    _thesis_entries = thesis_entries or {}
-    tbody_rows: list[str] = []
-    for p in sorted_positions:
-        ticker = p.position.ticker
-        name = _name_lookup.get(ticker, ticker)
-        # Data-derived strings (portfolio ticker, isin_map name) must be escaped
-        # before interpolation — render_html emits with unsafe_allow_html=True.
-        ticker_safe = html.escape(ticker)
-        name_safe = html.escape(name)
-
-        shares = f"{p.position.open_shares:g}"
-        cost = format_eur(p.position.cost_basis_eur, signed=False).replace("€", "")
-        lots = len(p.position.open_lots)
-        entry = _thesis_entries.get(ticker)
-        horizon = entry.horizon if entry is not None else "—"
-        thesis = render_thesis_badge(entry.thesis if entry is not None else "unknown")
-
-        is_stale = p.live_price_native is None or p.live_value_eur is None or p.unrealised_gain_eur is None
-        row_class = "stale" if is_stale else ""
-
-        if is_stale or p.live_price_native is None or p.live_value_eur is None:
-            price_cell = '<td class="font-mono text-right">—</td>'
-        else:
-            native_ccy = p.live_price_native.currency.value
-            native_amt = float(p.live_price_native.amount)
-            eur_per_share = float(p.live_value_eur.amount) / float(p.position.open_shares)
-            if native_ccy != "EUR":
-                tooltip = f"{native_ccy} {native_amt:.2f}"
-                price_cell = (
-                    f'<td class="font-mono text-right" title="{tooltip}">'
-                    f'{eur_per_share:.2f}'
-                    f'</td>'
-                )
-            else:
-                price_cell = (
-                    f'<td class="font-mono text-right">'
-                    f'{eur_per_share:.2f}'
-                    f'</td>'
-                )
-
-        val = "—" if is_stale or p.live_value_eur is None else format_eur(p.live_value_eur, signed=False).replace("€", "")
-        gain = "—" if is_stale or p.unrealised_gain_eur is None else format_eur(p.unrealised_gain_eur, signed=True).replace("€", "")
-
-        unrealised_gain_eur_amount = Decimal("0")
-        if not is_stale and p.unrealised_gain_eur is not None:
-            unrealised_gain_eur_amount = p.unrealised_gain_eur.amount
-
-        gain_class = "gain-neutral" if is_stale else ("gain-positive" if unrealised_gain_eur_amount > 0 else "gain-negative" if unrealised_gain_eur_amount < 0 else "gain-neutral")
-
-        weight_pct = Decimal("0")
-        if not is_stale and p.live_value_eur is not None and summary.total_value_eur.amount > 0:
-            weight_pct = p.live_value_eur.amount / summary.total_value_eur.amount * Decimal("100")
-
-        weight_html = render_weight_bar(weight_pct, scale_max=Decimal("100"))
-
-        sim_link = (
-            f'<a href="/?page=simulator&ticker={ticker_safe}" target="_self" '
-            f'title="Simulate sell" style="color: var(--text3); text-decoration: none; font-size: 14px;">⚡</a>'
-        )
-        trend_cell = (trend_data or {}).get(ticker, "—")
-        tbody_rows.append(
-            f'<tr class="{row_class}">'
-            f'<td><strong>{ticker_safe}</strong></td>'
-            f'<td style="color: var(--text2);">{name_safe}</td>'
-            f'{price_cell}'
-            f'<td class="font-mono text-right">{shares}</td>'
-            f'<td class="font-mono text-right">{cost}</td>'
-            f'<td class="font-mono text-right"><strong>{val}</strong></td>'
-            f'<td class="font-mono text-right {gain_class}">{gain}</td>'
-            f'<td class="font-mono">{weight_html}</td>'
-            f'<td class="font-mono text-right" style="font-size: 11px;">{trend_cell}</td>'
-            f'<td class="text-center">{horizon}</td>'
-            f'<td class="text-center">{thesis}</td>'
-            f'<td class="font-mono text-center" style="color: var(--text3);">{lots}</td>'
-            f'<td class="text-center">{sim_link}</td>'
-            f'</tr>'
-        )
-
-    header = (
-        '<table class="positions-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">'
-        '<thead>'
-        '<tr style="border-bottom: 1px solid var(--border); color: var(--text3); text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em;">'
-        '<th style="padding: 8px 4px;">Ticker</th>'
-        '<th style="padding: 8px 4px;">Name</th>'
-        '<th style="padding: 8px 4px; text-align: right;">Price (€)</th>'
-        '<th style="padding: 8px 4px; text-align: right;">Shares</th>'
-        '<th style="padding: 8px 4px; text-align: right;">Cost (€)</th>'
-        '<th style="padding: 8px 4px; text-align: right;">Value (€)</th>'
-        '<th style="padding: 8px 4px; text-align: right;">Gain (€)</th>'
-        '<th style="padding: 8px 4px;">Weight</th>'
-        '<th style="padding: 8px 4px; text-align: right;">Trend 30D</th>'
-        '<th style="padding: 8px 4px; text-align: center;">Horizon</th>'
-        '<th style="padding: 8px 4px; text-align: center;">Thesis</th>'
-        '<th style="padding: 8px 4px; text-align: center;">Lots</th>'
-        '<th style="padding: 8px 4px; text-align: center;">Sim</th>'
-        '</tr>'
-        '</thead>'
-        '<tbody>'
-    )
-    return header + "".join(tbody_rows) + "</tbody></table>"
-
-
 def _fetch_trend_texts(tickers: list[str]) -> dict[str, str]:
     """Fetch 30-day OHLC for each ticker and return HTML trend text for the table.
 
@@ -215,11 +88,9 @@ def _fetch_trend_texts(tickers: list[str]) -> dict[str, str]:
         if pct is None:
             trend_text_map[ticker] = "—"
         elif pct >= 0:
-            color = "var(--green, #26a69a)"
-            trend_text_map[ticker] = f'<span style="color:{color};">↑ +{float(pct):.1f}%</span>'
+            trend_text_map[ticker] = f'<span class="gain-positive">↑ +{float(pct):.1f}%</span>'
         else:
-            color = "var(--red, #ef5350)"
-            trend_text_map[ticker] = f'<span style="color:{color};">↓ {float(pct):.1f}%</span>'
+            trend_text_map[ticker] = f'<span class="gain-negative">↓ {float(pct):.1f}%</span>'
 
     return trend_text_map
 
@@ -246,79 +117,59 @@ def render() -> None:
     ur_pct_fmt = format_pct(summary.total_unrealised_gain_pct, signed=True)
     val_fmt = format_eur(summary.total_value_eur)
 
-    render_html(f"""
-        <div class="metric-row cols-2">
-            <div class="metric-card">
-                <div class="metric-label">Total Portfolio Value</div>
-                <div class="metric-value">{val_fmt}</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">
-                    {cost_basis_eur} cost basis
-                </div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Total Unrealised Gain</div>
-                <div class="metric-value {ur_class}">{ur_gain_fmt}</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 4px;" class="{ur_class}">
-                    {ur_pct_fmt}
-                </div>
-            </div>
-        </div>
-    """)
+    ur_sub_color = "green" if ur_gain > 0 else "red" if ur_gain < 0 else "grey"
+    render_html(
+        '<div class="metric-row cols-2">'
+        + build_metric_card(
+            "Total Portfolio Value", val_fmt, sub_value=f"{cost_basis_eur} cost basis"
+        )
+        + build_metric_card(
+            "Total Unrealised Gain",
+            ur_gain_fmt,
+            value_class=ur_class,
+            sub_value=ur_pct_fmt,
+            sub_color=ur_sub_color,
+        )
+        + "</div>"
+    )
 
-    thesis_doc = get_thesis_repo().load()
-    thesis_entries = thesis_doc.entries
+    if tax_summary is not None:
+        spb_value = format_eur(tax_summary.sparerpauschbetrag_consumed_eur)
+        spb_sub = "used of " + format_eur(tax_summary.sparerpauschbetrag_total_eur)
+        headroom_value = format_eur(
+            tax_summary.sparerpauschbetrag_remaining_eur
+            + tax_summary.aktien_pot.remaining_carryforward_eur
+            + tax_summary.general_pot.remaining_carryforward_eur
+        )
+        headroom_sub: str | None = "gain you can realise tax-free"
+    else:
+        spb_value = "—"
+        spb_sub = "Tax profile unavailable"
+        headroom_value = "—"
+        headroom_sub = None
 
-    def _status_of(ticker: str) -> ThesisStatus | str:
-        entry = thesis_entries.get(ticker)
-        return entry.thesis if entry is not None else "unknown"
+    render_html(
+        '<div class="metric-row cols-3">'
+        + build_metric_card("Positions", str(len(live_positions)), size="sm")
+        + build_metric_card("Sparerpauschbetrag", spb_value, size="sm", sub_value=spb_sub)
+        + build_metric_card(
+            "Tax Headroom",
+            headroom_value,
+            size="sm",
+            value_class="gain-positive",
+            sub_value=headroom_sub,
+        )
+        + "</div>"
+    )
 
-    # Intentionally split sum across lines to avoid E501
-    intact_count = sum(1 for t in live_positions if _status_of(t) == "intact")
-    watch_count = sum(1 for t in live_positions if _status_of(t) == "watch")
-    broken_count = sum(1 for t in live_positions if _status_of(t) == "broken")
-    unknown_count = sum(1 for t in live_positions if _status_of(t) == "unknown")
-
-    thesis_pill_html = "".join([
-        f'<span class="badge {_THESIS_PILL_CLASS[_status_of(t)]}" style="margin-right: 2px;">{html.escape(t)}</span>'
-        for t in live_positions
-    ])
-
-    render_html(f"""
-        <div class="metric-row cols-4">
-            <div class="metric-card">
-                <div class="metric-label">Positions</div>
-                <div class="metric-value sm">{len(live_positions)}</div>
-                <div style="margin-top: 6px;">{thesis_pill_html}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Thesis Status</div>
-                <div class="metric-value sm" style="font-size: 14px;">
-                    <span class="gain-positive">{intact_count} intact</span> ·
-                    <span class="gain-amber">{watch_count} watch</span> ·
-                    <span class="gain-negative">{broken_count} broken</span>{
-                        f' · <span style="color: var(--text3);">{unknown_count} unknown</span>' if unknown_count else ""
-                    }
-                </div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Sparerpauschbetrag</div>
-                <div class="metric-value sm">{format_eur(tax_summary.sparerpauschbetrag_consumed_eur) if tax_summary else "—"}</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">
-                    {"used of " + format_eur(tax_summary.sparerpauschbetrag_total_eur) if tax_summary else "Tax profile unavailable"}
-                </div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Tax Headroom</div>
-                <div class="metric-value sm gain-positive">{format_eur(tax_summary.sparerpauschbetrag_remaining_eur + tax_summary.aktien_pot.remaining_carryforward_eur + tax_summary.general_pot.remaining_carryforward_eur) if tax_summary else "—"}</div>
-                <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">
-                    {"gain you can realise tax-free" if tax_summary else ""}
-                </div>
-            </div>
-        </div>
-        <div style="width: 100%; height: 4px; background: var(--surface2); border-radius: 2px; margin-bottom: 24px; overflow: hidden;">
-            <div style="width: {min(100.0, float(tax_summary.sparerpauschbetrag_consumed_eur.amount / tax_summary.sparerpauschbetrag_total_eur.amount * 100)) if tax_summary and tax_summary.sparerpauschbetrag_total_eur.amount > 0 else 0:.1f}%; height: 100%; background: var(--green);"></div>
-        </div>
-    """)
+    spb_pct = 0.0
+    if tax_summary is not None and tax_summary.sparerpauschbetrag_total_eur.amount > 0:
+        spb_pct = float(
+            tax_summary.sparerpauschbetrag_consumed_eur.amount
+            / tax_summary.sparerpauschbetrag_total_eur.amount
+            * 100
+        )
+    render_html(f'<div class="mb-24">{render_progress_bar(spb_pct, height_px=4)}</div>')
 
     isin_map_doc = get_isin_map_repo().load()
     name_lookup: dict[str, str] = {
@@ -330,23 +181,20 @@ def render() -> None:
     tickers = list(live_positions.keys())
     trend_text_map = _fetch_trend_texts(tickers)
 
-    table_html = _build_positions_table_html(live_positions, summary, trend_data=trend_text_map, name_lookup=name_lookup, thesis_entries=thesis_entries)
-    render_html(f'<div class="metric-card" style="padding: 0; overflow-x: auto;">{table_html}</div>')
+    render_positions_table(
+        live_positions, summary, trend_data=trend_text_map, name_lookup=name_lookup
+    )
 
     status_text = f"● LIVE · refreshed {now.strftime('%H:%M')}"
     if summary.staleness == "stale" or summary.staleness == "partial":
         stale_count = sum(1 for p in live_positions.values() if p.live_price_native is None)
         status_text = f"● PARTIAL · {stale_count} of {len(live_positions)} positions stale"
 
-    render_html(f"""
-        <div style="margin-top: 16px; font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text3); text-align: right;">
-            {status_text}
-        </div>
-    """)
+    render_html(f'<div class="status-line mt-16">{status_text}</div>')
 
     # ── Position Chart ────────────────────────────────────────────────────────
     if tickers:
-        render_html('<div style="margin-top: 24px; margin-bottom: 8px; font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em;">Position Chart</div>')
+        render_html('<div class="section-eyebrow mt-24 mb-8">Position Chart</div>')
         col_ticker, col_period, col_freq = st.columns([1, 2, 1])
         with col_ticker:
             chart_ticker = st.selectbox(
