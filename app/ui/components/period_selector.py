@@ -61,13 +61,14 @@ def render_period_selector(
     return selected
 
 
-def render_return_window_selector(key: str, *, default: str = "30D") -> ReturnWindow:
-    """Render a horizontal radio over the RD9 return windows (1D / 7D / 30D / YTD).
+def render_return_window_selector(key: str, *, default: str = "1M") -> ReturnWindow:
+    """Render a horizontal radio over the RD9 return windows.
 
-    The treemap/heatmap colour metric uses the fixed ReturnWindow set, whose 7D
-    and 30D windows have no ChartPeriod equivalent — so this is a dedicated
-    selector rather than ``render_period_selector``. ``default`` is the label
-    string (e.g. "30D") to pre-select.
+    The windows mirror the app-wide ``ChartPeriod`` labels (1D / 5D / 1M / 3M / 6M
+    / 1Y / 2Y / 5Y / YTD), but ``ReturnWindow`` is a distinct close-to-close return
+    metric anchored on ``as_of`` — so this is a dedicated selector rather than
+    ``render_period_selector``. ``default`` is the label string (e.g. "1M") to
+    pre-select.
     """
     options = list(ALL_WINDOWS)
     default_window = next((w for w in options if w.value == default), options[0])

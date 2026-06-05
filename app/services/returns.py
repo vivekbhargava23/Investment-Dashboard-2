@@ -1,8 +1,9 @@
 """Returns-by-period service.
 
-Computes per-ticker percentage returns over the standard windows (1D / 7D / 30D /
-YTD) from a single OHLC fetch, so the Overview treemap (RD10) and heatmap (RD11)
-share one source of return numbers instead of each recomputing them.
+Computes per-ticker percentage returns over the standard windows (1D / 5D / 1M /
+3M / 6M / 1Y / 2Y / 5Y / YTD) from a single OHLC fetch, so the Overview treemap
+(RD10) and heatmap (RD11) share one source of return numbers instead of each
+recomputing them.
 """
 
 from collections.abc import Sequence
@@ -14,10 +15,10 @@ from app.domain.returns import ALL_WINDOWS, ReturnWindow, WindowStats, period_st
 from app.ports.market_data import OhlcDataProvider
 from app.services.market_data import get_ohlc_histories
 
-# Two years of *daily* bars covers every window: the 1Y window needs a bar ~365
-# days back, which sits at the very edge of a 1Y fetch (often missing), so fetch
-# 2Y. The default aggregation is weekly (too coarse for D1/D7), so force daily.
-_FETCH_PERIOD = ChartPeriod.TWO_YEAR
+# Five years of *daily* bars covers every window: the 5Y window needs a bar ~1825
+# days back, which sits at the edge of a 5Y fetch, so fetch 5Y outright. The default
+# aggregation is weekly (too coarse for D1/D5), so force daily.
+_FETCH_PERIOD = ChartPeriod.FIVE_YEAR
 
 
 def compute_return_stats_by_period(

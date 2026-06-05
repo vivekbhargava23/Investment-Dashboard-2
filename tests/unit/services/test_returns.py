@@ -10,8 +10,8 @@ from app.services.returns import (
 )
 from tests.fakes.ohlc import FakeOhlcDataProvider
 
-# The returns service fetches a 2Y daily window so the 1Y window is covered.
-_FETCH_PERIOD = ChartPeriod.TWO_YEAR
+# The returns service fetches a 5Y daily window so the 5Y window is covered.
+_FETCH_PERIOD = ChartPeriod.FIVE_YEAR
 
 
 def _bar(day: str, close: str) -> OhlcBar:
@@ -53,7 +53,7 @@ def test_computes_every_window_for_a_served_ticker() -> None:
 
     assert set(result["AAA"]) == set(ALL_WINDOWS)
     assert result["AAA"][ReturnWindow.D1] == Decimal("4")
-    assert result["AAA"][ReturnWindow.D30] == Decimal("30")
+    assert result["AAA"][ReturnWindow.M1] == Decimal("30")
     # No prior-year data → YTD falls back to first current-year bar (100 → 130).
     assert result["AAA"][ReturnWindow.YTD] == Decimal("30")
 
@@ -77,7 +77,7 @@ def test_unservable_ticker_yields_all_none_and_others_still_returned() -> None:
     result = compute_returns_by_period(["AAA", "BBB"], as_of=_AS_OF, provider=fake)
 
     assert result["BBB"] == {window: None for window in ALL_WINDOWS}
-    assert result["AAA"][ReturnWindow.D30] == Decimal("30")
+    assert result["AAA"][ReturnWindow.M1] == Decimal("30")
 
 
 def test_windows_argument_restricts_computed_windows() -> None:
@@ -97,12 +97,12 @@ def test_stats_carry_pct_and_window_high_low() -> None:
     fake = _provider(AAA=_AAA)
     result = compute_return_stats_by_period(["AAA"], as_of=_AS_OF, provider=fake)
 
-    d30 = result["AAA"][ReturnWindow.D30]
-    assert d30 is not None
-    assert d30.pct == Decimal("30")
+    m1 = result["AAA"][ReturnWindow.M1]
+    assert m1 is not None
+    assert m1.pct == Decimal("30")
     # _AAA bars collapse OHLC to close → window high/low are the max/min closes.
-    assert d30.high == Decimal("130")
-    assert d30.low == Decimal("100")
+    assert m1.high == Decimal("130")
+    assert m1.low == Decimal("100")
 
 
 def test_stats_unservable_ticker_yields_all_none() -> None:

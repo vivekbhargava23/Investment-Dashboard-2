@@ -1,6 +1,7 @@
 # TICKET-RD11 — Performance heatmap on Overview
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Dashboard Redesign
 **Recommended model:** Sonnet — one UI component over RD9's returns map; the data work is done by RD9.
 **Estimated session length:** 1 – 1.5 hr

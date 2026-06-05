@@ -44,6 +44,48 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — TICKET-RD11
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Branch:** ticket-rd11-performance-heatmap-on-overview
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added the **performance heatmap** to the Live Overview: one row per held ticker
+  (`TICKER (Company)`), one column per return window, each cell coloured by that
+  window's return. Rows sort by 1M return descending with `None` tickers last; `None`
+  cells render `—` on the neutral colour (never a fabricated 0%); hover shows
+  `TICKER · <window>: <return>`. Reads the **same cached RD9 stats map** as the
+  treemap — no second OHLC fetch.
+- **Shared colour scale:** lifted `RETURN_CLAMP_PCT` (±14%) and `RETURN_COLORSCALE`
+  out of `treemap.py` into `_chart_styles.py` so the treemap (RD10) and heatmap
+  (RD11) provably colour on one scale and can't drift. `treemap.py` re-exports them
+  for backward compatibility. A regression test asserts both figures share the
+  colorscale + clamp config.
+- **Period set realigned to `ChartPeriod` (Vivek's request):** replaced RD10's
+  mismatched `ReturnWindow` set (1D/7D/30D/3M/6M/1Y/YTD) with the app-wide
+  candlestick labels **1D/5D/1M/3M/6M/1Y/2Y/5Y/YTD**. More windows, and one
+  consistent period vocabulary across the chart pages, treemap colour-selector, and
+  heatmap columns. `D1`/`D5` are bar-count (trading-session) windows; the rest are
+  calendar-day or YTD. The returns service now fetches **5Y** daily history so the
+  5Y window is covered. Treemap default colour-window is now 1M.
+
+### Files touched
+- `app/ui/components/perf_heatmap.py` — new component (figure builder + render)
+- `app/ui/components/_chart_styles.py` — shared `RETURN_CLAMP_PCT` / `RETURN_COLORSCALE`
+- `app/ui/components/treemap.py` — consume the shared scale (re-export preserved)
+- `app/ui/components/period_selector.py` — return-window selector default → 1M
+- `app/domain/returns.py` — `ReturnWindow` realigned to ChartPeriod labels; bar-count windows
+- `app/services/returns.py` — fetch 5Y daily history
+- `app/ui/pages/overview.py` — new "Performance" section + render call
+- `tests/unit/ui/test_perf_heatmap.py` — new (ordering, None handling, shared-scale regression)
+- `tests/unit/domain/test_returns.py`, `tests/unit/services/test_returns.py`,
+  `tests/unit/ui/test_treemap.py` — updated for the new window set
+
+### Notes
+- Visual verification skipped at Vivek's request this session.
+- Gate green: pytest, ruff, mypy, lint-imports.
+
 ## 2026-06-05 — TICKET-RD10
 **Surface:** Claude Code
 **Model:** opus-4.8
