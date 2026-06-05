@@ -74,7 +74,7 @@ def test_rows_ordered_by_holding_value_desc_with_cell_text() -> None:
     assert fig is not None
     trace = fig.data[0]
     # Biggest holding first (data order largest→smallest; y-axis reversed for display).
-    assert list(trace.y) == ["BBB", "CCC", "AAA"]
+    assert [label.split(" ")[0] for label in trace.y] == ["BBB", "CCC", "AAA"]
     # The 1M cell of the top row (BBB, the biggest holding) prints its return.
     assert trace.text[0][_M1_COL] == "+3.0%"
     assert trace.text[2][_M1_COL] == "+1.0%"
@@ -86,12 +86,23 @@ def test_columns_are_all_windows_in_order() -> None:
     assert list(fig.data[0].x) == [w.value for w in ALL_WINDOWS]
 
 
-def test_row_label_includes_company_name() -> None:
+def test_row_label_includes_company_name_and_weight() -> None:
+    # Single holding → 100% of live value, one decimal place.
     fig = build_heatmap_figure(
         {"AAA": _live("AAA")}, _m1(AAA=Decimal("1")), name_lookup={"AAA": "Alpha"}
     )
     assert fig is not None
-    assert list(fig.data[0].y) == ["AAA (Alpha)"]
+    assert list(fig.data[0].y) == ["AAA (Alpha 100.0%)"]
+
+
+def test_row_label_weight_is_share_of_total_value() -> None:
+    positions = {"AAA": _live("AAA", "750"), "BBB": _live("BBB", "250")}
+    stats = _m1(AAA=Decimal("1"), BBB=Decimal("1"))
+    fig = build_heatmap_figure(positions, stats, name_lookup={"AAA": "Alpha"})
+    assert fig is not None
+    labels = list(fig.data[0].y)
+    assert labels[0] == "AAA (Alpha 75.0%)"  # biggest first
+    assert labels[1] == "BBB (25.0%)"  # no name → weight only
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +123,7 @@ def test_stale_holding_sorts_last() -> None:
     }
     fig = build_heatmap_figure(positions, stats, name_lookup={})
     assert fig is not None
-    assert list(fig.data[0].y) == ["AAA", "CCC", "STALE"]
+    assert [label.split(" ")[0] for label in fig.data[0].y] == ["AAA", "CCC", "STALE"]
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,8 @@
 """Performance heatmap for the Live Overview.
 
-A grid of every held ticker (rows) against each return window (columns: 1D / 5D /
+Rows are labelled ``TICKER (Company W.W%)`` where ``W.W%`` is the position's share
+of total live value (one decimal). A grid of every held ticker (rows) against each
+return window (columns: 1D / 5D /
 1M / 3M / 6M / 1Y / 2Y / 5Y / YTD), each cell coloured by that window's return on
 the **same** diverging green↔red scale and ±``RETURN_CLAMP_PCT`` clamp as the
 treemap (RD10) — the scale lives in ``_chart_styles`` so the two can't drift. The
@@ -40,13 +42,25 @@ _CELL_TEXT_COLOR = "#111827"
 @dataclass(frozen=True)
 class _Row:
     ticker: str
-    label: str  # "TICKER (Company)" or just "TICKER"
+    label: str  # e.g. "MU (Micron 10.0%)", "MU (10.0%)", or "MU"
     value: Decimal | None  # live EUR value (holding size); None when stale → last
     pcts: dict[ReturnWindow, Decimal | None]
 
 
-def _row_label(ticker: str, name: str) -> str:
-    return f"{ticker} ({name})" if name else ticker
+def _row_label(ticker: str, name: str, weight_pct: Decimal | None) -> str:
+    """Row label: ticker plus, in parens, the company name and holding weight.
+
+    Weight is the position's share of total live value, one decimal place (e.g.
+    ``MU (Micron 10.0%)``). A stale holding has no weight → name only, or just the
+    ticker when neither name nor weight is available.
+    """
+    parts: list[str] = []
+    if name:
+        parts.append(name)
+    if weight_pct is not None:
+        parts.append(f"{weight_pct:.1f}%")
+    inner = " ".join(parts)
+    return f"{ticker} ({inner})" if inner else ticker
 
 
 def _rows(
@@ -60,7 +74,7 @@ def _rows(
     Stale holdings (no live value) can't be sized, so they sort last — the same
     stale-last rule the positions table uses.
     """
-    rows: list[_Row] = []
+    valued: list[tuple[LivePosition, Decimal | None, dict[ReturnWindow, Decimal | None]]] = []
     for p in positions.values():
         window_stats = stats_map.get(p.ticker, {})
         pcts = {
@@ -68,9 +82,16 @@ def _rows(
             for w in windows
         }
         value = p.live_value_eur.amount if p.live_value_eur is not None else None
-        rows.append(
-            _Row(p.ticker, _row_label(p.ticker, name_lookup.get(p.ticker, "")), value, pcts)
-        )
+        valued.append((p, value, pcts))
+
+    # Weight is share of total live value; stale (valueless) holdings are excluded
+    # from the denominator, consistent with how the treemap sizes tiles.
+    total = sum((v for _, v, _ in valued if v is not None), Decimal("0"))
+    rows: list[_Row] = []
+    for p, value, pcts in valued:
+        weight = (value / total * 100) if (value is not None and total > 0) else None
+        label = _row_label(p.ticker, name_lookup.get(p.ticker, ""), weight)
+        rows.append(_Row(p.ticker, label, value, pcts))
 
     def sort_key(row: _Row) -> tuple[bool, Decimal]:
         # Primary key puts stale (valueless) holdings last; secondary sorts the
