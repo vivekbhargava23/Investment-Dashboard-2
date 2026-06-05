@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "entries": {
     "IE00BFMXXD54": {
       "ticker": "VUAA.DE",
@@ -100,30 +100,30 @@
       "instrument_kind": "AKTIE"
     },
     "CH0491507486": {
-      "ticker": null,
-      "name": "21shares Tezos ETP Staking",
-      "status": "unmapped",
-      "last_seen_in_csv": "2026-02-18",
-      "instrument_kind": null
+      "ticker": "CH0491507486.SG",
+      "name": "21Shares TEZOS ETP",
+      "status": "mapped",
+      "last_seen_in_csv": null,
+      "instrument_kind": "MISCHFONDS"
     },
     "CH1109575535": {
-      "ticker": null,
-      "name": "21shares Stellar ETP",
-      "status": "unmapped",
-      "last_seen_in_csv": "2026-02-18",
-      "instrument_kind": null
+      "ticker": "CH1109575535.SG",
+      "name": "21Shares Stellar ETP",
+      "status": "mapped",
+      "last_seen_in_csv": null,
+      "instrument_kind": "MISCHFONDS"
     },
     "CH1129538448": {
-      "ticker": null,
-      "name": "21shares Polygon ETP",
-      "status": "unmapped",
-      "last_seen_in_csv": "2026-02-18",
-      "instrument_kind": null
+      "ticker": "CH1129538448.SG",
+      "name": "21Shares Polygon ETP",
+      "status": "mapped",
+      "last_seen_in_csv": null,
+      "instrument_kind": "MISCHFONDS"
     },
     "GB00BNRRF105": {
       "ticker": null,
       "name": "CoinShares Physical Staked Algorand",
-      "status": "unmapped",
+      "status": "ignored",
       "last_seen_in_csv": "2026-02-18",
       "instrument_kind": null
     },
@@ -172,7 +172,7 @@
     "DE000HT41XN9": {
       "ticker": null,
       "name": "Apple Short 205,22 $ Turbo Open End HSBC",
-      "status": "unmapped",
+      "status": "ignored",
       "last_seen_in_csv": "2025-04-09",
       "instrument_kind": null
     },
@@ -202,6 +202,20 @@
       "name": "ServiceNow",
       "status": "mapped",
       "last_seen_in_csv": "2026-05-13",
+      "instrument_kind": "AKTIE"
+    },
+    "KYG0535Q1331": {
+      "ticker": "AY7.F",
+      "name": "ASMPT",
+      "status": "mapped",
+      "last_seen_in_csv": null,
+      "instrument_kind": "AKTIE"
+    },
+    "JP3148800000": {
+      "ticker": "4062.T",
+      "name": "Ibiden Co.,Ltd.",
+      "status": "mapped",
+      "last_seen_in_csv": null,
       "instrument_kind": "AKTIE"
     }
   }
