@@ -1,6 +1,7 @@
 # TICKET-CSV-14 — `ignored` ISIN status: skip rows from CSV permanently
 
 **Priority:** MEDIUM
+**Status:** IN_PROGRESS
 **Estimated session length:** 2 hr
 **Recommended model:** Sonnet — schema change with migration, importer behaviour change, Mappings UI, and tests across all three layers. Coordinated but well-scoped.
 **Drafted by:** Vivek + Claude Chat (2026-06-05)
