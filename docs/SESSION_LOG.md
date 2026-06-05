@@ -44,6 +44,60 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — TICKET-RD1
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Duration:** ~75 min
+**Branch:** ticket-rd1-overview-tax-html-overhaul-components
+**PR:** (opened at session end)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Componentized every Overview & Tax KPI tile behind one `build_metric_card` /
+  `render_metric_card` template (label/value/sub_value, value_class, sub_color,
+  size, tooltip, card_class). Styling moved to dark.css.
+- Extracted the positions table into `components/positions_table.py` (preserving
+  ROBUST-1 `html.escape` on name + ticker); added `components/progress_bar.py`
+  for the dynamic-width bars so the pages carry no inline width.
+- Purged all inline `style=` from `overview.py` and `tax.py` (grep clean) via
+  dark.css classes + spacing utilities.
+- Dropped the thesis presentation from the overview: removed the Thesis Status
+  KPI card, thesis pills, and the Horizon/Thesis table columns (cols-4 → 3). Left
+  the thesis_map data layer + `get_thesis_repo` wiring intact.
+- Renamed analytics' `subtitle=` kwarg to `sub_value=` to match the new API.
+
+### Deviations from the spec signature (flag for review)
+- Spec listed `render_metric_card(*, label, value, sub_value, sub_color, size)`.
+  Implemented a superset: kept `label`/`value` positional (analytics calls them
+  positionally), kept `value_class` (needed to colour the *value*, which
+  `sub_color` cannot) and `tooltip` (analytics correlation tiles), added
+  `card_class`, dropped the dead `progress_pct`. Size stays on `.metric-value`
+  (`sm`/`lg`) for consistency with existing `sell_simulator`/`analytics` callers.
+
+### Files touched
+- `app/ui/components/metric_card.py` — unified build/render template
+- `app/ui/components/positions_table.py` — new (table moved out of overview)
+- `app/ui/components/progress_bar.py` — new
+- `app/ui/pages/overview.py`, `app/ui/pages/tax.py` — class-driven, grep clean
+- `app/ui/pages/analytics.py` — `subtitle=` → `sub_value=`
+- `app/ui/styles/dark.css` — metric-sub, table structure, helpers, utilities
+- `tests/unit/ui/test_metric_card.py`, `test_positions_table.py` — new
+- `tests/unit/ui/test_overview_render.py`, `test_overview_chart_integration.py`
+- `tests/unit/ui/test_overview_thesis.py` — removed (feature retired)
+
+### Tests
+986 → 998 passing (gate: pytest + ruff + mypy + lint-imports all green).
+
+### Visual verification
+Seeded sandbox (NVDA/SAP.DE/ASML.AS/AAPL). Before/after Overview + after Tax in
+`docs/screenshots/rd1-overview-tax-html-overhaul/`. Both pages render with no
+inline styles, no HTML leak, no traceback.
+
+### Observation (not in scope)
+Seeding with an *unmapped* ticker reproduced `StreamlitDuplicateElementKey`
+(`key='tax_open_mappings'`) on the Tax page — the pre-existing TICKET-TAX-1
+(#154), unrelated to this change.
+
 ## 2026-06-05 — TICKET-CSV-18
 **Surface:** Claude Code
 **Model:** opus-4.8
