@@ -13,7 +13,9 @@ from app.domain.money import Currency, Money
 from app.ports.repository import TransactionNotFoundError
 from app.ui.pages.mappings import (
     _delete_mapping,
+    _ignore_isin,
     _init_state,
+    _restore_isin,
     _save_mapping,
     _validate_ticker,
 )
@@ -286,3 +288,68 @@ def test_delete_allow_when_no_transactions_reference_isin() -> None:
     from app.services.isin_remap import count_transactions_for_isin
 
     assert count_transactions_for_isin(fake_repo, "US67066G1040") == 0
+
+
+# ---------------------------------------------------------------------------
+# _ignore_isin / _restore_isin helpers
+# ---------------------------------------------------------------------------
+
+
+def test_ignore_isin_flips_status_to_ignored() -> None:
+    isin = "CH0491507486"
+    doc = _make_doc(**{
+        isin: IsinMapping(ticker=None, name="21shares Tezos ETP", status="unmapped",
+                          last_seen_in_csv=date(2026, 5, 1))
+    })
+    updated = _ignore_isin(isin, doc)
+    assert updated.entries[isin].status == "ignored"
+    assert updated.entries[isin].name == "21shares Tezos ETP"
+    assert updated.entries[isin].last_seen_in_csv == date(2026, 5, 1)
+
+
+def test_ignore_isin_preserves_instrument_kind() -> None:
+    """instrument_kind is preserved on ignore (cleared only on restore)."""
+    from app.domain.tax.classification import InstrumentKind
+    isin = "CH0491507486"
+    doc = _make_doc(**{
+        isin: IsinMapping(ticker=None, name="21shares Tezos ETP", status="unmapped",
+                          instrument_kind=InstrumentKind.AKTIE)
+    })
+    updated = _ignore_isin(isin, doc)
+    assert updated.entries[isin].instrument_kind == InstrumentKind.AKTIE
+
+
+def test_restore_isin_flips_status_to_unmapped() -> None:
+    isin = "CH0491507486"
+    doc = _make_doc(**{
+        isin: IsinMapping(ticker=None, name="21shares Tezos ETP", status="ignored",
+                          last_seen_in_csv=date(2026, 5, 1))
+    })
+    updated = _restore_isin(isin, doc)
+    assert updated.entries[isin].status == "unmapped"
+    assert updated.entries[isin].name == "21shares Tezos ETP"
+    assert updated.entries[isin].last_seen_in_csv == date(2026, 5, 1)
+
+
+def test_restore_isin_clears_instrument_kind() -> None:
+    """Restore drops instrument_kind defensively in case one was set."""
+    from app.domain.tax.classification import InstrumentKind
+    isin = "CH0491507486"
+    doc = _make_doc(**{
+        isin: IsinMapping(ticker=None, name="21shares Tezos ETP", status="ignored",
+                          instrument_kind=InstrumentKind.AKTIE)
+    })
+    updated = _restore_isin(isin, doc)
+    assert updated.entries[isin].instrument_kind is None
+
+
+def test_ignore_and_restore_round_trip() -> None:
+    """Ignore then restore leaves the entry back at unmapped with no kind."""
+    isin = "CH0491507486"
+    doc = _make_doc(**{
+        isin: IsinMapping(ticker=None, name="21shares Tezos ETP", status="unmapped")
+    })
+    after_ignore = _ignore_isin(isin, doc)
+    after_restore = _restore_isin(isin, after_ignore)
+    assert after_restore.entries[isin].status == "unmapped"
+    assert after_restore.entries[isin].instrument_kind is None

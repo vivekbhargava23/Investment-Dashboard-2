@@ -81,6 +81,9 @@ def plan_import(
             continue
 
         mapping = isin_doc.entries.get(row.isin)
+        if mapping is not None and mapping.status == "ignored":
+            planned.append(_make(row, RowStatus.IGNORED_ISIN, PlannedAction.SKIP))
+            continue
         if mapping is None or mapping.status == "unmapped":
             planned.append(_make(row, RowStatus.UNMAPPED_ISIN, PlannedAction.SKIP))
             continue
