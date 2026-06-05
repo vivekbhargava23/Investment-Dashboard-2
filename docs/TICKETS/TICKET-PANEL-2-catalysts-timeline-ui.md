@@ -1,6 +1,7 @@
 # TICKET-PANEL-2 — Catalysts timeline on Overview (+ per-position variant)
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Investment Panel
 **Recommended model:** Sonnet — a focused rendering component over PANEL-1's service, plus a legend + table.
 **Estimated session length:** 2 – 2.5 hr
