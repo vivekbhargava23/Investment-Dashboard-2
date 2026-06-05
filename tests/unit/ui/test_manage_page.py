@@ -13,6 +13,7 @@ from app.ui.pages.manage import (
     _match_label,
     _tx_to_form_values,
     build_transactions_dataframe,
+    filter_transactions,
 )
 
 
@@ -53,7 +54,7 @@ def test_init_state_sets_all_defaults() -> None:
     assert "manage_add_query" in state
     assert "manage_add_resolved" in state
     assert "manage_editing_tx_id" in state
-    assert "manage_deleting_tx_id" in state
+    assert "manage_deleting_tx_ids" in state
     assert "manage_feedback" in state
     assert state["manage_add_query"] == ""
     assert state["manage_add_resolved"] is None
@@ -177,3 +178,52 @@ def test_transactions_dataframe_values() -> None:
 def test_transactions_dataframe_notes_blank_when_absent() -> None:
     row = build_transactions_dataframe([_eur_tx()]).iloc[0]
     assert row["Notes"] == ""
+
+
+# ---------------------------------------------------------------------------
+# TICKET-RD2: filter_transactions — per-column search for the table
+# ---------------------------------------------------------------------------
+
+def _tickers(txs: list[Transaction]) -> list[str]:
+    return [t.ticker for t in txs]
+
+
+def test_filter_ticker_substring_case_insensitive() -> None:
+    ase = _eur_tx(ticker="ASE.DE")
+    nvda = _usd_tx(ticker="NVDA")
+    out = filter_transactions([ase, nvda], ticker_query="ase")
+    assert _tickers(out) == ["ASE.DE"]
+
+
+def test_filter_empty_query_returns_all() -> None:
+    txs = [_eur_tx(ticker="ASE.DE"), _usd_tx(ticker="NVDA")]
+    assert len(filter_transactions(txs)) == 2
+
+
+def test_filter_type_buy_only() -> None:
+    buy = _eur_tx(ticker="ASE.DE", type=TransactionType.BUY)
+    sell = _eur_tx(ticker="ASE.DE", type=TransactionType.SELL, shares=Decimal("1"))
+    out = filter_transactions([buy, sell], type_filter="Sell")
+    assert out == [sell]
+
+
+def test_filter_notes_substring() -> None:
+    a = _eur_tx(ticker="ASE.DE", notes="rebalance Q1")
+    b = _eur_tx(ticker="ASE.DE", notes="dividend reinvest")
+    out = filter_transactions([a, b], notes_query="rebalance")
+    assert out == [a]
+
+
+def test_filter_combines_conditions() -> None:
+    keep = _eur_tx(ticker="ASE.DE", type=TransactionType.BUY, notes="core")
+    wrong_type = _eur_tx(
+        ticker="ASE.DE", type=TransactionType.SELL, shares=Decimal("1"), notes="core"
+    )
+    wrong_ticker = _usd_tx(ticker="NVDA", notes="core")
+    out = filter_transactions(
+        [keep, wrong_type, wrong_ticker],
+        ticker_query="ase",
+        type_filter="Buy",
+        notes_query="core",
+    )
+    assert out == [keep]

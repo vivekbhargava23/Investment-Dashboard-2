@@ -60,7 +60,7 @@ _STATE_DEFAULTS: dict[str, Any] = {
     "manage_add_pending": None,        # dict of captured form values | None
     "manage_add_form_key": 0,          # incremented on submit to reset the searchbox
     "manage_editing_tx_id": None,
-    "manage_deleting_tx_id": None,
+    "manage_deleting_tx_ids": None,
     "manage_feedback": None,           # ("success"|"error", message) | None
 }
 
@@ -602,9 +602,10 @@ def _handle_add_submit(
 # ---------------------------------------------------------------------------
 
 # ── "All Transactions" table (TICKET-RD2) ───────────────────────────────────
-# Rendered with st.dataframe for client-side sort/search (no page rerun on sort).
-# st.dataframe can't host inline buttons, so actions live in an action bar that
-# appears when a row is selected — mirrors the CSV-import workbench's pattern.
+# st.dataframe gives client-side sort with no page rerun. Above it sits a
+# per-column filter bar (type "ase" → only ASE rows). Selection is multi-row
+# (native checkboxes): tick one row to edit or delete it, tick several to bulk
+# delete — Edit greys out once more than one row is selected.
 
 def build_transactions_dataframe(txs: list[Transaction]) -> pd.DataFrame:
     """Build the display dataframe. Row order matches ``txs`` so a selection index
@@ -625,6 +626,28 @@ def build_transactions_dataframe(txs: list[Transaction]) -> pd.DataFrame:
     )
 
 
+def filter_transactions(
+    txs: list[Transaction],
+    *,
+    ticker_query: str = "",
+    type_filter: str = "All",
+    notes_query: str = "",
+) -> list[Transaction]:
+    """Pure case-insensitive substring filter for the transactions table."""
+    tq = ticker_query.strip().lower()
+    nq = notes_query.strip().lower()
+    out: list[Transaction] = []
+    for t in txs:
+        if tq and tq not in t.ticker.lower():
+            continue
+        if type_filter in ("Buy", "Sell") and t.type.value.lower() != type_filter.lower():
+            continue
+        if nq and nq not in (t.notes or "").lower():
+            continue
+        out.append(t)
+    return out
+
+
 def _render_transactions_table(txs: list[Transaction]) -> None:
     st.subheader("All Transactions")
     if not txs:
@@ -632,22 +655,42 @@ def _render_transactions_table(txs: list[Transaction]) -> None:
         return
 
     # A pending delete takes over the surface with its confirmation prompt.
-    deleting_id = st.session_state.manage_deleting_tx_id
-    if deleting_id:
-        tx = next((t for t in txs if t.id == deleting_id), None)
-        if tx is not None:
-            _render_delete_confirmation(tx)
+    deleting_ids = st.session_state.manage_deleting_tx_ids
+    if deleting_ids:
+        to_delete = [t for t in txs if t.id in deleting_ids]
+        if to_delete:
+            _render_delete_confirmation(to_delete)
             return
-        st.session_state.manage_deleting_tx_id = None
+        st.session_state.manage_deleting_tx_ids = None
 
-    df = build_transactions_dataframe(txs)
+    # ── Per-column filter bar ────────────────────────────────────────────────
+    fcols = st.columns([2, 1, 3])
+    ticker_query = fcols[0].text_input(
+        "Filter Ticker", key="tx_filter_ticker", placeholder="e.g. ASE"
+    )
+    type_filter = fcols[1].selectbox("Filter Type", ["All", "Buy", "Sell"], key="tx_filter_type")
+    notes_query = fcols[2].text_input(
+        "Filter Notes", key="tx_filter_notes", placeholder="search notes…"
+    )
+
+    filtered = filter_transactions(
+        txs, ticker_query=ticker_query, type_filter=type_filter, notes_query=notes_query
+    )
+    if not filtered:
+        st.info("No transactions match the current filters.")
+        return
+
+    df = build_transactions_dataframe(filtered)
+    # Key varies with the filter so changing it clears any stale row selection
+    # (selection indices are positional into the *displayed* rows).
+    table_key = f"manage_tx_table::{ticker_query}::{type_filter}::{notes_query}"
     event = st.dataframe(
         df,
         use_container_width=True,
         hide_index=True,
         on_select="rerun",
-        selection_mode="single-row",
-        key="manage_tx_table",
+        selection_mode="multi-row",
+        key=table_key,
         column_config={
             "Date": st.column_config.DateColumn(format="YYYY-MM-DD"),
             "Shares": st.column_config.NumberColumn(format="%.4g"),
@@ -655,40 +698,71 @@ def _render_transactions_table(txs: list[Transaction]) -> None:
         },
     )
 
-    selected = cast(Any, event).selection.rows
+    selected = [i for i in cast(Any, event).selection.rows if i < len(filtered)]
     if not selected:
-        st.caption("Select a row to edit or delete it.")
+        st.caption("Tick a row to edit or delete it · tick several to bulk-delete.")
         return
 
-    tx = txs[selected[0]]
-    st.caption(
-        f"Selected **{tx.ticker}** — {tx.type.value} {tx.shares:g} share(s) "
-        f"on {format_date(tx.trade_date)} for {format_eur(tx.cost_eur)}"
-    )
+    sel_txs = [filtered[i] for i in selected]
+    n = len(sel_txs)
+    if n == 1:
+        t = sel_txs[0]
+        st.caption(
+            f"Selected **{t.ticker}** — {t.type.value} {t.shares:g} share(s) "
+            f"on {format_date(t.trade_date)} for {format_eur(t.cost_eur)}"
+        )
+    else:
+        st.caption(f"Selected **{n}** transactions — Edit is disabled for multi-select.")
+
     edit_col, del_col, _ = st.columns([1, 1, 6])
-    if edit_col.button("✏ Edit", key="tx_edit_selected"):
-        st.session_state.manage_editing_tx_id = tx.id
+    edit_help = "Select exactly one row to edit." if n != 1 else None
+    if edit_col.button("✏ Edit", key="tx_edit_selected", disabled=n != 1, help=edit_help):
+        st.session_state.manage_editing_tx_id = sel_txs[0].id
         st.rerun()
-    if del_col.button("🗑 Delete", key="tx_delete_selected"):
-        st.session_state.manage_deleting_tx_id = tx.id
+    del_label = "🗑 Delete" if n == 1 else f"🗑 Delete {n}"
+    if del_col.button(del_label, key="tx_delete_selected", type="primary"):
+        st.session_state.manage_deleting_tx_ids = [t.id for t in sel_txs]
         st.rerun()
 
 
-def _render_delete_confirmation(tx: Transaction) -> None:
-    cols = st.columns([6, 1, 1])
-    cols[0].warning(f"Delete {tx.type.value} of {tx.shares:g} {tx.ticker} on {format_date(tx.trade_date)}?")
-    if cols[1].button("Confirm", key=f"confirm_del_{tx.id}", type="primary"):
-        try:
-            get_repository().delete(tx.id)
-        except Exception as e:
-            st.error(f"Failed to delete: {e}")
-            return
+def _render_delete_confirmation(txs: list[Transaction]) -> None:
+    n = len(txs)
+    if n == 1:
+        t = txs[0]
+        st.warning(
+            f"Delete {t.type.value} of {t.shares:g} {t.ticker} on {format_date(t.trade_date)}?"
+        )
+    else:
+        labels = ", ".join(f"{t.ticker} ({format_date(t.trade_date)})" for t in txs)
+        st.warning(
+            f"Delete these **{n}** transactions? {labels}\n\n"
+            "This cannot be undone except via a backup."
+        )
+
+    confirm_col, cancel_col, _ = st.columns([1, 1, 6])
+    if confirm_col.button("Confirm delete", key="confirm_del_selected", type="primary"):
+        repo = get_repository()
+        failed: list[str] = []
+        for t in txs:
+            try:
+                repo.delete(t.id)
+            except Exception:
+                failed.append(t.ticker)
         st.cache_data.clear()
-        st.session_state.manage_deleting_tx_id = None
-        st.session_state.manage_feedback = ("success", f"Deleted {tx.ticker} transaction.")
+        st.session_state.manage_deleting_tx_ids = None
+        if failed:
+            st.session_state.manage_feedback = (
+                "error",
+                f"Failed to delete: {', '.join(failed)}.",
+            )
+        else:
+            st.session_state.manage_feedback = (
+                "success",
+                f"Deleted {n} transaction(s).",
+            )
         st.rerun()
-    if cols[2].button("Cancel", key=f"cancel_del_{tx.id}"):
-        st.session_state.manage_deleting_tx_id = None
+    if cancel_col.button("Cancel", key="cancel_del_selected"):
+        st.session_state.manage_deleting_tx_ids = None
         st.rerun()
 
 
