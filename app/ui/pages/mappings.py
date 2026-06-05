@@ -6,8 +6,9 @@ import html
 import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+import pandas as pd
 import streamlit as st
 
 from app.domain.isin_map import IsinMapDocument, IsinMapping
@@ -31,6 +32,31 @@ _TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,29}$")
 # Column widths for the Mapped table: ISIN, Name, Ticker, Tax kind, Last seen,
 # then four action slots (Edit, Kind, Unmap, Remove).
 _MAPPED_COLS = [1.8, 2.2, 1.0, 1.3, 1.0, 0.7, 0.7, 0.8, 0.9]
+
+# ── Mapped table (TICKET-RD2) ───────────────────────────────────────────────
+# st.dataframe gives client-side sort/search with no page rerun. It can't host
+# inline buttons, so the per-ISIN actions appear in an action bar when a row is
+# selected (mirrors the CSV-import workbench pattern).
+
+def build_mapped_dataframe(items: list[tuple[str, Any]]) -> pd.DataFrame:
+    """Build the display dataframe for mapped ISINs. Row order matches ``items``
+    so a selection index maps straight back to the (isin, mapping) pair."""
+    rows = []
+    for isin, m in items:
+        if m.instrument_kind is not None:
+            kind = KIND_LABEL.get(m.instrument_kind, m.instrument_kind.value)
+        else:
+            kind = "⚠ unset"
+        rows.append(
+            {
+                "ISIN": isin,
+                "Name": m.name or "—",
+                "Ticker": m.ticker or "—",
+                "Tax kind": kind,
+                "Last seen": m.last_seen_in_csv,
+            }
+        )
+    return pd.DataFrame(rows, columns=["ISIN", "Name", "Ticker", "Tax kind", "Last seen"])
 
 _STATE_DEFAULTS: dict[str, Any] = {
     "mappings_editing_isin": None,
@@ -254,57 +280,62 @@ def _render_mapped_section(
         st.info("No mapped ISINs yet.")
         return
 
-    header = st.columns(_MAPPED_COLS)
-    for col, label in zip(header, ["ISIN", "Name", "Ticker", "Tax kind", "Last seen", "", "", "", ""]):
-        col.markdown(f"**{label}**")
-
     editing_isin = st.session_state.mappings_editing_isin
     kind_editing_isin = st.session_state.mappings_kind_editing_isin
     confirming_isin = st.session_state.mappings_confirming_remove_isin
 
-    for isin, mapping in mapped.items():
-        if isin == confirming_isin:
-            _render_remove_confirmation(isin, mapping, doc)
-            continue
+    # An in-progress action takes over the surface (edit / change-kind / confirm).
+    if confirming_isin in mapped:
+        _render_remove_confirmation(confirming_isin, mapped[confirming_isin], doc)
+        return
+    if editing_isin in mapped:
+        _render_edit_row(editing_isin, mapped[editing_isin], doc)
+        return
+    if kind_editing_isin in mapped:
+        _render_kind_edit_row(kind_editing_isin, mapped[kind_editing_isin], doc)
+        return
 
-        if isin == editing_isin:
-            _render_edit_row(isin, mapping, doc)
-            continue
+    items = list(mapped.items())
+    df = build_mapped_dataframe(items)
+    event = st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key="mappings_mapped_table",
+        column_config={"Last seen": st.column_config.DateColumn(format="YYYY-MM-DD")},
+    )
 
-        if isin == kind_editing_isin:
-            _render_kind_edit_row(isin, mapping, doc)
-            continue
+    selected = cast(Any, event).selection.rows
+    if not selected:
+        st.caption("Select a row to edit, change its tax kind, unmap, or remove it.")
+        return
 
-        tx_count = count_transactions_for_isin(get_repository(), isin)
+    isin, mapping = items[selected[0]]
+    tx_count = count_transactions_for_isin(get_repository(), isin)
+    st.caption(f"Selected **{isin}** — {mapping.name or '—'} (`{mapping.ticker}`)")
 
-        cols = st.columns(_MAPPED_COLS)
-        cols[0].code(isin, language=None)
-        cols[1].write(mapping.name or "—")
-        cols[2].write(f"`{mapping.ticker}`")
-        if mapping.instrument_kind is not None:
-            cols[3].write(KIND_LABEL.get(mapping.instrument_kind, mapping.instrument_kind.value))
-        else:
-            cols[3].markdown("⚠ **unset**")
-        cols[4].write(mapping.last_seen_in_csv.isoformat() if mapping.last_seen_in_csv else "—")
-        if cols[5].button("Edit", key=f"mappings_edit_{isin}", help="Remap to a different ticker (rewrites transactions)."):
-            st.session_state.mappings_editing_isin = isin
-            st.rerun()
-        if cols[6].button("Kind", key=f"mappings_kind_{isin}", help="Change the tax-kind in place (keeps ticker and transactions)."):
-            st.session_state.mappings_kind_editing_isin = isin
-            st.rerun()
-        unmap_help = (
-            f"{tx_count} transaction(s) reference this ISIN — use Remove to purge them."
-            if tx_count
-            else "Reset to Unmapped (keeps the ISIN, clears ticker and tax-kind)."
-        )
-        if cols[7].button("Unmap", key=f"mappings_unmap_{isin}", disabled=tx_count > 0, help=unmap_help):
-            updated_doc = _unmap_isin(isin, doc)
-            get_isin_map_repo().save(updated_doc)
-            st.session_state.mappings_feedback = ("success", f"Unmapped {isin} ({mapping.name}). It is back in the Unmapped list.")
-            st.rerun()
-        if cols[8].button("Remove", key=f"mappings_remove_{isin}", help="Purge this ISIN's transactions and its mapping."):
-            st.session_state.mappings_confirming_remove_isin = isin
-            st.rerun()
+    edit_col, kind_col, unmap_col, remove_col, _ = st.columns([1, 1, 1, 1, 4])
+    if edit_col.button("Edit", key="mappings_edit_selected", help="Remap to a different ticker (rewrites transactions)."):
+        st.session_state.mappings_editing_isin = isin
+        st.rerun()
+    if kind_col.button("Kind", key="mappings_kind_selected", help="Change the tax-kind in place (keeps ticker and transactions)."):
+        st.session_state.mappings_kind_editing_isin = isin
+        st.rerun()
+    unmap_help = (
+        f"{tx_count} transaction(s) reference this ISIN — use Remove to purge them."
+        if tx_count
+        else "Reset to Unmapped (keeps the ISIN, clears ticker and tax-kind)."
+    )
+    if unmap_col.button("Unmap", key="mappings_unmap_selected", disabled=tx_count > 0, help=unmap_help):
+        updated_doc = _unmap_isin(isin, doc)
+        get_isin_map_repo().save(updated_doc)
+        st.session_state.mappings_feedback = ("success", f"Unmapped {isin} ({mapping.name}). It is back in the Unmapped list.")
+        st.rerun()
+    if remove_col.button("Remove", key="mappings_remove_selected", help="Purge this ISIN's transactions and its mapping."):
+        st.session_state.mappings_confirming_remove_isin = isin
+        st.rerun()
 
 
 def _render_edit_row(isin: str, mapping: Any, doc: IsinMapDocument) -> None:

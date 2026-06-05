@@ -1,142 +1,165 @@
-# ruff: noqa: E501
 """Live Overview positions table.
 
-Moved out of ``overview.py`` (TICKET-RD1) into a reusable component so RD2
-(sorting) and RD6 (tranche expansion) can build on it. All styling lives in
-dark.css — no inline ``style=`` attributes. Data-derived strings (ticker,
-company name) are escaped via ``html.escape`` before interpolation because the
-result is emitted through ``render_html`` (``unsafe_allow_html=True``); this
-preserves the escaping TICKET-ROBUST-1 added.
+TICKET-RD2 rebuilt this on ``st.dataframe`` so the table sorts and searches
+*client-side* — clicking a column header reorders instantly with no Streamlit
+rerun (the previous query-param/link version repainted the whole page). This
+mirrors the CSV-import workbench table. Because ``st.dataframe`` escapes all
+content itself, the manual ``html.escape`` dance the HTML version needed
+(TICKET-ROBUST-1) is no longer required.
 """
 
 from __future__ import annotations
 
-import html
-from decimal import Decimal
+import pandas as pd
+import streamlit as st
 
 from app.domain.positions import LivePosition, PortfolioSummary
-from app.ui.components.weight_bar import render_weight_bar
-from app.ui.format import format_eur
-from app.ui.render import render_html
 
-_HEADER = (
-    '<table class="positions-table">'
-    "<thead>"
-    "<tr>"
-    "<th>Ticker</th>"
-    "<th>Name</th>"
-    '<th class="text-right">Price (€)</th>'
-    '<th class="text-right">Shares</th>'
-    '<th class="text-right">Cost (€)</th>'
-    '<th class="text-right">Value (€)</th>'
-    '<th class="text-right">Gain (€)</th>'
-    "<th>Weight</th>"
-    '<th class="text-right">Trend 30D</th>'
-    '<th class="text-center">Lots</th>'
-    '<th class="text-center">Sim</th>'
-    "</tr>"
-    "</thead>"
-    "<tbody>"
-)
+# Column order for the displayed dataframe.
+_COLUMNS = [
+    "Ticker",
+    "Name",
+    "Price (€)",
+    "Shares",
+    "Cost (€)",
+    "Value (€)",
+    "Gain (€)",
+    "Weight (%)",
+    "Trend 30D (%)",
+    "Lots",
+    "Sim",
+]
 
 
-def build_positions_table_html(
+def build_positions_dataframe(
     positions: dict[str, LivePosition],
     summary: PortfolioSummary,
-    trend_data: dict[str, str] | None = None,
+    *,
+    trend_values: dict[str, float | None] | None = None,
     name_lookup: dict[str, str] | None = None,
-) -> str:
-    """trend_data maps ticker → pre-formatted trend cell HTML (e.g. '↑ +2.3%' or '—')."""
-    sorted_positions = sorted(
-        positions.values(),
-        key=lambda p: float(p.live_value_eur.amount) if p.live_value_eur is not None else -1.0,
-        reverse=True,
-    )
+) -> pd.DataFrame:
+    """Build the positions dataframe. Stale fields (no live price/value/gain) are
+    left as ``None`` so they render blank and sort to the end."""
+    trend_values = trend_values or {}
+    name_lookup = name_lookup or {}
+    total_value = float(summary.total_value_eur.amount)
 
-    _name_lookup = name_lookup or {}
-    tbody_rows: list[str] = []
-    for p in sorted_positions:
-        ticker = p.position.ticker
-        name = _name_lookup.get(ticker, ticker)
-        # Data-derived strings (portfolio ticker, isin_map name) must be escaped
-        # before interpolation — render_html emits with unsafe_allow_html=True.
-        ticker_safe = html.escape(ticker)
-        name_safe = html.escape(name)
-
-        shares = f"{p.position.open_shares:g}"
-        cost = format_eur(p.position.cost_basis_eur, signed=False).replace("€", "")
-        lots = len(p.position.open_lots)
-
-        is_stale = p.live_price_native is None or p.live_value_eur is None or p.unrealised_gain_eur is None
-        row_class = "stale" if is_stale else ""
-
-        if is_stale or p.live_price_native is None or p.live_value_eur is None:
-            price_cell = '<td class="font-mono text-right">—</td>'
-        else:
-            native_ccy = p.live_price_native.currency.value
-            native_amt = float(p.live_price_native.amount)
-            eur_per_share = float(p.live_value_eur.amount) / float(p.position.open_shares)
-            if native_ccy != "EUR":
-                tooltip = f"{native_ccy} {native_amt:.2f}"
-                price_cell = (
-                    f'<td class="font-mono text-right" title="{tooltip}">'
-                    f'{eur_per_share:.2f}'
-                    f'</td>'
-                )
-            else:
-                price_cell = (
-                    f'<td class="font-mono text-right">'
-                    f'{eur_per_share:.2f}'
-                    f'</td>'
-                )
-
-        val = "—" if is_stale or p.live_value_eur is None else format_eur(p.live_value_eur, signed=False).replace("€", "")
-        gain = "—" if is_stale or p.unrealised_gain_eur is None else format_eur(p.unrealised_gain_eur, signed=True).replace("€", "")
-
-        unrealised_gain_eur_amount = Decimal("0")
-        if not is_stale and p.unrealised_gain_eur is not None:
-            unrealised_gain_eur_amount = p.unrealised_gain_eur.amount
-
-        gain_class = "gain-neutral" if is_stale else ("gain-positive" if unrealised_gain_eur_amount > 0 else "gain-negative" if unrealised_gain_eur_amount < 0 else "gain-neutral")
-
-        weight_pct = Decimal("0")
-        if not is_stale and p.live_value_eur is not None and summary.total_value_eur.amount > 0:
-            weight_pct = p.live_value_eur.amount / summary.total_value_eur.amount * Decimal("100")
-
-        weight_html = render_weight_bar(weight_pct, scale_max=Decimal("100"))
-
-        sim_link = (
-            f'<a class="sim-link" href="/?page=simulator&ticker={ticker_safe}" target="_self" '
-            f'title="Simulate sell">⚡</a>'
+    rows: list[dict[str, object]] = []
+    for ticker, p in positions.items():
+        value = float(p.live_value_eur.amount) if p.live_value_eur is not None else None
+        gain = (
+            float(p.unrealised_gain_eur.amount)
+            if p.unrealised_gain_eur is not None
+            else None
         )
-        trend_cell = (trend_data or {}).get(ticker, "—")
-        tbody_rows.append(
-            f'<tr class="{row_class}">'
-            f'<td><strong>{ticker_safe}</strong></td>'
-            f'<td class="col-name">{name_safe}</td>'
-            f'{price_cell}'
-            f'<td class="font-mono text-right">{shares}</td>'
-            f'<td class="font-mono text-right">{cost}</td>'
-            f'<td class="font-mono text-right"><strong>{val}</strong></td>'
-            f'<td class="font-mono text-right {gain_class}">{gain}</td>'
-            f'<td class="font-mono">{weight_html}</td>'
-            f'<td class="font-mono text-right col-trend">{trend_cell}</td>'
-            f'<td class="font-mono text-center col-meta">{lots}</td>'
-            f'<td class="text-center">{sim_link}</td>'
-            f'</tr>'
+        shares = float(p.position.open_shares)
+        price = value / shares if value is not None and shares else None
+        weight = value / total_value * 100 if value is not None and total_value > 0 else None
+        rows.append(
+            {
+                "Ticker": ticker,
+                "Name": name_lookup.get(ticker, ticker),
+                "Price (€)": price,
+                "Shares": shares,
+                "Cost (€)": float(p.position.cost_basis_eur.amount),
+                "Value (€)": value,
+                "Gain (€)": gain,
+                "Weight (%)": weight,
+                "Trend 30D (%)": trend_values.get(ticker),
+                "Lots": len(p.position.open_lots),
+                "Sim": f"/?page=simulator&ticker={ticker}",
+            }
         )
+    return pd.DataFrame(rows, columns=_COLUMNS)
 
-    return _HEADER + "".join(tbody_rows) + "</tbody></table>"
+
+def _sign_color(v: object) -> str:
+    """Pandas Styler cell colour: green positive, red negative, muted zero/blank."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "color: var(--text3)"
+    try:
+        n = float(v)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return ""
+    if n > 0:
+        return "color: #26a69a"
+    if n < 0:
+        return "color: #ef5350"
+    return "color: #9aa0a6"
+
+
+_WEIGHT_BAR_WIDTH = 16
+
+
+def weight_bar_text(weight: object, weight_max: float, width: int = _WEIGHT_BAR_WIDTH) -> str:
+    """Render the weight as a Unicode block bar plus its percentage, e.g.
+    ``████████········ 16.4%``. ``st.dataframe`` is a canvas grid that ignores
+    CSS gradients, so the bar is drawn as text (and tinted via the ``color``
+    Styler rule, which the grid does honour). Bar length scales to the largest
+    weight. Returns ``""`` for a blank (stale) weight."""
+    if weight is None or (isinstance(weight, float) and pd.isna(weight)):
+        return ""
+    try:
+        w = float(weight)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return ""
+    pct = min(100.0, w / weight_max * 100) if weight_max > 0 else 0.0
+    filled = round(pct / 100 * width)
+    return "█" * filled + "·" * (width - filled) + f" {w:.1f}%"
 
 
 def render_positions_table(
     positions: dict[str, LivePosition],
     summary: PortfolioSummary,
-    trend_data: dict[str, str] | None = None,
+    *,
+    trend_values: dict[str, float | None] | None = None,
     name_lookup: dict[str, str] | None = None,
 ) -> None:
-    """Render the positions table inside a scrollable card."""
-    table_html = build_positions_table_html(
-        positions, summary, trend_data=trend_data, name_lookup=name_lookup
+    """Render the positions table as an interactive, client-side-sortable grid."""
+    df = build_positions_dataframe(
+        positions, summary, trend_values=trend_values, name_lookup=name_lookup
     )
-    render_html(f'<div class="metric-card table-card">{table_html}</div>')
+    if df.empty:
+        st.info("No positions yet.")
+        return
+
+    weight_max = float(df["Weight (%)"].max()) if df["Weight (%)"].notna().any() else 100.0
+    columns = list(df.columns)
+
+    # Replace the numeric Weight with its text bar for display (the source df keeps
+    # the number, which the tests and any sorting rely on).
+    display = df.copy()
+    display["Weight (%)"] = [weight_bar_text(w, weight_max) for w in df["Weight (%)"]]
+
+    def _row_styles(row: pd.Series) -> list[str]:
+        # Gain & Trend tint by their own sign; the Weight bar tints by the gain sign.
+        out: list[str] = []
+        for col in columns:
+            if col in ("Gain (€)", "Trend 30D (%)"):
+                out.append(_sign_color(row[col]))
+            elif col == "Weight (%)":
+                out.append(_sign_color(df.loc[row.name, "Gain (€)"]))
+            else:
+                out.append("")
+        return out
+
+    styler = display.style.apply(_row_styles, axis=1)
+
+    st.dataframe(
+        styler,
+        use_container_width=True,
+        hide_index=True,
+        # Size to the row count so the whole portfolio shows without an inner scrollbar.
+        height=(len(df) + 1) * 35 + 3,
+        column_config={
+            "Price (€)": st.column_config.NumberColumn(format="%.2f"),
+            "Shares": st.column_config.NumberColumn(format="%.4g"),
+            "Cost (€)": st.column_config.NumberColumn(format="€%.2f"),
+            "Value (€)": st.column_config.NumberColumn(format="€%.2f"),
+            "Gain (€)": st.column_config.NumberColumn(format="€%+.2f"),
+            "Weight (%)": st.column_config.TextColumn(width="medium"),
+            "Trend 30D (%)": st.column_config.NumberColumn(format="%+.1f%%"),
+            "Lots": st.column_config.NumberColumn(format="%d"),
+            "Sim": st.column_config.LinkColumn(display_text="⚡ Sim", width="small"),
+        },
+    )

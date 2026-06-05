@@ -20,6 +20,7 @@ from app.ui.pages.mappings import (
     _set_instrument_kind,
     _unmap_isin,
     _validate_ticker,
+    build_mapped_dataframe,
 )
 
 # ---------------------------------------------------------------------------
@@ -463,3 +464,48 @@ def test_delete_transactions_for_isin_leaves_none_isin_txs_alone() -> None:
 
     assert removed == 1
     assert [t.id for t in fake_repo.load_all()] == ["tx2"]
+
+
+# ---------------------------------------------------------------------------
+# TICKET-RD2: build_mapped_dataframe — display rows for the sortable grid
+# ---------------------------------------------------------------------------
+
+def _mapped(
+    isin: str, *, name: str, ticker: str, kind=None, last_seen=None
+) -> tuple[str, IsinMapping]:
+    return isin, IsinMapping(
+        ticker=ticker, name=name, status="mapped",
+        instrument_kind=kind, last_seen_in_csv=last_seen,
+    )
+
+
+def test_mapped_dataframe_columns() -> None:
+    df = build_mapped_dataframe([_mapped("X1", name="Acme", ticker="ACM")])
+    assert list(df.columns) == ["ISIN", "Name", "Ticker", "Tax kind", "Last seen"]
+
+
+def test_mapped_dataframe_row_order_matches_input() -> None:
+    """Row order must equal input order so a selection index maps back to the ISIN."""
+    a = _mapped("DE0000000001", name="Zeta", ticker="ZZZ")
+    b = _mapped("US0000000002", name="Alpha", ticker="AAA")
+    df = build_mapped_dataframe([b, a])
+    assert list(df["ISIN"]) == ["US0000000002", "DE0000000001"]
+
+
+def test_mapped_dataframe_kind_label_and_unset() -> None:
+    from app.domain.tax.classification import InstrumentKind
+    df = build_mapped_dataframe([
+        _mapped("X1", name="Has", ticker="AAA", kind=InstrumentKind.AKTIE),
+        _mapped("X2", name="None", ticker="BBB", kind=None),
+    ])
+    assert df.iloc[0]["Tax kind"] != "⚠ unset"
+    assert df.iloc[1]["Tax kind"] == "⚠ unset"
+
+
+def test_mapped_dataframe_last_seen_passthrough() -> None:
+    df = build_mapped_dataframe([
+        _mapped("X1", name="Seen", ticker="AAA", last_seen=date(2026, 1, 1)),
+        _mapped("X2", name="Never", ticker="BBB", last_seen=None),
+    ])
+    assert df.iloc[0]["Last seen"] == date(2026, 1, 1)
+    assert df.iloc[1]["Last seen"] is None
