@@ -20,7 +20,7 @@ from app.ui.pages.mappings import (
     _set_instrument_kind,
     _unmap_isin,
     _validate_ticker,
-    sort_mappings,
+    build_mapped_dataframe,
 )
 
 # ---------------------------------------------------------------------------
@@ -467,7 +467,7 @@ def test_delete_transactions_for_isin_leaves_none_isin_txs_alone() -> None:
 
 
 # ---------------------------------------------------------------------------
-# TICKET-RD2: sort_mappings — pure ordering for the Mapped table
+# TICKET-RD2: build_mapped_dataframe — display rows for the sortable grid
 # ---------------------------------------------------------------------------
 
 def _mapped(
@@ -479,49 +479,33 @@ def _mapped(
     )
 
 
-def _isins(items: list[tuple[str, IsinMapping]]) -> list[str]:
-    return [isin for isin, _ in items]
+def test_mapped_dataframe_columns() -> None:
+    df = build_mapped_dataframe([_mapped("X1", name="Acme", ticker="ACM")])
+    assert list(df.columns) == ["ISIN", "Name", "Ticker", "Tax kind", "Last seen"]
 
 
-def test_sort_mappings_default_is_isin_ascending() -> None:
+def test_mapped_dataframe_row_order_matches_input() -> None:
+    """Row order must equal input order so a selection index maps back to the ISIN."""
     a = _mapped("DE0000000001", name="Zeta", ticker="ZZZ")
     b = _mapped("US0000000002", name="Alpha", ticker="AAA")
-    assert _isins(sort_mappings([b, a])) == ["DE0000000001", "US0000000002"]
+    df = build_mapped_dataframe([b, a])
+    assert list(df["ISIN"]) == ["US0000000002", "DE0000000001"]
 
 
-def test_sort_mappings_isin_descending() -> None:
-    a = _mapped("DE0000000001", name="Zeta", ticker="ZZZ")
-    b = _mapped("US0000000002", name="Alpha", ticker="AAA")
-    assert _isins(sort_mappings([a, b], "isin", "desc")) == ["US0000000002", "DE0000000001"]
-
-
-def test_sort_mappings_by_name() -> None:
-    a = _mapped("X1", name="Zeta", ticker="ZZZ")
-    b = _mapped("X2", name="Alpha", ticker="AAA")
-    assert _isins(sort_mappings([a, b], "name", "asc")) == ["X2", "X1"]
-
-
-def test_sort_mappings_by_ticker_descending() -> None:
-    a = _mapped("X1", name="One", ticker="AAA")
-    b = _mapped("X2", name="Two", ticker="ZZZ")
-    assert _isins(sort_mappings([a, b], "ticker", "desc")) == ["X2", "X1"]
-
-
-def test_sort_mappings_by_last_seen_none_sorts_first_ascending() -> None:
-    seen = _mapped("X1", name="Seen", ticker="AAA", last_seen=date(2026, 1, 1))
-    never = _mapped("X2", name="Never", ticker="BBB", last_seen=None)
-    # None → date.min, so ascending puts the never-seen entry first.
-    assert _isins(sort_mappings([seen, never], "last_seen", "asc")) == ["X2", "X1"]
-
-
-def test_sort_mappings_by_kind_unset_sorts_first_ascending() -> None:
+def test_mapped_dataframe_kind_label_and_unset() -> None:
     from app.domain.tax.classification import InstrumentKind
-    with_kind = _mapped("X1", name="Has", ticker="AAA", kind=InstrumentKind.AKTIE)
-    no_kind = _mapped("X2", name="None", ticker="BBB", kind=None)
-    assert _isins(sort_mappings([with_kind, no_kind], "kind", "asc")) == ["X2", "X1"]
+    df = build_mapped_dataframe([
+        _mapped("X1", name="Has", ticker="AAA", kind=InstrumentKind.AKTIE),
+        _mapped("X2", name="None", ticker="BBB", kind=None),
+    ])
+    assert df.iloc[0]["Tax kind"] != "⚠ unset"
+    assert df.iloc[1]["Tax kind"] == "⚠ unset"
 
 
-def test_sort_mappings_unknown_key_falls_back_to_isin_asc() -> None:
-    a = _mapped("DE0000000001", name="Zeta", ticker="ZZZ")
-    b = _mapped("US0000000002", name="Alpha", ticker="AAA")
-    assert _isins(sort_mappings([b, a], "bogus", "sideways")) == ["DE0000000001", "US0000000002"]
+def test_mapped_dataframe_last_seen_passthrough() -> None:
+    df = build_mapped_dataframe([
+        _mapped("X1", name="Seen", ticker="AAA", last_seen=date(2026, 1, 1)),
+        _mapped("X2", name="Never", ticker="BBB", last_seen=None),
+    ])
+    assert df.iloc[0]["Last seen"] == date(2026, 1, 1)
+    assert df.iloc[1]["Last seen"] is None
