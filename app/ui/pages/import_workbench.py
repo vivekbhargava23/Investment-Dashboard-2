@@ -4,7 +4,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import shutil
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -19,6 +18,7 @@ from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.services.isin_autoresolve import AutoResolveResult, autoresolve_isin
+from app.ui.backup import write_portfolio_backup as _write_backup
 from app.ui.components.isin_mapper import (
     KIND_LABEL,
     build_mapping,
@@ -109,18 +109,6 @@ def _append_import_log(log_path: Path, entry: dict[str, object]) -> None:
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(entries, f, indent=2)
     os.replace(tmp, log_path)
-
-
-def _write_backup(portfolio_path: Path, backups_dir: Path) -> Path:
-    backups_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
-    bak = backups_dir / f"portfolio.{stamp}.json.bak"
-    shutil.copy2(portfolio_path, bak)
-    # Keep only 10 most recent
-    existing = sorted(backups_dir.glob("portfolio.*.json.bak"))
-    for old in existing[:-10]:
-        old.unlink(missing_ok=True)
-    return bak
 
 
 def _build_transaction(row: PlannedRow) -> Transaction | None:

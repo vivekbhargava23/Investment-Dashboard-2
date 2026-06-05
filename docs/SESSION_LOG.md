@@ -44,6 +44,53 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — TICKET-CSV-17
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Duration:** ~40 min
+**Branch:** ticket-csv-17-erase-imported-data-guarded-full
+**PR:** (opened at session end)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- New `app/services/data_admin.py`: pure functions over the transaction repository port —
+  `erase_all_transactions`, `erase_transactions` (scoped by source and/or trade-date range),
+  and a read-only `count_transactions` preview mirror. An empty selection (no source filter,
+  no dates) deletes nothing, so the scoped path can never become an accidental full wipe;
+  full-book wipes only go through `erase_all_transactions`. Exposed `UNSET` sentinel +
+  `SourceFilter` type alias.
+- New Danger-zone expander on Manage Portfolio (`app/ui/pages/manage.py`): full erase behind a
+  typed `ERASE` word with an optional "also clear ISIN mappings" checkbox; scoped erase with a
+  source select (`Any source` + sources present in the book), optional from/to date bounds, a
+  live "would delete N" preview, and a confirmation checkbox. Every erase writes a backup first
+  and reports the backup path.
+- Lifted the rolling-window backup helper into `app/ui/backup.py` (`write_portfolio_backup`);
+  `import_workbench.py` re-aliases it as `_write_backup`, `mappings.py` now imports it directly.
+
+### Files touched
+- `app/services/data_admin.py` — new service
+- `app/ui/backup.py` — new shared backup helper
+- `app/ui/pages/manage.py` — danger zone UI + handlers
+- `app/ui/pages/import_workbench.py` — use shared backup helper
+- `app/ui/pages/mappings.py` — use shared backup helper
+- `tests/unit/services/test_data_admin.py` — new (12 cases)
+
+### Tests
+962 → 974 passing (12 new); 91 skipped. ruff / mypy / lint-imports clean.
+
+### Decisions made during the session
+- ISIN-map clear is opt-in on full erase only; scoped erase never touches the map (per ticket).
+- Map clear stays in the UI (`IsinMapRepository.save(IsinMapDocument())`), not the service,
+  to keep `data_admin` pure over the transaction port.
+- Scoped "empty selection deletes nothing" implemented as an explicit guard so the partial path
+  cannot silently wipe the whole book.
+
+### Out-of-scope items noticed
+- Empty-portfolio render of Overview/Tax relies on existing behaviour; verify in-app (ticket note).
+
+### Tokens used (rough)
+~70k
+
 ## 2026-06-05 — TICKET-CSV-15
 **Surface:** Claude Code
 **Model:** opus-4.8
