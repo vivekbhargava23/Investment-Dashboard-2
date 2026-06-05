@@ -49,6 +49,7 @@ _STATUS_COLORS: dict[str, str] = {
     RowStatus.ALREADY_IMPORTED: "⚪",
     RowStatus.CONFLICT_WITH_MANUAL: "🟡",
     RowStatus.UNMAPPED_ISIN: "🔴",
+    RowStatus.IGNORED_ISIN: "⬜",
     RowStatus.INTERNAL_TRANSFER: "⬜",
     RowStatus.OUT_OF_SCOPE_V1: "⬜",
     RowStatus.CANCELLED_OR_EXPIRED: "⬜",
@@ -330,7 +331,7 @@ def _render_upload_section(log_path: Path) -> bool:
     n_conflicts = counts.get(RowStatus.CONFLICT_WITH_MANUAL, 0)
     n_blocked = sum(
         counts.get(s, 0)
-        for s in (RowStatus.UNMAPPED_ISIN, RowStatus.INTERNAL_TRANSFER,
+        for s in (RowStatus.UNMAPPED_ISIN, RowStatus.IGNORED_ISIN, RowStatus.INTERNAL_TRANSFER,
                   RowStatus.OUT_OF_SCOPE_V1, RowStatus.CANCELLED_OR_EXPIRED,
                   RowStatus.PARSE_ERROR)
     )
@@ -389,6 +390,7 @@ def _render_filter_chips(plan: ImportPlan) -> str | None:
         (RowStatus.ALREADY_IMPORTED, "already imported"),
         (RowStatus.CONFLICT_WITH_MANUAL, "conflicts"),
         (RowStatus.UNMAPPED_ISIN, "unmapped ISIN"),
+        (RowStatus.IGNORED_ISIN, "ignored ISIN"),
         (RowStatus.INTERNAL_TRANSFER, "internal transfer"),
         (RowStatus.OUT_OF_SCOPE_V1, "out of scope"),
         (RowStatus.CANCELLED_OR_EXPIRED, "cancelled/expired"),
@@ -612,12 +614,11 @@ def _render_apply_bar(
     excludes: set[str] = st.session_state.get(_KEY_EXCLUDES, set())
     n_ready = _count_ready(plan, conflicts, excludes)
     n_conflicts = sum(1 for r in plan.rows if r.status == RowStatus.CONFLICT_WITH_MANUAL)
-    n_blocked = sum(
-        1 for r in plan.rows
-        if r.status in (RowStatus.UNMAPPED_ISIN, RowStatus.INTERNAL_TRANSFER,
-                        RowStatus.OUT_OF_SCOPE_V1, RowStatus.CANCELLED_OR_EXPIRED,
-                        RowStatus.PARSE_ERROR)
+    _BLOCKED = (
+        RowStatus.UNMAPPED_ISIN, RowStatus.IGNORED_ISIN, RowStatus.INTERNAL_TRANSFER,
+        RowStatus.OUT_OF_SCOPE_V1, RowStatus.CANCELLED_OR_EXPIRED, RowStatus.PARSE_ERROR,
     )
+    n_blocked = sum(1 for r in plan.rows if r.status in _BLOCKED)
 
     st.divider()
     st.caption(

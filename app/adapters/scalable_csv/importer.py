@@ -193,6 +193,11 @@ def run_import(
         # ISIN lookup
         mapping = entries.get(row.isin)
 
+        if mapping is not None and mapping.status == "ignored":
+            # Silently skip — no counter bump, no summary entry; update last_seen_in_csv only
+            entries[row.isin] = mapping.model_copy(update={"last_seen_in_csv": row.date})
+            continue
+
         if mapping is None:
             # First time seeing this ISIN: add as unmapped
             entries[row.isin] = IsinMapping(
