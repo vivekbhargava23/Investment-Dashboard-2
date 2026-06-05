@@ -6,13 +6,16 @@ from decimal import Decimal
 from pathlib import Path
 
 from app.domain.csv_import import ImportPlan, PlannedAction, PlannedRow, RowStatus
+from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import TransactionType
 from app.domain.money import Currency, Money
+from app.domain.tax.classification import InstrumentKind
 from app.ui.pages.import_workbench import (
     _append_import_log,
     _build_transaction,
     _count_blocked,
     _count_ready,
+    _ignore_isin,
     _load_import_log,
     _md5,
     _surfaced_rows,
@@ -268,6 +271,52 @@ def test_build_transaction_usd_ticker_is_eur_native() -> None:
     assert tx.price_native.currency == Currency.EUR
     assert tx.price_native.amount == Decimal("82.65")
     assert tx.fx_rate_eur == Decimal("1")
+
+
+# ─── _ignore_isin ─────────────────────────────────────────────────────────────
+
+def test_ignore_isin_creates_entry_when_absent() -> None:
+    doc = IsinMapDocument(entries={})
+    updated = _ignore_isin("DE0007164600", "SAP SE", doc)
+    entry = updated.entries["DE0007164600"]
+    assert entry.status == "ignored"
+    assert entry.ticker is None
+    assert entry.name == "SAP SE"
+
+
+def test_ignore_isin_falls_back_to_isin_when_no_description() -> None:
+    doc = IsinMapDocument(entries={})
+    updated = _ignore_isin("DE0007164600", "", doc)
+    assert updated.entries["DE0007164600"].name == "DE0007164600"
+
+
+def test_ignore_isin_preserves_existing_name_and_clears_mapping() -> None:
+    doc = IsinMapDocument(
+        entries={
+            "DE0007164600": IsinMapping(
+                ticker="SAP.DE",
+                name="Existing Name",
+                status="mapped",
+                last_seen_in_csv=date(2026, 1, 2),
+                instrument_kind=InstrumentKind.AKTIE,
+            )
+        }
+    )
+    updated = _ignore_isin("DE0007164600", "SAP SE", doc)
+    entry = updated.entries["DE0007164600"]
+    assert entry.status == "ignored"
+    assert entry.ticker is None
+    assert entry.instrument_kind is None
+    assert entry.name == "Existing Name"
+    assert entry.last_seen_in_csv == date(2026, 1, 2)
+
+
+def test_ignore_isin_leaves_other_entries_untouched() -> None:
+    other = IsinMapping(ticker="MSF.DE", name="Microsoft", status="mapped")
+    doc = IsinMapDocument(entries={"US5949181045": other})
+    updated = _ignore_isin("DE0007164600", "SAP SE", doc)
+    assert updated.entries["US5949181045"] == other
+    assert updated.version == doc.version
 
 
 # ─── page import smoke ────────────────────────────────────────────────────────
