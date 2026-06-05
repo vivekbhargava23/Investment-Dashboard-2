@@ -44,6 +44,40 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — TICKET-CSV-18
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Duration:** ~20 min
+**Branch:** ticket-csv-18-inline-ignore-action-in-the
+**PR:** (opened at session end)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added an inline **Ignore** button next to **Save** for each unmapped ISIN in
+  the Import Workbench manual-review panel (`_render_autoresolve_panel`).
+- Clicking Ignore flips the ISIN's map entry to `status="ignored"` (creating the
+  entry if absent) via the existing `IsinMapRepository.save` path, shows a toast,
+  clears the cached plan, and reruns so the now-silent row drops out.
+- New `_ignore_isin` helper preserves an existing entry's name/last_seen and
+  clears ticker + instrument_kind, matching the Mappings-page ignore behaviour.
+
+### Files touched
+- `app/ui/pages/import_workbench.py` — `_ignore_isin` helper + Ignore button column
+- `tests/unit/ui/test_import_workbench.py` — 4 new `_ignore_isin` tests
+
+### Tests
+974 passing → 978 passing (4 new); 91 skipped. ruff/mypy/lint-imports clean.
+
+### Decisions made during the session
+- No architectural decisions. Reused the existing persistence + silent-workbench
+  plumbing from TICKET-CSV-14; Restore remains on the Mappings page only.
+
+### Out-of-scope items noticed
+- Auto-suggesting which ISINs to ignore is TICKET-CSV-19 (left untouched).
+
+### Tokens used (rough)
+~50k
+
 ## 2026-06-05 — TICKET-CSV-17
 **Surface:** Claude Code
 **Model:** opus-4.8
