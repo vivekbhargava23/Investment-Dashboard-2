@@ -133,7 +133,13 @@ def render_positions_table(
             "Gain (€)": st.column_config.NumberColumn(format="€%+.2f"),
             "Gain (%)": st.column_config.NumberColumn(format="%+.1f%%"),
             "Weight (%)": st.column_config.ProgressColumn(
-                format="%.1f%%", min_value=0, max_value=max(weight_max, 1.0)
+                format="%.1f%%",
+                min_value=0,
+                max_value=max(weight_max, 1.0),
+                # Neutral grey: the bar encodes holding size only, never gain — so it
+                # must not read as red/green. (st.dataframe draws the bar on a canvas,
+                # so this `color` arg is the only hook; CSS can't reach it.)
+                color="#9aa0a6",
             ),
             "Trend 30D (%)": st.column_config.NumberColumn(format="%+.1f%%"),
             "Lots": st.column_config.NumberColumn(format="%d"),
