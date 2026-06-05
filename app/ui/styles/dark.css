@@ -440,6 +440,39 @@ body {
     border-radius: 4px;
 }
 
+/* ── Catalysts timeline legend (PANEL-2) ── */
+.catalysts-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    font-size: 11px;
+    color: var(--text2);
+    margin-bottom: 8px;
+}
+.cat-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.cat-legend-today {
+    margin-left: auto;
+    font-family: 'DM Mono', monospace;
+    color: var(--text3);
+}
+.cat-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+/* Estimated dates render as a hollow dot so they read as inferred, not confirmed. */
+.cat-dot-estimated {
+    background: transparent;
+    border: 1.5px solid var(--text3);
+}
+
 /* ── Spacing utilities ── */
 .mt-2  { margin-top: 2px; }
 .mt-6  { margin-top: 6px; }

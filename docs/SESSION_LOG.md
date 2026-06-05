@@ -44,6 +44,60 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-06 — TICKET-PANEL-2
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Branch:** ticket-panel-2-catalysts-timeline-on-overview-per
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Built `app/ui/components/catalysts_timeline.py`: `render_catalysts_timeline(events,
+  *, as_of, mode, updated)` over PANEL-1's data layer, rendered as a **horizontal
+  Plotly timeline** (per Vivek's review feedback — replaced the first cut's vertical
+  banded list + companion table). Events are markers laid out left→right across
+  time-zone bands (This week → Later, empty zones omitted), on a book-wide lane (y=1)
+  and a per-holding lane (y=0), sized by impact, drawn hollow when `estimated`, with
+  all detail in the **hover** (no table). Legend of the six categories + estimated +
+  today marker; ticker labels position markers in portfolio mode. Hover text escaped.
+- One source of category→colour (`CATALYST_CATEGORY_COLORS` in `_chart_styles.py`),
+  reused by legend and markers.
+- Portfolio mode lives on its **own `Catalysts` sidebar page** (Vivek: not wanted on
+  Overview — "put it on some other sidebar like research"). Held tickers come from
+  FIFO `compute_positions` (offline, no live fetch). Per-position mode stays on the
+  Company Deep Dive Snapshot tab.
+
+### Files touched
+- `app/ui/components/catalysts_timeline.py` — new
+- `app/ui/components/_chart_styles.py` — category colour tokens
+- `app/ui/pages/catalysts.py` — new dedicated page
+- `app/ui/pages/company.py` — per-position wiring
+- `app/ui/pages/overview.py` — removed the catalysts section
+- `app/ui/components/sidebar.py`, `app/ui/components/topbar.py` — register the page
+- `app/ui/styles/dark.css` — legend styles
+- `tests/unit/ui/test_catalysts_timeline.py` — new; sidebar/component nav tests updated
+
+### Tests
+1064 → 1084 passing (20 new). `ruff`, `mypy`, `lint-imports` all clean.
+
+### Decisions made during the session
+- Timeline > sequential list: Vivek asked for an actual left→right timeline with
+  hover detail instead of grouped sequential rows + a table. This departs from the
+  filed spec (which chose time bands over a pixel axis and made the table an AC); the
+  ticket/ADR-013 UI note should be reconciled. Kept time *zones* (not a to-scale date
+  axis) so near-term events stay legible.
+- Per-position surface = Company Deep Dive Snapshot tab (existing drilldown; no new
+  drawer), satisfying the ticket's assumption-to-confirm.
+- Visual verification skipped at Vivek's request this round (portfolio timeline shown
+  in the first cut; redesign is unit-tested).
+
+### Out-of-scope items noticed
+- **Pre-existing bug on `main` (unrelated):** the Company Deep Dive Snapshot tab
+  crashes in `_render_price_chart` → `chart_theme.styled_line_trace`, which hardcodes
+  `mode="lines+markers"` while callers also pass `mode="lines"` →
+  `TypeError: ... multiple values for keyword argument 'mode'`. Blocks visual
+  verification of the per-position timeline (rendering is unit-tested). Recommend a
+  separate fix ticket. Not touched per scope rules.
+
 ## 2026-06-05 — TICKET-PANEL-1
 **Surface:** Claude Code
 **Model:** opus-4.8
