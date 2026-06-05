@@ -53,6 +53,7 @@ _STATUS_COLORS: dict[str, str] = {
     RowStatus.OUT_OF_SCOPE_V1: "⬜",
     RowStatus.CANCELLED_OR_EXPIRED: "⬜",
     RowStatus.PARSE_ERROR: "🔴",
+    RowStatus.VALIDATION_ERROR: "🔴",
 }
 
 # Ignored ISINs are deliberately invisible in the workbench. The user marked them
@@ -69,6 +70,7 @@ _BLOCKED_STATUSES: frozenset[RowStatus] = frozenset({
     RowStatus.OUT_OF_SCOPE_V1,
     RowStatus.CANCELLED_OR_EXPIRED,
     RowStatus.PARSE_ERROR,
+    RowStatus.VALIDATION_ERROR,
 })
 
 
@@ -413,6 +415,7 @@ def _render_filter_chips(plan: ImportPlan) -> str | None:
         (RowStatus.INTERNAL_TRANSFER, "internal transfer"),
         (RowStatus.OUT_OF_SCOPE_V1, "out of scope"),
         (RowStatus.CANCELLED_OR_EXPIRED, "cancelled/expired"),
+        (RowStatus.VALIDATION_ERROR, "validation error"),
     ]
 
     cols = st.columns(len(statuses) + 1)
