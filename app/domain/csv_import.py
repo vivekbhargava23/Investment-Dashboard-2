@@ -18,6 +18,7 @@ class RowStatus(StrEnum):
     INTERNAL_TRANSFER = "internal_transfer"
     CANCELLED_OR_EXPIRED = "cancelled_or_expired"
     PARSE_ERROR = "parse_error"
+    VALIDATION_ERROR = "validation_error"
 
 
 class PlannedAction(StrEnum):

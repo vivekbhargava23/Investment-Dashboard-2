@@ -1,6 +1,7 @@
 # TICKET-CSV-15 — Consolidate the CSV importer: port validation to the live path, delete the dead `run_import`
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Estimated session length:** 2 hr
 **Recommended model:** Opus — touches money/import correctness and deletes a module; needs careful test migration so no guard is lost.
 **Drafted by:** Vivek + Claude Code (session 2026-06-05)
