@@ -15,9 +15,13 @@ from app.services.valuation import compute_live_positions, compute_portfolio_sum
 from app.ui.cache_keys import transactions_signature
 from app.ui.components.charts import render_candlestick
 from app.ui.components.metric_card import build_metric_card
-from app.ui.components.period_selector import render_aggregation_toggle
+from app.ui.components.period_selector import (
+    render_aggregation_toggle,
+    render_return_window_selector,
+)
 from app.ui.components.positions_table import render_positions_table
 from app.ui.components.progress_bar import render_progress_bar
+from app.ui.components.treemap import render_treemap
 from app.ui.format import format_eur, format_pct
 from app.ui.render import render_html
 from app.ui.wiring import (
@@ -208,6 +212,23 @@ def render() -> None:
         status_text = f"● PARTIAL · {stale_count} of {len(live_positions)} positions stale"
 
     render_html(f'<div class="status-line mt-16">{status_text}</div>')
+
+    # ── Allocation Treemap ────────────────────────────────────────────────────
+    # Tiles sized by live EUR value, coloured by the selected window's return.
+    # The returns map is cached (keyed on tx-signature + as_of), so changing the
+    # window re-colours instantly with no OHLC refetch and no return recompute.
+    if tickers:
+        render_html('<div class="section-eyebrow mt-24 mb-8">Allocation</div>')
+        treemap_window = render_return_window_selector(
+            "overview_treemap_window", default="30D"
+        )
+        returns_map = _cached_returns_by_period(sig, now.date().isoformat())
+        render_treemap(
+            live_positions,
+            returns_map,
+            treemap_window,
+            name_lookup=name_lookup,
+        )
 
     # ── Position Chart ────────────────────────────────────────────────────────
     if tickers:
