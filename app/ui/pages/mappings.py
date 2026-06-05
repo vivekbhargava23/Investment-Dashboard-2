@@ -112,17 +112,17 @@ def _set_instrument_kind(isin: str, kind: InstrumentKind, current_doc: IsinMapDo
 def _backup_portfolio_before_purge() -> None:
     """Write a timestamped backup of portfolio.json before a destructive purge.
 
-    Reuses the import workbench's backup helper (timestamped ``.bak`` in
+    Reuses the shared UI backup helper (timestamped ``.bak`` in
     ``settings.backups_dir``, keeping the 10 most recent). No-op if the file does
     not yet exist (nothing to purge).
     """
     from app.config import get_settings
-    from app.ui.pages.import_workbench import _write_backup
+    from app.ui.backup import write_portfolio_backup
 
     settings = get_settings()
     portfolio_path = Path(settings.portfolio_json_path)
     if portfolio_path.exists():
-        _write_backup(portfolio_path, settings.backups_dir)
+        write_portfolio_backup(portfolio_path, settings.backups_dir)
 
 
 def _try_resolve(ticker: str) -> tuple[str | None, str | None]:

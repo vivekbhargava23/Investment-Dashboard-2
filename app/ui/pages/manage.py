@@ -12,23 +12,35 @@ from __future__ import annotations
 import logging
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
 from pydantic import ValidationError
 
+from app.config import get_settings
 from app.domain.fifo import SellExceedsOpenSharesError, compute_positions
+from app.domain.isin_map import IsinMapDocument
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 from app.ports.price_feed import PriceUnavailableError
 from app.ports.ticker_resolver import TickerMatch
+from app.services.data_admin import (
+    UNSET,
+    SourceFilter,
+    count_transactions,
+    erase_all_transactions,
+    erase_transactions,
+)
 from app.services.sell_simulator import SellSimulationRequest
 from app.services.trading import build_transaction
 from app.services.valuation import clear_caches
+from app.ui.backup import write_portfolio_backup
 from app.ui.format import format_date, format_eur
 from app.ui.wiring import (
     get_historical_fx_provider,
+    get_isin_map_repo,
     get_live_fx_provider,
     get_price_provider,
     get_repository,
@@ -782,6 +794,137 @@ def _handle_edit_submit(
 
 
 # ---------------------------------------------------------------------------
+# Danger zone — erase imported data (TICKET-CSV-17)
+# ---------------------------------------------------------------------------
+
+_ERASE_CONFIRM_WORD = "ERASE"
+_ANY_SOURCE = "Any source"
+
+
+def _write_erase_backup() -> Path:
+    """Back up portfolio.json before an erase; return the backup path.
+
+    If portfolio.json does not exist yet there is nothing to back up, so return a
+    sentinel path that names the situation (mirrors the import workbench).
+    """
+    settings = get_settings()
+    portfolio_path = Path(settings.portfolio_json_path)
+    if portfolio_path.exists():
+        return write_portfolio_backup(portfolio_path, settings.backups_dir)
+    return settings.backups_dir / "no-backup-portfolio-did-not-exist.txt"
+
+
+def _do_full_erase(also_clear_map: bool) -> None:
+    bak = _write_erase_backup()
+    count = erase_all_transactions(get_repository())
+    map_msg = ""
+    if also_clear_map:
+        get_isin_map_repo().save(IsinMapDocument())
+        map_msg = " ISIN mappings cleared."
+    st.cache_data.clear()
+    st.session_state.manage_feedback = (
+        "success",
+        f"Erased {count} transaction(s).{map_msg} Backup at `{bak}`.",
+    )
+    st.rerun()
+
+
+def _do_scoped_erase(
+    source: SourceFilter, date_from: date | None, date_to: date | None
+) -> None:
+    bak = _write_erase_backup()
+    count = erase_transactions(
+        get_repository(), source=source, date_from=date_from, date_to=date_to
+    )
+    st.cache_data.clear()
+    st.session_state.manage_feedback = (
+        "success",
+        f"Erased {count} transaction(s). Backup at `{bak}`.",
+    )
+    st.rerun()
+
+
+def _render_full_erase(txs: list[Transaction]) -> None:
+    st.markdown("**Erase everything**")
+    n = len(txs)
+    st.caption(f"Deletes all {n} transaction(s). This cannot be undone except via the backup.")
+    also_clear_map = st.checkbox(
+        "Also clear ISIN → ticker mappings", key="danger_full_clear_map"
+    )
+    confirm = st.text_input(
+        f"Type {_ERASE_CONFIRM_WORD} to enable the button below",
+        key="danger_full_confirm",
+    )
+    enabled = confirm.strip() == _ERASE_CONFIRM_WORD and (n > 0 or also_clear_map)
+    if st.button(
+        "Erase everything", type="primary", disabled=not enabled, key="danger_full_btn"
+    ):
+        _do_full_erase(also_clear_map)
+
+
+def _render_scoped_erase(txs: list[Transaction]) -> None:
+    st.markdown("**Erase in parts**")
+    st.caption("Delete only the transactions matching a source and/or trade-date range.")
+
+    present_sources = sorted({tx.source for tx in txs})
+    sel_source = st.selectbox(
+        "Source", [_ANY_SOURCE, *present_sources], key="danger_scoped_source"
+    )
+    source_arg = UNSET if sel_source == _ANY_SOURCE else sel_source
+
+    col1, col2 = st.columns(2)
+    with col1:
+        date_from: date | None = None
+        if st.checkbox("Limit start date", key="danger_scoped_use_from"):
+            date_from = st.date_input(
+                "From (inclusive)",
+                value=date.today(),
+                min_value=date(2000, 1, 1),
+                max_value=date.today(),
+                key="danger_scoped_from",
+            )
+    with col2:
+        date_to: date | None = None
+        if st.checkbox("Limit end date", key="danger_scoped_use_to"):
+            date_to = st.date_input(
+                "To (inclusive)",
+                value=date.today(),
+                min_value=date(2000, 1, 1),
+                max_value=date.today(),
+                key="danger_scoped_to",
+            )
+
+    would_delete = count_transactions(
+        get_repository(), source=source_arg, date_from=date_from, date_to=date_to
+    )
+    st.caption(f"Would delete **{would_delete}** transaction(s).")
+
+    confirm = st.checkbox(
+        f"I understand this permanently deletes {would_delete} transaction(s)",
+        key="danger_scoped_confirm",
+        disabled=would_delete == 0,
+    )
+    if st.button(
+        "Erase matching",
+        type="primary",
+        disabled=not (would_delete > 0 and confirm),
+        key="danger_scoped_btn",
+    ):
+        _do_scoped_erase(source_arg, date_from, date_to)
+
+
+def _render_danger_zone(txs: list[Transaction]) -> None:
+    with st.expander("⚠️ Danger zone — erase imported data", expanded=False):
+        st.caption(
+            "Destructive and intentional. Every erase writes a timestamped backup of "
+            "portfolio.json first; roll back by restoring that file."
+        )
+        _render_full_erase(txs)
+        st.divider()
+        _render_scoped_erase(txs)
+
+
+# ---------------------------------------------------------------------------
 # Page entry point
 # ---------------------------------------------------------------------------
 
@@ -845,3 +988,6 @@ def render() -> None:
             _render_edit_form(tx_to_edit)
         else:
             st.session_state.manage_editing_tx_id = None
+
+    st.divider()
+    _render_danger_zone(txs)
