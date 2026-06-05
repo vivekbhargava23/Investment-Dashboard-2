@@ -44,6 +44,36 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — Overview weight bar / gain-% follow-up
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Branch:** fix-overview-weight-bar-neutral-gain-pct
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Follow-up to the merged TICKET-RD2 weight-bar work. Vivek flagged a data-viz flaw:
+  the Weight bar encoded *two* things at once — length = holding size, colour = gain
+  sign. A big position with a tiny loss (Ajinomoto: ~15% weight, −€250) rendered as a
+  long red bar and read as a huge loss.
+- **Fix (Option A):** decouple the two signals. Weight returns to a smooth neutral
+  `ProgressColumn` (size only — no gain colour, no Unicode `█/·` text bar). P/L
+  direction moves to a new **Gain (%)** column coloured green/red by sign (alongside
+  the existing Gain (€)). Magnitude of loss now maps to the number, not bar length.
+- Removed `weight_bar_text()` and its tests; added Gain (%) column + coverage.
+
+### Files touched
+- `app/ui/components/positions_table.py` — add Gain (%) col; Weight → neutral
+  ProgressColumn; drop Unicode weight bar + gain-tinting of the weight cell.
+- `tests/unit/ui/test_positions_table.py` — column-shape + stale-row updates,
+  new `test_gain_pct_passed_through`, dropped weight-bar-text tests.
+
+### Tests
+Gate green: 993 passing, 91 skipped; ruff/mypy/lint-imports clean.
+
+### Decisions made during the session
+- No formal board ticket: this is a small UI follow-up on already-merged RD2 work,
+  done on a fresh branch + PR (the RD2 PR #169 was already merged and can't reopen).
+
 ## 2026-06-05 — TICKET-RD2
 **Surface:** Claude Code
 **Model:** opus-4.8
