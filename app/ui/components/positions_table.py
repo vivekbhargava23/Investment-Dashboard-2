@@ -88,6 +88,29 @@ def _sign_color(v: object) -> str:
     return "color: var(--text3)"
 
 
+def _weight_bar_css(weight: object, gain: object, weight_max: float) -> str:
+    """A coloured bar for the Weight cell, drawn as a left-anchored CSS gradient.
+
+    The bar length scales to the largest weight; the colour tracks the position's
+    gain — green when up, red when down, grey when stale (no gain). Returns ``""``
+    for a blank weight (stale row)."""
+    if weight is None or (isinstance(weight, float) and pd.isna(weight)):
+        return ""
+    try:
+        w = float(weight)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return ""
+    pct = min(100.0, w / weight_max * 100) if weight_max > 0 else 0.0
+
+    if gain is None or (isinstance(gain, float) and pd.isna(gain)):
+        color = "rgba(120, 120, 120, 0.45)"  # stale → neutral grey
+    elif float(gain) >= 0:  # type: ignore[arg-type]
+        color = "rgba(38, 166, 154, 0.45)"  # green
+    else:
+        color = "rgba(239, 83, 80, 0.45)"  # red
+    return f"background: linear-gradient(90deg, {color} {pct:.1f}%, transparent {pct:.1f}%)"
+
+
 def render_positions_table(
     positions: dict[str, LivePosition],
     summary: PortfolioSummary,
@@ -103,8 +126,17 @@ def render_positions_table(
         st.info("No positions yet.")
         return
 
-    styler = df.style.map(_sign_color, subset=["Gain (€)", "Trend 30D (%)"])
     weight_max = float(df["Weight (%)"].max()) if df["Weight (%)"].notna().any() else 100.0
+    columns = list(df.columns)
+
+    def _weight_styles(row: pd.Series) -> list[str]:
+        # One CSS string per column; only the Weight cell gets the gain-tinted bar.
+        bar = _weight_bar_css(row["Weight (%)"], row["Gain (€)"], weight_max)
+        return [bar if col == "Weight (%)" else "" for col in columns]
+
+    styler = df.style.map(_sign_color, subset=["Gain (€)", "Trend 30D (%)"]).apply(
+        _weight_styles, axis=1
+    )
 
     st.dataframe(
         styler,
@@ -118,9 +150,7 @@ def render_positions_table(
             "Cost (€)": st.column_config.NumberColumn(format="€%.2f"),
             "Value (€)": st.column_config.NumberColumn(format="€%.2f"),
             "Gain (€)": st.column_config.NumberColumn(format="€%+.2f"),
-            "Weight (%)": st.column_config.ProgressColumn(
-                format="%.1f%%", min_value=0, max_value=max(weight_max, 1.0)
-            ),
+            "Weight (%)": st.column_config.NumberColumn(format="%.1f%%"),
             "Trend 30D (%)": st.column_config.NumberColumn(format="%+.1f%%"),
             "Lots": st.column_config.NumberColumn(format="%d"),
             "Sim": st.column_config.LinkColumn(display_text="⚡ Sim", width="small"),
