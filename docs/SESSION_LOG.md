@@ -44,6 +44,48 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-06 — TICKET-PANEL-2
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Branch:** ticket-panel-2-catalysts-timeline-on-overview-per
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Built `app/ui/components/catalysts_timeline.py`: `render_catalysts_timeline(events,
+  *, as_of, mode, updated)` over PANEL-1's data layer. Legend of six categories +
+  today marker; events grouped into time bands (empty bands omitted) via `time_band`;
+  per-event category dot, impact-driven size/weight, ticker (portfolio mode) and a
+  book-wide marker for `scope=portfolio` events; `estimated` dates distinct (hollow
+  dot, `~` prefix, muted); companion table sorted by date (ticker column portfolio
+  mode only); empty state; all event text HTML-escaped (ROBUST-1).
+- One source of category→colour (`CATALYST_CATEGORY_COLORS` in `_chart_styles.py`),
+  reused by legend, dots and table.
+- Wired portfolio mode into Overview (cached on tx-sig + as_of + catalysts file mtime)
+  and per-position mode into the Company Deep Dive Snapshot tab.
+
+### Files touched
+- `app/ui/components/catalysts_timeline.py` — new
+- `app/ui/components/_chart_styles.py` — category colour tokens
+- `app/ui/pages/overview.py`, `app/ui/pages/company.py` — wiring
+- `app/ui/styles/dark.css` — timeline/legend/band/table styles
+- `tests/unit/ui/test_catalysts_timeline.py` — new
+- `docs/screenshots/ticket-panel-2-catalysts-timeline-ui/` — Overview verification shots
+
+### Tests
+1064 → 1085 passing (21 new). `ruff`, `mypy`, `lint-imports` all clean.
+
+### Decisions made during the session
+- Per-position surface = Company Deep Dive Snapshot tab (existing drilldown; no new
+  drawer), satisfying the ticket's assumption-to-confirm.
+
+### Out-of-scope items noticed
+- **Pre-existing bug on `main` (unrelated):** the Company Deep Dive Snapshot tab
+  crashes in `_render_price_chart` → `chart_theme.styled_line_trace`, which hardcodes
+  `mode="lines+markers"` while callers also pass `mode="lines"` →
+  `TypeError: ... multiple values for keyword argument 'mode'`. Blocks visual
+  verification of the per-position timeline (rendering is unit-tested). Recommend a
+  separate fix ticket. Not touched per scope rules.
+
 ## 2026-06-05 — TICKET-PANEL-1
 **Surface:** Claude Code
 **Model:** opus-4.8
