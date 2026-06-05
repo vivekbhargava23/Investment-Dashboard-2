@@ -507,6 +507,27 @@ def _render_planned_changes(plan: ImportPlan) -> None:
                     st.session_state[_KEY_CONFLICTS] = conflicts
 
 
+def _ignore_isin(
+    isin: str, description: str, current_doc: IsinMapDocument
+) -> IsinMapDocument:
+    """Return a new doc with this ISIN flipped to ``ignored`` (creating the entry if needed).
+
+    Identical in effect to ignoring from the Mappings page: status ``ignored``,
+    ticker ``None``. Restore still lives on the Mappings page.
+    """
+    existing = current_doc.entries.get(isin)
+    entry = IsinMapping(
+        ticker=None,
+        name=existing.name if existing else (description or isin),
+        status="ignored",
+        last_seen_in_csv=existing.last_seen_in_csv if existing else None,
+        instrument_kind=None,
+    )
+    new_entries = dict(current_doc.entries)
+    new_entries[isin] = entry
+    return IsinMapDocument(version=current_doc.version, entries=new_entries)
+
+
 def _reject_autoresolve(isin: str, log_path: Path) -> None:
     """Demote an auto-mapped ISIN back to unmapped and record rejection."""
     rejected: set[str] = st.session_state.get(_KEY_REJECTED, set())
@@ -593,7 +614,9 @@ def _render_autoresolve_panel(plan: ImportPlan, log_path: Path) -> None:
 
         with st.expander(f"Map ISINs manually ({len(remaining_unmapped)})", expanded=True):
             for isin, description in remaining_unmapped:
-                col_isin, col_search_kind, col_btn = st.columns([1.5, 3.5, 0.7])
+                col_isin, col_search_kind, col_save, col_ignore = st.columns(
+                    [1.5, 3.5, 0.7, 0.7]
+                )
                 with col_isin:
                     st.code(isin)
                     st.caption(description[:40])
@@ -601,7 +624,7 @@ def _render_autoresolve_panel(plan: ImportPlan, log_path: Path) -> None:
                     selected_match, selected_kind = render_isin_mapper_row(
                         isin, description, key_prefix="iw_manual"
                     )
-                with col_btn:
+                with col_save:
                     save_disabled = selected_match is None or selected_kind is None
                     if st.button("Save", key=f"iw_manual_save_{isin}", disabled=save_disabled):
                         if selected_match and selected_kind:
@@ -611,6 +634,12 @@ def _render_autoresolve_panel(plan: ImportPlan, log_path: Path) -> None:
                             isin_repo.save(updated_doc)
                             isin_doc = updated_doc
                             saved_any = True
+                with col_ignore:
+                    if st.button("Ignore", key=f"iw_manual_ignore_{isin}"):
+                        isin_doc = _ignore_isin(isin, description, isin_doc)
+                        isin_repo.save(isin_doc)
+                        st.toast(f"Ignored {isin}. Restore it on the Mappings page.")
+                        saved_any = True
 
         if saved_any:
             st.session_state.pop(_KEY_PLAN, None)

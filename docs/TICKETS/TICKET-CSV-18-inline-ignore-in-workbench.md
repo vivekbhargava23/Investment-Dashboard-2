@@ -1,6 +1,7 @@
 # TICKET-CSV-18 — Inline "Ignore" action in the Import Workbench
 
 **Priority:** MEDIUM
+**Status:** IN_PROGRESS
 **Estimated session length:** 1 hr
 **Recommended model:** Sonnet — UI wiring on one page, reuses existing repo + status plumbing.
 **Drafted by:** Vivek + Claude Code (session 2026-06-05)
