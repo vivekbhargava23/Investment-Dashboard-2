@@ -17,6 +17,72 @@ from app.domain.models import Transaction
 _EXECUTED_STATUS = "Executed"
 _IN_SCOPE_TYPES = frozenset({"Buy", "Sell", "Savings plan"})
 
+# Expected amount sign per row type: "negative"=cash out, "positive"=cash in.
+_EXPECTED_AMOUNT_SIGN: dict[str, str] = {
+    "Buy": "negative",
+    "Savings plan": "negative",
+    "Sell": "positive",
+}
+
+
+def _check_currency(row: ParsedCsvRow) -> str | None:
+    """Reject non-EUR rows. All Scalable Capital rows are expected to be EUR-native;
+    a non-EUR row must never be silently tagged as EUR (TICKET-009 silent corruption).
+    """
+    if row.currency != "EUR":
+        return (
+            f"Unexpected currency {row.currency!r} — only EUR is expected. "
+            "This may indicate a CSV format change."
+        )
+    return None
+
+
+def _check_amount(row: ParsedCsvRow) -> str | None:
+    """Verify abs(amount) ≈ abs(shares × price) within 0.01 EUR tolerance.
+
+    Sign-agnostic: works for both positive-amount (Sell) and negative-amount
+    (Buy/Savings plan) rows. The fee column is NOT included in the amount column.
+    """
+    if row.shares is None or row.price is None or row.amount is None:
+        return None
+    expected = abs(row.shares * row.price)
+    actual = abs(row.amount)
+    diff = abs(expected - actual)
+    if diff >= Decimal("0.01"):
+        return (
+            f"Amount sanity check failed — abs(amount)={actual:.6f}, "
+            f"abs(shares×price)={expected:.6f}, diff={diff:.6f} ≥ 0.01. "
+            "This may indicate a CSV format change."
+        )
+    return None
+
+
+def _check_sign(row: ParsedCsvRow) -> str | None:
+    """Verify the amount has the expected directional sign for this row type."""
+    if row.amount is None:
+        return None
+    expected = _EXPECTED_AMOUNT_SIGN.get(row.type, "either")
+    if expected == "negative" and row.amount > 0:
+        return (
+            f"Directional sign error — {row.type!r} expects negative amount "
+            f"(cash out) but got {row.amount}. This may indicate a CSV format change."
+        )
+    if expected == "positive" and row.amount < 0:
+        return (
+            f"Directional sign error — {row.type!r} expects positive amount "
+            f"(cash in) but got {row.amount}. This may indicate a CSV format change."
+        )
+    return None
+
+
+def _validate_row(row: ParsedCsvRow) -> str | None:
+    """Return the first validation error message for a row, or None if it passes."""
+    for check in (_check_currency, _check_amount, _check_sign):
+        message = check(row)
+        if message is not None:
+            return message
+    return None
+
 
 def _content_hash(tx: Transaction) -> str:
     key = (
@@ -107,6 +173,19 @@ def plan_import(
                     ticker=mapping.ticker,
                     conflict_tx_id=existing_tx.id,
                 ))
+            continue
+
+        # Per-row guards run last, on rows that would otherwise be NEW/INSERT.
+        # A failure becomes a blocked VALIDATION_ERROR (never a silent import).
+        validation_error = _validate_row(row)
+        if validation_error is not None:
+            planned.append(_make(
+                row,
+                RowStatus.VALIDATION_ERROR,
+                PlannedAction.SKIP,
+                ticker=mapping.ticker,
+                error_message=validation_error,
+            ))
             continue
 
         planned.append(_make(row, RowStatus.NEW, PlannedAction.INSERT, ticker=mapping.ticker))

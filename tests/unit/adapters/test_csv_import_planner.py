@@ -330,3 +330,76 @@ def test_eur_new_row_has_no_fx_rate_eur() -> None:
     r = plan.rows[0]
     assert r.status == RowStatus.NEW
     assert r.fx_rate_eur is None
+
+
+# ─── validation guards (ported from the deleted run_import path) ──────────────
+
+def test_amount_mismatch_is_validation_error() -> None:
+    """abs(amount) ≠ abs(shares×price) beyond 0.01 EUR → VALIDATION_ERROR, never imported."""
+    # 10 × 100 = 1000, but amount is -999 → diff 1.00 ≥ 0.01
+    rows = [_row(amount=Decimal("-999"))]
+    plan = plan_import(rows, [], _EUR_MAP)
+    r = plan.rows[0]
+    assert r.status == RowStatus.VALIDATION_ERROR
+    assert r.action == PlannedAction.SKIP
+    assert r.error_message is not None
+    assert "Amount sanity check failed" in r.error_message
+    assert plan.ready_to_import() == []
+
+
+def test_amount_within_tolerance_is_new() -> None:
+    """A sub-0.01 EUR difference is within tolerance and still classified NEW."""
+    # 10 × 100 = 1000.00; amount -1000.009 → diff 0.009 < 0.01
+    rows = [_row(amount=Decimal("-1000.009"))]
+    plan = plan_import(rows, [], _EUR_MAP)
+    assert plan.rows[0].status == RowStatus.NEW
+
+
+def test_wrong_sign_is_validation_error() -> None:
+    """A Buy with a positive amount (cash in) is a directional sign error → VALIDATION_ERROR."""
+    rows = [_row(amount=Decimal("1000"))]
+    plan = plan_import(rows, [], _EUR_MAP)
+    r = plan.rows[0]
+    assert r.status == RowStatus.VALIDATION_ERROR
+    assert r.action == PlannedAction.SKIP
+    assert r.error_message is not None
+    assert "Directional sign error" in r.error_message
+    assert plan.ready_to_import() == []
+
+
+def test_sell_wrong_sign_is_validation_error() -> None:
+    """A Sell with a negative amount (cash out) is a directional sign error."""
+    # 10 × 100 = 1000; Sell expects positive amount, give -1000
+    rows = [_row(type_="Sell", amount=Decimal("-1000"))]
+    plan = plan_import(rows, [], _EUR_MAP)
+    r = plan.rows[0]
+    assert r.status == RowStatus.VALIDATION_ERROR
+    assert r.error_message is not None
+    assert "Directional sign error" in r.error_message
+
+
+def test_non_eur_currency_is_validation_error() -> None:
+    """A non-EUR row becomes VALIDATION_ERROR, never a silently-EUR transaction."""
+    rows = [_row(isin=_NVDA_ISIN, description="NVIDIA", currency="USD")]
+    plan = plan_import(rows, [], _USD_MAP)
+    r = plan.rows[0]
+    assert r.status == RowStatus.VALIDATION_ERROR
+    assert r.action == PlannedAction.SKIP
+    assert r.error_message is not None
+    assert "Unexpected currency" in r.error_message
+    assert plan.ready_to_import() == []
+
+
+def test_validation_error_does_not_fire_for_already_imported() -> None:
+    """A malformed row that matches an existing tx by reference stays ALREADY_IMPORTED."""
+    rows = [_row(amount=Decimal("-999"))]  # would be VALIDATION_ERROR if NEW
+    existing = [_eur_tx("REF001")]
+    plan = plan_import(rows, existing, _EUR_MAP)
+    assert plan.rows[0].status == RowStatus.ALREADY_IMPORTED
+
+
+def test_validation_error_not_fired_for_unmapped() -> None:
+    """Guards run only on rows that would otherwise import; unmapped stays UNMAPPED_ISIN."""
+    rows = [_row(isin="UNKNOWN000001", amount=Decimal("-999"))]
+    plan = plan_import(rows, [], _EUR_MAP)
+    assert plan.rows[0].status == RowStatus.UNMAPPED_ISIN
