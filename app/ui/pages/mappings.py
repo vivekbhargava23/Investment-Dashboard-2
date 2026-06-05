@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import logging
 import re
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
@@ -12,7 +13,11 @@ import streamlit as st
 from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.tax.classification import InstrumentKind
 from app.ports.ticker_resolver import TickerMatch
-from app.services.isin_remap import count_transactions_for_isin, rewrite_ticker_for_isin
+from app.services.isin_remap import (
+    count_transactions_for_isin,
+    delete_transactions_for_isin,
+    rewrite_ticker_for_isin,
+)
 from app.ui.components.isin_mapper import KIND_LABEL, KIND_OPTIONS, suggest_kind
 from app.ui.components.ticker_searchbox import render_ticker_searchbox
 from app.ui.wiring import (
@@ -23,9 +28,14 @@ from app.ui.wiring import (
 
 _TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,29}$")
 
+# Column widths for the Mapped table: ISIN, Name, Ticker, Tax kind, Last seen,
+# then four action slots (Edit, Kind, Unmap, Remove).
+_MAPPED_COLS = [1.8, 2.2, 1.0, 1.3, 1.0, 0.7, 0.7, 0.8, 0.9]
+
 _STATE_DEFAULTS: dict[str, Any] = {
     "mappings_editing_isin": None,
-    "mappings_confirming_delete_isin": None,
+    "mappings_kind_editing_isin": None,
+    "mappings_confirming_remove_isin": None,
     "mappings_feedback": None,
 }
 
@@ -79,6 +89,40 @@ def _restore_isin(isin: str, current_doc: IsinMapDocument) -> IsinMapDocument:
     mapping = new_entries[isin]
     new_entries[isin] = mapping.model_copy(update={"status": "unmapped", "instrument_kind": None})
     return IsinMapDocument(version=current_doc.version, entries=new_entries)
+
+
+def _unmap_isin(isin: str, current_doc: IsinMapDocument) -> IsinMapDocument:
+    """Reset a mapped entry to unmapped: drop ticker + kind, keep name/last_seen."""
+    new_entries = dict(current_doc.entries)
+    mapping = new_entries[isin]
+    new_entries[isin] = mapping.model_copy(
+        update={"status": "unmapped", "ticker": None, "instrument_kind": None}
+    )
+    return IsinMapDocument(version=current_doc.version, entries=new_entries)
+
+
+def _set_instrument_kind(isin: str, kind: InstrumentKind, current_doc: IsinMapDocument) -> IsinMapDocument:
+    """Change only the tax-kind on an entry; ticker/status/everything else unchanged."""
+    new_entries = dict(current_doc.entries)
+    mapping = new_entries[isin]
+    new_entries[isin] = mapping.model_copy(update={"instrument_kind": kind})
+    return IsinMapDocument(version=current_doc.version, entries=new_entries)
+
+
+def _backup_portfolio_before_purge() -> None:
+    """Write a timestamped backup of portfolio.json before a destructive purge.
+
+    Reuses the import workbench's backup helper (timestamped ``.bak`` in
+    ``settings.backups_dir``, keeping the 10 most recent). No-op if the file does
+    not yet exist (nothing to purge).
+    """
+    from app.config import get_settings
+    from app.ui.pages.import_workbench import _write_backup
+
+    settings = get_settings()
+    portfolio_path = Path(settings.portfolio_json_path)
+    if portfolio_path.exists():
+        _write_backup(portfolio_path, settings.backups_dir)
 
 
 def _try_resolve(ticker: str) -> tuple[str | None, str | None]:
@@ -210,23 +254,30 @@ def _render_mapped_section(
         st.info("No mapped ISINs yet.")
         return
 
-    header = st.columns([2, 2.5, 1.2, 1.2, 1.2, 0.7, 0.7])
-    for col, label in zip(header, ["ISIN", "Name", "Ticker", "Tax kind", "Last seen", "", ""]):
+    header = st.columns(_MAPPED_COLS)
+    for col, label in zip(header, ["ISIN", "Name", "Ticker", "Tax kind", "Last seen", "", "", "", ""]):
         col.markdown(f"**{label}**")
 
     editing_isin = st.session_state.mappings_editing_isin
-    confirming_isin = st.session_state.mappings_confirming_delete_isin
+    kind_editing_isin = st.session_state.mappings_kind_editing_isin
+    confirming_isin = st.session_state.mappings_confirming_remove_isin
 
     for isin, mapping in mapped.items():
         if isin == confirming_isin:
-            _render_delete_confirmation(isin, mapping, doc)
+            _render_remove_confirmation(isin, mapping, doc)
             continue
 
         if isin == editing_isin:
             _render_edit_row(isin, mapping, doc)
             continue
 
-        cols = st.columns([2, 2.5, 1.2, 1.2, 1.2, 0.7, 0.7])
+        if isin == kind_editing_isin:
+            _render_kind_edit_row(isin, mapping, doc)
+            continue
+
+        tx_count = count_transactions_for_isin(get_repository(), isin)
+
+        cols = st.columns(_MAPPED_COLS)
         cols[0].code(isin, language=None)
         cols[1].write(mapping.name or "—")
         cols[2].write(f"`{mapping.ticker}`")
@@ -235,16 +286,29 @@ def _render_mapped_section(
         else:
             cols[3].markdown("⚠ **unset**")
         cols[4].write(mapping.last_seen_in_csv.isoformat() if mapping.last_seen_in_csv else "—")
-        if cols[5].button("Edit", key=f"mappings_edit_{isin}"):
+        if cols[5].button("Edit", key=f"mappings_edit_{isin}", help="Remap to a different ticker (rewrites transactions)."):
             st.session_state.mappings_editing_isin = isin
             st.rerun()
-        if cols[6].button("Delete", key=f"mappings_delete_{isin}"):
-            st.session_state.mappings_confirming_delete_isin = isin
+        if cols[6].button("Kind", key=f"mappings_kind_{isin}", help="Change the tax-kind in place (keeps ticker and transactions)."):
+            st.session_state.mappings_kind_editing_isin = isin
+            st.rerun()
+        unmap_help = (
+            f"{tx_count} transaction(s) reference this ISIN — use Remove to purge them."
+            if tx_count
+            else "Reset to Unmapped (keeps the ISIN, clears ticker and tax-kind)."
+        )
+        if cols[7].button("Unmap", key=f"mappings_unmap_{isin}", disabled=tx_count > 0, help=unmap_help):
+            updated_doc = _unmap_isin(isin, doc)
+            get_isin_map_repo().save(updated_doc)
+            st.session_state.mappings_feedback = ("success", f"Unmapped {isin} ({mapping.name}). It is back in the Unmapped list.")
+            st.rerun()
+        if cols[8].button("Remove", key=f"mappings_remove_{isin}", help="Purge this ISIN's transactions and its mapping."):
+            st.session_state.mappings_confirming_remove_isin = isin
             st.rerun()
 
 
 def _render_edit_row(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
-    cols = st.columns([2, 2.5, 1.2, 1.2, 1.2, 0.7, 0.7])
+    cols = st.columns(_MAPPED_COLS)
     cols[0].code(isin, language=None)
     cols[1].write(mapping.name or "—")
     with cols[2]:
@@ -308,29 +372,69 @@ def _render_edit_row(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
             st.rerun()
 
 
-def _render_delete_confirmation(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
+def _render_kind_edit_row(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
+    cols = st.columns(_MAPPED_COLS)
+    cols[0].code(isin, language=None)
+    cols[1].write(mapping.name or "—")
+    cols[2].write(f"`{mapping.ticker}`")
+    with cols[3]:
+        current = mapping.instrument_kind
+        kind_index = KIND_OPTIONS.index(current) if current in KIND_OPTIONS else 0
+        selected_kind = st.selectbox(
+            "Tax kind",
+            options=KIND_OPTIONS,
+            index=kind_index,
+            format_func=lambda k: KIND_LABEL.get(k, str(k)),
+            key=f"mappings_kind_select_{isin}",
+            label_visibility="collapsed",
+        )
+    cols[4].write(mapping.last_seen_in_csv.isoformat() if mapping.last_seen_in_csv else "—")
+    with cols[5]:
+        if st.button("Save", key=f"mappings_kind_save_{isin}", type="primary"):
+            updated_doc = _set_instrument_kind(isin, selected_kind, doc)
+            get_isin_map_repo().save(updated_doc)
+            st.session_state.mappings_kind_editing_isin = None
+            st.session_state.mappings_feedback = (
+                "success",
+                f"Set Tax kind for {isin} ({mapping.name}) to {KIND_LABEL.get(selected_kind, selected_kind)}.",
+            )
+            st.rerun()
+    with cols[6]:
+        if st.button("Cancel", key=f"mappings_kind_cancel_{isin}"):
+            st.session_state.mappings_kind_editing_isin = None
+            st.rerun()
+
+
+def _render_remove_confirmation(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
+    n = count_transactions_for_isin(get_repository(), isin)
     cols = st.columns([5, 0.8, 0.8])
     with cols[0]:
-        st.warning(f"Delete mapping for {isin} ({mapping.name}, ticker: {mapping.ticker})?")
+        if n:
+            st.warning(
+                f"Remove {isin} ({mapping.name}, ticker: {mapping.ticker})? "
+                f"This permanently deletes {n} transaction(s) and the mapping. "
+                "A backup of portfolio.json is written first."
+            )
+        else:
+            st.warning(
+                f"Remove {isin} ({mapping.name}, ticker: {mapping.ticker})? "
+                "No transactions reference it; this deletes the mapping only."
+            )
     with cols[1]:
-        if st.button("Yes", key=f"mappings_confirm_delete_{isin}", type="primary"):
-            n = count_transactions_for_isin(get_repository(), isin)
-            if n > 0:
-                st.session_state.mappings_confirming_delete_isin = None
-                st.session_state.mappings_feedback = (
-                    "error",
-                    f"Cannot delete {isin}: {n} transaction(s) still reference it. "
-                    "Delete those transactions first or remap to a different ticker.",
-                )
-                st.rerun()
+        if st.button("Remove", key=f"mappings_confirm_remove_{isin}", type="primary"):
+            _backup_portfolio_before_purge()
+            removed = delete_transactions_for_isin(get_repository(), isin)
             updated_doc = _delete_mapping(isin, doc)
             get_isin_map_repo().save(updated_doc)
-            st.session_state.mappings_confirming_delete_isin = None
-            st.session_state.mappings_feedback = ("success", f"Deleted mapping for {isin}.")
+            st.session_state.mappings_confirming_remove_isin = None
+            st.session_state.mappings_feedback = (
+                "success",
+                f"Removed {isin} ({mapping.name}): deleted {removed} transaction(s) and the mapping.",
+            )
             st.rerun()
     with cols[2]:
-        if st.button("Cancel", key=f"mappings_cancel_delete_{isin}"):
-            st.session_state.mappings_confirming_delete_isin = None
+        if st.button("Cancel", key=f"mappings_cancel_remove_{isin}"):
+            st.session_state.mappings_confirming_remove_isin = None
             st.rerun()
 
 

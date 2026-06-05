@@ -44,6 +44,50 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — TICKET-CSV-16
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Duration:** ~40 min
+**Branch:** ticket-csv-16-per-mapping-control-reset-tax
+**PR:** (opened at session end)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added `delete_transactions_for_isin(tx_repo, isin) -> int` to `app/services/isin_remap.py`:
+  loads all, filters out `tx.isin == isin`, `save_all`, returns the count removed. No-op
+  (no save) when nothing matches. FIFO recomputes on next load per the replay invariant.
+- Replaced the dead-ended Delete on mapped rows (blocked whenever any transaction
+  referenced the ISIN) with three explicit per-row actions:
+  - **Kind** — inline tax-kind selector + Save; changes `instrument_kind` only.
+  - **Unmap** — reset to `unmapped` (drop ticker + kind, keep name/last_seen); the button
+    is disabled with a tooltip pointing to Remove when transactions still reference the ISIN.
+  - **Remove** — count-stating confirmation, then purge the ISIN's transactions and the map
+    entry, writing a `portfolio.json` backup first (reuses the workbench's `_write_backup`).
+- New pure helpers `_unmap_isin`, `_set_instrument_kind`, and `_backup_portfolio_before_purge`.
+
+### Files touched
+- `app/services/isin_remap.py` — new `delete_transactions_for_isin`
+- `app/ui/pages/mappings.py` — three-action cluster, kind-edit + remove-confirm mode rows,
+  state-key rename (`mappings_confirming_delete_isin` → `_remove_isin`, plus `_kind_editing_isin`)
+- `tests/unit/ui/test_mappings_page.py` — tests for the new helpers + service purge
+
+### Tests
+979 passing → 983 passing (new tests for set-kind, unmap, and purge service)
+
+### Decisions made during the session
+- Backup before purge reuses `import_workbench._write_backup` rather than duplicating the
+  pattern (the ticket sanctioned reuse; avoids drift between the two write paths).
+- Service tests stay in `test_mappings_page.py` alongside the existing `rewrite_ticker`/
+  `count_transactions` tests — there is no separate `test_isin_remap.py` in the tree.
+- A local-only `data/isin_map.json` drift was present at session start; stashed it to get a
+  clean tree for `start_ticket.sh` and restored it after the gate.
+
+### Out-of-scope items noticed
+- Bulk multi-row purge and full reset (TICKET-CSV-17) intentionally not touched.
+
+### Tokens used (rough)
+~70k
+
 ## 2026-06-05 — TICKET-CSV-14 (review fix)
 **Surface:** Claude Code
 **Model:** opus-4.8
