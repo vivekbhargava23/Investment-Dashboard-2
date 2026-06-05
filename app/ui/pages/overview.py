@@ -1,12 +1,15 @@
 # ruff: noqa: E501
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 import streamlit as st
 
 from app.domain.market_data import ChartPeriod, OhlcUnavailableError
 from app.domain.positions import LivePosition, PortfolioSummary
+from app.domain.returns import ReturnWindow
 from app.domain.tax.models import TaxProfile, TaxYearSummary
 from app.services.market_data import get_ohlc_histories, get_ohlc_history
+from app.services.returns import compute_returns_by_period
 from app.services.tax_planning import compute_current_tax_summary
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
 from app.ui.cache_keys import transactions_signature
@@ -70,6 +73,25 @@ def _cached_tax_summary_for_overview(tx_sig: str, year: int) -> TaxYearSummary |
         )
     except Exception:
         return None
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _cached_returns_by_period(
+    tx_sig: str, as_of_iso: str
+) -> dict[str, dict[ReturnWindow, Decimal | None]]:
+    """Per-ticker returns over the standard windows, computed once and cached.
+
+    Keyed on the transactions signature + `as_of` date so the RD10 treemap period
+    selector and the RD11 heatmap re-read from this cache instead of recomputing.
+    The ticker set is taken from the current live positions.
+    """
+    live_positions = _cached_live_positions(tx_sig)
+    tickers = [position.ticker for position in live_positions.values()]
+    return compute_returns_by_period(
+        tickers,
+        as_of=date.fromisoformat(as_of_iso),
+        provider=get_ohlc_data_provider(),
+    )
 
 
 def _fetch_trend_values(tickers: list[str]) -> dict[str, float | None]:
