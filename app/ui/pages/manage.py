@@ -13,8 +13,9 @@ import logging
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+import pandas as pd
 import streamlit as st
 from pydantic import ValidationError
 
@@ -38,7 +39,6 @@ from app.services.trading import build_transaction
 from app.services.valuation import clear_caches
 from app.ui.backup import write_portfolio_backup
 from app.ui.format import format_date, format_eur
-from app.ui.render import render_html
 from app.ui.wiring import (
     get_historical_fx_provider,
     get_isin_map_repo,
@@ -601,59 +601,28 @@ def _handle_add_submit(
 # All Transactions table
 # ---------------------------------------------------------------------------
 
-# ── Sortable "All Transactions" table (TICKET-RD2) ──────────────────────────
-# Column key (None = action column), label. Order matches the st.columns widths.
-_TX_COLUMNS: tuple[tuple[str | None, str], ...] = (
-    ("ticker", "Ticker"),
-    ("type", "Type"),
-    ("date", "Date"),
-    ("shares", "Shares"),
-    ("cost", "Cost (EUR)"),
-    ("notes", "Notes"),
-    (None, ""),
-    (None, ""),
-)
-_TX_COL_WIDTHS = [2, 1, 2, 1.5, 2, 3, 1, 1]
-_TX_SORT_KEYS: frozenset[str] = frozenset(k for k, _ in _TX_COLUMNS if k)
-_TX_TEXT_KEYS: frozenset[str] = frozenset({"ticker", "type", "notes"})
-_TX_DEFAULT_KEY = "date"
-_TX_DEFAULT_DIR = "desc"
+# ── "All Transactions" table (TICKET-RD2) ───────────────────────────────────
+# Rendered with st.dataframe for client-side sort/search (no page rerun on sort).
+# st.dataframe can't host inline buttons, so actions live in an action bar that
+# appears when a row is selected — mirrors the CSV-import workbench's pattern.
 
-_TX_SORT_FNS = {
-    "ticker": lambda t: t.ticker.lower(),
-    "type": lambda t: t.type.value,
-    "date": lambda t: t.trade_date,
-    "shares": lambda t: t.shares,
-    "cost": lambda t: t.cost_eur.amount,
-    "notes": lambda t: (t.notes or "").lower(),
-}
-
-
-def sort_transactions(
-    txs: list[Transaction],
-    sort_key: str = _TX_DEFAULT_KEY,
-    direction: str = _TX_DEFAULT_DIR,
-) -> list[Transaction]:
-    """Pure sort for the transactions table. Unknown key/direction → date desc."""
-    if sort_key not in _TX_SORT_FNS:
-        sort_key = _TX_DEFAULT_KEY
-    if direction not in ("asc", "desc"):
-        direction = _TX_DEFAULT_DIR
-    return sorted(txs, key=_TX_SORT_FNS[sort_key], reverse=direction == "desc")
-
-
-def _tx_header_link(key: str, label: str, sort_key: str, direction: str) -> str:
-    is_active = key == sort_key
-    if is_active:
-        next_dir = "asc" if direction == "desc" else "desc"
-        arrow = " ▼" if direction == "desc" else " ▲"
-        cls = "sort-link active"
-    else:
-        next_dir = "asc" if key in _TX_TEXT_KEYS else "desc"
-        arrow = ""
-        cls = "sort-link"
-    href = f"/?page=manage&txsort={key}&txdir={next_dir}"
-    return f'<a class="{cls}" href="{href}" target="_self"><strong>{label}{arrow}</strong></a>'
+def build_transactions_dataframe(txs: list[Transaction]) -> pd.DataFrame:
+    """Build the display dataframe. Row order matches ``txs`` so a selection index
+    maps straight back to the transaction."""
+    return pd.DataFrame(
+        [
+            {
+                "Ticker": t.ticker,
+                "Type": t.type.value.upper(),
+                "Date": t.trade_date,
+                "Shares": float(t.shares),
+                "Cost (€)": float(t.cost_eur.amount),
+                "Notes": t.notes or "",
+            }
+            for t in txs
+        ],
+        columns=["Ticker", "Type", "Date", "Shares", "Cost (€)", "Notes"],
+    )
 
 
 def _render_transactions_table(txs: list[Transaction]) -> None:
@@ -662,37 +631,47 @@ def _render_transactions_table(txs: list[Transaction]) -> None:
         st.info("No transactions recorded yet.")
         return
 
-    sort_key = st.query_params.get("txsort", _TX_DEFAULT_KEY)
-    direction = st.query_params.get("txdir", _TX_DEFAULT_DIR)
-    if sort_key not in _TX_SORT_KEYS:
-        sort_key = _TX_DEFAULT_KEY
-    sorted_txs = sort_transactions(txs, sort_key, direction)
-
-    header_cols = st.columns(_TX_COL_WIDTHS)
-    for col, (key, label) in zip(header_cols, _TX_COLUMNS):
-        if key is None:
-            continue
-        with col:
-            render_html(_tx_header_link(key, label, sort_key, direction))
-
-    for tx in sorted_txs:
-        if st.session_state.manage_deleting_tx_id == tx.id:
+    # A pending delete takes over the surface with its confirmation prompt.
+    deleting_id = st.session_state.manage_deleting_tx_id
+    if deleting_id:
+        tx = next((t for t in txs if t.id == deleting_id), None)
+        if tx is not None:
             _render_delete_confirmation(tx)
-            continue
+            return
+        st.session_state.manage_deleting_tx_id = None
 
-        cols = st.columns(_TX_COL_WIDTHS)
-        cols[0].write(tx.ticker)
-        cols[1].write(tx.type.value.upper())
-        cols[2].write(format_date(tx.trade_date))
-        cols[3].write(f"{tx.shares:g}")
-        cols[4].write(format_eur(tx.cost_eur))
-        cols[5].write(tx.notes or "—")
-        if cols[6].button("✏", key=f"edit_{tx.id}", help="Edit"):
-            st.session_state.manage_editing_tx_id = tx.id
-            st.rerun()
-        if cols[7].button("🗑", key=f"del_{tx.id}", help="Delete"):
-            st.session_state.manage_deleting_tx_id = tx.id
-            st.rerun()
+    df = build_transactions_dataframe(txs)
+    event = st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key="manage_tx_table",
+        column_config={
+            "Date": st.column_config.DateColumn(format="YYYY-MM-DD"),
+            "Shares": st.column_config.NumberColumn(format="%.4g"),
+            "Cost (€)": st.column_config.NumberColumn(format="€%.2f"),
+        },
+    )
+
+    selected = cast(Any, event).selection.rows
+    if not selected:
+        st.caption("Select a row to edit or delete it.")
+        return
+
+    tx = txs[selected[0]]
+    st.caption(
+        f"Selected **{tx.ticker}** — {tx.type.value} {tx.shares:g} share(s) "
+        f"on {format_date(tx.trade_date)} for {format_eur(tx.cost_eur)}"
+    )
+    edit_col, del_col, _ = st.columns([1, 1, 6])
+    if edit_col.button("✏ Edit", key="tx_edit_selected"):
+        st.session_state.manage_editing_tx_id = tx.id
+        st.rerun()
+    if del_col.button("🗑 Delete", key="tx_delete_selected"):
+        st.session_state.manage_deleting_tx_id = tx.id
+        st.rerun()
 
 
 def _render_delete_confirmation(tx: Transaction) -> None:

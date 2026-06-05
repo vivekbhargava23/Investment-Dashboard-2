@@ -12,7 +12,7 @@ from app.ui.pages.manage import (
     _init_state,
     _match_label,
     _tx_to_form_values,
-    sort_transactions,
+    build_transactions_dataframe,
 )
 
 
@@ -147,49 +147,33 @@ def test_match_label_jpy() -> None:
 
 
 # ---------------------------------------------------------------------------
-# TICKET-RD2: sort_transactions — pure ordering for the All Transactions table
+# TICKET-RD2: build_transactions_dataframe — display rows for the sortable grid
 # ---------------------------------------------------------------------------
 
-def _tickers(txs: list[Transaction]) -> list[str]:
-    return [t.ticker for t in txs]
+def test_transactions_dataframe_columns() -> None:
+    df = build_transactions_dataframe([_eur_tx()])
+    assert list(df.columns) == ["Ticker", "Type", "Date", "Shares", "Cost (€)", "Notes"]
 
 
-# ".DE" tickers infer EUR, matching the EUR price the helper passes (ADR-005).
-
-def test_sort_transactions_default_is_date_descending() -> None:
-    old = _eur_tx(ticker="OLD.DE", trade_date=date(2024, 1, 1))
-    new = _eur_tx(ticker="NEW.DE", trade_date=date(2026, 1, 1))
-    assert _tickers(sort_transactions([old, new])) == ["NEW.DE", "OLD.DE"]
-
-
-def test_sort_transactions_date_ascending() -> None:
-    old = _eur_tx(ticker="OLD.DE", trade_date=date(2024, 1, 1))
-    new = _eur_tx(ticker="NEW.DE", trade_date=date(2026, 1, 1))
-    assert _tickers(sort_transactions([new, old], "date", "asc")) == ["OLD.DE", "NEW.DE"]
+def test_transactions_dataframe_row_order_matches_input() -> None:
+    """Row order must equal input order so a selection index maps back to the tx."""
+    a = _eur_tx(ticker="AAA.DE", trade_date=date(2024, 1, 1))
+    z = _eur_tx(ticker="ZZZ.DE", trade_date=date(2026, 1, 1))
+    df = build_transactions_dataframe([z, a])
+    assert list(df["Ticker"]) == ["ZZZ.DE", "AAA.DE"]
 
 
-def test_sort_transactions_ticker_both_directions() -> None:
-    a = _eur_tx(ticker="AAA.DE")
-    z = _eur_tx(ticker="ZZZ.DE")
-    assert _tickers(sort_transactions([z, a], "ticker", "asc")) == ["AAA.DE", "ZZZ.DE"]
-    assert _tickers(sort_transactions([a, z], "ticker", "desc")) == ["ZZZ.DE", "AAA.DE"]
+def test_transactions_dataframe_values() -> None:
+    tx = _eur_tx(ticker="RHM.DE", shares=Decimal("3"),
+                 price_native=Money(amount=Decimal("100"), currency=Currency.EUR))
+    row = build_transactions_dataframe([tx]).iloc[0]
+    assert row["Ticker"] == "RHM.DE"
+    assert row["Type"] == "BUY"
+    assert row["Date"] == tx.trade_date
+    assert row["Shares"] == 3.0
+    assert row["Cost (€)"] == float(tx.cost_eur.amount)
 
 
-def test_sort_transactions_shares_descending() -> None:
-    few = _eur_tx(ticker="FEW.DE", shares=Decimal("2"))
-    many = _eur_tx(ticker="MANY.DE", shares=Decimal("20"))
-    assert _tickers(sort_transactions([few, many], "shares", "desc")) == ["MANY.DE", "FEW.DE"]
-
-
-def test_sort_transactions_cost_ascending() -> None:
-    cheap = _eur_tx(ticker="CHEAP.DE", shares=Decimal("1"),
-                    price_native=Money(amount=Decimal("10"), currency=Currency.EUR))
-    pricey = _eur_tx(ticker="PRICEY.DE", shares=Decimal("1"),
-                     price_native=Money(amount=Decimal("1000"), currency=Currency.EUR))
-    assert _tickers(sort_transactions([pricey, cheap], "cost", "asc")) == ["CHEAP.DE", "PRICEY.DE"]
-
-
-def test_sort_transactions_unknown_key_falls_back_to_date_desc() -> None:
-    old = _eur_tx(ticker="OLD.DE", trade_date=date(2024, 1, 1))
-    new = _eur_tx(ticker="NEW.DE", trade_date=date(2026, 1, 1))
-    assert _tickers(sort_transactions([old, new], "bogus", "sideways")) == ["NEW.DE", "OLD.DE"]
+def test_transactions_dataframe_notes_blank_when_absent() -> None:
+    row = build_transactions_dataframe([_eur_tx()]).iloc[0]
+    assert row["Notes"] == ""
