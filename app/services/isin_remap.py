@@ -30,3 +30,21 @@ def count_transactions_for_isin(
 ) -> int:
     """Count transactions referencing ``isin``. Used to block deletes."""
     return sum(1 for tx in tx_repo.load_all() if tx.isin == isin)
+
+
+def delete_transactions_for_isin(
+    tx_repo: TransactionRepository,
+    isin: str,
+) -> int:
+    """Delete every transaction matching ``isin``.
+
+    Returns the count of transactions removed. Zero if none match (and the
+    repository is left untouched). FIFO replay happens on the next read per the
+    save_all/replay invariant, so the caller need not trigger recompute.
+    """
+    txs = tx_repo.load_all()
+    remaining = [tx for tx in txs if tx.isin != isin]
+    removed = len(txs) - len(remaining)
+    if removed:
+        tx_repo.save_all(remaining)
+    return removed
