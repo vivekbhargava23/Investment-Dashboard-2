@@ -608,3 +608,99 @@ def test_full_export_isin_populated_on_every_transaction():
         assert tx.isin == ref_to_isin[tx.id], (
             f"tx {tx.id}: expected ISIN {ref_to_isin[tx.id]!r}, got {tx.isin!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Ignored ISIN tests
+# ---------------------------------------------------------------------------
+
+_IGNORED_ISIN = "CH0491507486"
+
+
+def _isin_map_with_ignored(isin: str, name: str) -> IsinMapDocument:
+    return IsinMapDocument(
+        entries={
+            isin: IsinMapping(ticker=None, name=name, status="ignored",
+                              last_seen_in_csv=date(2026, 1, 1))
+        }
+    )
+
+
+def _make_rows_for_isin(
+    isin: str, description: str, trade_date: date, reference: str
+) -> list[ParsedCsvRow]:
+    return [
+        ParsedCsvRow(
+            row_number=2,
+            date=trade_date,
+            time="10:00:00",
+            status="Executed",
+            reference=reference,
+            description=description,
+            asset_type="Security",
+            type="Buy",
+            isin=isin,
+            shares=Decimal("5"),
+            price=Decimal("10.00"),
+            amount=Decimal("-50.00"),
+            fee=None,
+            tax=Decimal("0"),
+            currency="EUR",
+        )
+    ]
+
+
+def test_ignored_isin_is_skipped_silently():
+    """Ignored ISIN rows produce no transactions and no unmapped summary entry."""
+    trade_date = date(2026, 6, 1)
+    rows = _make_rows_for_isin(_IGNORED_ISIN, "21shares Tezos ETP", trade_date, "REF_IGNORED")
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(_isin_map_with_ignored(_IGNORED_ISIN, "21shares Tezos ETP"))
+
+    summary = run_import(rows, "test.csv", tx_repo, map_repo)
+
+    assert summary.new_transactions == 0
+    assert summary.unmapped == 0
+    assert summary.unmapped_isins == []
+    assert len(tx_repo.load_all()) == 0
+    # last_seen_in_csv is updated to the row's date
+    doc = map_repo.load()
+    assert doc.entries[_IGNORED_ISIN].last_seen_in_csv == trade_date
+
+
+def test_ignored_isin_does_not_become_unmapped():
+    """Importing a CSV row for an ignored ISIN does not flip its status back to unmapped."""
+    trade_date = date(2026, 6, 1)
+    rows = _make_rows_for_isin(_IGNORED_ISIN, "21shares Tezos ETP", trade_date, "REF_IGNORED")
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(_isin_map_with_ignored(_IGNORED_ISIN, "21shares Tezos ETP"))
+
+    run_import(rows, "test.csv", tx_repo, map_repo)
+
+    doc = map_repo.load()
+    assert doc.entries[_IGNORED_ISIN].status == "ignored"
+
+
+def test_ignored_isin_does_not_affect_mapped_isin_import():
+    """A mix of ignored and mapped ISINs: mapped rows still import normally."""
+    trade_date = date(2026, 6, 1)
+    rows = _make_rows_for_isin(_IGNORED_ISIN, "21shares Tezos ETP", trade_date, "REF_IGNORED")
+    rows += _make_rows_for_isin(_SAP_ISIN, "SAP SE", trade_date, "REF_SAP")
+
+    map_doc = IsinMapDocument(
+        entries={
+            _IGNORED_ISIN: IsinMapping(ticker=None, name="21shares Tezos ETP", status="ignored"),
+            _SAP_ISIN: IsinMapping(ticker="SAP.DE", name="SAP SE", status="mapped"),
+        }
+    )
+    tx_repo = FakeTransactionRepository()
+    map_repo = FakeIsinMapRepository(map_doc)
+
+    summary = run_import(rows, "test.csv", tx_repo, map_repo)
+
+    assert summary.new_transactions == 1
+    assert summary.unmapped == 0
+    assert summary.unmapped_isins == []
+    txs = tx_repo.load_all()
+    assert len(txs) == 1
+    assert txs[0].ticker == "SAP.DE"

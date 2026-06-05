@@ -11,9 +11,11 @@ from app.domain.money import Currency, Money
 from app.ui.pages.import_workbench import (
     _append_import_log,
     _build_transaction,
+    _count_blocked,
     _count_ready,
     _load_import_log,
     _md5,
+    _surfaced_rows,
     _write_backup,
 )
 
@@ -158,6 +160,42 @@ def test_count_ready_already_imported_not_counted() -> None:
         ),
     ))
     assert _count_ready(plan, {}, set()) == 0
+
+
+# ─── ignored ISINs are silent (TICKET-CSV-14) ─────────────────────────────────
+
+def _skip_row(reference: str, status: RowStatus) -> PlannedRow:
+    return _make_planned_row(reference=reference, status=status, action=PlannedAction.SKIP)
+
+
+def test_count_blocked_excludes_ignored() -> None:
+    """Ignored ISINs must not inflate the 'blocked' count the user reads."""
+    plan = ImportPlan(rows=(
+        _skip_row("A", RowStatus.UNMAPPED_ISIN),
+        _skip_row("B", RowStatus.INTERNAL_TRANSFER),
+        _skip_row("C", RowStatus.IGNORED_ISIN),
+        _skip_row("D", RowStatus.IGNORED_ISIN),
+    ))
+    # Two genuinely-blocked rows; the two ignored rows are silent.
+    assert _count_blocked(plan) == 2
+
+
+def test_surfaced_rows_excludes_ignored() -> None:
+    """Ignored rows never appear in the workbench table or filter chips."""
+    plan = ImportPlan(rows=(
+        _make_planned_row(reference="A", status=RowStatus.NEW),
+        _skip_row("B", RowStatus.IGNORED_ISIN),
+    ))
+    assert [r.reference for r in _surfaced_rows(plan)] == ["A"]
+
+
+def test_count_blocked_zero_when_only_ignored() -> None:
+    """A CSV whose only leftovers are ignored ISINs reads as nothing to deal with."""
+    plan = ImportPlan(rows=(
+        _make_planned_row(reference="A", status=RowStatus.NEW),
+        _skip_row("B", RowStatus.IGNORED_ISIN),
+    ))
+    assert _count_blocked(plan) == 0
 
 
 # ─── import log ───────────────────────────────────────────────────────────────

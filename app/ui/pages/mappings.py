@@ -66,6 +66,21 @@ def _delete_mapping(isin: str, current_doc: IsinMapDocument) -> IsinMapDocument:
     return IsinMapDocument(version=current_doc.version, entries=new_entries)
 
 
+def _ignore_isin(isin: str, current_doc: IsinMapDocument) -> IsinMapDocument:
+    new_entries = dict(current_doc.entries)
+    mapping = new_entries[isin]
+    # instrument_kind is kept on the entry; it will be cleared if the user later restores
+    new_entries[isin] = mapping.model_copy(update={"status": "ignored"})
+    return IsinMapDocument(version=current_doc.version, entries=new_entries)
+
+
+def _restore_isin(isin: str, current_doc: IsinMapDocument) -> IsinMapDocument:
+    new_entries = dict(current_doc.entries)
+    mapping = new_entries[isin]
+    new_entries[isin] = mapping.model_copy(update={"status": "unmapped", "instrument_kind": None})
+    return IsinMapDocument(version=current_doc.version, entries=new_entries)
+
+
 def _try_resolve(ticker: str) -> tuple[str | None, str | None]:
     """Return (display_hint, warning). display_hint is None on failure."""
     resolver = get_ticker_resolver()
@@ -91,7 +106,7 @@ def _render_unmapped_section(
     st.caption("These ISINs were seen in your CSV but have no ticker assigned. Transactions for these ISINs were skipped.")
 
     for isin, mapping in unmapped.items():
-        col_isin, col_name, col_ticker, col_kind, col_btn = st.columns([2, 2, 2, 2, 1])
+        col_isin, col_name, col_ticker, col_kind, col_btn, col_ignore = st.columns([2, 2, 2, 2, 0.7, 0.7])
         with col_isin:
             st.code(isin, language=None)
         with col_name:
@@ -148,6 +163,38 @@ def _render_unmapped_section(
                             msg = f"Mapped {isin} → {raw}, Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}."
                         st.session_state.mappings_feedback = ("success", msg)
                         st.rerun()
+        with col_ignore:
+            if st.button("Ignore", key=f"mappings_ignore_unmapped_{isin}"):
+                updated_doc = _ignore_isin(isin, doc)
+                get_isin_map_repo().save(updated_doc)
+                st.session_state.mappings_feedback = ("success", f"Ignored {isin} ({mapping.name}). Future CSV rows for this ISIN will be skipped silently.")
+                st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Ignored section
+# ---------------------------------------------------------------------------
+
+def _render_ignored_section(
+    ignored: dict[str, Any],
+    doc: IsinMapDocument,
+) -> None:
+    with st.expander("Ignored ISINs", expanded=False):
+        st.caption("These ISINs were intentionally ignored. CSV rows for them are skipped silently. Click Restore to move one back to Unmapped.")
+        for isin, mapping in ignored.items():
+            col_isin, col_name, col_last_seen, col_btn = st.columns([2, 3, 2, 1])
+            with col_isin:
+                st.code(isin, language=None)
+            with col_name:
+                st.write(mapping.name or "—")
+            with col_last_seen:
+                st.write(mapping.last_seen_in_csv.isoformat() if mapping.last_seen_in_csv else "—")
+            with col_btn:
+                if st.button("Restore", key=f"mappings_restore_ignored_{isin}"):
+                    updated_doc = _restore_isin(isin, doc)
+                    get_isin_map_repo().save(updated_doc)
+                    st.session_state.mappings_feedback = ("success", f"Restored {isin} ({mapping.name}) to Unmapped.")
+                    st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -315,11 +362,14 @@ def render() -> None:
 
     unmapped = {isin: m for isin, m in doc.entries.items() if m.status == "unmapped"}
     mapped = {isin: m for isin, m in doc.entries.items() if m.status == "mapped"}
+    ignored = {isin: m for isin, m in doc.entries.items() if m.status == "ignored"}
 
     col_counts, col_refresh = st.columns([5, 1])
     with col_counts:
         unclassified = sum(1 for m in mapped.values() if m.instrument_kind is None)
         caption = f"{len(mapped)} mapped · {len(unmapped)} unmapped"
+        if ignored:
+            caption += f" · {len(ignored)} ignored"
         if unclassified:
             caption += f" · ⚠ {unclassified} missing Tax kind"
         st.caption(caption)
@@ -330,6 +380,10 @@ def render() -> None:
     if unmapped:
         st.divider()
         _render_unmapped_section(unmapped, doc)
+
+    if ignored:
+        st.divider()
+        _render_ignored_section(ignored, doc)
 
     st.divider()
     _render_mapped_section(mapped, doc)
