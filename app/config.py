@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     nav_snapshots_json_path: Path = Path("data/nav_snapshots.json")
     isin_map_json_path: Path = Path("data/isin_map.json")
     thesis_json_path: Path = Path("data/thesis.json")
+    catalysts_json_path: Path = Path("data/catalysts.json")
     backups_dir: Path = Path("data/backups")
     import_log_json_path: Path = Path("data/import_log.json")
     fx_cache_dir: Path = Path("data/fx_cache")
