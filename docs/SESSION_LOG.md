@@ -52,14 +52,15 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ### What got done
 - Built `app/ui/components/catalysts_timeline.py`: `render_catalysts_timeline(events,
-  *, as_of, mode, updated)` over PANEL-1's data layer. Legend of six categories +
-  today marker; events grouped into time bands (empty bands omitted) via `time_band`;
-  per-event category dot, impact-driven size/weight, ticker (portfolio mode) and a
-  book-wide marker for `scope=portfolio` events; `estimated` dates distinct (hollow
-  dot, `~` prefix, muted); companion table sorted by date (ticker column portfolio
-  mode only); empty state; all event text HTML-escaped (ROBUST-1).
+  *, as_of, mode, updated)` over PANEL-1's data layer, rendered as a **horizontal
+  Plotly timeline** (per Vivek's review feedback — replaced the first cut's vertical
+  banded list + companion table). Events are markers laid out left→right across
+  time-zone bands (This week → Later, empty zones omitted), on a book-wide lane (y=1)
+  and a per-holding lane (y=0), sized by impact, drawn hollow when `estimated`, with
+  all detail in the **hover** (no table). Legend of the six categories + estimated +
+  today marker; ticker labels position markers in portfolio mode. Hover text escaped.
 - One source of category→colour (`CATALYST_CATEGORY_COLORS` in `_chart_styles.py`),
-  reused by legend, dots and table.
+  reused by legend and markers.
 - Wired portfolio mode into Overview (cached on tx-sig + as_of + catalysts file mtime)
   and per-position mode into the Company Deep Dive Snapshot tab.
 
@@ -67,16 +68,22 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 - `app/ui/components/catalysts_timeline.py` — new
 - `app/ui/components/_chart_styles.py` — category colour tokens
 - `app/ui/pages/overview.py`, `app/ui/pages/company.py` — wiring
-- `app/ui/styles/dark.css` — timeline/legend/band/table styles
+- `app/ui/styles/dark.css` — legend styles
 - `tests/unit/ui/test_catalysts_timeline.py` — new
-- `docs/screenshots/ticket-panel-2-catalysts-timeline-ui/` — Overview verification shots
 
 ### Tests
-1064 → 1085 passing (21 new). `ruff`, `mypy`, `lint-imports` all clean.
+1064 → 1084 passing (20 new). `ruff`, `mypy`, `lint-imports` all clean.
 
 ### Decisions made during the session
+- Timeline > sequential list: Vivek asked for an actual left→right timeline with
+  hover detail instead of grouped sequential rows + a table. This departs from the
+  filed spec (which chose time bands over a pixel axis and made the table an AC); the
+  ticket/ADR-013 UI note should be reconciled. Kept time *zones* (not a to-scale date
+  axis) so near-term events stay legible.
 - Per-position surface = Company Deep Dive Snapshot tab (existing drilldown; no new
   drawer), satisfying the ticket's assumption-to-confirm.
+- Visual verification skipped at Vivek's request this round (portfolio timeline shown
+  in the first cut; redesign is unit-tested).
 
 ### Out-of-scope items noticed
 - **Pre-existing bug on `main` (unrelated):** the Company Deep Dive Snapshot tab
