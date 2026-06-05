@@ -415,7 +415,7 @@ def _render_correlation_kpis(view: CorrelationView) -> None:
             render_metric_card(
                 "Highest Pair",
                 f"{float(val):.2f}",
-                subtitle=f"{a} · {b}",
+                sub_value=f"{a} · {b}",
                 value_class="gain-negative" if val >= Decimal("0.6") else "gain-amber",
                 tooltip=f"Most correlated pair in the portfolio: {a} ↔ {b}",
             )
@@ -427,7 +427,7 @@ def _render_correlation_kpis(view: CorrelationView) -> None:
             render_metric_card(
                 "Lowest Pair",
                 f"{float(val):.2f}",
-                subtitle=f"{a} · {b}",
+                sub_value=f"{a} · {b}",
                 value_class="gain-positive" if val < Decimal("0.2") else "gain-neutral",
                 tooltip=f"Least correlated pair in the portfolio: {a} ↔ {b}",
             )

@@ -5,7 +5,10 @@ from __future__ import annotations
 from decimal import Decimal
 
 from app.domain.market_data import ChartPeriod
-from app.ui.pages.overview import _build_positions_table_html, _fetch_trend_texts
+from app.ui.components.positions_table import (
+    build_positions_table_html as _build_positions_table_html,
+)
+from app.ui.pages.overview import _fetch_trend_texts
 from tests.fakes.ohlc import FAKE_SERIES_NVDA_6MO, FAKE_SERIES_RHM_1Y, FakeOhlcDataProvider
 from tests.unit.ui.test_overview_render import _make_live_position, _make_summary
 
