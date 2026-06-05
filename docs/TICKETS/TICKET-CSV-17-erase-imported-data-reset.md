@@ -24,8 +24,9 @@ A **Danger zone** on the Manage Portfolio page (`app/ui/pages/manage.py`) with t
 both behind explicit confirmation and an automatic backup.
 
 1. **Erase everything** — delete all transactions. A checkbox optionally also clears
-   `isin_map.json`. Requires the user to type a confirmation word (e.g. `ERASE`) before the
-   button enables.
+   `isin_map.json`. Requires the user to tick an explicit "I understand…" confirmation
+   checkbox before the button enables. (Originally specced as a typed `ERASE` word; changed
+   to a confirmation checkbox per Vivek's review on the CSV-17 branch.)
 2. **Scoped erase (in parts)** — delete the subset matching a filter:
    - by **source** (`scalable_csv` vs manual / `source is None`), and/or
    - by **trade-date range** (from / to).
@@ -54,7 +55,7 @@ both behind explicit confirmation and an automatic backup.
    `import_workbench.py` into a shared helper if it isn't already shared, or call the repo's
    backup path). Do not duplicate the rolling-window logic.
 3. **UI Danger zone** in `manage.py`: an expander titled "Danger zone — erase imported data",
-   collapsed by default, visually separated. Full-erase block (typed confirm + optional
+   collapsed by default, visually separated. Full-erase block (confirmation checkbox + optional
    "also clear ISIN mappings"); scoped-erase block (source select + date range + live
    "would delete N" preview + confirm).
 4. **Tests** in `tests/unit/test_data_admin.py`: full erase empties the book and returns the
@@ -66,7 +67,7 @@ both behind explicit confirmation and an automatic backup.
 
 - [ ] `erase_all_transactions` and `erase_transactions` exist in a new `data_admin` service,
       are pure (ports in, count out), and are unit-tested.
-- [ ] Full erase requires typing the confirmation word and writes a backup first.
+- [ ] Full erase requires ticking the confirmation checkbox and writes a backup first.
 - [ ] Full erase optionally clears the ISIN map when the checkbox is set; leaves it otherwise.
 - [ ] Scoped erase deletes only transactions matching source and/or date range, previews the
       count first, and writes a backup.
