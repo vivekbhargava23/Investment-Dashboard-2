@@ -24,6 +24,7 @@ _COLUMNS = [
     "Cost (€)",
     "Value (€)",
     "Gain (€)",
+    "Gain (%)",
     "Weight (%)",
     "Trend 30D (%)",
     "Lots",
@@ -52,6 +53,11 @@ def build_positions_dataframe(
             if p.unrealised_gain_eur is not None
             else None
         )
+        gain_pct = (
+            float(p.unrealised_gain_pct)
+            if p.unrealised_gain_pct is not None
+            else None
+        )
         shares = float(p.position.open_shares)
         price = value / shares if value is not None and shares else None
         weight = value / total_value * 100 if value is not None and total_value > 0 else None
@@ -64,6 +70,7 @@ def build_positions_dataframe(
                 "Cost (€)": float(p.position.cost_basis_eur.amount),
                 "Value (€)": value,
                 "Gain (€)": gain,
+                "Gain (%)": gain_pct,
                 "Weight (%)": weight,
                 "Trend 30D (%)": trend_values.get(ticker),
                 "Lots": len(p.position.open_lots),
@@ -88,26 +95,6 @@ def _sign_color(v: object) -> str:
     return "color: #9aa0a6"
 
 
-_WEIGHT_BAR_WIDTH = 16
-
-
-def weight_bar_text(weight: object, weight_max: float, width: int = _WEIGHT_BAR_WIDTH) -> str:
-    """Render the weight as a Unicode block bar plus its percentage, e.g.
-    ``████████········ 16.4%``. ``st.dataframe`` is a canvas grid that ignores
-    CSS gradients, so the bar is drawn as text (and tinted via the ``color``
-    Styler rule, which the grid does honour). Bar length scales to the largest
-    weight. Returns ``""`` for a blank (stale) weight."""
-    if weight is None or (isinstance(weight, float) and pd.isna(weight)):
-        return ""
-    try:
-        w = float(weight)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return ""
-    pct = min(100.0, w / weight_max * 100) if weight_max > 0 else 0.0
-    filled = round(pct / 100 * width)
-    return "█" * filled + "·" * (width - filled) + f" {w:.1f}%"
-
-
 def render_positions_table(
     positions: dict[str, LivePosition],
     summary: PortfolioSummary,
@@ -124,26 +111,13 @@ def render_positions_table(
         return
 
     weight_max = float(df["Weight (%)"].max()) if df["Weight (%)"].notna().any() else 100.0
-    columns = list(df.columns)
 
-    # Replace the numeric Weight with its text bar for display (the source df keeps
-    # the number, which the tests and any sorting rely on).
-    display = df.copy()
-    display["Weight (%)"] = [weight_bar_text(w, weight_max) for w in df["Weight (%)"]]
-
-    def _row_styles(row: pd.Series) -> list[str]:
-        # Gain & Trend tint by their own sign; the Weight bar tints by the gain sign.
-        out: list[str] = []
-        for col in columns:
-            if col in ("Gain (€)", "Trend 30D (%)"):
-                out.append(_sign_color(row[col]))
-            elif col == "Weight (%)":
-                out.append(_sign_color(df.loc[row.name, "Gain (€)"]))
-            else:
-                out.append("")
-        return out
-
-    styler = display.style.apply(_row_styles, axis=1)
+    # Weight is a plain (neutral) progress bar — it encodes *size of holding only*,
+    # never gain. Direction/magnitude of P/L lives in the Gain columns, coloured by
+    # sign, so a big position with a small loss no longer reads as a big loss.
+    styler = df.style.map(
+        _sign_color, subset=["Gain (€)", "Gain (%)", "Trend 30D (%)"]
+    )
 
     st.dataframe(
         styler,
@@ -157,7 +131,16 @@ def render_positions_table(
             "Cost (€)": st.column_config.NumberColumn(format="€%.2f"),
             "Value (€)": st.column_config.NumberColumn(format="€%.2f"),
             "Gain (€)": st.column_config.NumberColumn(format="€%+.2f"),
-            "Weight (%)": st.column_config.TextColumn(width="medium"),
+            "Gain (%)": st.column_config.NumberColumn(format="%+.1f%%"),
+            "Weight (%)": st.column_config.ProgressColumn(
+                format="%.1f%%",
+                min_value=0,
+                max_value=max(weight_max, 1.0),
+                # Neutral grey: the bar encodes holding size only, never gain — so it
+                # must not read as red/green. (st.dataframe draws the bar on a canvas,
+                # so this `color` arg is the only hook; CSS can't reach it.)
+                color="#9aa0a6",
+            ),
             "Trend 30D (%)": st.column_config.NumberColumn(format="%+.1f%%"),
             "Lots": st.column_config.NumberColumn(format="%d"),
             "Sim": st.column_config.LinkColumn(display_text="⚡ Sim", width="small"),
