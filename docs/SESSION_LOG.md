@@ -44,6 +44,45 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — TICKET-RD2
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Branch:** ticket-rd2-sortable-positions-table
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/169
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Sortable tables across three pages. Per Vivek's "do it here only", all three land
+  in one branch rather than split into follow-up tickets.
+- **First cut** used clickable column-header links toggling `?sort=&dir=`. Vivek flagged
+  the UX: every header click reran the whole Streamlit page (full repaint, scroll jump,
+  live-price refetch). **Reworked** onto `st.dataframe`, which sorts/searches client-side
+  with no rerun — same widget the CSV-import workbench uses.
+- **Overview positions table** (the ticket): `build_positions_dataframe()` → `st.dataframe`
+  with `column_config` (ProgressColumn weight, LinkColumn ⚡ Sim, NumberColumn formats) +
+  a pandas Styler for green/red gain & trend. Trend is a numeric column now.
+- **Manage → All Transactions** and **ISIN Mappings → Mapped**: `st.dataframe` with
+  single-row selection; per-row actions (edit/delete; edit/kind/unmap/remove) moved to an
+  action bar that appears for the selected row, since `st.dataframe` can't host inline
+  buttons.
+
+### Files touched
+- `app/ui/components/positions_table.py` — dataframe builder + st.dataframe render
+- `app/ui/pages/overview.py` — numeric `_fetch_trend_values`; drop ?sort/?dir
+- `app/ui/pages/manage.py` — transactions dataframe + row-select action bar
+- `app/ui/pages/mappings.py` — mapped dataframe + row-select action bar
+- `app/ui/styles/dark.css` — removed the interim .sort-link styles
+- `tests/unit/ui/test_positions_table.py`, `test_manage_page.py`, `test_mappings_page.py`,
+  `test_overview_chart_integration.py` — dataframe-builder tests
+
+### Tests
+gate green: pytest (987 passed, 91 skipped) + ruff + mypy + lint-imports.
+
+### Notes
+- `st.dataframe` escapes its own content, so the manual `html.escape` the HTML table
+  needed (ROBUST-1 / 008b) is no longer applicable for these grids.
+- Screenshots intentionally skipped this session at Vivek's request.
+
 ## 2026-06-05 — TICKET-RD1
 **Surface:** Claude Code
 **Model:** opus-4.8

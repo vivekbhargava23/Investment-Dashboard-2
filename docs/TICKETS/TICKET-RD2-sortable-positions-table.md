@@ -1,6 +1,7 @@
 # TICKET-RD2 — Sortable positions table
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Dashboard Redesign
 **Recommended model:** Sonnet — additive feature on an existing component + a pure sort function.
 **Estimated session length:** 1 – 1.5 hr

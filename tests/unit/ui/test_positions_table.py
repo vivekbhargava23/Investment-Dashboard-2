@@ -1,18 +1,17 @@
-"""Tests for the Overview positions-table component.
+"""Tests for the Overview positions table.
 
-The builder moved out of overview.py into app/ui/components/positions_table.py
-(TICKET-RD1). These cover the HTML-leak regressions (TICKET-008b), the
-HTML-escaping invariant (TICKET-ROBUST-1), the CCY/name/price-tooltip behaviour
-(TICKET-CSV-10), and the RD1 redesign decision to drop the Thesis/Horizon
-columns.
+TICKET-RD2 rebuilt the table on ``st.dataframe`` (client-side sort/search, no
+page rerun), so the builder now returns a ``pandas.DataFrame`` instead of an
+HTML string. ``st.dataframe`` escapes content itself, so the manual
+``html.escape`` regressions the HTML version guarded (TICKET-008b / ROBUST-1)
+no longer apply.
 """
 from __future__ import annotations
 
+import math
+
 from app.domain.positions import LivePosition
-from app.ui.components.positions_table import (
-    build_positions_table_html,
-    render_positions_table,
-)
+from app.ui.components.positions_table import build_positions_dataframe, weight_bar_text
 from tests.unit.ui.test_overview_render import (
     _make_live_position,
     _make_live_position_usd,
@@ -20,175 +19,10 @@ from tests.unit.ui.test_overview_render import (
     _make_summary,
 )
 
-# ---------------------------------------------------------------------------
-# TICKET-008b: positions-table HTML leak (no leading whitespace / one table)
-# ---------------------------------------------------------------------------
 
-def test_positions_table_html_no_leading_whitespace() -> None:
-    """Regression: HTML must start with '<', never whitespace (markdown code-block bug)."""
-    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    assert html[0] == "<", (
-        f"HTML must start with '<' at index 0 to avoid markdown code-block rendering. "
-        f"Got: {html[:40]!r}"
-    )
-
-
-def test_positions_table_html_not_four_spaces() -> None:
-    """4+ leading spaces triggers markdown code block."""
-    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    assert not html.startswith("    "), f"Got: {html[:40]!r}"
-
-
-def test_positions_table_html_one_table_tag() -> None:
-    positions = {
-        "NVDA": _make_live_position("NVDA", "5", "400"),
-        "ANET": _make_live_position("ANET", "10", "100"),
-    }
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    assert html.count("<table") == 1
-
-
-def test_positions_table_html_tr_per_position() -> None:
-    positions = {
-        "NVDA": _make_live_position("NVDA", "5", "400"),
-        "ANET": _make_live_position("ANET", "10", "100"),
-    }
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    assert html.count("<tr") >= len(positions)
-
-
-def test_positions_table_html_no_double_escaping() -> None:
-    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    assert "&lt;" not in html, "Found &lt; — HTML is double-escaped"
-
-
-def test_positions_table_html_empty_positions() -> None:
-    summary = _make_summary({})
-    html = build_positions_table_html({}, summary)
-    assert "<table" in html
-    assert html[0] == "<"
-
-
-# ---------------------------------------------------------------------------
-# TICKET-ROBUST-1: data-derived strings must be HTML-escaped before render_html.
-# RD1 must preserve this when moving the table into a component.
-# ---------------------------------------------------------------------------
-
-def test_positions_table_escapes_company_name() -> None:
-    """A company name containing markup renders as literal text, not as HTML."""
-    positions = {"ACME": _make_live_position("ACME", "5", "400")}
-    summary = _make_summary(positions)
-    name_lookup = {"ACME": 'Acme <b>test</b> & "Co"'}
-
-    html = build_positions_table_html(positions, summary, name_lookup=name_lookup)
-
-    # Raw markup must NOT appear — it would break layout / inject into the page.
-    assert "<b>test</b>" not in html
-    # Escaped form must appear instead.
-    assert "Acme &lt;b&gt;test&lt;/b&gt; &amp; &quot;Co&quot;" in html
-
-
-def test_positions_table_escapes_ticker() -> None:
-    """A ticker containing markup is escaped in both the cell and the sim link."""
-    evil = 'X<img src=x>'
-    positions = {evil: _make_live_position(evil, "5", "400")}
-    summary = _make_summary(positions)
-
-    html = build_positions_table_html(positions, summary)
-
-    assert "<img src=x>" not in html
-    assert "X&lt;img src=x&gt;" in html
-
-
-# ---------------------------------------------------------------------------
-# TICKET-RD1: Thesis/Horizon columns dropped from the positions table.
-# ---------------------------------------------------------------------------
-
-def test_no_thesis_or_horizon_headers() -> None:
-    """The redesigned table has no Thesis or Horizon columns."""
-    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    assert ">Thesis<" not in html
-    assert ">Horizon<" not in html
-
-
-def test_table_cells_use_classes_not_inline_styles() -> None:
-    """The table's own markup is class-driven (the embedded weight-bar component
-    keeps its own inline styles — that is out of scope for RD1)."""
-    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    # The header row and cells the table owns carry classes, not style attrs.
-    assert 'class="positions-table"' in html
-    assert "style=" not in html.split("<tbody>")[0]  # header has no inline styles
-
-
-# ---------------------------------------------------------------------------
-# TICKET-CSV-10: CCY column removed, name lookup, price tooltip
-# ---------------------------------------------------------------------------
-
-def test_ccy_column_not_in_header() -> None:
-    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    assert ">CCY<" not in html, "CCY header column should have been removed"
-
-
-def test_ccy_value_not_in_body() -> None:
-    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    assert ">EUR<" not in html, "EUR CCY cell should not appear as a standalone table cell"
-
-
-def test_name_resolved_from_lookup() -> None:
-    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary, name_lookup={"NVDA": "NVIDIA Corp"})
-    assert "NVIDIA Corp" in html
-
-
-def test_name_fallback_to_ticker_when_not_in_lookup() -> None:
-    positions = {"QDVE": _make_live_position("QDVE", "10", "50")}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary, name_lookup={})
-    assert "QDVE" in html
-
-
-def test_name_fallback_when_no_lookup_provided() -> None:
-    positions = {"ANET": _make_live_position("ANET", "3", "200")}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    assert "ANET" in html
-
-
-def test_price_tooltip_usd_shows_native_in_tooltip() -> None:
-    positions = {"NVDA": _make_live_position_usd("NVDA", shares="5", price_usd="225.32")}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    assert 'title="USD 225.32"' in html, "Non-EUR price cell must show native currency in tooltip"
-
-
-def test_price_eur_position_displays_eur_no_tooltip() -> None:
-    positions = {"RHM.DE": _make_live_position("RHM.DE", "2", "800")}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    assert 'title="EUR' not in html, "EUR-native price cell needs no tooltip"
-
-
-def test_stale_price_renders_dash_no_tooltip() -> None:
-    position = _make_position_with_lot("STALE", "3", "100")
-    stale_p = LivePosition(
-        position=position,
+def _make_stale(ticker: str) -> LivePosition:
+    return LivePosition(
+        position=_make_position_with_lot(ticker, "1", "100"),
         live_price_native=None,
         live_value_eur=None,
         unrealised_gain_eur=None,
@@ -196,30 +30,153 @@ def test_stale_price_renders_dash_no_tooltip() -> None:
         current_fx_rate=None,
         staleness_reason="price feed unavailable",
     )
-    positions = {"STALE": stale_p}
-    summary = _make_summary(positions)
-    html = build_positions_table_html(positions, summary)
-    assert "—" in html, "Stale row must render dash"
-    assert 'title="USD' not in html, "Stale row must not have price tooltip"
-    assert 'title="EUR' not in html, "Stale row must not have price tooltip"
+
+
+def _row(df, ticker):
+    return df[df["Ticker"] == ticker].iloc[0]
 
 
 # ---------------------------------------------------------------------------
-# render_positions_table wrapper
+# Column shape
 # ---------------------------------------------------------------------------
 
-def test_render_positions_table_wraps_in_scroll_card(monkeypatch) -> None:
-    """The render wrapper emits the table inside a scrollable card via render_html."""
-    captured: list[str] = []
-    monkeypatch.setattr(
-        "app.ui.components.positions_table.render_html",
-        lambda html: captured.append(html),
-    )
+def test_dataframe_has_expected_columns() -> None:
+    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
+    df = build_positions_dataframe(positions, _make_summary(positions))
+    assert list(df.columns) == [
+        "Ticker", "Name", "Price (€)", "Shares", "Cost (€)", "Value (€)",
+        "Gain (€)", "Weight (%)", "Trend 30D (%)", "Lots", "Sim",
+    ]
+
+
+def test_dataframe_one_row_per_position() -> None:
+    positions = {
+        "NVDA": _make_live_position("NVDA", "5", "400"),
+        "ANET": _make_live_position("ANET", "10", "100"),
+    }
+    df = build_positions_dataframe(positions, _make_summary(positions))
+    assert len(df) == 2
+
+
+def test_dataframe_empty_positions() -> None:
+    df = build_positions_dataframe({}, _make_summary({}))
+    assert df.empty
+    assert list(df.columns)[0] == "Ticker"
+
+
+# ---------------------------------------------------------------------------
+# Computed values
+# ---------------------------------------------------------------------------
+
+def test_value_gain_price_weight_computed() -> None:
+    # shares=5, cost/share=400 → value=5*120=600, cost=2000, gain=-1400, price=120
     positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
     summary = _make_summary(positions)
+    row = _row(build_positions_dataframe(positions, summary), "NVDA")
+    assert row["Value (€)"] == 600.0
+    assert row["Cost (€)"] == 2000.0
+    assert row["Gain (€)"] == -1400.0
+    assert row["Price (€)"] == 120.0
+    # single position → 100% weight
+    assert math.isclose(row["Weight (%)"], 100.0, rel_tol=1e-6)
 
-    render_positions_table(positions, summary)
 
-    assert len(captured) == 1
-    assert 'class="metric-card table-card"' in captured[0]
-    assert "<table" in captured[0]
+def test_weight_is_proportional_across_positions() -> None:
+    positions = {
+        "BIG": _make_live_position("BIG", "10", "50"),   # value 1200
+        "SMALL": _make_live_position("SMALL", "1", "50"),  # value 120
+    }
+    df = build_positions_dataframe(positions, _make_summary(positions))
+    assert _row(df, "BIG")["Weight (%)"] > _row(df, "SMALL")["Weight (%)"]
+    assert math.isclose(
+        _row(df, "BIG")["Weight (%)"] + _row(df, "SMALL")["Weight (%)"], 100.0, rel_tol=1e-6
+    )
+
+
+def test_trend_value_passed_through() -> None:
+    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
+    df = build_positions_dataframe(
+        positions, _make_summary(positions), trend_values={"NVDA": 2.5}
+    )
+    assert _row(df, "NVDA")["Trend 30D (%)"] == 2.5
+
+
+def test_name_resolved_from_lookup() -> None:
+    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
+    df = build_positions_dataframe(
+        positions, _make_summary(positions), name_lookup={"NVDA": "NVIDIA Corp"}
+    )
+    assert _row(df, "NVDA")["Name"] == "NVIDIA Corp"
+
+
+def test_name_falls_back_to_ticker() -> None:
+    positions = {"QDVE": _make_live_position("QDVE", "10", "50")}
+    df = build_positions_dataframe(positions, _make_summary(positions))
+    assert _row(df, "QDVE")["Name"] == "QDVE"
+
+
+def test_sim_column_links_to_simulator() -> None:
+    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
+    df = build_positions_dataframe(positions, _make_summary(positions))
+    assert _row(df, "NVDA")["Sim"] == "/?page=simulator&ticker=NVDA"
+
+
+def test_usd_position_price_in_eur() -> None:
+    positions = {"NVDA": _make_live_position_usd("NVDA", shares="5", price_usd="200")}
+    summary = _make_summary(positions)
+    row = _row(build_positions_dataframe(positions, summary), "NVDA")
+    # price = value_eur / shares; both derived from the USD helper.
+    assert row["Price (€)"] == row["Value (€)"] / row["Shares"]
+
+
+# ---------------------------------------------------------------------------
+# Stale rows → blank (None) values so they sort to the end
+# ---------------------------------------------------------------------------
+
+def test_stale_row_has_none_live_fields() -> None:
+    positions = {"STALE": _make_stale("STALE")}
+    row = _row(build_positions_dataframe(positions, _make_summary(positions)), "STALE")
+    assert row["Price (€)"] is None
+    assert row["Value (€)"] is None
+    assert row["Gain (€)"] is None
+    assert row["Weight (%)"] is None
+
+
+def test_stale_row_keeps_book_fields() -> None:
+    """Cost, shares and lots come from the book of record, so they stay populated."""
+    positions = {"STALE": _make_stale("STALE")}
+    row = _row(build_positions_dataframe(positions, _make_summary(positions)), "STALE")
+    assert row["Cost (€)"] == 100.0  # 1 share * 100
+    assert row["Shares"] == 1.0
+    assert row["Lots"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Weight bar text (Unicode block bar + %)
+# ---------------------------------------------------------------------------
+
+def test_weight_bar_shows_percent() -> None:
+    assert "16.4%" in weight_bar_text(16.4, 100.0)
+
+
+def test_weight_bar_full_when_at_max() -> None:
+    bar = weight_bar_text(50.0, 50.0, width=10)
+    assert bar.startswith("██████████")  # 10/10 filled
+    assert "·" not in bar.split(" ")[0]
+
+
+def test_weight_bar_half_when_half_of_max() -> None:
+    bar = weight_bar_text(25.0, 50.0, width=10)
+    blocks = bar.split(" ")[0]
+    assert blocks.count("█") == 5
+    assert blocks.count("·") == 5
+
+
+def test_weight_bar_empty_when_weight_missing() -> None:
+    assert weight_bar_text(None, 100.0) == ""
+
+
+def test_weight_bar_more_blocks_for_larger_weight() -> None:
+    big = weight_bar_text(40.0, 50.0, width=10).split(" ")[0].count("█")
+    small = weight_bar_text(10.0, 50.0, width=10).split(" ")[0].count("█")
+    assert big > small

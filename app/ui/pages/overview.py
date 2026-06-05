@@ -72,27 +72,19 @@ def _cached_tax_summary_for_overview(tx_sig: str, year: int) -> TaxYearSummary |
         return None
 
 
-def _fetch_trend_texts(tickers: list[str]) -> dict[str, str]:
-    """Fetch 30-day OHLC for each ticker and return HTML trend text for the table.
-
-    ticker → HTML span like '↑ +2.3%' (green) or '↓ -1.1%' (red) or '—' on error.
-    Per-ticker errors are isolated: one failure never blocks other rows.
+def _fetch_trend_values(tickers: list[str]) -> dict[str, float | None]:
+    """Fetch 30-day OHLC and return the numeric % change per ticker for the table's
+    Trend column. Per-ticker errors are isolated: one failure never blocks other
+    rows (its value is None → blank cell).
     """
     provider = get_ohlc_data_provider()
     series_map = get_ohlc_histories(tickers, ChartPeriod.ONE_MONTH, provider=provider)
-    trend_text_map: dict[str, str] = {}
-
+    trend_value_map: dict[str, float | None] = {}
     for ticker in tickers:
         series = series_map.get(ticker.strip().upper())
         pct = series.period_change_pct if series is not None else None
-        if pct is None:
-            trend_text_map[ticker] = "—"
-        elif pct >= 0:
-            trend_text_map[ticker] = f'<span class="gain-positive">↑ +{float(pct):.1f}%</span>'
-        else:
-            trend_text_map[ticker] = f'<span class="gain-negative">↓ {float(pct):.1f}%</span>'
-
-    return trend_text_map
+        trend_value_map[ticker] = float(pct) if pct is not None else None
+    return trend_value_map
 
 
 def render() -> None:
@@ -179,10 +171,13 @@ def render() -> None:
     }
 
     tickers = list(live_positions.keys())
-    trend_text_map = _fetch_trend_texts(tickers)
+    trend_value_map = _fetch_trend_values(tickers)
 
     render_positions_table(
-        live_positions, summary, trend_data=trend_text_map, name_lookup=name_lookup
+        live_positions,
+        summary,
+        name_lookup=name_lookup,
+        trend_values=trend_value_map,
     )
 
     status_text = f"● LIVE · refreshed {now.strftime('%H:%M')}"
