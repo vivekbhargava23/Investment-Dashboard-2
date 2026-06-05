@@ -1,6 +1,7 @@
 # TICKET-RD10 — Allocation treemap on Overview (period-selectable)
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Dashboard Redesign
 **Recommended model:** Sonnet — one new UI component over existing data + a Plotly figure; logic is thin once RD9 lands.
 **Estimated session length:** 1.5 – 2 hr

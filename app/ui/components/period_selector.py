@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from app.domain.market_data import AggregationFreq, ChartPeriod
+from app.domain.returns import ALL_WINDOWS, ReturnWindow
 
 _PERIOD_LABELS: dict[ChartPeriod, str] = {
     ChartPeriod.ONE_DAY: "1D",
@@ -55,6 +56,28 @@ def render_period_selector(
         key=key,
         index=default_index,
         format_func=lambda p: _PERIOD_LABELS[p],
+        label_visibility="collapsed",
+    )
+    return selected
+
+
+def render_return_window_selector(key: str, *, default: str = "30D") -> ReturnWindow:
+    """Render a horizontal radio over the RD9 return windows (1D / 7D / 30D / YTD).
+
+    The treemap/heatmap colour metric uses the fixed ReturnWindow set, whose 7D
+    and 30D windows have no ChartPeriod equivalent — so this is a dedicated
+    selector rather than ``render_period_selector``. ``default`` is the label
+    string (e.g. "30D") to pre-select.
+    """
+    options = list(ALL_WINDOWS)
+    default_window = next((w for w in options if w.value == default), options[0])
+    selected: ReturnWindow = st.radio(
+        "Colour period",
+        options=options,
+        horizontal=True,
+        key=key,
+        index=options.index(default_window),
+        format_func=lambda w: w.value,
         label_visibility="collapsed",
     )
     return selected
