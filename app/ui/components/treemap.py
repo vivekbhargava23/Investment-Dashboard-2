@@ -1,13 +1,14 @@
 """Allocation treemap for the Live Overview.
 
 Tiles are sized by live EUR value and coloured by the selected window's return
-(RD9's returns map) on a diverging green↔red scale centred at 0, with a fixed
-symmetric clamp (±``RETURN_CLAMP_PCT``) so a single outlier can't wash out the
-scale. Colours reuse the existing chart tokens (``CANDLE_UP`` / ``CANDLE_DOWN``
+(RD9's cached return-stats map) on a diverging green↔red scale centred at 0, with
+a fixed symmetric clamp (±``RETURN_CLAMP_PCT``) so a single outlier can't wash out
+the scale. Colours reuse the existing chart tokens (``CANDLE_UP`` / ``CANDLE_DOWN``
 and the neutral grey) rather than inventing new hex values.
 
-Switching the colour window re-colours from the cached returns map with no OHLC
-refetch and no return recompute — the caller passes a pre-built returns map.
+Each tile prints the window return; the hover adds the EUR value, weight %, and the
+window's high/low (native price, candlestick-style). Switching the colour window
+re-reads the cached stats map — no OHLC refetch and no return recompute.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ import streamlit as st
 
 from app.domain.money import Money
 from app.domain.positions import LivePosition
-from app.domain.returns import ReturnWindow
+from app.domain.returns import ReturnWindow, WindowStats
 from app.ui.components._chart_styles import (
     CANDLE_DOWN,
     CANDLE_UP,
@@ -50,12 +51,17 @@ class _Tile:
     name: str
     value: Money
     weight_pct: float
-    return_pct: Decimal | None
+    currency: str
+    stats: WindowStats | None
+
+
+def _return_pct(stats: WindowStats | None) -> Decimal | None:
+    return stats.pct if stats is not None else None
 
 
 def _renderable_tiles(
     positions: dict[str, LivePosition],
-    returns_map: dict[str, dict[ReturnWindow, Decimal | None]],
+    stats_map: dict[str, dict[ReturnWindow, WindowStats | None]],
     window: ReturnWindow,
     name_lookup: dict[str, str],
 ) -> list[_Tile]:
@@ -73,23 +79,45 @@ def _renderable_tiles(
     for p in live:
         value = p.live_value_eur
         assert value is not None  # narrowed by the filter above
+        assert p.live_price_native is not None  # non-stale ⇒ native price present
         weight = float(value.amount / total * 100) if total > 0 else 0.0
-        ret = returns_map.get(p.ticker, {}).get(window)
         tiles.append(
             _Tile(
                 ticker=p.ticker,
                 name=name_lookup.get(p.ticker, ""),
                 value=value,
                 weight_pct=weight,
-                return_pct=ret,
+                currency=p.live_price_native.currency.value,
+                stats=stats_map.get(p.ticker, {}).get(window),
             )
         )
     return tiles
 
 
+def _tile_label(ticker: str, name: str, ret_text: str) -> str:
+    """In-tile text: bold ticker, name (if any), then the window return."""
+    name_line = f"{name}<br>" if name else ""
+    return f"<b>{ticker}</b><br>{name_line}{ret_text}"
+
+
+def _tile_hover(tile: _Tile, window: ReturnWindow, ret_text: str) -> str:
+    name_line = f"{tile.name}<br>" if tile.name else ""
+    lines = [
+        f"<b>{tile.ticker}</b><br>{name_line}",
+        f"{format_eur(tile.value)} · {tile.weight_pct:.1f}% of portfolio<br>",
+        f"{window.value} return: {ret_text}",
+    ]
+    if tile.stats is not None:
+        lines.append(
+            f"<br>{window.value} high {tile.currency} {tile.stats.high:,.2f}"
+            f" · low {tile.currency} {tile.stats.low:,.2f}"
+        )
+    return "".join(lines)
+
+
 def build_treemap_figure(
     positions: dict[str, LivePosition],
-    returns_map: dict[str, dict[ReturnWindow, Decimal | None]],
+    stats_map: dict[str, dict[ReturnWindow, WindowStats | None]],
     window: ReturnWindow,
     *,
     name_lookup: dict[str, str],
@@ -99,39 +127,34 @@ def build_treemap_figure(
     """Build the allocation treemap, or ``None`` when nothing is renderable.
 
     Size = live EUR value; colour = the ``window`` return clamped to ±``clamp_pct``.
-    A ``None`` return for the window colours neutral (cmid=0) and shows "n/a" in the
-    hover — never a fabricated 0%.
+    A ``None`` return for the window colours neutral (cmid=0), prints "n/a" in the
+    tile, and shows "n/a" in the hover — never a fabricated 0%.
     """
-    tiles = _renderable_tiles(positions, returns_map, window, name_lookup)
+    tiles = _renderable_tiles(positions, stats_map, window, name_lookup)
     if not tiles:
         return None
 
     labels = [t.ticker for t in tiles]
-    names = [t.name for t in tiles]
     values = [float(t.value.amount) for t in tiles]
     # None return → cmid (0) so the tile lands on the neutral midpoint colour. The
     # raw (unclamped) value is fine here; cmin/cmax do the clamping at render time.
-    colors = [float(t.return_pct) if t.return_pct is not None else 0.0 for t in tiles]
+    colors = [float(p) if (p := _return_pct(t.stats)) is not None else 0.0 for t in tiles]
 
+    tile_texts: list[str] = []
     hover: list[str] = []
     for t in tiles:
-        ret_txt = (
-            format_pct(t.return_pct, signed=True) if t.return_pct is not None else "n/a"
-        )
-        name_line = f"{t.name}<br>" if t.name else ""
-        hover.append(
-            f"<b>{t.ticker}</b><br>{name_line}"
-            f"{format_eur(t.value)} · {t.weight_pct:.1f}% of portfolio<br>"
-            f"{window.value} return: {ret_txt}"
-        )
+        pct = _return_pct(t.stats)
+        ret_text = format_pct(pct, signed=True) if pct is not None else "n/a"
+        tile_texts.append(_tile_label(t.ticker, t.name, ret_text))
+        hover.append(_tile_hover(t, window, ret_text))
 
     fig = go.Figure(
         go.Treemap(
             labels=labels,
             parents=[""] * len(tiles),
             values=values,
-            text=names,
-            texttemplate="<b>%{label}</b><br>%{text}",
+            text=tile_texts,
+            texttemplate="%{text}",
             hovertext=hover,
             hovertemplate="%{hovertext}<extra></extra>",
             marker={
@@ -152,7 +175,7 @@ def build_treemap_figure(
 
 def render_treemap(
     positions: dict[str, LivePosition],
-    returns_map: dict[str, dict[ReturnWindow, Decimal | None]],
+    stats_map: dict[str, dict[ReturnWindow, WindowStats | None]],
     window: ReturnWindow,
     *,
     name_lookup: dict[str, str],
@@ -160,7 +183,7 @@ def render_treemap(
 ) -> None:
     """Render the allocation treemap, or a placeholder when nothing is renderable."""
     fig = build_treemap_figure(
-        positions, returns_map, window, name_lookup=name_lookup, height=height
+        positions, stats_map, window, name_lookup=name_lookup, height=height
     )
     if fig is None:
         st.info("No live positions to display in the treemap.")

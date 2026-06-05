@@ -3,7 +3,12 @@ from decimal import Decimal
 
 from app.domain.market_data import ChartPeriod, OhlcBar, OhlcSeries
 from app.domain.money import Currency
-from app.domain.returns import ALL_WINDOWS, ReturnWindow, period_return
+from app.domain.returns import (
+    ALL_WINDOWS,
+    ReturnWindow,
+    period_return,
+    period_stats,
+)
 
 
 def _bar(day: str, close: str) -> OhlcBar:
@@ -31,13 +36,34 @@ def _series(*bars: OhlcBar, period: ChartPeriod = ChartPeriod.ONE_YEAR) -> OhlcS
 
 # --- ReturnWindow enum ---
 
-def test_all_windows_covers_the_four_named_windows() -> None:
+def test_all_windows_covers_the_named_windows() -> None:
     assert ALL_WINDOWS == (
         ReturnWindow.D1,
         ReturnWindow.D7,
         ReturnWindow.D30,
+        ReturnWindow.M3,
+        ReturnWindow.M6,
+        ReturnWindow.Y1,
         ReturnWindow.YTD,
     )
+
+
+def test_longer_lookback_windows_anchor_on_their_cutoff() -> None:
+    # Closes at ~3M, ~6M, ~1Y back, plus the day before and on as_of.
+    series = _series(
+        _bar("2023-05-31", "50"),   # as_of - 1y
+        _bar("2023-11-30", "80"),   # as_of - 6m
+        _bar("2024-03-02", "90"),   # as_of - 3m
+        _bar("2024-05-31", "100"),  # as_of
+    )
+    as_of = date(2024, 5, 31)
+    # 3M: 90 → 100 = +11.11%
+    m3 = period_return(series, ReturnWindow.M3, as_of=as_of)
+    assert m3 is not None and m3 == (Decimal("10") / Decimal("90") * Decimal("100"))
+    # 6M: 80 → 100 = +25%
+    assert period_return(series, ReturnWindow.M6, as_of=as_of) == Decimal("25")
+    # 1Y: 50 → 100 = +100%
+    assert period_return(series, ReturnWindow.Y1, as_of=as_of) == Decimal("100")
 
 
 # --- Test case 1: known close path → exact percentages ---
@@ -110,6 +136,40 @@ def test_ytd_falls_back_to_first_current_year_bar_when_no_prior_year() -> None:
     )
     # 100 → 150 = +50%
     assert period_return(series, ReturnWindow.YTD, as_of=date(2024, 3, 15)) == Decimal("50")
+
+
+# --- period_stats: return + window high/low ---
+
+def _ohlc_bar(day: str, high: str, low: str, close: str) -> OhlcBar:
+    return OhlcBar(
+        timestamp=datetime.fromisoformat(day).replace(tzinfo=UTC),
+        open=Decimal(close),
+        high=Decimal(high),
+        low=Decimal(low),
+        close=Decimal(close),
+        volume=None,
+    )
+
+
+def test_period_stats_returns_pct_and_window_high_low() -> None:
+    series = _series(
+        _ohlc_bar("2024-05-01", high="105", low="98", close="100"),   # as_of - 30d
+        _ohlc_bar("2024-05-15", high="140", low="118", close="120"),  # mid-window peak
+        _ohlc_bar("2024-05-31", high="132", low="95", close="130"),   # as_of, window trough
+    )
+    stats = period_stats(series, ReturnWindow.D30, as_of=date(2024, 5, 31))
+    assert stats is not None
+    assert stats.pct == Decimal("30")  # 100 → 130
+    assert stats.high == Decimal("140")  # max bar high across the window
+    assert stats.low == Decimal("95")  # min bar low across the window
+
+
+def test_period_stats_none_when_window_uncovered() -> None:
+    series = _series(
+        _bar("2024-05-27", "100"),
+        _bar("2024-05-31", "110"),
+    )
+    assert period_stats(series, ReturnWindow.D30, as_of=date(2024, 5, 31)) is None
 
 
 def test_negative_return_is_signed() -> None:
