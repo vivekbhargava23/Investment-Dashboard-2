@@ -44,6 +44,54 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — TICKET-RD10
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Branch:** ticket-rd10-allocation-treemap-on-overview-period
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added an allocation treemap to the Live Overview: tiles sized by live EUR value,
+  coloured by the selected window's return from RD9's cached returns map.
+- **Component (`app/ui/components/treemap.py`):** `build_treemap_figure` (pure, testable)
+  assembles a Plotly `Treemap` from live positions; `render_treemap` wraps it for the page.
+  Colour uses a diverging red↔neutral↔green scale built from existing tokens
+  (`CANDLE_DOWN` / neutral grey / `CANDLE_UP`) with `cmid=0` and a fixed symmetric clamp
+  (`RETURN_CLAMP_PCT = ±14%`, a module constant). `None` returns colour neutral and read
+  "n/a" in the hover — never a fabricated 0%. Stale positions (no `live_value_eur`) are
+  excluded. Hover shows ticker, name, EUR value, weight %, and the window return.
+- **Selector (`app/ui/components/period_selector.py`):** added
+  `render_return_window_selector` (1D/7D/30D/YTD, default 30D).
+- **Page (`app/ui/pages/overview.py`):** new "Allocation" section between the status line
+  and the Position Chart; reads the already-cached `_cached_returns_by_period`, so changing
+  the window re-colours with no OHLC refetch and no return recompute.
+
+### Files touched
+- `app/ui/components/treemap.py` — new component (figure builder + render)
+- `app/ui/components/period_selector.py` — new `render_return_window_selector`
+- `app/ui/pages/overview.py` — wire selector + cached returns map + render call
+- `tests/unit/ui/test_treemap.py` — new (values follow EUR, clamp config, n/a neutral, stale excluded, weight %)
+
+### Tests
+1009 → 1015 passing (8 new in `test_treemap.py`); ruff / mypy / lint-imports clean.
+
+### Decisions made during the session
+- **Spec assumption corrected:** the ticket said to reuse `render_period_selector` restricted
+  to `[1D, 7D, 30D, YTD]`. But `ChartPeriod` has no 7D/30D members (only 1D/5D/1M/…), so that
+  selector literally cannot render the RD9 window set. Per the methodology's "targeted fix when
+  the scope is small", added a sibling `render_return_window_selector` over `ReturnWindow` in the
+  same `period_selector.py` module rather than mislabelling 5D/1M as 7D/30D.
+- **Click-to-open:** no existing "open position" mechanism exists (the positions table is a
+  sortable `st.dataframe` with no row-selection callback), so the treemap is hover-only, as the
+  ticket permits. Follow-up: wire tile/row click to a position view once one lands.
+
+### Out-of-scope items noticed
+- Position↔Sector treemap toggle — deferred to RD-later per the ticket.
+- Visual verification (before/after screenshots) was skipped at Vivek's explicit request this session.
+
+### Tokens used (rough)
+~75k
+
 ## 2026-06-05 — TICKET-RD9
 **Surface:** Claude Code
 **Model:** opus-4.8
