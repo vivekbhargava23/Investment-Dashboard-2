@@ -23,25 +23,20 @@ from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition
 from app.domain.returns import ReturnWindow, WindowStats
 from app.ui.components._chart_styles import (
-    CANDLE_DOWN,
-    CANDLE_UP,
-    CORRELATION_BUCKET_COLORS,
+    RETURN_CLAMP_PCT,
+    RETURN_COLORSCALE,
     base_layout,
 )
 from app.ui.format import format_eur, format_pct
 
-# Symmetric clamp: cmin/cmax = ∓/± this percent. A module constant so one outlier
-# (a +40% mover) doesn't compress every other tile to the same shade.
-RETURN_CLAMP_PCT = Decimal("14")
-
-# Diverging red↔neutral↔green scale built from existing tokens: CANDLE_DOWN (loss
-# red) at the low end, the neutral grey at the centre, CANDLE_UP (gain green) at
-# the high end. With cmid=0 the midpoint maps to a 0% return.
-_NEUTRAL_COLOR = CORRELATION_BUCKET_COLORS["neutral"]
-RETURN_COLORSCALE: list[list[float | str]] = [
-    [0.0, CANDLE_DOWN],
-    [0.5, _NEUTRAL_COLOR],
-    [1.0, CANDLE_UP],
+# RETURN_CLAMP_PCT / RETURN_COLORSCALE are the shared return scale (see
+# _chart_styles); re-exported here so existing treemap importers keep working and
+# so the heatmap (RD11) provably colours on the same scale.
+__all__ = [
+    "RETURN_CLAMP_PCT",
+    "RETURN_COLORSCALE",
+    "build_treemap_figure",
+    "render_treemap",
 ]
 
 

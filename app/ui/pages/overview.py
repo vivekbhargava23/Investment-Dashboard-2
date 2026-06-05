@@ -14,6 +14,7 @@ from app.services.valuation import compute_live_positions, compute_portfolio_sum
 from app.ui.cache_keys import transactions_signature
 from app.ui.components.charts import render_candlestick
 from app.ui.components.metric_card import build_metric_card
+from app.ui.components.perf_heatmap import render_heatmap
 from app.ui.components.period_selector import (
     render_aggregation_toggle,
     render_return_window_selector,
@@ -226,6 +227,16 @@ def render() -> None:
             live_positions,
             stats_map,
             treemap_window,
+            name_lookup=name_lookup,
+        )
+
+        # ── Performance Heatmap ───────────────────────────────────────────────
+        # Every holding's return across all windows at once, sorted by 1M desc.
+        # Reads the same cached stats map as the treemap — no second OHLC fetch.
+        render_html('<div class="section-eyebrow mt-24 mb-8">Performance</div>')
+        render_heatmap(
+            live_positions,
+            stats_map,
             name_lookup=name_lookup,
         )
 

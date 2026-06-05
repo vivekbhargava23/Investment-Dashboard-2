@@ -1,5 +1,6 @@
 """Plotly layout constants and factory for the dashboard's dark chart theme."""
 
+from decimal import Decimal
 from typing import Any, TypeAlias
 
 ColorScale: TypeAlias = list[list[float | str]]
@@ -39,6 +40,19 @@ CORRELATION_BUCKET_COLORS = {
     "very low": "#EF4444",
     "neutral": "#E5E7EB",
 }
+
+
+# Diverging return scale shared by the Overview treemap (RD10) and performance
+# heatmap (RD11). Both colour cells by window return on this single green↔red scale
+# centred at 0 with a symmetric ±RETURN_CLAMP_PCT clamp, so one outlier can't wash
+# out the rest and the two views can't drift apart. Built from existing tokens:
+# CANDLE_DOWN (loss) → neutral grey → CANDLE_UP (gain).
+RETURN_CLAMP_PCT = Decimal("14")
+RETURN_COLORSCALE: ColorScale = [
+    [0.0, CANDLE_DOWN],
+    [0.5, CORRELATION_BUCKET_COLORS["neutral"]],
+    [1.0, CANDLE_UP],
+]
 
 
 # SMA overlay styles for the Technicals tab candlestick chart.
