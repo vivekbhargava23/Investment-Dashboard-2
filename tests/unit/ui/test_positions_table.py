@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 
 from app.domain.positions import LivePosition
-from app.ui.components.positions_table import build_positions_dataframe, weight_bar_text
+from app.ui.components.positions_table import build_positions_dataframe
 from tests.unit.ui.test_overview_render import (
     _make_live_position,
     _make_live_position_usd,
@@ -45,7 +45,7 @@ def test_dataframe_has_expected_columns() -> None:
     df = build_positions_dataframe(positions, _make_summary(positions))
     assert list(df.columns) == [
         "Ticker", "Name", "Price (€)", "Shares", "Cost (€)", "Value (€)",
-        "Gain (€)", "Weight (%)", "Trend 30D (%)", "Lots", "Sim",
+        "Gain (€)", "Gain (%)", "Weight (%)", "Trend 30D (%)", "Lots", "Sim",
     ]
 
 
@@ -79,6 +79,13 @@ def test_value_gain_price_weight_computed() -> None:
     assert row["Price (€)"] == 120.0
     # single position → 100% weight
     assert math.isclose(row["Weight (%)"], 100.0, rel_tol=1e-6)
+
+
+def test_gain_pct_passed_through() -> None:
+    # The fixture sets unrealised_gain_pct=0.2; the column surfaces it as a float.
+    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
+    df = build_positions_dataframe(positions, _make_summary(positions))
+    assert _row(df, "NVDA")["Gain (%)"] == 0.2
 
 
 def test_weight_is_proportional_across_positions() -> None:
@@ -139,6 +146,7 @@ def test_stale_row_has_none_live_fields() -> None:
     assert row["Price (€)"] is None
     assert row["Value (€)"] is None
     assert row["Gain (€)"] is None
+    assert row["Gain (%)"] is None
     assert row["Weight (%)"] is None
 
 
@@ -149,34 +157,3 @@ def test_stale_row_keeps_book_fields() -> None:
     assert row["Cost (€)"] == 100.0  # 1 share * 100
     assert row["Shares"] == 1.0
     assert row["Lots"] == 1
-
-
-# ---------------------------------------------------------------------------
-# Weight bar text (Unicode block bar + %)
-# ---------------------------------------------------------------------------
-
-def test_weight_bar_shows_percent() -> None:
-    assert "16.4%" in weight_bar_text(16.4, 100.0)
-
-
-def test_weight_bar_full_when_at_max() -> None:
-    bar = weight_bar_text(50.0, 50.0, width=10)
-    assert bar.startswith("██████████")  # 10/10 filled
-    assert "·" not in bar.split(" ")[0]
-
-
-def test_weight_bar_half_when_half_of_max() -> None:
-    bar = weight_bar_text(25.0, 50.0, width=10)
-    blocks = bar.split(" ")[0]
-    assert blocks.count("█") == 5
-    assert blocks.count("·") == 5
-
-
-def test_weight_bar_empty_when_weight_missing() -> None:
-    assert weight_bar_text(None, 100.0) == ""
-
-
-def test_weight_bar_more_blocks_for_larger_weight() -> None:
-    big = weight_bar_text(40.0, 50.0, width=10).split(" ")[0].count("█")
-    small = weight_bar_text(10.0, 50.0, width=10).split(" ")[0].count("█")
-    assert big > small
