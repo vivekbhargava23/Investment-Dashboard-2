@@ -44,6 +44,47 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-05 — TICKET-RD9
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Branch:** ticket-rd9-returns-by-period-service-shared
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added the shared returns-by-period foundation that RD10 (treemap) and RD11 (heatmap)
+  will both consume, so the windows are computed once and reused.
+- **Domain (`app/domain/returns.py`):** pure `period_return(series, window, *, as_of)`
+  over a `ReturnWindow` enum (`D1`/`D7`/`D30`/`YTD`). All windows end at the latest bar
+  on/before `as_of`; D7/D30 are calendar-day lookbacks; YTD measures from the prior-
+  year-end close (or first current-year bar). Returns `Decimal` percent, `None` when
+  history can't cover the window. No `datetime.now()`.
+- **Service (`app/services/returns.py`):** `compute_returns_by_period(...)` fetches 1Y
+  daily OHLC once via `get_ohlc_histories(..., freq="day")` and computes every requested
+  window per ticker. Per-ticker provider failures yield all-`None`, never raise.
+- **UI (`app/ui/pages/overview.py`):** `@st.cache_data` wrapper keyed on the
+  transactions signature + `as_of` so the future period selector re-colours from cache.
+
+### Files touched
+- `app/domain/returns.py` — new pure module (ReturnWindow, period_return)
+- `app/services/returns.py` — new batching service
+- `app/ui/pages/overview.py` — cached `_cached_returns_by_period` wrapper + imports
+- `tests/unit/domain/test_returns.py` — new (window math, None cases, YTD straddle)
+- `tests/unit/services/test_returns.py` — new (single fetch, normalisation, unservable)
+
+### Tests
+993 → 1007 passing (14 new). ruff / mypy / lint-imports all clean.
+
+### Decisions made during the session
+- Did **not** reuse `OhlcSeries.period_change_pct` (full-span open→close); it doesn't
+  model fixed calendar windows anchored on `as_of`. Added `period_return` as the ticket
+  Notes anticipated.
+- Fetch `ONE_YEAR` with `freq="day"` (not `YEAR_TO_DATE`): the 1Y lookback covers D30
+  and the YTD prior-year-end close, and `freq="day"` overrides the default weekly 1Y
+  aggregation that would be too coarse for D1/D7.
+
+### Out-of-scope items noticed
+- None. Rendering is deferred to RD10/RD11 per the ticket.
+
 ## 2026-06-05 — Overview weight bar / gain-% follow-up
 **Surface:** Claude Code
 **Model:** opus-4.8
