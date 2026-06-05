@@ -1,6 +1,7 @@
 # TICKET-RD9 — Returns-by-period service (shared foundation for treemap + heatmap)
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Dashboard Redesign
 **Recommended model:** Sonnet — well-scoped: pure return math in domain + a thin batching service over the existing OHLC provider, with clear tests.
 **Estimated session length:** 1.5 – 2 hr
