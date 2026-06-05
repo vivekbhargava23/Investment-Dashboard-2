@@ -84,6 +84,15 @@ body {
     letter-spacing: 0.05em;
 }
 .positions-table th { padding: 8px 4px; }
+/* Clickable sort headers (TICKET-RD2) — inherit the muted header colour; the
+   active column brightens so the ▲/▼ direction marker reads at a glance. */
+.sort-link {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+.sort-link:hover { color: var(--text); }
+.sort-link.active { color: var(--text); }
 .positions-table tbody tr {
     border-bottom: 1px solid var(--border2);
 }

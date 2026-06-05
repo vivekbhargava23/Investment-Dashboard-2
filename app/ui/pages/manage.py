@@ -38,6 +38,7 @@ from app.services.trading import build_transaction
 from app.services.valuation import clear_caches
 from app.ui.backup import write_portfolio_backup
 from app.ui.format import format_date, format_eur
+from app.ui.render import render_html
 from app.ui.wiring import (
     get_historical_fx_provider,
     get_isin_map_repo,
@@ -600,27 +601,86 @@ def _handle_add_submit(
 # All Transactions table
 # ---------------------------------------------------------------------------
 
+# ── Sortable "All Transactions" table (TICKET-RD2) ──────────────────────────
+# Column key (None = action column), label. Order matches the st.columns widths.
+_TX_COLUMNS: tuple[tuple[str | None, str], ...] = (
+    ("ticker", "Ticker"),
+    ("type", "Type"),
+    ("date", "Date"),
+    ("shares", "Shares"),
+    ("cost", "Cost (EUR)"),
+    ("notes", "Notes"),
+    (None, ""),
+    (None, ""),
+)
+_TX_COL_WIDTHS = [2, 1, 2, 1.5, 2, 3, 1, 1]
+_TX_SORT_KEYS: frozenset[str] = frozenset(k for k, _ in _TX_COLUMNS if k)
+_TX_TEXT_KEYS: frozenset[str] = frozenset({"ticker", "type", "notes"})
+_TX_DEFAULT_KEY = "date"
+_TX_DEFAULT_DIR = "desc"
+
+_TX_SORT_FNS = {
+    "ticker": lambda t: t.ticker.lower(),
+    "type": lambda t: t.type.value,
+    "date": lambda t: t.trade_date,
+    "shares": lambda t: t.shares,
+    "cost": lambda t: t.cost_eur.amount,
+    "notes": lambda t: (t.notes or "").lower(),
+}
+
+
+def sort_transactions(
+    txs: list[Transaction],
+    sort_key: str = _TX_DEFAULT_KEY,
+    direction: str = _TX_DEFAULT_DIR,
+) -> list[Transaction]:
+    """Pure sort for the transactions table. Unknown key/direction → date desc."""
+    if sort_key not in _TX_SORT_FNS:
+        sort_key = _TX_DEFAULT_KEY
+    if direction not in ("asc", "desc"):
+        direction = _TX_DEFAULT_DIR
+    return sorted(txs, key=_TX_SORT_FNS[sort_key], reverse=direction == "desc")
+
+
+def _tx_header_link(key: str, label: str, sort_key: str, direction: str) -> str:
+    is_active = key == sort_key
+    if is_active:
+        next_dir = "asc" if direction == "desc" else "desc"
+        arrow = " ▼" if direction == "desc" else " ▲"
+        cls = "sort-link active"
+    else:
+        next_dir = "asc" if key in _TX_TEXT_KEYS else "desc"
+        arrow = ""
+        cls = "sort-link"
+    href = f"/?page=manage&txsort={key}&txdir={next_dir}"
+    return f'<a class="{cls}" href="{href}" target="_self"><strong>{label}{arrow}</strong></a>'
+
+
 def _render_transactions_table(txs: list[Transaction]) -> None:
     st.subheader("All Transactions")
     if not txs:
         st.info("No transactions recorded yet.")
         return
 
-    sorted_txs = sorted(txs, key=lambda t: t.trade_date, reverse=True)
+    sort_key = st.query_params.get("txsort", _TX_DEFAULT_KEY)
+    direction = st.query_params.get("txdir", _TX_DEFAULT_DIR)
+    if sort_key not in _TX_SORT_KEYS:
+        sort_key = _TX_DEFAULT_KEY
+    sorted_txs = sort_transactions(txs, sort_key, direction)
 
-    header_cols = st.columns([2, 1, 2, 1.5, 2, 3, 1, 1])
-    for col, label in zip(
-        header_cols,
-        ["Ticker", "Type", "Date", "Shares", "Cost (EUR)", "Notes", "", ""],
-    ):
-        col.markdown(f"**{label}**")
+    header_cols = st.columns(_TX_COL_WIDTHS)
+    for col, (key, label) in zip(header_cols, _TX_COLUMNS):
+        if key is None:
+            continue
+        with col:
+            render_html(_tx_header_link(key, label, sort_key, direction))
 
     for tx in sorted_txs:
         if st.session_state.manage_deleting_tx_id == tx.id:
             _render_delete_confirmation(tx)
             continue
 
-        cols = st.columns([2, 1, 2, 1.5, 2, 3, 1, 1])
+        cols = st.columns(_TX_COL_WIDTHS)
         cols[0].write(tx.ticker)
         cols[1].write(tx.type.value.upper())
         cols[2].write(format_date(tx.trade_date))
