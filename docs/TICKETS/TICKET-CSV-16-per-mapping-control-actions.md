@@ -1,6 +1,7 @@
 # TICKET-CSV-16 — Per-mapping control: Reset tax-kind, Unmap, and Remove-with-purge
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Estimated session length:** 2 hr
 **Recommended model:** Opus — deletes transactions (money/FIFO), needs the orphan-ticker trap handled correctly.
 **Drafted by:** Vivek + Claude Code (session 2026-06-05)
