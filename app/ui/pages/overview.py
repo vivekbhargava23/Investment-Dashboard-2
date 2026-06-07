@@ -47,9 +47,12 @@ _PERIOD_LABELS: dict[ChartPeriod, str] = {
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def _cached_live_positions(tx_sig: str, as_of_iso: str) -> dict[str, LivePosition]:
+def _cached_live_positions(tx_sig: str, as_of_date_iso: str) -> dict[str, LivePosition]:
+    # Keyed on the date only (not a microsecond timestamp): YTD must bust at the
+    # day/year boundary, but the result is otherwise stable across reruns, so a
+    # finer key would needlessly recompute FIFO + valuation on every interaction.
     transactions = get_repository().load_all()
-    as_of = datetime.fromisoformat(as_of_iso).date()
+    as_of = date.fromisoformat(as_of_date_iso)
     return compute_live_positions(
         transactions, get_price_provider(), get_live_fx_provider(), as_of
     )
@@ -57,8 +60,9 @@ def _cached_live_positions(tx_sig: str, as_of_iso: str) -> dict[str, LivePositio
 
 @st.cache_data(ttl=60, show_spinner=False)
 def _cached_portfolio_summary(tx_sig: str, as_of_iso: str) -> PortfolioSummary:
-    live_positions = _cached_live_positions(tx_sig, as_of_iso)
-    return compute_portfolio_summary(live_positions, datetime.fromisoformat(as_of_iso))
+    as_of = datetime.fromisoformat(as_of_iso)
+    live_positions = _cached_live_positions(tx_sig, as_of.date().isoformat())
+    return compute_portfolio_summary(live_positions, as_of)
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -123,7 +127,7 @@ def render() -> None:
     now = datetime.now()
     now_iso = now.isoformat()
 
-    live_positions = _cached_live_positions(sig, now_iso)
+    live_positions = _cached_live_positions(sig, now.date().isoformat())
     summary = _cached_portfolio_summary(sig, now_iso)
     tax_summary = _cached_tax_summary_for_overview(sig, now.year)
 
