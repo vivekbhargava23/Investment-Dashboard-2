@@ -204,6 +204,7 @@ def render_sell_simulator(default_ticker: str | None = None) -> None:
         repo=get_repository(),
         price_provider=get_price_provider(),
         fx_provider=get_live_fx_provider(),
+        as_of=date.today(),
     )
     transactions = get_repository().load_all()
 

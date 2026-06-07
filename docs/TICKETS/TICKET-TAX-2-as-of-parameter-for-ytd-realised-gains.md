@@ -1,6 +1,7 @@
 # TICKET-TAX-2 — `compute_positions` takes `as_of: date` for honest YTD realised gains
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Estimated session length:** 1 hr
 **Recommended model:** Sonnet — domain signature change with ~6 call-site migrations and test updates. Single-area change, low blast radius, but touches money-relevant code so all callers must be updated comprehensively.
 **Drafted by:** Vivek + Claude Chat (2026-06-07)

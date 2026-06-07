@@ -610,7 +610,7 @@ def _render_technicals_tab() -> None:
     from app.domain.fifo import compute_positions as _compute_positions
 
     transactions = repo.load_all()
-    positions = _compute_positions(transactions)
+    positions = _compute_positions(transactions, date.today())
     open_tickers = sorted(t for t, p in positions.items() if p.open_shares > 0)
 
     if not open_tickers:
@@ -793,6 +793,7 @@ def _get_live_positions() -> dict[str, LivePosition]:
         repo=get_repository(),
         price_provider=get_price_provider(),
         fx_provider=get_live_fx_provider(),
+        as_of=date.today(),
     )
 
 
