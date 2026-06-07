@@ -1,6 +1,6 @@
 import time
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -48,15 +48,17 @@ def compute_live_positions(
     transactions: Sequence[Transaction],
     price_provider: PriceProvider,
     fx_provider: LiveFxProvider,
+    as_of: date,
 ) -> dict[str, LivePosition]:
     """
     Orchestrates FIFO position computation and live valuation.
 
     Prices are fetched in a single batch; FX rates are fetched once per distinct
     non-EUR currency. A position is stale if its price is missing or its currency's
-    FX rate is unavailable.
+    FX rate is unavailable. ``as_of`` is the valuation date (typically today); it is
+    threaded into FIFO so YTD realised gains reflect the correct calendar year.
     """
-    positions = compute_positions(transactions)
+    positions = compute_positions(transactions, as_of)
     live_positions: dict[str, LivePosition] = {}
 
     # One batched price fetch for the whole portfolio. Missing tickers are absent.
@@ -140,15 +142,17 @@ def get_live_positions_cached(
     repo: TransactionRepository,
     price_provider: PriceProvider,
     fx_provider: LiveFxProvider,
+    as_of: date,
     ttl_seconds: float = _TTL_SECONDS,
 ) -> dict[str, LivePosition]:
-    """Module-level TTL cache keyed by transactions signature.
+    """Module-level TTL cache keyed by transactions signature and valuation date.
 
     Single source of truth across all UI pages. Process-global — not safe for
-    multi-tenant use; this app is single-user.
+    multi-tenant use; this app is single-user. ``as_of`` is part of the cache key so
+    a day (and year) rollover does not serve a stale YTD figure.
     """
     transactions = repo.load_all()
-    key = _tx_sig(transactions)
+    key = f"{_tx_sig(transactions)}@{as_of.isoformat()}"
     now = time.monotonic()
 
     if key in _live_positions_cache:
@@ -156,7 +160,7 @@ def get_live_positions_cached(
         if now - ts < ttl_seconds:
             return cached
 
-    result = compute_live_positions(transactions, price_provider, fx_provider)
+    result = compute_live_positions(transactions, price_provider, fx_provider, as_of)
     _live_positions_cache[key] = (now, result)
     return result
 

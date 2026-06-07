@@ -95,7 +95,7 @@ def test_compute_live_positions_eur_happy_path(eur_buy: Transaction) -> None:
     )
     fp = FakeFxProvider()
 
-    res = compute_live_positions([eur_buy], pp, fp)
+    res = compute_live_positions([eur_buy], pp, fp, date(2026, 6, 7))
 
     assert "RHM.DE" in res
     lp = res["RHM.DE"]
@@ -118,7 +118,7 @@ def test_compute_live_positions_usd_happy_path(usd_buy: Transaction) -> None:
     )
     fp = FakeFxProvider(current_rates={(Currency.EUR, Currency.USD): Decimal("1.1")})
 
-    res = compute_live_positions([usd_buy], pp, fp)
+    res = compute_live_positions([usd_buy], pp, fp, date(2026, 6, 7))
 
     assert "NVDA" in res
     lp = res["NVDA"]
@@ -136,7 +136,7 @@ def test_compute_live_positions_mixed_all_live(eur_buy: Transaction, usd_buy: Tr
     )
     fp = FakeFxProvider(current_rates={(Currency.EUR, Currency.USD): Decimal("1.1")})
 
-    res = compute_live_positions([eur_buy, usd_buy], pp, fp)
+    res = compute_live_positions([eur_buy, usd_buy], pp, fp, date(2026, 6, 7))
     assert len(res) == 2
     assert all(not lp.is_stale for lp in res.values())
 
@@ -144,7 +144,7 @@ def test_compute_live_positions_mixed_all_live(eur_buy: Transaction, usd_buy: Tr
 def test_compute_live_positions_empty() -> None:
     pp = FakePriceProvider()
     fp = FakeFxProvider()
-    res = compute_live_positions([], pp, fp)
+    res = compute_live_positions([], pp, fp, date(2026, 6, 7))
     assert res == {}
 
 
@@ -166,7 +166,7 @@ def test_per_ticker_failure_isolation(eur_buy: Transaction) -> None:
     )
     fp = FakeFxProvider()
 
-    res = compute_live_positions([eur_buy, t2], pp, fp)
+    res = compute_live_positions([eur_buy, t2], pp, fp, date(2026, 6, 7))
 
     assert res["RHM.DE"].is_stale is False
     assert res["NOPRICE.DE"].is_stale is True
@@ -182,7 +182,7 @@ def test_fx_failure_marks_usd_stale(eur_buy: Transaction, usd_buy: Transaction) 
     )
     fp = FakeFxProvider()  # Missing FX rate
 
-    res = compute_live_positions([eur_buy, usd_buy], pp, fp)
+    res = compute_live_positions([eur_buy, usd_buy], pp, fp, date(2026, 6, 7))
 
     assert res["RHM.DE"].is_stale is False
     assert res["NVDA"].is_stale is True
@@ -197,7 +197,7 @@ def test_compute_live_positions_jpy_happy_path(jpy_buy: Transaction) -> None:
     )
     fp = FakeFxProvider(current_rates={(Currency.EUR, Currency.JPY): Decimal("160")})
 
-    res = compute_live_positions([jpy_buy], pp, fp)
+    res = compute_live_positions([jpy_buy], pp, fp, date(2026, 6, 7))
 
     lp = res["7203.T"]
     assert not lp.is_stale
@@ -212,7 +212,7 @@ def test_compute_live_positions_jpy_stale_without_rate(jpy_buy: Transaction) -> 
     )
     fp = FakeFxProvider()  # no rates configured
 
-    res = compute_live_positions([jpy_buy], pp, fp)
+    res = compute_live_positions([jpy_buy], pp, fp, date(2026, 6, 7))
 
     lp = res["7203.T"]
     assert lp.is_stale is True
@@ -241,7 +241,7 @@ def test_fx_fetched_once_per_distinct_currency(
     original = fp.get_current_rate
     fp.get_current_rate = MagicMock(side_effect=original)  # type: ignore
 
-    compute_live_positions([usd_buy, usd_buy_2, jpy_buy], pp, fp)
+    compute_live_positions([usd_buy, usd_buy_2, jpy_buy], pp, fp, date(2026, 6, 7))
 
     assert fp.get_current_rate.call_count == 2
     requested = {call.args[1] for call in fp.get_current_rate.call_args_list}
@@ -260,7 +260,7 @@ def test_compute_live_positions_one_batched_price_fetch(
     )
     fp = FakeFxProvider(current_rates={(Currency.EUR, Currency.USD): Decimal("1.1")})
 
-    compute_live_positions([eur_buy, usd_buy], pp, fp)
+    compute_live_positions([eur_buy, usd_buy], pp, fp, date(2026, 6, 7))
 
     assert pp.batch_call_count == 1
 
@@ -278,7 +278,7 @@ def test_portfolio_summary_aggregates_live_only(eur_buy: Transaction) -> None:
     )
     fp = FakeFxProvider()
 
-    res = compute_live_positions([eur_buy, t2, t_stale], pp, fp)
+    res = compute_live_positions([eur_buy, t2, t_stale], pp, fp, date(2026, 6, 7))
     lp1 = res["RHM.DE"]
     lp2 = res["LIVE2"]
     lp_stale = res["STALE"]
@@ -308,8 +308,8 @@ def test_compute_live_positions_has_no_state(eur_buy: Transaction) -> None:
     original_method = pp.get_current_prices
     pp.get_current_prices = MagicMock(side_effect=original_method)  # type: ignore
 
-    compute_live_positions([eur_buy], pp, fp)
-    compute_live_positions([eur_buy], pp, fp)
+    compute_live_positions([eur_buy], pp, fp, date(2026, 6, 7))
+    compute_live_positions([eur_buy], pp, fp, date(2026, 6, 7))
 
     assert pp.get_current_prices.call_count == 2
 
@@ -331,8 +331,12 @@ def test_get_live_positions_cached_hits_provider_once(eur_buy: Transaction) -> N
     original_method = pp.get_current_prices
     pp.get_current_prices = MagicMock(side_effect=original_method)  # type: ignore
 
-    r1 = get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp)
-    r2 = get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp)
+    r1 = get_live_positions_cached(
+        repo=repo, price_provider=pp, fx_provider=fp, as_of=date(2026, 6, 7)
+    )
+    r2 = get_live_positions_cached(
+        repo=repo, price_provider=pp, fx_provider=fp, as_of=date(2026, 6, 7)
+    )
 
     assert pp.get_current_prices.call_count == 1
     assert r1 is r2
@@ -352,12 +356,12 @@ def test_get_live_positions_cached_miss_on_tx_change(eur_buy: Transaction) -> No
     original_method = pp.get_current_prices
     pp.get_current_prices = MagicMock(side_effect=original_method)  # type: ignore
 
-    get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp)
+    get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp, as_of=date(2026, 6, 7))
     assert pp.get_current_prices.call_count == 1
 
     # Adding a transaction changes the signature → cache miss → one more batch fetch
     repo.add(t2)
-    get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp)
+    get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp, as_of=date(2026, 6, 7))
     assert pp.get_current_prices.call_count == 2  # one batch fetch per compute
 
 
@@ -373,15 +377,21 @@ def test_get_live_positions_cached_miss_after_ttl(eur_buy: Transaction) -> None:
 
     with patch("app.services.valuation.time") as mock_time:
         mock_time.monotonic.return_value = 1000.0
-        get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp, ttl_seconds=60.0)
+        get_live_positions_cached(
+            repo=repo, price_provider=pp, fx_provider=fp, as_of=date(2026, 6, 7), ttl_seconds=60.0
+        )
         assert pp.get_current_prices.call_count == 1
 
         mock_time.monotonic.return_value = 1000.0 + 59.9
-        get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp, ttl_seconds=60.0)
+        get_live_positions_cached(
+            repo=repo, price_provider=pp, fx_provider=fp, as_of=date(2026, 6, 7), ttl_seconds=60.0
+        )
         assert pp.get_current_prices.call_count == 1
 
         mock_time.monotonic.return_value = 1000.0 + 61.0
-        get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp, ttl_seconds=60.0)
+        get_live_positions_cached(
+            repo=repo, price_provider=pp, fx_provider=fp, as_of=date(2026, 6, 7), ttl_seconds=60.0
+        )
         assert pp.get_current_prices.call_count == 2
 
 
@@ -395,12 +405,12 @@ def test_clear_live_positions_cache(eur_buy: Transaction) -> None:
     original_method = pp.get_current_prices
     pp.get_current_prices = MagicMock(side_effect=original_method)  # type: ignore
 
-    get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp)
+    get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp, as_of=date(2026, 6, 7))
     assert pp.get_current_prices.call_count == 1
 
     clear_live_positions_cache()
 
-    get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp)
+    get_live_positions_cached(repo=repo, price_provider=pp, fx_provider=fp, as_of=date(2026, 6, 7))
     assert pp.get_current_prices.call_count == 2
 
 

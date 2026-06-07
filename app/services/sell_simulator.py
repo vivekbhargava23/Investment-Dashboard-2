@@ -115,8 +115,9 @@ def simulate_sell(
     """
     ticker = request.ticker.strip().upper()
 
-    # Step 1: derive open_lots for the ticker
-    positions = compute_positions(list(transactions))
+    # Step 1: derive open_lots for the ticker. The simulated sell's date is the
+    # as_of: YTD realised gains are evaluated as of the candidate trade.
+    positions = compute_positions(list(transactions), request.sell_date)
     if ticker not in positions:
         return _invalid(request, f"No open position for {ticker}.")
 

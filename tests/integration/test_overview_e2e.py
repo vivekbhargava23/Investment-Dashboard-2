@@ -53,7 +53,7 @@ def test_overview_e2e(tmp_path: Path):
         (Currency.USD, Currency.EUR): Decimal("0.9259"),
     })
 
-    live_positions = compute_live_positions(transactions, fake_price, fake_fx)
+    live_positions = compute_live_positions(transactions, fake_price, fake_fx, date(2026, 6, 7))
 
     assert len(live_positions) == 2
     assert "VUSA.DE" in live_positions

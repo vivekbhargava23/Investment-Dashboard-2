@@ -57,7 +57,7 @@ def build_correlation_view(
     as_of: date,
     window_days: int,
 ) -> CorrelationView:
-    live_positions = compute_live_positions(repo.load_all(), price_feed, fx_feed)
+    live_positions = compute_live_positions(repo.load_all(), price_feed, fx_feed, as_of)
     live_tickers = sorted(
         ticker
         for ticker, live_position in live_positions.items()

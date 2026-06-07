@@ -115,7 +115,8 @@ def _resolve_currency(
 
 def _run_fifo_check(new_tx: Transaction, existing_txs: list[Transaction]) -> None:
     """Raises SellExceedsOpenSharesError if the sell would exceed open shares."""
-    compute_positions(existing_txs + [new_tx])
+    # as_of is the candidate trade's date; this check ignores YTD but threads it for honesty.
+    compute_positions(existing_txs + [new_tx], new_tx.trade_date)
 
 
 # ---------------------------------------------------------------------------

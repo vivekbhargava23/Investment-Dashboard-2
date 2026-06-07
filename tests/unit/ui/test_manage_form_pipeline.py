@@ -241,7 +241,7 @@ def test_fifo_sell_guard_raises_on_excess() -> None:
         fx_provider=FakeFxProvider(),
     )
     with pytest.raises(SellExceedsOpenSharesError):
-        compute_positions(existing + [tx_sell])
+        compute_positions(existing + [tx_sell], date(2026, 5, 5))
 
 
 def test_fifo_sell_guard_passes_on_valid_sell() -> None:
@@ -261,7 +261,7 @@ def test_fifo_sell_guard_passes_on_valid_sell() -> None:
         ),
         fx_provider=FakeFxProvider(),
     )
-    positions = compute_positions(existing + [tx_sell])
+    positions = compute_positions(existing + [tx_sell], date(2026, 5, 5))
     assert positions["NVDA"].open_shares == Decimal("5")
 
 

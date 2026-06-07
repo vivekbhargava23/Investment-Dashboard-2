@@ -115,7 +115,7 @@ def build_technicals_view(
       OhlcUnavailable:    OHLC fetch failed; reason in args[0].
     """
     # 1. Validate ticker is in live universe (open shares > 0)
-    positions = compute_positions(repo.load_all())
+    positions = compute_positions(repo.load_all(), as_of)
     if ticker not in positions or positions[ticker].open_shares <= 0:
         raise ValueError(f"Ticker {ticker} not in open positions")
 

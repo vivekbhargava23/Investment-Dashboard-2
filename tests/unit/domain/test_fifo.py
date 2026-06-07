@@ -60,13 +60,13 @@ def _sell(
 
 
 def test_empty_input():
-    assert compute_positions([]) == {}
+    assert compute_positions([], date(2024, 1, 1)) == {}
     assert compute_realised_gains([]) == []
 
 
 def test_single_buy():
     tx = _buy("SAP.DE", date(2024, 1, 1), Decimal("10"), Decimal("150"))
-    positions = compute_positions([tx])
+    positions = compute_positions([tx], date(2024, 1, 1))
 
     assert len(positions) == 1
     pos = positions["SAP.DE"]
@@ -85,7 +85,7 @@ def test_single_buy_full_sell():
         "NVDA", date(2024, 2, 1), Decimal("10"), Decimal("120"), Currency.USD, Decimal("1.0")
     )
 
-    positions = compute_positions([tx1, tx2])
+    positions = compute_positions([tx1, tx2], date(2024, 2, 1))
     assert positions == {}
 
     gains = compute_realised_gains([tx1, tx2])
@@ -102,7 +102,7 @@ def test_single_buy_partial_sell():
         "NVDA", date(2024, 2, 1), Decimal("4"), Decimal("120"), Currency.USD, Decimal("1.0")
     )
 
-    positions = compute_positions([tx1, tx2])
+    positions = compute_positions([tx1, tx2], date(2024, 2, 1))
     pos = positions["NVDA"]
     assert pos.open_shares == Decimal("6")
     assert len(pos.open_lots) == 1
@@ -125,7 +125,7 @@ def test_multiple_buys_partial_sell_crossing_lots():
         "NVDA", date(2024, 2, 1), Decimal("12"), Decimal("130"), Currency.USD, Decimal("1.0"), "tx3"
     )
 
-    positions = compute_positions([tx1, tx2, tx3])
+    positions = compute_positions([tx1, tx2, tx3], date(2024, 2, 1))
     pos = positions["NVDA"]
     assert pos.open_shares == Decimal("3")
     assert len(pos.open_lots) == 1
@@ -148,7 +148,7 @@ def test_multi_ticker_no_interference():
     tx1 = _buy("NVDA.DE", date(2024, 1, 1), Decimal("10"), Decimal("100"))
     tx2 = _buy("SAP.DE", date(2024, 1, 1), Decimal("10"), Decimal("150"))
 
-    positions = compute_positions([tx1, tx2])
+    positions = compute_positions([tx1, tx2], date(2024, 1, 1))
     assert len(positions) == 2
     assert positions["NVDA.DE"].open_shares == Decimal("10")
     assert positions["SAP.DE"].open_shares == Decimal("10")
@@ -187,7 +187,7 @@ def test_same_day_buy_then_sell():
 
     # Even if constructed/sorted SELL before BUY in the input list,
     # compute_positions should process BUY before SELL on the same day.
-    positions = compute_positions([tx1, tx2])
+    positions = compute_positions([tx1, tx2], date(2024, 1, 1))
     assert positions == {}
 
     gains = compute_realised_gains([tx1, tx2])
@@ -200,7 +200,7 @@ def test_error_sell_exceeds_open():
     tx2 = _sell("SAP.DE", date(2024, 2, 1), Decimal("10"), Decimal("120"), tx_id="sell1")
 
     with pytest.raises(SellExceedsOpenSharesError) as excinfo:
-        compute_positions([tx1, tx2])
+        compute_positions([tx1, tx2], date(2024, 2, 1))
 
     msg = str(excinfo.value)
     assert "Sell of 10 SAP.DE on 2024-02-01" in msg
@@ -213,11 +213,44 @@ def test_ytd_realised_gain():
     tx2 = _sell("SAP.DE", date(2023, 2, 1), Decimal("5"), Decimal("120"))  # 5*20=100 gain 2023
     tx3 = _sell("SAP.DE", date(2024, 2, 1), Decimal("5"), Decimal("130"))  # 5*30=150 gain 2024
 
-    positions = compute_positions([tx1, tx2, tx3])
+    positions = compute_positions([tx1, tx2, tx3], date(2024, 2, 1))
     pos = positions["SAP.DE"]
-    # YTD should only be 150 because 2024 is the latest year
+    # YTD should only be 150 because as_of is in 2024
     assert pos.realised_gain_eur_ytd == Money(amount=Decimal("150"), currency=Currency.EUR)
     assert pos.open_shares == Decimal("5")
+
+
+def test_ytd_filter_uses_as_of_year_not_latest_trade_year():
+    # Regression for TICKET-TAX-2: YTD must follow as_of.year, not the latest
+    # trade year in the data. On main this returned €100; it must be €0.
+    tx1 = _buy("SAP.DE", date(2025, 3, 1), Decimal("10"), Decimal("100"))
+    tx2 = _sell("SAP.DE", date(2025, 11, 1), Decimal("5"), Decimal("120"))  # €100 gain in 2025
+
+    positions = compute_positions([tx1, tx2], date(2026, 6, 7))
+    pos = positions["SAP.DE"]
+    # 2025's gain is NOT YTD when as_of is in 2026.
+    assert pos.realised_gain_eur_ytd == Money.zero(Currency.EUR)
+
+
+def test_ytd_includes_only_current_year_realised_gains():
+    tx1 = _buy("SAP.DE", date(2024, 3, 1), Decimal("20"), Decimal("100"))
+    tx2 = _sell("SAP.DE", date(2025, 4, 1), Decimal("5"), Decimal("110"))  # €50 gain in 2025
+    tx3 = _sell("SAP.DE", date(2026, 4, 1), Decimal("5"), Decimal("120"))  # €100 gain in 2026
+
+    positions = compute_positions([tx1, tx2, tx3], date(2026, 6, 7))
+    pos = positions["SAP.DE"]
+    # 2025's €50 is excluded; only 2026's €100 counts.
+    assert pos.realised_gain_eur_ytd == Money(amount=Decimal("100"), currency=Currency.EUR)
+
+
+def test_empty_transactions_with_as_of_returns_empty_dict():
+    assert compute_positions([], date(2026, 6, 7)) == {}
+
+
+def test_position_with_no_sells_has_zero_ytd_in_current_year():
+    tx = _buy("SAP.DE", date(2025, 5, 1), Decimal("10"), Decimal("100"))
+    positions = compute_positions([tx], date(2026, 6, 7))
+    assert positions["SAP.DE"].realised_gain_eur_ytd == Money.zero(Currency.EUR)
 
 
 def test_determinism():
@@ -228,13 +261,13 @@ def test_determinism():
         _buy("SAP.DE", date(2024, 1, 1), Decimal("10"), Decimal("150"), tx_id="4"),
     ]
 
-    res1 = compute_positions(txs)
+    res1 = compute_positions(txs, date(2024, 2, 1))
 
     import random
 
     txs_shuffled = txs[:]
     random.shuffle(txs_shuffled)
-    res2 = compute_positions(txs_shuffled)
+    res2 = compute_positions(txs_shuffled, date(2024, 2, 1))
 
     assert res1 == res2
 

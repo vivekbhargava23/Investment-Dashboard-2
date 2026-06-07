@@ -47,14 +47,17 @@ _PERIOD_LABELS: dict[ChartPeriod, str] = {
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def _cached_live_positions(tx_sig: str) -> dict[str, LivePosition]:
+def _cached_live_positions(tx_sig: str, as_of_iso: str) -> dict[str, LivePosition]:
     transactions = get_repository().load_all()
-    return compute_live_positions(transactions, get_price_provider(), get_live_fx_provider())
+    as_of = datetime.fromisoformat(as_of_iso).date()
+    return compute_live_positions(
+        transactions, get_price_provider(), get_live_fx_provider(), as_of
+    )
 
 
 @st.cache_data(ttl=60, show_spinner=False)
 def _cached_portfolio_summary(tx_sig: str, as_of_iso: str) -> PortfolioSummary:
-    live_positions = _cached_live_positions(tx_sig)
+    live_positions = _cached_live_positions(tx_sig, as_of_iso)
     return compute_portfolio_summary(live_positions, datetime.fromisoformat(as_of_iso))
 
 
@@ -89,7 +92,7 @@ def _cached_return_stats_by_period(
     selector (and the RD11 heatmap) re-read from this cache instead of recomputing.
     The ticker set is taken from the current live positions.
     """
-    live_positions = _cached_live_positions(tx_sig)
+    live_positions = _cached_live_positions(tx_sig, as_of_iso)
     tickers = [position.ticker for position in live_positions.values()]
     return compute_return_stats_by_period(
         tickers,
@@ -120,7 +123,7 @@ def render() -> None:
     now = datetime.now()
     now_iso = now.isoformat()
 
-    live_positions = _cached_live_positions(sig)
+    live_positions = _cached_live_positions(sig, now_iso)
     summary = _cached_portfolio_summary(sig, now_iso)
     tax_summary = _cached_tax_summary_for_overview(sig, now.year)
 

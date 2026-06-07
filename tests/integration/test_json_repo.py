@@ -393,12 +393,12 @@ def test_v2_migration_totals_preservation(tmp_path):
     # Load once → triggers migration to v3
     repo = JsonTransactionRepository(path)
     txs_v3 = repo.load_all()
-    positions_v3 = compute_positions(txs_v3)
+    positions_v3 = compute_positions(txs_v3, date(2025, 2, 20))
 
     # Load again (now v3 on disk, no re-migration)
     repo2 = JsonTransactionRepository(path)
     txs_v3b = repo2.load_all()
-    positions_v3b = compute_positions(txs_v3b)
+    positions_v3b = compute_positions(txs_v3b, date(2025, 2, 20))
 
     for ticker in positions_v3:
         assert positions_v3[ticker].open_shares == positions_v3b[ticker].open_shares, ticker
