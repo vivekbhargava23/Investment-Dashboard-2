@@ -243,7 +243,7 @@ def _build_nav_point(
 ) -> DailyNavPoint:
     """Compute a single DailyNavPoint for target_date."""
     filtered_txs = [tx for tx in transactions if tx.trade_date <= target_date]
-    positions = compute_positions(filtered_txs)
+    positions = compute_positions(filtered_txs, target_date)
 
     nav_amount = Decimal("0")
     cost_basis_amount = Decimal("0")

@@ -32,14 +32,13 @@ def _cached_portfolio_catalysts(
     refresh. Held tickers derive from FIFO positions, so this needs no network.
     """
     transactions = get_repository().load_all()
+    as_of = date.fromisoformat(as_of_iso)
     held = [
         ticker
-        for ticker, position in compute_positions(transactions).items()
+        for ticker, position in compute_positions(transactions, as_of).items()
         if position.open_shares > 0
     ]
-    return get_portfolio_catalysts(
-        held, as_of=date.fromisoformat(as_of_iso), repo=get_catalysts_repo()
-    )
+    return get_portfolio_catalysts(held, as_of=as_of, repo=get_catalysts_repo())
 
 
 def render() -> None:

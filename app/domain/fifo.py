@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Sequence
+from datetime import date
 from decimal import Decimal
 
 from app.domain.models import Transaction, TransactionType
@@ -16,18 +17,22 @@ class SellExceedsOpenSharesError(Exception):
     pass
 
 
-def compute_positions(transactions: Sequence[Transaction]) -> dict[str, Position]:
+def compute_positions(
+    transactions: Sequence[Transaction],
+    as_of: date,
+) -> dict[str, Position]:
     """
     Computes current open positions and YTD realised gains for a sequence of transactions.
+
+    ``as_of`` defines "today" for the YTD realised-gain calculation: only gains whose
+    sell date falls in ``as_of.year`` count toward ``Position.realised_gain_eur_ytd``.
+    Callers must supply ``as_of`` from their own context (a valuation date, a per-day
+    iteration date, or ``date.today()`` at the UI boundary) — the domain layer never
+    reads the clock itself.
     """
     sorted_txs = _sort_transactions(transactions)
     ticker_queues: dict[str, deque[OpenLot]] = {}
     ticker_realised_gains: dict[str, list[RealisedGain]] = {}
-
-    # Get the latest year for YTD calculation
-    latest_year = 0
-    if sorted_txs:
-        latest_year = max(tx.trade_date.year for tx in sorted_txs)
 
     for tx in sorted_txs:
         if tx.ticker not in ticker_queues:
@@ -60,12 +65,12 @@ def compute_positions(transactions: Sequence[Transaction]) -> dict[str, Position
 
         cost_basis_eur_amount = sum((lot.cost_basis_eur.amount for lot in open_lots), Decimal("0"))
         
-        # Calculate YTD realised gains relative to the data provided
+        # Calculate YTD realised gains for the as_of calendar year
         realised_gain_ytd_amount = sum(
             (
                 gain.realised_gain_eur.amount
                 for gain in ticker_realised_gains[ticker]
-                if gain.sell_date.year == latest_year
+                if gain.sell_date.year == as_of.year
             ),
             Decimal("0"),
         )

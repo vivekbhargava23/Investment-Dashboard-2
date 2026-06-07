@@ -44,6 +44,39 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-06-07 — TICKET-TAX-2
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Branch:** ticket-tax-2-compute-positions-takes-as-of
+**Status at session end:** IN_REVIEW
+
+### What got done
+- `compute_positions` now requires an explicit `as_of: date` and filters YTD
+  realised gains by `as_of.year`, replacing the buggy "latest trade year" proxy
+  that mislabelled last year's gain as YTD after a year rollover.
+- Threaded a real `as_of` through every caller: NAV uses the per-day iteration
+  date, sell simulator the candidate sell date, manage the candidate trade date,
+  technicals/correlation their existing `as_of`, and UI live views `date.today()`
+  at the boundary — no clock reads in domain/services.
+- `compute_live_positions` / `get_live_positions_cached` gained an `as_of`
+  parameter; the live-positions cache key now includes `as_of` so a day/year
+  rollover can't serve a stale YTD.
+- Added 4 regression tests in `test_fifo.py` (year-boundary bug + edge cases).
+
+### Files touched
+- `app/domain/fifo.py` — signature + `as_of.year` YTD filter, docstring
+- `app/services/{valuation,nav,analytics_technicals,sell_simulator,analytics_correlation}.py` — thread `as_of`
+- `app/ui/pages/{overview,tax,analytics,catalysts,manage}.py`, `app/ui/components/sell_simulator.py` — thread `as_of`
+- `tests/unit/domain/test_fifo.py`, `tests/unit/services/test_valuation.py`, `tests/unit/ui/test_manage_form_pipeline.py`, `tests/integration/{test_json_repo,test_overview_e2e}.py`
+
+### Tests
+Full gate green: `pytest`, `ruff check .`, `mypy app/`, `lint-imports`.
+
+### Notes
+- Ticket listed ~6 call sites; the live-valuation chain forced more
+  (`compute_live_positions` → `get_live_positions_cached` → overview/tax/analytics/
+  components callers). All updated with explicit `as_of`, none defaulted.
+
 ## 2026-06-06 — TICKET-PANEL-2
 **Surface:** Claude Code
 **Model:** opus-4.8

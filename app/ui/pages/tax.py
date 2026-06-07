@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import html
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -159,7 +159,7 @@ def _cached_harvest_report(tx_sig: str, profile_sig: str, isin_sig: str, year: i
     profile = TaxProfile(filing_status=doc.filing_status)
     txs = get_repository().load_all()
     isin_map = get_isin_map_repo().load()
-    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_live_fx_provider())
+    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_live_fx_provider(), as_of=date.today())
     summary = _cached_tax_summary(tx_sig, profile_sig, isin_sig, year)
     as_of = datetime.now()
     return compute_per_position_harvest_impact(
@@ -184,7 +184,7 @@ def _cached_liquidation_summary(tx_sig: str, profile_sig: str, isin_sig: str, ye
     profile = TaxProfile(filing_status=doc.filing_status)
     txs = get_repository().load_all()
     isin_map = get_isin_map_repo().load()
-    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_live_fx_provider())
+    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_live_fx_provider(), as_of=date.today())
     summary = _cached_tax_summary(tx_sig, profile_sig, isin_sig, year)
     as_of = datetime.now()
     return compute_tax_if_full_liquidation(
@@ -655,7 +655,7 @@ def render() -> None:
         st.error(f"Could not compute tax summary: {exc}")
         return
 
-    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_live_fx_provider())
+    live_positions = get_live_positions_cached(repo=get_repository(), price_provider=get_price_provider(), fx_provider=get_live_fx_provider(), as_of=date.today())
 
     _render_ytd_tiles(summary)
 
