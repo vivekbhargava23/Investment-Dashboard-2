@@ -5,7 +5,7 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from app.services.analytics_performance import PerformancePeriod, PerformanceView
-from app.ui.pages import analytics
+from app.ui.pages.analytics import performance
 
 
 def _view(
@@ -57,11 +57,11 @@ def _columns(n: int) -> list[MagicMock]:
 def test_empty_state_skips_charts() -> None:
     empty = _view(dates=[], sharpe=None)
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.render_line_chart") as mock_line,
-        patch("app.ui.pages.analytics.render_drawdown_chart") as mock_drawdown,
+        patch("app.ui.pages.analytics.performance.st") as mock_st,
+        patch("app.ui.pages.analytics.performance.render_line_chart") as mock_line,
+        patch("app.ui.pages.analytics.performance.render_drawdown_chart") as mock_drawdown,
     ):
-        analytics._render_performance_view(empty)
+        performance._render_performance_view(empty)
 
     mock_st.info.assert_called_once_with(
         "Performance data is being collected. Check back after the next NAV snapshot."
@@ -73,13 +73,13 @@ def test_empty_state_skips_charts() -> None:
 def test_full_render_draws_kpis_and_charts() -> None:
     view = _view(benchmark_indexed=[Decimal("100"), Decimal("100.5"), Decimal("101")])
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.render_metric_card"),
-        patch("app.ui.pages.analytics.render_line_chart") as mock_line,
-        patch("app.ui.pages.analytics.render_drawdown_chart") as mock_drawdown,
+        patch("app.ui.pages.analytics.performance.st") as mock_st,
+        patch("app.ui.pages.analytics.performance.render_metric_card"),
+        patch("app.ui.pages.analytics.performance.render_line_chart") as mock_line,
+        patch("app.ui.pages.analytics.performance.render_drawdown_chart") as mock_drawdown,
     ):
         mock_st.columns.return_value = _columns(5)
-        analytics._render_performance_view(view)
+        performance._render_performance_view(view)
 
     mock_st.columns.assert_called_once_with(5)
     assert mock_line.call_args.kwargs["secondary_series"] is not None
@@ -94,13 +94,13 @@ def test_full_render_draws_kpis_and_charts() -> None:
 def test_benchmark_none_renders_alpha_placeholder() -> None:
     view = _view(benchmark_indexed=None)
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.render_metric_card") as mock_card,
-        patch("app.ui.pages.analytics.render_line_chart") as mock_line,
-        patch("app.ui.pages.analytics.render_drawdown_chart"),
+        patch("app.ui.pages.analytics.performance.st") as mock_st,
+        patch("app.ui.pages.analytics.performance.render_metric_card") as mock_card,
+        patch("app.ui.pages.analytics.performance.render_line_chart") as mock_line,
+        patch("app.ui.pages.analytics.performance.render_drawdown_chart"),
     ):
         mock_st.columns.return_value = _columns(5)
-        analytics._render_performance_view(view)
+        performance._render_performance_view(view)
 
     assert mock_line.call_args.kwargs["secondary_series"] is None
     assert mock_line.call_args.kwargs["primary_name"] == "Portfolio"
@@ -112,13 +112,13 @@ def test_benchmark_none_renders_alpha_placeholder() -> None:
 def test_benchmark_fetch_error_surfaces_warning() -> None:
     view = _view(benchmark_indexed=None, benchmark_fetch_error="rate limit")
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.render_metric_card"),
-        patch("app.ui.pages.analytics.render_line_chart"),
-        patch("app.ui.pages.analytics.render_drawdown_chart"),
+        patch("app.ui.pages.analytics.performance.st") as mock_st,
+        patch("app.ui.pages.analytics.performance.render_metric_card"),
+        patch("app.ui.pages.analytics.performance.render_line_chart"),
+        patch("app.ui.pages.analytics.performance.render_drawdown_chart"),
     ):
         mock_st.columns.return_value = _columns(5)
-        analytics._render_performance_view(view)
+        performance._render_performance_view(view)
 
     mock_st.warning.assert_called_once()
     assert "rate limit" in mock_st.warning.call_args.args[0]
@@ -127,13 +127,13 @@ def test_benchmark_fetch_error_surfaces_warning() -> None:
 def test_available_days_caption_is_rendered() -> None:
     view = _view(available_days=12, requested_period_days=30)
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.render_metric_card"),
-        patch("app.ui.pages.analytics.render_line_chart"),
-        patch("app.ui.pages.analytics.render_drawdown_chart"),
+        patch("app.ui.pages.analytics.performance.st") as mock_st,
+        patch("app.ui.pages.analytics.performance.render_metric_card"),
+        patch("app.ui.pages.analytics.performance.render_line_chart"),
+        patch("app.ui.pages.analytics.performance.render_drawdown_chart"),
     ):
         mock_st.columns.return_value = _columns(5)
-        analytics._render_performance_view(view)
+        performance._render_performance_view(view)
 
     mock_st.caption.assert_called_once_with("1M (showing 12 days available)")
 
@@ -141,13 +141,13 @@ def test_available_days_caption_is_rendered() -> None:
 def test_negative_sharpe_uses_neutral_class() -> None:
     view = _view(sharpe=Decimal("-0.42"))
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.render_metric_card") as mock_card,
-        patch("app.ui.pages.analytics.render_line_chart"),
-        patch("app.ui.pages.analytics.render_drawdown_chart"),
+        patch("app.ui.pages.analytics.performance.st") as mock_st,
+        patch("app.ui.pages.analytics.performance.render_metric_card") as mock_card,
+        patch("app.ui.pages.analytics.performance.render_line_chart"),
+        patch("app.ui.pages.analytics.performance.render_drawdown_chart"),
     ):
         mock_st.columns.return_value = _columns(5)
-        analytics._render_performance_view(view)
+        performance._render_performance_view(view)
 
     sharpe_call = mock_card.call_args_list[4]
     assert sharpe_call.kwargs["value_class"] == "gain-neutral"

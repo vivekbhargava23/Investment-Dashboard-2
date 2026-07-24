@@ -1,6 +1,7 @@
 # TICKET-RD4 — Split analytics.py + "explain this number" component
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Dashboard Redesign
 **Recommended model:** Sonnet — a mechanical package split plus a new reusable component with one wired usage.
 **Estimated session length:** 2 – 2.5 hr
