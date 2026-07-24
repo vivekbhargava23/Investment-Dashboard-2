@@ -44,6 +44,29 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-07-24 — TICKET-RD4
+**Surface:** Claude Code
+**Model:** opus-4.8
+**Branch:** ticket-rd4-split-analytics-py-explain-this
+**Status at session end:** IN_REVIEW
+
+Split `app/ui/pages/analytics.py` (~1100 lines) into a per-tab package
+(`_shell` routing + performance/correlation/technicals/sizer/concentration, plus
+`_data` for the shared live-position/summary helpers). No tab module exceeds
+~300 lines and no computation changed. Taught the router to accept a page
+package (`pages/<id>/__init__.py`) alongside a single module file so the
+"analytics" route is unchanged.
+
+Added `app/ui/components/explainable_metric.py`: validated frozen
+`ExplanationSpec`, `render_explainable_metric` (value + meaning + `how?` popover
+with formula/inputs + an "Ask AI to explain this number" affordance surfacing a
+copyable prompt — no inference backend), and pure `build_explain_prompt`. Wired
+the Concentration tab's Herfindahl KPI through it as the reference usage. Updated
+the five tab test modules to the new namespaces; added
+`test_explainable_metric.py`. Gate green (pytest/ruff/mypy/lint-imports).
+Verified in the running app (screenshots under
+`docs/screenshots/rd4-analytics-split-and-explain/`).
+
 ## 2026-06-07 — TICKET-TAX-2
 **Surface:** Claude Code
 **Model:** opus-4.8

@@ -260,7 +260,7 @@ def render() -> None:
                 label_visibility="collapsed",
             )
         with col_period:
-            chart_period: ChartPeriod = st.radio(
+            chart_period = st.radio(
                 "Period",
                 options=list(ChartPeriod),
                 horizontal=True,
@@ -269,6 +269,7 @@ def render() -> None:
                 format_func=lambda p: _PERIOD_LABELS[p],
                 label_visibility="collapsed",
             )
+            assert chart_period is not None  # index is always set → radio never returns None
         with col_freq:
             chart_freq = render_aggregation_toggle("overview_chart_freq", chart_period)
         if chart_ticker:

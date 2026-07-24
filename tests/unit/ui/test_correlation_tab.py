@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from app.services.analytics_correlation import CorrelationView, SkippedTicker
 from app.ui.components._chart_styles import CORRELATION_COLORSCALES
-from app.ui.pages import analytics
+from app.ui.pages.analytics import correlation
 
 
 def _columns(n: int) -> list[MagicMock]:
@@ -45,10 +45,10 @@ def test_correlation_view_empty_state_skips_grid() -> None:
         clusters=[],
     )
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.render_correlation_heatmap") as mock_heatmap,
+        patch("app.ui.pages.analytics.correlation.st") as mock_st,
+        patch("app.ui.pages.analytics.correlation.render_correlation_heatmap") as mock_heatmap,
     ):
-        analytics._render_correlation_view(view)
+        correlation._render_correlation_view(view)
 
     mock_st.info.assert_called_once_with(
         "Need at least 2 positions with sufficient history to compute correlations."
@@ -67,8 +67,8 @@ def test_correlation_view_renders_skipped_banner() -> None:
         avg_correlation={},
         clusters=[],
     )
-    with patch("app.ui.pages.analytics.st") as mock_st:
-        analytics._render_correlation_view(view)
+    with patch("app.ui.pages.analytics.correlation.st") as mock_st:
+        correlation._render_correlation_view(view)
 
     mock_st.warning.assert_called_once()
     assert "SHORT (12 days available, window requires 60)" in mock_st.warning.call_args.args[0]
@@ -76,12 +76,12 @@ def test_correlation_view_renders_skipped_banner() -> None:
 
 def test_correlation_view_renders_heatmap_table_and_cluster_warning() -> None:
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.render_correlation_heatmap") as mock_heatmap,
-        patch("app.ui.pages.analytics.render_html") as mock_render_html,
+        patch("app.ui.pages.analytics.correlation.st") as mock_st,
+        patch("app.ui.pages.analytics.correlation.render_correlation_heatmap") as mock_heatmap,
+        patch("app.ui.pages.analytics.correlation.render_html") as mock_render_html,
     ):
         mock_st.columns.return_value = _columns(2)
-        analytics._render_correlation_view(_view())
+        correlation._render_correlation_view(_view())
 
     assert mock_st.columns.call_count == 2
     mock_heatmap.assert_called_once()
@@ -95,8 +95,8 @@ def test_correlation_view_renders_heatmap_table_and_cluster_warning() -> None:
 
 
 def test_correlation_table_sorts_by_avg_correlation_descending() -> None:
-    with patch("app.ui.pages.analytics.render_html") as mock_render_html:
-        analytics._render_correlation_table(_view())
+    with patch("app.ui.pages.analytics.correlation.render_html") as mock_render_html:
+        correlation._render_correlation_table(_view())
 
     html_text = mock_render_html.call_args.args[0]
     b_pos = html_text.index("<strong>B</strong>")
@@ -109,12 +109,12 @@ def test_correlation_table_sorts_by_avg_correlation_descending() -> None:
 
 def test_correlation_view_passes_selected_color_scheme_to_heatmap() -> None:
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.render_correlation_heatmap") as mock_heatmap,
-        patch("app.ui.pages.analytics.render_html"),
+        patch("app.ui.pages.analytics.correlation.st") as mock_st,
+        patch("app.ui.pages.analytics.correlation.render_correlation_heatmap") as mock_heatmap,
+        patch("app.ui.pages.analytics.correlation.render_html"),
     ):
         mock_st.columns.return_value = _columns(2)
-        analytics._render_correlation_view(
+        correlation._render_correlation_view(
             _view(),
             color_scheme="Diverging (red–white–blue)",
         )
@@ -127,12 +127,12 @@ def test_correlation_view_passes_selected_color_scheme_to_heatmap() -> None:
 def test_correlation_view_help_text_explains_thresholds() -> None:
     """Popover inside _render_correlation_view explains all diversification thresholds."""
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.render_correlation_heatmap"),
-        patch("app.ui.pages.analytics._render_correlation_table"),
+        patch("app.ui.pages.analytics.correlation.st") as mock_st,
+        patch("app.ui.pages.analytics.correlation.render_correlation_heatmap"),
+        patch("app.ui.pages.analytics.correlation._render_correlation_table"),
     ):
         mock_st.columns.return_value = _columns(2)
-        analytics._render_correlation_view(_view())
+        correlation._render_correlation_view(_view())
 
     help_text = mock_st.markdown.call_args.args[0]
     assert "self-correlation is excluded" in help_text

@@ -14,7 +14,7 @@ from app.domain.analytics_views import (
 from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition, OpenLot, PortfolioSummary, Position
 from app.services.analytics_sizer import MISSING_PRICE_REASON, STALE_PRICE_REASON
-from app.ui.pages import analytics
+from app.ui.pages.analytics import sizer
 
 
 def _columns(n: int) -> list[MagicMock]:
@@ -126,13 +126,13 @@ def _summary() -> PortfolioSummary:
 
 def test_sizer_tab_empty_portfolio_shows_info_only() -> None:
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.get_repository") as mock_repo,
-        patch("app.ui.pages.analytics.get_live_positions_cached") as mock_live,
+        patch("app.ui.pages.analytics.sizer.st") as mock_st,
+        patch("app.ui.pages.analytics.sizer.get_repository") as mock_repo,
+        patch("app.ui.pages.analytics._data.get_live_positions_cached") as mock_live,
     ):
         mock_repo.return_value.load_all.return_value = []
         mock_live.return_value = {}
-        analytics._render_sizer_tab()
+        sizer.render()
 
     mock_st.info.assert_called_once_with(
         "No positions yet — add transactions in Manage Portfolio to enable sizing."
@@ -143,12 +143,12 @@ def test_sizer_tab_empty_portfolio_shows_info_only() -> None:
 def test_sizer_tab_smoke_renders_inputs_and_result_cards() -> None:
     live = {"AAPL": _live_position()}
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.get_repository") as mock_repo,
-        patch("app.ui.pages.analytics.get_live_positions_cached") as mock_live,
-        patch("app.ui.pages.analytics._cached_concentration_summary") as mock_summary,
-        patch("app.ui.pages.analytics.compute_sizer_view") as mock_compute,
-        patch("app.ui.pages.analytics.render_html") as mock_html,
+        patch("app.ui.pages.analytics.sizer.st") as mock_st,
+        patch("app.ui.pages.analytics.sizer.get_repository") as mock_repo,
+        patch("app.ui.pages.analytics._data.get_live_positions_cached") as mock_live,
+        patch("app.ui.pages.analytics.sizer._cached_concentration_summary") as mock_summary,
+        patch("app.ui.pages.analytics.sizer.compute_sizer_view") as mock_compute,
+        patch("app.ui.pages.analytics.sizer.render_html") as mock_html,
     ):
         mock_st.session_state = {}
         mock_st.columns.return_value = _columns(2)
@@ -160,7 +160,7 @@ def test_sizer_tab_smoke_renders_inputs_and_result_cards() -> None:
         mock_summary.return_value = _summary()
         mock_compute.return_value = _view()
 
-        analytics._render_sizer_tab()
+        sizer.render()
 
     mock_st.columns.assert_called_once_with([1, 1])
     mock_compute.assert_called_once()
@@ -178,11 +178,11 @@ def test_sizer_tab_live_eur_price_without_fx_rate_renders_results() -> None:
         )
     }
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.get_repository") as mock_repo,
-        patch("app.ui.pages.analytics.get_live_positions_cached") as mock_live,
-        patch("app.ui.pages.analytics._cached_concentration_summary") as mock_summary,
-        patch("app.ui.pages.analytics.render_html") as mock_html,
+        patch("app.ui.pages.analytics.sizer.st") as mock_st,
+        patch("app.ui.pages.analytics.sizer.get_repository") as mock_repo,
+        patch("app.ui.pages.analytics._data.get_live_positions_cached") as mock_live,
+        patch("app.ui.pages.analytics.sizer._cached_concentration_summary") as mock_summary,
+        patch("app.ui.pages.analytics.sizer.render_html") as mock_html,
     ):
         mock_st.session_state = {}
         mock_st.columns.return_value = _columns(2)
@@ -193,7 +193,7 @@ def test_sizer_tab_live_eur_price_without_fx_rate_renders_results() -> None:
         mock_live.return_value = live
         mock_summary.return_value = _summary()
 
-        analytics._render_sizer_tab()
+        sizer.render()
 
     mock_st.error.assert_not_called()
     assert mock_html.call_count == 4
@@ -204,10 +204,10 @@ def test_sizer_tab_live_eur_price_without_fx_rate_renders_results() -> None:
 
 def test_sizer_view_missing_price_banner_hides_result_cards() -> None:
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.render_html") as mock_html,
+        patch("app.ui.pages.analytics.sizer.st") as mock_st,
+        patch("app.ui.pages.analytics.sizer.render_html") as mock_html,
     ):
-        analytics._render_sizer_view(
+        sizer._render_sizer_view(
             _view(degraded_reason=MISSING_PRICE_REASON, include_results=False)
         )
 
@@ -217,19 +217,19 @@ def test_sizer_view_missing_price_banner_hides_result_cards() -> None:
 
 def test_sizer_view_stale_banner_still_renders_results() -> None:
     with (
-        patch("app.ui.pages.analytics.st") as mock_st,
-        patch("app.ui.pages.analytics.render_html") as mock_html,
+        patch("app.ui.pages.analytics.sizer.st") as mock_st,
+        patch("app.ui.pages.analytics.sizer.render_html") as mock_html,
     ):
-        analytics._render_sizer_view(_view(degraded_reason=STALE_PRICE_REASON))
+        sizer._render_sizer_view(_view(degraded_reason=STALE_PRICE_REASON))
 
     mock_st.warning.assert_called_once_with(STALE_PRICE_REASON)
     assert mock_html.call_count == 3
 
 
 def test_weight_bar_preview_uses_shared_component() -> None:
-    with patch("app.ui.pages.analytics.render_weight_bar") as mock_bar:
+    with patch("app.ui.pages.analytics.sizer.render_weight_bar") as mock_bar:
         mock_bar.return_value = "<bar />"
-        html = analytics._build_post_trade_preview_html(_view())
+        html = sizer._build_post_trade_preview_html(_view())
 
     mock_bar.assert_called_once()
     assert mock_bar.call_args.kwargs["scale_max"] == Decimal("40")
@@ -239,9 +239,9 @@ def test_weight_bar_preview_uses_shared_component() -> None:
 
 
 def test_share_display_uses_format_shares() -> None:
-    with patch("app.ui.pages.analytics.format_shares") as mock_format:
+    with patch("app.ui.pages.analytics.sizer.format_shares") as mock_format:
         mock_format.return_value = "formatted"
-        html = analytics._build_risk_result_card_html(_view())
+        html = sizer._build_risk_result_card_html(_view())
 
     mock_format.assert_called_once_with(Decimal("69.44"))
     assert "formatted" in html

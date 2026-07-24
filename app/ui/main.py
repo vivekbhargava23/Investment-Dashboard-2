@@ -51,11 +51,12 @@ def render_page() -> None:
     """
     page_id = st.session_state.get("current_page", "overview")
 
-    # Path to the page module file
-    page_path = os.path.join("app", "ui", "pages", f"{page_id}.py")
-
-    # Not built: no module file on disk.
-    if not os.path.exists(page_path):
+    # A page is either a single module file (pages/<id>.py) or a package
+    # directory with an __init__.py (pages/<id>/__init__.py that re-exports
+    # render). Not built: neither exists on disk.
+    module_path = os.path.join("app", "ui", "pages", f"{page_id}.py")
+    package_path = os.path.join("app", "ui", "pages", page_id, "__init__.py")
+    if not os.path.exists(module_path) and not os.path.exists(package_path):
         render_placeholder()
         return
 
