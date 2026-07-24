@@ -78,7 +78,7 @@ def render() -> None:
 
     period_col, benchmark_col = st.columns([0.7, 0.3])
     with period_col:
-        period: PerformancePeriod = st.radio(
+        period = st.radio(
             "Period",
             options=list(PerformancePeriod),
             horizontal=True,
@@ -86,6 +86,7 @@ def render() -> None:
             index=3,
             format_func=lambda p: p.value,
         )
+        assert period is not None  # index is always set → radio never returns None
     with benchmark_col:
         benchmark: BenchmarkLabel = st.selectbox(
             "Benchmark",
