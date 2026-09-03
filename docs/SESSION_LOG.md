@@ -44,6 +44,40 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-03 — Dashboard launcher and Conda repair
+**Surface:** Codex
+**Model:** GPT-5
+**Branch:** codex/dashboard-launcher
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added a double-clickable macOS launcher that finds the project environment
+  across multiple Conda installations, creates it when missing, rebuilds it when
+  core imports prove it is damaged, and starts/stops Streamlit cleanly.
+- Fixed `tools/gate.sh` to activate the environment by full prefix instead of
+  assuming the active Conda installation owns the name.
+- Replaced the corrupted 2.2 GB Anaconda environment with a clean Miniforge
+  environment created from `environment.yml`; ordinary name activation now works.
+- Documented the one-click workflow in the README.
+
+### Files touched
+- `run_dashboard.command` — one-click setup, recovery, launch, and stop workflow
+- `tools/gate.sh` — cross-installation environment resolution
+- `README.md` — macOS launch instructions
+
+### Verification
+- Clean environment: core imports pass and `pip check` reports no broken requirements.
+- Launcher: app returned HTTP 200 and stopped cleanly with Ctrl+C.
+- Script checks: `bash -n` and ShellCheck pass.
+- Full gate: 1081 passed, 96 skipped; Ruff, mypy, and all import contracts pass.
+
+### Decisions made during the session
+- Standardized the project environment under the existing Miniforge installation.
+  The project environment is disposable; `environment.yml` remains its source of truth.
+
+### Out-of-scope items noticed
+- None.
+
 ## 2026-07-24 — TICKET-RD4
 **Surface:** Claude Code
 **Model:** opus-4.8

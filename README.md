@@ -44,9 +44,22 @@ This will create a `data/portfolio.json` file. You can then run the dashboard to
 
 ## Run
 
+The easiest way on macOS is to double-click `run_dashboard.command` in Finder.
+It finds the correct Conda installation, creates the project environment on the
+first launch if needed, automatically rebuilds it if its core packages are
+damaged, and opens the dashboard in your browser. To stop it, return to the
+Terminal window and press **Ctrl+C**.
+
+You can also launch the same shortcut from a terminal:
+
 ```bash
-streamlit run app/ui/main.py
+./run_dashboard.command
 ```
+
+The launcher uses the environment's full path, so it also works when multiple
+Conda installations (such as Anaconda and Miniforge) are installed. For manual
+development, activate the environment that belongs to the intended installation
+and run `streamlit run app/ui/main.py`.
 
 ## Tests
 
