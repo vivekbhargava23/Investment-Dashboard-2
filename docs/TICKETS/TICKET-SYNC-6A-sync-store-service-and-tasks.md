@@ -5,7 +5,8 @@
 **Recommended model:** Opus — orchestration of writes, snapshots and undo; must respect the layer rules exactly.
 **Estimated session length:** 2.5 hr
 **Drafted by:** Vivek + Claude (Cowork session 2026-09-03, revised after review)
-**Depends on:** SYNC-1, 1B, 2, 3, 4, 5 merged. Read `docs/DESIGN/SYNC-TAB.md` and `docs/ARCHITECTURE.md` in full first.
+**Depends on:** TICKET-SYNC-1, TICKET-SYNC-1B, TICKET-SYNC-2, TICKET-SYNC-3, TICKET-SYNC-4, TICKET-SYNC-5.
+**Required reading:** `docs/DESIGN/SYNC-TAB.md` and `docs/ARCHITECTURE.md` in full.
 
 > **After this ticket merges:** everything the Sync page needs exists as tested services and adapters: analyse a file, apply the safe part, snapshot + undo both data files byte-for-byte, detect partial files, and turn reconciliation + feed checks into the six task types. No page yet.
 

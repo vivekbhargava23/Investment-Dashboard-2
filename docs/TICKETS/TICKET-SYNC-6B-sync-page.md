@@ -5,7 +5,8 @@
 **Recommended model:** Sonnet — rendering over SYNC-6A services; every state is specified in the design doc.
 **Estimated session length:** 2 hr
 **Drafted by:** Vivek + Claude (Cowork session 2026-09-03, revised after review)
-**Depends on:** SYNC-6A merged. Read `docs/DESIGN/SYNC-TAB.md` in full first; the screen is specified there and not repeated here.
+**Depends on:** TICKET-SYNC-6A.
+**Required reading:** `docs/DESIGN/SYNC-TAB.md` in full; the screen is specified there and not repeated here.
 
 > **After this ticket merges:** sidebar page **Sync with Scalable** (`app/ui/pages/sync.py`, id `sync`) exists next to the old pages. Uploading a CSV analyses it, applies the safe rows, and shows the summary card, task list, holdings table, cash line, Details and All-instruments placeholder. Undo restores the previous state of both data files.
 
