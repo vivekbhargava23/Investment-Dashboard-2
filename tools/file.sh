@@ -566,3 +566,17 @@ for i in "${!CREATED_IDS[@]}"; do
   echo "  ${CREATED_IDS[$i]:-unknown}  — $title_short -> issue #${CREATED_NUMS[$i]}, Backlog #$backlog_rank ($priority)"
 done
 echo "Commit pushed: $pushed_sha"
+
+# ---------------------------------------------------------------------------
+# Step 10 — Rank the whole board
+# ---------------------------------------------------------------------------
+# Step 7 places new cards by priority band alone, which cannot see the
+# **Depends on:** graph: a CRITICAL blocked by three unmerged tickets would land
+# at the top of the stack. Re-rank the board so the card order matches `next.sh`
+# — startable before blocked, then priority, then how much each ticket unblocks.
+# Non-fatal: the issues and board items already exist either way.
+echo ""
+if ! bash "$(dirname "$0")/reorder.sh"; then
+  echo "Warning: board reorder failed. Issues and cards were created regardless."
+  echo "Re-run it with: bash tools/reorder.sh"
+fi

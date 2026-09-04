@@ -111,9 +111,12 @@ Two rules follow from this:
 - **Every ticket declares `**Depends on:**`.** Omitting it is what makes an order
   meaningless — an undeclared dependency reads as "no dependency", so the ticket looks
   startable when it is not, and whatever it gates gets under-scored.
-- **The board is dragged to match this order, not against it.** When the card stack and
-  the menu disagree, the menu is showing the dependency reality; reorder the board, or
-  fix the `**Depends on:**` line that made the menu wrong.
+- **The board is kept in this order, not against it.** `bash tools/reorder.sh` moves the
+  Ready/Backlog cards into the ranked order, and `tools/file.sh` runs it after filing so
+  new tickets land in the right place rather than at the top of a priority band. Vivek can
+  still drag cards to override; the next `reorder` run re-derives the ranking. If the board
+  looks wrong after a reorder, the fix is the `**Depends on:**` line that made the menu
+  wrong, not the card position.
 
 ---
 

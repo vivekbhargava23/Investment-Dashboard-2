@@ -39,6 +39,24 @@ they never outrank a startable one. See "How ticket order is decided" in
 bash tools/next.sh
 ```
 
+### `reorder.sh`
+
+Moves the `Ready`/`Backlog` cards on the project board into the same order `next.sh`
+ranks, so the board and the menu never disagree. Cards in `In progress`, `In review`
+and `Done` are left alone. Each card is pinned directly after the one placed above it,
+so a partial failure leaves a correctly ordered prefix rather than a shuffled board.
+
+`tools/file.sh` calls this after filing new tickets: its own priority-band placement
+cannot see the `**Depends on:**` graph, so a blocked CRITICAL would otherwise land on
+top of the stack.
+
+**Usage:**
+
+```bash
+bash tools/reorder.sh            # move the cards
+bash tools/reorder.sh --dry-run  # print the target order, move nothing
+```
+
 ### `start_ticket.sh`
 
 Starts a ticket from `main`: reconciles closed `In review` board items to `Done`,

@@ -49,6 +49,7 @@ class TicketEntry:
     board_index: int
     ticket_file: Path | None = None
     issue_state: str | None = None
+    board_item_id: str | None = None
 
 
 def repo_root() -> Path:
@@ -214,6 +215,7 @@ def build_ticket_entries(board_items: Sequence[dict[str, Any]], root: Path) -> l
                 board_index=index,
                 ticket_file=ticket_file,
                 issue_state=content.get("state"),
+                board_item_id=str(item.get("id")) if item.get("id") else None,
             )
         )
     return entries
@@ -566,6 +568,73 @@ def print_next_menu(entries: Sequence[TicketEntry]) -> None:
     )
 
 
+def move_board_item_after(
+    project_node_id: str, item_id: str, after_id: str | None
+) -> None:
+    """Place one card directly after another (or at the top when after_id is None)."""
+    mutation = """
+    mutation($project: ID!, $item: ID!, $after: ID) {
+      updateProjectV2ItemPosition(
+        input: {projectId: $project, itemId: $item, afterId: $after}
+      ) { clientMutationId }
+    }
+    """
+    command = [
+        "gh", "api", "graphql",
+        "-f", f"query={mutation}",
+        "-F", f"project={project_node_id}",
+        "-F", f"item={item_id}",
+    ]
+    if after_id is not None:
+        command += ["-F", f"after={after_id}"]
+    run(command, capture=True)
+
+
+def reorder_board(entries: Sequence[TicketEntry], *, dry_run: bool = False) -> int:
+    """Drag the board card stack into the same order the `next` menu ranks.
+
+    The menu already derives a meaningful order from the dependency graph; this makes
+    the board agree with it so the two surfaces never tell different stories. Only
+    Ready/Backlog cards move — In progress, In review and Done keep their positions.
+    """
+    ranked = rank_next_tickets(entries)
+    movable = [entry for entry in ranked if entry.board_item_id]
+    skipped = [entry for entry in ranked if not entry.board_item_id]
+
+    if not movable:
+        print("No board cards to reorder.")
+        return 0
+
+    current = [entry.ticket_id for entry in sorted(movable, key=lambda e: e.board_index)]
+    target = [entry.ticket_id for entry in movable]
+    if current == target:
+        print(f"Board already matches the ranked order ({len(movable)} cards).")
+        return 0
+
+    print(f"Reordering {len(movable)} Ready/Backlog cards to match the ranked order:")
+    for position, entry in enumerate(movable, start=1):
+        print(f"  {position:>3}  {compact_ticket_id(entry.ticket_id)}")
+    if dry_run:
+        print("")
+        print("Dry run — nothing moved.")
+        return 0
+
+    node_id = project_id()
+    # Walk top to bottom, pinning each card after the one already placed above it, so a
+    # partial failure leaves a correctly ordered prefix rather than a shuffled board.
+    after_id: str | None = None
+    for entry in movable:
+        assert entry.board_item_id is not None
+        move_board_item_after(node_id, entry.board_item_id, after_id)
+        after_id = entry.board_item_id
+
+    print("")
+    print(f"Board reordered: {len(movable)} cards now match `next`.")
+    for entry in skipped:
+        print(f"Skipped {compact_ticket_id(entry.ticket_id)}: no board card id.")
+    return 0
+
+
 def project_id() -> str:
     output = run(
         ["gh", "project", "list", "--owner", PROJECT_OWNER, "--format", "json"],
@@ -854,6 +923,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     subparsers.add_parser("next")
     subparsers.add_parser("doctor")
 
+    reorder_parser = subparsers.add_parser("reorder")
+    reorder_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the target order without moving any card",
+    )
+
     start_parser = subparsers.add_parser("start")
     start_parser.add_argument("ticket")
 
@@ -868,6 +944,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             print_next_menu(load_entries(root))
         elif args.command == "doctor":
             return doctor(root)
+        elif args.command == "reorder":
+            return reorder_board(load_entries(root), dry_run=args.dry_run)
         elif args.command == "start":
             start_ticket(args.ticket, root)
         elif args.command == "finish":

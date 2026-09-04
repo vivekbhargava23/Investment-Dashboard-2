@@ -272,3 +272,88 @@ def test_menu_table_keeps_title_readable_on_narrow_terminals() -> None:
     lines = _mod.format_menu_table([_SYNC_ROW], 40)
 
     assert "Stamp" in lines[2]
+
+
+def _reorder_fixture(tmp_path: Path) -> list:
+    """A board whose card stack is deliberately in the wrong order."""
+    tickets = [
+        ("TICKET-C1", "root", "Root work", "**Depends on:** \u2014", "HIGH"),
+        ("TICKET-C2", "gated", "Gated work", "**Depends on:** C1", "CRITICAL"),
+        ("TICKET-C3", "loose", "Loose work", "**Depends on:** \u2014", "MEDIUM"),
+    ]
+    for ticket_id, slug, title, body, priority in tickets:
+        _ticket_file(tmp_path, ticket_id, slug, title, body, priority=priority)
+    # Board order: the blocked CRITICAL sits on top, which is what we are fixing.
+    board_items = [
+        dict(_item(501, "TICKET-C2", "Gated work", "Backlog"), id="PVTI_c2"),
+        dict(_item(502, "TICKET-C3", "Loose work", "Backlog"), id="PVTI_c3"),
+        dict(_item(503, "TICKET-C1", "Root work", "Backlog"), id="PVTI_c1"),
+    ]
+    return _mod.enrich_missing_dependencies(
+        _mod.build_ticket_entries(board_items, tmp_path), tmp_path
+    )
+
+
+def test_build_ticket_entries_captures_board_item_id(tmp_path: Path) -> None:
+    entries = _reorder_fixture(tmp_path)
+    by_id = _mod.entry_by_ticket_id(entries)
+
+    assert by_id["TICKET-C1"].board_item_id == "PVTI_c1"
+
+
+def test_reorder_dry_run_reports_target_order_without_moving(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    def _fail(*args: object, **kwargs: object) -> None:
+        raise AssertionError("dry run must not touch the board")
+
+    monkeypatch.setattr(_mod, "move_board_item_after", _fail)
+    monkeypatch.setattr(_mod, "project_id", _fail)
+
+    assert _mod.reorder_board(_reorder_fixture(tmp_path), dry_run=True) == 0
+
+    out = capsys.readouterr().out
+    assert out.index("C1") < out.index("C3") < out.index("C2")
+    assert "Dry run" in out
+
+
+def test_reorder_pins_each_card_after_the_previous_one(
+    tmp_path: Path, monkeypatch
+) -> None:
+    moves: list[tuple[str, str | None]] = []
+    monkeypatch.setattr(_mod, "project_id", lambda: "PVT_board")
+    monkeypatch.setattr(
+        _mod,
+        "move_board_item_after",
+        lambda project, item, after: moves.append((item, after)),
+    )
+
+    assert _mod.reorder_board(_reorder_fixture(tmp_path)) == 0
+
+    # Startable HIGH, then startable MEDIUM, then the blocked CRITICAL — each one
+    # anchored to the card placed immediately above it.
+    assert moves == [
+        ("PVTI_c1", None),
+        ("PVTI_c3", "PVTI_c1"),
+        ("PVTI_c2", "PVTI_c3"),
+    ]
+
+
+def test_reorder_is_a_noop_when_the_board_already_matches(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    def _fail(*args: object, **kwargs: object) -> None:
+        raise AssertionError("a matching board must not be touched")
+
+    monkeypatch.setattr(_mod, "move_board_item_after", _fail)
+    monkeypatch.setattr(_mod, "project_id", _fail)
+    entries = _reorder_fixture(tmp_path)
+    ranked = _mod.rank_next_tickets(entries)
+    # Rebuild with the board already in ranked order.
+    ordered = [
+        entry.__class__(**{**entry.__dict__, "board_index": index})
+        for index, entry in enumerate(ranked)
+    ]
+
+    assert _mod.reorder_board(ordered) == 0
+    assert "already matches" in capsys.readouterr().out
