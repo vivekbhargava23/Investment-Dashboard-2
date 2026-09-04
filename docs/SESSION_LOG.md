@@ -44,6 +44,60 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-04 — TICKET-M11: workflow handoff hardening + Done-ticket archive
+**Surface:** Claude Code
+**Model:** opus-5
+**Branch:** ticket-m11-start-the-next-ticket-from
+**Status at session end:** IN_REVIEW
+
+### What got done
+- `start_ticket` now handles the branch the ritual actually leaves behind. Same-ticket
+  reuse is unchanged and makes no GitHub call; from any other branch it requires a clean
+  tree, confirms via `gh pr list` that the branch's PR is merged, then checks out `main`
+  and fast-forwards. Dirty tree, open/closed-unmerged/absent PR, or an unreachable GitHub
+  all refuse and change nothing.
+- GitHub throttling stopped being destructive. The `In review` → `Done` reconcile is
+  housekeeping and is now skipped with a warning instead of aborting the start; a
+  throttled `In progress` move raises a message naming the exact resumable rerun, since
+  the branch already exists and same-ticket reuse makes the rerun a no-op plus one board
+  call.
+- Added `tools/archive.sh` (`archive` subcommand, `--dry-run`), which `git mv`s
+  board-`Done` ticket specs into `docs/TICKETS/DONE/`. 62 specs moved; `docs/TICKETS/`
+  now holds 48 live tickets.
+- Made that safe by construction: `ticket_file_candidates` globs `docs/TICKETS`
+  recursively and is the single lookup both `find_ticket_file` and
+  `local_dependency_entry` use, so a ticket resolves by ID from any depth. Directory is
+  presentation; the board stays the only source of truth.
+- `doctor` gained two checks: whether the current branch's PR is merged (can
+  `start_ticket` hand off from here?) and how many Done tickets await archiving.
+- Documented the instruction gaps that let the previous Codex session improvise: hard
+  rules and a session preflight at the top of `AGENTS.md`, stop conditions 9 and 10, and
+  explicit bans on self-filed tickets and blind retries of board-mutating scripts. Also
+  fixed the `docs/VIVEK.md` line claiming the agent never reorders cards programmatically,
+  which `tools/reorder.sh` has contradicted since 2026-09-04.
+
+### Files touched
+- `tools/ticket_workflow.py` — recursive ticket lookup, `pr_state_for_branch`,
+  `is_rate_limit_error`, `return_to_main_from_merged_branch`, `archive_done_tickets`,
+  doctor checks, `archive` subcommand
+- `tools/archive.sh` — new wrapper
+- `tests/unit/tools/test_ticket_workflow.py` — 10 new tests
+- `AGENTS.md`, `tools/README.md`, `docs/METHODOLOGY.md`, `docs/VIVEK.md` — docs
+- `docs/TICKETS/` → `docs/TICKETS/DONE/` — 62 renames
+
+### Tests
+23 → 33 in `test_ticket_workflow.py`. Full gate green.
+
+### Decisions made during the session
+- Archive is a rename, never a status. Making every lookup recursive first means no rule
+  anywhere has to say "tickets live in one folder", so the organisation can't become a
+  source of agent/repo conflict.
+- Rate-limit handling is "report a precise resumable state", not retry-with-backoff. A
+  GitHub primary rate limit resets on the hour; a retry loop would burn the session.
+
+### Out-of-scope items noticed
+- `TICKET-SYNC-3` was the ticket originally requested and is still Backlog and startable.
+
 ## 2026-09-04 — TICKET-SYNC-2: guarded mapping write path + cache invalidation
 **Surface:** Claude Code
 **Model:** opus-5
