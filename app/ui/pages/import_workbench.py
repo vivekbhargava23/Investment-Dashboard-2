@@ -641,7 +641,7 @@ def _render_autoresolve_panel(plan: ImportPlan, log_path: Path) -> None:
         with st.expander(f"Map ISINs manually ({len(remaining_unmapped)})", expanded=True):
             for isin, description in remaining_unmapped:
                 col_isin, col_search_kind, col_merge, col_save, col_ignore = st.columns(
-                    [1.5, 3.5, 1.4, 0.7, 0.7]
+                    [1.5, 3.2, 2.2, 0.8, 0.9]
                 )
                 with col_isin:
                     st.code(isin)

@@ -44,6 +44,10 @@ _TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,29}$")
 # then four action slots (Edit, Kind, Unmap, Remove).
 _MAPPED_COLS = [1.8, 2.2, 1.0, 1.3, 1.0, 0.7, 0.7, 0.8, 0.9]
 
+# The edit row swaps Last seen for the merge checkbox, which needs room for its
+# label, and keeps Save/Cancel wide enough not to wrap.
+_EDIT_COLS = [1.8, 1.8, 2.0, 1.6, 2.2, 0.9, 0.9]
+
 # ── Mapped table (TICKET-RD2) ───────────────────────────────────────────────
 # st.dataframe gives client-side sort/search with no page rerun. It can't host
 # inline buttons, so the per-ISIN actions appear in an action bar when a row is
@@ -202,7 +206,7 @@ def _render_unmapped_section(
     st.caption("These ISINs were seen in your CSV but have no ticker assigned. Transactions for these ISINs were skipped.")
 
     for isin, mapping in unmapped.items():
-        col_isin, col_name, col_ticker, col_kind, col_merge, col_btn, col_ignore = st.columns([2, 2, 2, 2, 1.4, 0.7, 0.7])
+        col_isin, col_name, col_ticker, col_kind, col_merge, col_btn, col_ignore = st.columns([1.8, 1.8, 2, 1.8, 2.2, 0.8, 0.9])
         with col_isin:
             st.code(isin, language=None)
         with col_name:
@@ -375,7 +379,7 @@ def _render_mapped_section(
 
 
 def _render_edit_row(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
-    cols = st.columns(_MAPPED_COLS)
+    cols = st.columns(_EDIT_COLS)
     cols[0].code(isin, language=None)
     cols[1].write(mapping.name or "—")
     with cols[2]:
