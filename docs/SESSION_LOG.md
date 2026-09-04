@@ -44,6 +44,75 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-04 — TICKET-SYNC-2: guarded mapping write path + cache invalidation
+**Surface:** Claude Code
+**Model:** opus-5
+**Branch:** ticket-sync-2-mapping-write-path-rewrite-every
+**Status at session end:** IN_REVIEW
+
+### What got done
+- `app/services/isin_remap.py` grew `change_feed`, which sets the mapping and
+  rewrites every transaction carrying that ISIN in one call, plus
+  `TickerAlreadyMappedError`, `mapped_owner_of_ticker`, `check_consistency` and
+  the idempotent `repair`. Write order is transactions first, caller saves the
+  map (ADR-014 rule 9), so a failed map save is detectable rather than silent.
+- Both save paths now call it: the Mappings page (unmapped row and edit row) and
+  the import workbench's manual Save. Each renders a "Same instrument (ISIN
+  change)" checkbox that feeds `allow_shared_ticker`, and shows the guard warning
+  when the ticker is already another mapped ISIN's feed. Auto-resolve demotes
+  such a result to `low` confidence instead of persisting the merge.
+- Both transaction signatures (`services/valuation._tx_sig` and
+  `ui/cache_keys.transactions_signature`) now hash `id:ticker` pairs. An id-only
+  key survived a remap unchanged, so cached valuations kept the old ticker.
+  Every mapping save also clears `st.cache_data` and the price/FX adapter caches.
+- The Mappings page shows an out-of-sync banner with a Repair button when a
+  mapped ISIN's stored rows disagree with the map. SYNC-6B moves it to the Sync page.
+- `get_repository` passes `isin_map_path`, which only the v2→v3 migration reads;
+  a new test pins that `load_all` still returns the stored ticker when the map
+  disagrees.
+
+### Files touched
+- `app/services/isin_remap.py` — change_feed, guard, check_consistency, repair
+- `app/services/valuation.py`, `app/ui/cache_keys.py` — ticker-aware signatures
+- `app/ui/pages/mappings.py` — single save path, merge checkbox, repair banner
+- `app/ui/pages/import_workbench.py` — same save path; auto-resolve refuses merges
+- `app/ui/components/isin_mapper.py` — shared label/warning/cache-clear helpers;
+  `build_mapping` deleted (dead once both pages called `change_feed`)
+- `app/ui/wiring.py` — `isin_map_path` for the migration
+- Tests: `tests/unit/services/test_isin_remap.py` (+15),
+  `tests/unit/ui/test_mappings_page.py`, `tests/unit/ui/test_import_workbench.py`,
+  `tests/unit/ui/test_overview_helpers.py`, `tests/unit/services/test_valuation.py`,
+  `tests/integration/test_json_repo.py`
+- `docs/screenshots/ticket-sync-2-mapping-write-path/` — four verification frames
+
+### Tests
+1124 passing → 1145 passing (21 new). Gate clean (pytest, ruff, mypy, lint-imports).
+
+### Verified in the app
+Sandbox run on :8599 with a seeded map + book: the guard refused mapping a second
+ISIN onto `NVDA` and wrote nothing; ticking the checkbox let the merge through and
+rewrote the placeholder row; the repair banner found the seeded `NVDA` vs `NVDA.DE`
+mismatch and Repair fixed it on disk.
+
+### Decisions made during the session
+- No architectural decisions; ADR-014 specified all of it.
+- Ticket said to create `tests/unit/services/test_isin_remap.py` and a
+  `tests/fakes/repository.py`; the test file already existed with a suitable
+  `FakeRepo`, so it was extended rather than duplicated.
+- The `_save_mapping` helper on the Mappings page and `build_mapping` in
+  `isin_mapper` both became dead once the pages called `change_feed`; deleted, and
+  their tests re-pointed at `change_feed`.
+
+### Out-of-scope items noticed
+- The ticker searchbox clears its selection on the rerun that shows the guard
+  warning, so the user re-picks the ticker after ticking the checkbox. Minor, and
+  fixing it means touching the searchbox component — not this ticket.
+- `tests/integration/test_json_repo.py::test_v2_migration_totals_preservation`
+  fails on `main` under `--run-integration` (a manual AAPL/EUR row trips the
+  ticker↔currency check). Pre-existing, untouched here; the gate does not run it.
+
+---
+
 ## 2026-09-04 — TICKET-SYNC-1B: always import executed trades + last-trade valuation
 **Surface:** Claude Code
 **Model:** opus-5
