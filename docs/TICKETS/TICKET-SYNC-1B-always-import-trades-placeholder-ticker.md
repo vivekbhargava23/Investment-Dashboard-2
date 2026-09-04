@@ -1,6 +1,7 @@
 # TICKET-SYNC-1B — Always import executed trades; placeholder ticker for unmapped ISINs; last-trade valuation
 
 **Priority:** CRITICAL
+**Status:** IN_PROGRESS
 **Milestone:** Investment Panel
 **Recommended model:** Opus — changes the planner's import scope and adds a valuation fallback (money code).
 **Estimated session length:** 1.5 hr

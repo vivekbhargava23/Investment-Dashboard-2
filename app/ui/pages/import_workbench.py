@@ -18,6 +18,7 @@ from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.services.isin_autoresolve import AutoResolveResult, autoresolve_isin
+from app.services.isin_remap import rewrite_ticker_for_isin
 from app.ui.backup import write_portfolio_backup as _write_backup
 from app.ui.components.isin_mapper import (
     KIND_LABEL,
@@ -48,7 +49,6 @@ _STATUS_COLORS: dict[str, str] = {
     RowStatus.NEW: "🟢",
     RowStatus.ALREADY_IMPORTED: "⚪",
     RowStatus.CONFLICT_WITH_MANUAL: "🟡",
-    RowStatus.UNMAPPED_ISIN: "🔴",
     RowStatus.INTERNAL_TRANSFER: "⬜",
     RowStatus.OUT_OF_SCOPE_V1: "⬜",
     RowStatus.CANCELLED_OR_EXPIRED: "⬜",
@@ -56,16 +56,9 @@ _STATUS_COLORS: dict[str, str] = {
     RowStatus.VALIDATION_ERROR: "🔴",
 }
 
-# Ignored ISINs are deliberately invisible in the workbench. The user marked them
-# dead on the Mappings page and asked never to be reminded again, so they are
-# excluded from the row table, the filter chips, and every count. The
-# Mappings → Ignored expander remains the one place to review or restore them.
-_SILENT_STATUSES: frozenset[RowStatus] = frozenset({RowStatus.IGNORED_ISIN})
-
-# Rows that can't be imported and genuinely need the user's attention. Ignored
-# ISINs are NOT here — silencing them is the whole point.
+# Rows that can't be imported and genuinely need the user's attention. A missing
+# feed is no longer one of them — those rows import under a placeholder ticker.
 _BLOCKED_STATUSES: frozenset[RowStatus] = frozenset({
-    RowStatus.UNMAPPED_ISIN,
     RowStatus.INTERNAL_TRANSFER,
     RowStatus.OUT_OF_SCOPE_V1,
     RowStatus.CANCELLED_OR_EXPIRED,
@@ -74,13 +67,8 @@ _BLOCKED_STATUSES: frozenset[RowStatus] = frozenset({
 })
 
 
-def _surfaced_rows(plan: ImportPlan) -> list[PlannedRow]:
-    """Rows shown to the user; silent statuses (ignored ISINs) are dropped."""
-    return [r for r in plan.rows if r.status not in _SILENT_STATUSES]
-
-
 def _count_blocked(plan: ImportPlan) -> int:
-    """Count rows that block the import and need attention. Ignored ISINs excluded."""
+    """Count rows that block the import and need attention."""
     return sum(1 for r in plan.rows if r.status in _BLOCKED_STATUSES)
 
 
@@ -175,11 +163,15 @@ def _clear_state() -> None:
 
 
 def _get_unique_unmapped_isins(plan: ImportPlan) -> list[tuple[str, str]]:
-    """Return (isin, description) for each unique unmapped ISIN in plan order."""
+    """Return (isin, description) for each unique unmapped ISIN in plan order.
+
+    These rows still import under a placeholder ticker; mapping one only buys it a
+    price feed.
+    """
     seen: set[str] = set()
     result = []
     for row in plan.rows:
-        if row.status == RowStatus.UNMAPPED_ISIN and row.isin not in seen:
+        if row.feed_state == "unmapped" and row.isin not in seen:
             seen.add(row.isin)
             result.append((row.isin, row.description))
     return result
@@ -223,6 +215,7 @@ def _run_autoresolve(
                 instrument_kind=result.instrument_kind,
             )
             saved_isins.add(isin)
+            rewrite_ticker_for_isin(get_repository(), isin, result.ticker)
 
         auto_resolve_log.append({
             "isin": isin,
@@ -400,7 +393,6 @@ def _render_filter_chips(plan: ImportPlan) -> str | None:
         (RowStatus.NEW, "new"),
         (RowStatus.ALREADY_IMPORTED, "already imported"),
         (RowStatus.CONFLICT_WITH_MANUAL, "conflicts"),
-        (RowStatus.UNMAPPED_ISIN, "unmapped ISIN"),
         (RowStatus.INTERNAL_TRANSFER, "internal transfer"),
         (RowStatus.OUT_OF_SCOPE_V1, "out of scope"),
         (RowStatus.CANCELLED_OR_EXPIRED, "cancelled/expired"),
@@ -409,7 +401,7 @@ def _render_filter_chips(plan: ImportPlan) -> str | None:
 
     cols = st.columns(len(statuses) + 1)
     with cols[0]:
-        label = f"All ({len(_surfaced_rows(plan))})"
+        label = f"All ({len(plan.rows)})"
         all_btn_type: str = "primary" if active is None else "secondary"
         if st.button(label, key="iw_filter_all", type=all_btn_type):  # type: ignore[arg-type]
             st.session_state[_KEY_FILTER] = None
@@ -430,13 +422,22 @@ def _render_filter_chips(plan: ImportPlan) -> str | None:
     return active
 
 
+def _ticker_cell(row: PlannedRow) -> str:
+    """Ticker as shown in the table; a placeholder ISIN is marked as feed-less."""
+    if row.proposed_ticker is None:
+        return "—"
+    if row.feed_state in ("unmapped", "ignored"):
+        return f"{row.proposed_ticker} (no feed)"
+    return row.proposed_ticker
+
+
 def _render_planned_changes(plan: ImportPlan) -> None:
     st.subheader("Planned changes")
 
     active_filter = _render_filter_chips(plan)
 
     rows_to_show = [
-        r for r in _surfaced_rows(plan)
+        r for r in plan.rows
         if active_filter is None or r.status == active_filter
     ]
 
@@ -460,7 +461,7 @@ def _render_planned_changes(plan: ImportPlan) -> None:
             "Status": f"{dot} {r.status.replace('_', ' ')}",
             "Date": r.trade_date.isoformat(),
             "Type": r.csv_type,
-            "Ticker": r.proposed_ticker or "—",
+            "Ticker": _ticker_cell(r),
             "ISIN": r.isin,
             "Description": r.description[:40],
             "Shares": str(r.shares) if r.shares is not None else "—",
@@ -634,6 +635,12 @@ def _render_autoresolve_panel(plan: ImportPlan, log_path: Path) -> None:
                             )
                             isin_repo.save(updated_doc)
                             isin_doc = updated_doc
+                            # ADR-014 rule 2: a mapping change rewrites the rows it
+                            # covers, so already-imported placeholder rows follow the
+                            # new feed instead of staying on the ISIN.
+                            rewrite_ticker_for_isin(
+                                get_repository(), isin, selected_match.symbol
+                            )
                             saved_any = True
                 with col_ignore:
                     if st.button("Ignore", key=f"iw_manual_ignore_{isin}"):

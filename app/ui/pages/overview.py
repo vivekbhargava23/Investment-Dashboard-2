@@ -218,6 +218,14 @@ def render() -> None:
         stale_count = sum(1 for p in live_positions.values() if p.live_price_native is None)
         status_text = f"● PARTIAL · {stale_count} of {len(live_positions)} positions stale"
 
+    last_trade_count = sum(
+        1 for p in live_positions.values() if p.price_source == "last_trade"
+    )
+    if last_trade_count:
+        status_text += (
+            f" · {last_trade_count} position(s) valued at last trade price"
+        )
+
     render_html(f'<div class="status-line mt-16">{status_text}</div>')
 
     # ── Allocation Treemap ────────────────────────────────────────────────────
