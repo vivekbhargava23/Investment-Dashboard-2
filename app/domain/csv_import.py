@@ -4,14 +4,19 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
+
+FeedState = Literal["mapped", "unmapped", "ignored"]
 
 
 class RowStatus(StrEnum):
     ALREADY_IMPORTED = "already_imported"
     CONFLICT_WITH_MANUAL = "conflict_with_manual"
     NEW = "new"
+    # Dead since TICKET-SYNC-1B — a missing or ignored feed never blocks an import.
+    # Removed by TICKET-SYNC-7 once no stored plan can still carry them.
     UNMAPPED_ISIN = "unmapped_isin"
     IGNORED_ISIN = "ignored_isin"
     OUT_OF_SCOPE_V1 = "out_of_scope_v1"
@@ -46,6 +51,7 @@ class PlannedRow(BaseModel):
     status: RowStatus
     action: PlannedAction
     proposed_ticker: str | None = None
+    feed_state: FeedState | None = None
     conflict_tx_id: str | None = None
     error_message: str | None = None
     fx_rate_eur: Decimal | None = None

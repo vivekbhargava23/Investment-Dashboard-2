@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from app.adapters.scalable_csv.parser import ParsedCsvRow
 from app.domain.csv_import import (
+    FeedState,
     ImportPlan,
     PlannedAction,
     PlannedRow,
@@ -102,6 +103,20 @@ def _row_content_hash(row: ParsedCsvRow, ticker: str, tx_type_str: str) -> str:
     return hashlib.sha1(key.encode()).hexdigest()
 
 
+def _resolve_ticker(isin: str, isin_doc: IsinMapDocument) -> tuple[str, FeedState]:
+    """Ticker to trade under, plus the feed state behind it (display only).
+
+    Without a ``mapped`` entry the ISIN itself is the placeholder ticker; picking a
+    feed later rewrites it (ADR-014 rule 2).
+    """
+    mapping = isin_doc.entries.get(isin)
+    if mapping is not None and mapping.status == "mapped" and mapping.ticker:
+        return mapping.ticker, "mapped"
+    if mapping is not None and mapping.status == "ignored":
+        return isin.upper(), "ignored"
+    return isin.upper(), "unmapped"
+
+
 def plan_import(
     rows: list[ParsedCsvRow],
     existing_txs: list[Transaction],
@@ -146,31 +161,39 @@ def plan_import(
             planned.append(_make(row, RowStatus.ALREADY_IMPORTED, PlannedAction.NOOP))
             continue
 
-        mapping = isin_doc.entries.get(row.isin)
-        if mapping is not None and mapping.status == "ignored":
-            planned.append(_make(row, RowStatus.IGNORED_ISIN, PlannedAction.SKIP))
-            continue
-        if mapping is None or mapping.status == "unmapped":
-            planned.append(_make(row, RowStatus.UNMAPPED_ISIN, PlannedAction.SKIP))
+        # The ISIN is the identity of the holding (ADR-014 rule 7): an executed trade
+        # is always imported, so a missing or ignored feed only changes the ticker.
+        if not row.isin:
+            planned.append(_make(
+                row,
+                RowStatus.VALIDATION_ERROR,
+                PlannedAction.SKIP,
+                error_message="row has no ISIN",
+            ))
             continue
 
-        assert mapping.ticker is not None
+        ticker, feed_state = _resolve_ticker(row.isin, isin_doc)
 
         tx_type_str = "buy" if row.type in ("Buy", "Savings plan") else "sell"
-        row_hash = _row_content_hash(row, mapping.ticker, tx_type_str)
+        row_hash = _row_content_hash(row, ticker, tx_type_str)
 
         if row_hash and row_hash in existing_by_content:
             existing_tx = existing_by_content[row_hash]
             if existing_tx.source == "scalable_csv":
                 planned.append(_make(
-                    row, RowStatus.ALREADY_IMPORTED, PlannedAction.NOOP, ticker=mapping.ticker
+                    row,
+                    RowStatus.ALREADY_IMPORTED,
+                    PlannedAction.NOOP,
+                    ticker=ticker,
+                    feed_state=feed_state,
                 ))
             else:
                 planned.append(_make(
                     row,
                     RowStatus.CONFLICT_WITH_MANUAL,
                     PlannedAction.REPLACE,
-                    ticker=mapping.ticker,
+                    ticker=ticker,
+                    feed_state=feed_state,
                     conflict_tx_id=existing_tx.id,
                 ))
             continue
@@ -183,12 +206,19 @@ def plan_import(
                 row,
                 RowStatus.VALIDATION_ERROR,
                 PlannedAction.SKIP,
-                ticker=mapping.ticker,
+                ticker=ticker,
+                feed_state=feed_state,
                 error_message=validation_error,
             ))
             continue
 
-        planned.append(_make(row, RowStatus.NEW, PlannedAction.INSERT, ticker=mapping.ticker))
+        planned.append(_make(
+            row,
+            RowStatus.NEW,
+            PlannedAction.INSERT,
+            ticker=ticker,
+            feed_state=feed_state,
+        ))
 
     return ImportPlan(rows=tuple(planned))
 
@@ -199,6 +229,7 @@ def _make(
     action: PlannedAction,
     *,
     ticker: str | None = None,
+    feed_state: FeedState | None = None,
     conflict_tx_id: str | None = None,
     error_message: str | None = None,
     fx_rate_eur: Decimal | None = None,
@@ -218,6 +249,7 @@ def _make(
         status=status,
         action=action,
         proposed_ticker=ticker,
+        feed_state=feed_state,
         conflict_tx_id=conflict_tx_id,
         error_message=error_message,
         fx_rate_eur=fx_rate_eur,

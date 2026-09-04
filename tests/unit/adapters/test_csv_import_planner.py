@@ -113,10 +113,62 @@ def test_conflict_with_manual_tx() -> None:
 
 # ─── test 3: ISIN not in map ──────────────────────────────────────────────────
 
-def test_unmapped_isin() -> None:
+def test_unmapped_isin_imports_with_placeholder_ticker() -> None:
+    """No mapping is not a reason to drop a trade (ADR-014 rule 7)."""
     rows = [_row(isin="UNKNOWN000001")]
     plan = plan_import(rows, [], _EUR_MAP)
-    assert plan.rows[0].status == RowStatus.UNMAPPED_ISIN
+    r = plan.rows[0]
+    assert r.status == RowStatus.NEW
+    assert r.action == PlannedAction.INSERT
+    assert r.proposed_ticker == "UNKNOWN000001"
+    assert r.feed_state == "unmapped"
+
+
+def test_ignored_isin_imports_with_placeholder_ticker() -> None:
+    """``ignored`` means "no feed wanted", not "no trade"."""
+    doc = IsinMapDocument(
+        entries={_SAP_ISIN: IsinMapping(ticker=None, name="SAP", status="ignored")}
+    )
+    plan = plan_import([_row()], [], doc)
+    r = plan.rows[0]
+    assert r.status == RowStatus.NEW
+    assert r.proposed_ticker == _SAP_ISIN
+    assert r.feed_state == "ignored"
+
+
+def test_mapped_isin_uses_mapping_ticker() -> None:
+    plan = plan_import([_row()], [], _EUR_MAP)
+    r = plan.rows[0]
+    assert r.proposed_ticker == "SAP.DE"
+    assert r.feed_state == "mapped"
+
+
+def test_missing_isin_is_validation_error() -> None:
+    plan = plan_import([_row(isin="")], [], _EUR_MAP)
+    r = plan.rows[0]
+    assert r.status == RowStatus.VALIDATION_ERROR
+    assert r.action == PlannedAction.SKIP
+    assert r.error_message == "row has no ISIN"
+
+
+def test_no_row_is_ever_unmapped_or_ignored() -> None:
+    """The planner must not emit the two dead statuses (SYNC-7 deletes them)."""
+    rows = [
+        _row(reference="A", isin="UNKNOWN000001"),
+        _row(reference="B"),
+        _row(reference="C", isin=""),
+        _row(reference="D", type_="Security transfer"),
+        _row(reference="E", status="Cancelled"),
+    ]
+    doc = IsinMapDocument(
+        entries={
+            _SAP_ISIN: IsinMapping(ticker=None, name="SAP", status="ignored"),
+            _VWCE_ISIN: IsinMapping(ticker=None, name="VWCE", status="unmapped"),
+        }
+    )
+    plan = plan_import(rows, [], doc)
+    dead = {RowStatus.UNMAPPED_ISIN, RowStatus.IGNORED_ISIN}
+    assert not [r for r in plan.rows if r.status in dead]
 
 
 # ─── test 4: USD ticker is NEW (EUR-native, no FX needed) ────────────────────
@@ -281,12 +333,16 @@ def test_savings_plan_is_new() -> None:
 # ─── test 13: unmapped ISIN (status=unmapped in doc) ─────────────────────────
 
 def test_isin_status_unmapped_in_doc() -> None:
+    """A stale ticker on an ``unmapped`` entry is not a feed — the ISIN is used."""
     doc = IsinMapDocument(
         entries={_SAP_ISIN: IsinMapping(ticker="SAP.DE", name="SAP", status="unmapped")}
     )
     rows = [_row()]
     plan = plan_import(rows, [], doc)
-    assert plan.rows[0].status == RowStatus.UNMAPPED_ISIN
+    r = plan.rows[0]
+    assert r.status == RowStatus.NEW
+    assert r.proposed_ticker == _SAP_ISIN
+    assert r.feed_state == "unmapped"
 
 
 # ─── test 14: proposed_ticker populated for new rows ─────────────────────────
@@ -398,8 +454,10 @@ def test_validation_error_does_not_fire_for_already_imported() -> None:
     assert plan.rows[0].status == RowStatus.ALREADY_IMPORTED
 
 
-def test_validation_error_not_fired_for_unmapped() -> None:
-    """Guards run only on rows that would otherwise import; unmapped stays UNMAPPED_ISIN."""
+def test_validation_error_fires_for_unmapped_row() -> None:
+    """Unmapped rows import like any other, so the guards apply to them too."""
     rows = [_row(isin="UNKNOWN000001", amount=Decimal("-999"))]
     plan = plan_import(rows, [], _EUR_MAP)
-    assert plan.rows[0].status == RowStatus.UNMAPPED_ISIN
+    r = plan.rows[0]
+    assert r.status == RowStatus.VALIDATION_ERROR
+    assert r.proposed_ticker == "UNKNOWN000001"
