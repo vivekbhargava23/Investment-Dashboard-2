@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     catalysts_json_path: Path = Path("data/catalysts.json")
     backups_dir: Path = Path("data/backups")
     import_log_json_path: Path = Path("data/import_log.json")
+    sync_log_json_path: Path = Path("data/sync_log.json")
     fx_cache_dir: Path = Path("data/fx_cache")
 
 
