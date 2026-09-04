@@ -39,6 +39,9 @@ def get_repository() -> TransactionRepository:
     return JsonTransactionRepository(
         Path(settings.portfolio_json_path),
         nav_repo=get_nav_snapshot_repo(),
+        # Used only by the one-shot v2→v3 migration, which backfills the ISIN
+        # column. Reads never derive a ticker from the map (ADR-014 decision 2).
+        isin_map_path=Path(settings.isin_map_json_path),
     )
 
 

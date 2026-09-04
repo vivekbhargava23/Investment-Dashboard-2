@@ -419,3 +419,41 @@ def test_creates_parent_directory(tmp_path):
 
     repo.save_all([tx])
     assert path.exists()
+
+
+def test_load_all_returns_the_stored_ticker_not_the_mapped_one(tmp_path):
+    """ADR-014 decision 2: reads return stored facts; only the write path derives."""
+    isin_map_path = tmp_path / "isin_map.json"
+    isin_map_path.write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "entries": {
+                    "US67066G1040": {
+                        "ticker": "NVDA.DE",
+                        "name": "Nvidia",
+                        "status": "mapped",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    path = tmp_path / "portfolio.json"
+    repo = JsonTransactionRepository(path, isin_map_path=isin_map_path)
+    repo.save_all([
+        Transaction(
+            id="tx1",
+            type=TransactionType.BUY,
+            ticker="NVDA",
+            trade_date=date(2024, 3, 15),
+            shares=Decimal("10.0000"),
+            price_native=Money(amount=Decimal("180.0000"), currency=Currency.EUR),
+            fx_rate_eur=Decimal("1"),
+            isin="US67066G1040",
+            source="scalable_csv",
+        )
+    ])
+
+    assert repo.load_all()[0].ticker == "NVDA"
