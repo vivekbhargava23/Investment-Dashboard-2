@@ -44,6 +44,65 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-04 — TICKET-SYNC-6A
+**Surface:** Claude Code
+**Model:** opus-5
+**Duration:** ~90 min
+**Branch:** ticket-sync-6a-sync-engine-store-port-json
+**PR:** (opened at session end)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- `parse_csv_bytes` (utf-8-sig) is the upload path; `parse_csv` delegates to it. A
+  non-empty `reference` appearing twice is now a `ParseError` — nothing imports.
+- New `SyncStore` port + `JsonSyncStore` adapter: snapshots both data files into
+  `data/backups/sync/<id>/`, restores them byte-for-byte with `os.replace`, clears the
+  NAV cache on restore, keeps the 10 newest, and owns the append-only sync log.
+  Wired as `get_sync_store()`; new `sync_log_json_path` setting.
+- `app/domain/sync_completeness.py` — the three partial-file rules; an empty book is
+  never partial and its `file_start` is logged for the next sync to compare against.
+- `app/services/sync.py` — one session per uploaded file: snapshot before any write
+  (auto-resolve included), analyse → auto-resolve → re-plan, `apply_safe` for rows new
+  by reference, `resolve_conflict` for duplicates, `change_feed_in_session`, and
+  `undo_last` which refuses once the files no longer carry the md5s the session's last
+  entry recorded. `_build_transaction` moved out of the workbench page into the service.
+- `app/domain/sync_tasks.py` — `build_tasks` produces exactly the six design-doc tasks,
+  ordered by euro impact, partial-file alone when the file is partial.
+
+### Files touched
+- `app/adapters/scalable_csv/parser.py` — `parse_csv_bytes`, duplicate-reference guard
+- `app/ports/sync_store.py`, `app/adapters/sync_store/json_store.py` — new port + adapter
+- `app/ports/csv_planner.py` — `ImportPlanner` protocol (injected planner)
+- `app/domain/sync_completeness.py`, `app/domain/sync_tasks.py` — new domain modules
+- `app/services/sync.py` — new service
+- `app/config.py`, `app/ui/wiring.py` — `sync_log_json_path`, `get_sync_store()`
+- `app/ui/pages/import_workbench.py` — imports `build_transaction` from the service
+- `tests/fakes/sync_store.py` + 5 test modules (parser, store, completeness, sync, tasks)
+
+### Tests
+1157 passing → 1208 passing (51 new). Gate clean: pytest, ruff, mypy, lint-imports.
+
+### Decisions made during the session
+- **The planner is injected as a port.** `plan_import` and `ParsedCsvRow` live in
+  `app/adapters`, which `app/services` may not import (`lint-imports` contract 3). The
+  service takes an `ImportPlanner` and passes the parsed rows through opaquely — it
+  never inspects them, so no adapter type leaks into the service signature.
+- **`build_tasks` also takes `feed_states`.** The ticket derives `no_feed` from
+  `feed_state == "unmapped"`, but that state lives on the plan, not on `ReconcileRow`
+  or `FeedCheck` — and both `ignored` and `unmapped` read as `unchecked` in a FeedCheck.
+  Without the map, "Ignore" would not stop the app asking about a holding.
+- A `SyncTask` for a mapped ISIN whose feed returns no closes (`FeedCheck.status ==
+  "no_feed"`) is *not* raised: only `suspicious` is a feed task, per the design doc.
+
+### Out-of-scope items noticed
+- The Import CSV workbench still has its own log file, backup and apply path. SYNC-6B
+  replaces the page and SYNC-7 retires it; nothing was changed there beyond reusing
+  `build_transaction`.
+
+### Tokens used (rough)
+~110k
+
+
 ## 2026-09-04 — TICKET-SYNC-5: reconciliation service (shares per ISIN vs book)
 **Surface:** Claude Code
 **Model:** claude-sonnet-5

@@ -9,6 +9,7 @@ from app.adapters.fx_yfinance import YfinanceLiveFxAdapter
 from app.adapters.isin_map.repo import JsonIsinMapRepository
 from app.adapters.repo_json import JsonNavSnapshotRepository, JsonTransactionRepository
 from app.adapters.repo_json.tax_profile_repo import JsonTaxProfileRepository
+from app.adapters.sync_store.json_store import JsonSyncStore
 from app.adapters.thesis_map.repo import JsonThesisMapRepository
 from app.adapters.ticker_resolver_factory import build_ticker_resolver
 from app.adapters.yfinance_ohlc import YfinanceOhlcAdapter
@@ -22,6 +23,7 @@ from app.ports.market_data import OhlcDataProvider
 from app.ports.nav_repository import NavSnapshotRepository
 from app.ports.price_feed import PriceProvider
 from app.ports.repository import TransactionRepository
+from app.ports.sync_store import SyncStore
 from app.ports.tax_profile_repo import TaxProfileRepository
 from app.ports.thesis_map import ThesisMapRepository
 from app.ports.ticker_resolver import TickerResolver
@@ -102,3 +104,15 @@ def get_catalysts_repo() -> CatalystsRepository:
 @st.cache_resource
 def get_company_provider() -> CompanyDataProvider:
     return build_company_provider()
+
+
+@st.cache_resource
+def get_sync_store() -> SyncStore:
+    settings = get_settings()
+    return JsonSyncStore(
+        portfolio_path=Path(settings.portfolio_json_path),
+        isin_map_path=Path(settings.isin_map_json_path),
+        backups_dir=Path(settings.backups_dir),
+        log_path=Path(settings.sync_log_json_path),
+        nav_repo=get_nav_snapshot_repo(),
+    )

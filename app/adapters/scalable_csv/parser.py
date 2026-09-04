@@ -67,10 +67,21 @@ def parse_csv(path: Path) -> list[ParsedCsvRow]:
     Raises FileNotFoundError if the file does not exist.
     """
     try:
-        with open(path, encoding="utf-8") as f:
-            content = f.read()
+        data = path.read_bytes()
     except FileNotFoundError:
         raise FileNotFoundError(f"CSV file not found: {path}")
+
+    return parse_csv_bytes(data)
+
+
+def parse_csv_bytes(data: bytes) -> list[ParsedCsvRow]:
+    """Parse a Scalable Capital CSV export held in memory (the Sync upload path).
+
+    Raises ParseError on malformed rows and on a non-empty ``reference`` that
+    appears twice — a duplicated reference makes the file unimportable, because
+    the reference is the identity used to decide what is already in the book.
+    """
+    content = data.decode("utf-8-sig")
 
     lines = content.splitlines()
     if not lines:
@@ -78,6 +89,7 @@ def parse_csv(path: Path) -> list[ParsedCsvRow]:
 
     reader = csv.reader(lines, delimiter=";")
     rows: list[ParsedCsvRow] = []
+    seen_references: set[str] = set()
     header_seen = False
 
     for raw_row in reader:
@@ -120,13 +132,19 @@ def parse_csv(path: Path) -> list[ParsedCsvRow]:
         except ValueError as exc:
             raise ParseError(row_number, f"Invalid date '{date_str.strip()}'") from exc
 
+        reference = reference.strip()
+        if reference:
+            if reference in seen_references:
+                raise ParseError(row_number, f"duplicate reference {reference}")
+            seen_references.add(reference)
+
         rows.append(
             ParsedCsvRow(
                 row_number=row_number,
                 date=trade_date,
                 time=time_str.strip(),
                 status=status.strip(),
-                reference=reference.strip(),
+                reference=reference,
                 description=description.strip(),
                 asset_type=asset_type.strip(),
                 type=type_.strip(),

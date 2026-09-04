@@ -6,7 +6,6 @@ import json
 import os
 from dataclasses import replace
 from datetime import datetime
-from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
@@ -16,14 +15,14 @@ from app.adapters.scalable_csv.parser import ParsedCsvRow, parse_csv
 from app.adapters.scalable_csv.planner import plan_import
 from app.domain.csv_import import ImportPlan, PlannedRow, RowStatus
 from app.domain.isin_map import IsinMapDocument, IsinMapping
-from app.domain.models import Transaction, TransactionType
-from app.domain.money import Currency, Money
+from app.domain.models import Transaction
 from app.services.isin_autoresolve import AutoResolveResult, autoresolve_isin
 from app.services.isin_remap import (
     TickerAlreadyMappedError,
     change_feed,
     mapped_owner_of_ticker,
 )
+from app.services.sync import build_transaction as _build_transaction
 from app.ui.backup import write_portfolio_backup as _write_backup
 from app.ui.components.isin_mapper import (
     KIND_LABEL,
@@ -105,46 +104,6 @@ def _append_import_log(log_path: Path, entry: dict[str, object]) -> None:
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(entries, f, indent=2)
     os.replace(tmp, log_path)
-
-
-def _build_transaction(row: PlannedRow) -> Transaction | None:
-    """Build a Transaction from a planned row.
-
-    All Scalable CSV rows are EUR-native: price_native is EUR, fx_rate_eur is 1.
-    """
-    if row.proposed_ticker is None or row.shares is None or row.price is None:
-        return None
-
-    tx_type = (
-        TransactionType.SELL
-        if row.csv_type == "Sell"
-        else TransactionType.BUY
-    )
-
-    notes_parts = [row.description]
-    if row.csv_type == "Sell" and row.tax is not None and row.tax != Decimal("0"):
-        notes_parts.append(f"tax_withheld_eur={row.tax}")
-    notes = "; ".join(notes_parts) or None
-
-    price_native = Money(amount=row.price, currency=Currency.EUR)
-    fees_native: Money | None = (
-        Money(amount=row.fee, currency=Currency.EUR) if row.fee is not None else None
-    )
-
-    return Transaction(
-        id=row.reference,
-        type=tx_type,
-        ticker=row.proposed_ticker,
-        trade_date=row.trade_date,
-        shares=row.shares,
-        price_native=price_native,
-        fees_native=fees_native,
-        fx_rate_eur=Decimal("1"),
-        notes=notes,
-        isin=row.isin or None,
-        csv_reference=row.reference,
-        source="scalable_csv",
-    )
 
 
 def _count_ready(
