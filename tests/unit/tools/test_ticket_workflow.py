@@ -21,6 +21,7 @@ def _ticket_file(
     body: str,
     *,
     status: str | None = None,
+    priority: str = "HIGH",
 ) -> None:
     status_lines = [f"**Status:** {status}"] if status is not None else []
     path = root / "docs" / "TICKETS" / f"{ticket_id}-{slug}.md"
@@ -29,7 +30,7 @@ def _ticket_file(
         "\n".join([
             f"# {ticket_id} \u2014 {title}",
             "",
-            "**Priority:** HIGH",
+            f"**Priority:** {priority}",
             *status_lines,
             "**Recommended model:** Sonnet - test",
             body,
@@ -146,6 +147,90 @@ def test_ranking_flags_blockers_and_prefers_unblockers(tmp_path: Path) -> None:
     assert ranked_ids.index("TICKET-RD1") < ranked_ids.index("TICKET-RD2")
     assert ranked_ids.index("TICKET-RD1") < ranked_ids.index("TICKET-RD6")
     assert ranked_ids.index("TICKET-RD4") < ranked_ids.index("TICKET-RD7")
+
+    # Every startable ticket outranks every blocked one, whatever the priorities.
+    blocked_positions = [
+        index
+        for index, entry in enumerate(_mod.rank_next_tickets(entries))
+        if _mod.blockers_for(entry, by_id)
+    ]
+    startable_positions = [
+        index
+        for index, entry in enumerate(_mod.rank_next_tickets(entries))
+        if not _mod.blockers_for(entry, by_id)
+    ]
+    assert max(startable_positions) < min(blocked_positions)
+
+
+def test_blocked_critical_ranks_below_startable_lower_priority(tmp_path: Path) -> None:
+    """A CRITICAL you cannot start must not sit above a HIGH you can."""
+    _ticket_file(
+        tmp_path, "TICKET-A1", "root", "Root work", "**Depends on:** \u2014",
+        priority="HIGH",
+    )
+    _ticket_file(
+        tmp_path, "TICKET-A2", "gated", "Gated work", "**Depends on:** A1",
+        priority="CRITICAL",
+    )
+    board_items = [
+        _item(301, "TICKET-A2", "Gated work", "Backlog"),
+        _item(302, "TICKET-A1", "Root work", "Backlog"),
+    ]
+    entries = _mod.enrich_missing_dependencies(
+        _mod.build_ticket_entries(board_items, tmp_path), tmp_path
+    )
+
+    ranked_ids = [entry.ticket_id for entry in _mod.rank_next_tickets(entries)]
+
+    assert ranked_ids == ["TICKET-A1", "TICKET-A2"]
+
+
+def test_ready_outranks_backlog_among_startable_tickets(tmp_path: Path) -> None:
+    """Dragging a card to Ready is Vivek's override; it beats computed priority."""
+    _ticket_file(
+        tmp_path, "TICKET-B1", "vetted", "Vetted work", "**Depends on:** \u2014",
+        priority="MEDIUM",
+    )
+    _ticket_file(
+        tmp_path, "TICKET-B2", "urgent", "Urgent work", "**Depends on:** \u2014",
+        priority="CRITICAL",
+    )
+    board_items = [
+        _item(311, "TICKET-B2", "Urgent work", "Backlog"),
+        _item(312, "TICKET-B1", "Vetted work", "Ready"),
+    ]
+    entries = _mod.enrich_missing_dependencies(
+        _mod.build_ticket_entries(board_items, tmp_path), tmp_path
+    )
+
+    ranked_ids = [entry.ticket_id for entry in _mod.rank_next_tickets(entries)]
+
+    assert ranked_ids == ["TICKET-B1", "TICKET-B2"]
+
+
+def test_unblock_score_counts_the_whole_downstream_chain(tmp_path: Path) -> None:
+    """Direct-dependent counting under-scored the root of a dependency chain."""
+    chain = [
+        ("TICKET-S2", "mapping", "Mapping write path", "**Depends on:** \u2014"),
+        ("TICKET-S3", "manage", "Manage rows read-only", "**Depends on:** S2"),
+        ("TICKET-S6A", "engine", "Sync engine", "**Depends on:** S2 + S3"),
+        ("TICKET-S6B", "page", "Sync page", "**Depends on:** S6A"),
+        ("TICKET-S7", "retire", "Retire workbench", "**Depends on:** S6B"),
+    ]
+    for ticket_id, slug, title, body in chain:
+        _ticket_file(tmp_path, ticket_id, slug, title, body)
+    board_items = [
+        _item(400 + offset, ticket_id, title, "Backlog")
+        for offset, (ticket_id, _, title, _) in enumerate(chain)
+    ]
+    entries = _mod.enrich_missing_dependencies(
+        _mod.build_ticket_entries(board_items, tmp_path), tmp_path
+    )
+    by_id = _mod.entry_by_ticket_id(entries)
+
+    assert _mod.unblock_score(by_id["TICKET-S2"], entries) == 4
+    assert _mod.unblock_score(by_id["TICKET-S6A"], entries) == 2
+    assert _mod.unblock_score(by_id["TICKET-S7"], entries) == 0
 
 
 _SYNC_ROW = (

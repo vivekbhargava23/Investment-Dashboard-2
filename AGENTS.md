@@ -83,8 +83,11 @@ model before starting.
 
 The repetitive ritual lives in these entry points:
 
-- `bash tools/next.sh` — prints the ranked Ready/Backlog menu, including model,
-  priority, dependency blockers, and unblock score.
+- `bash tools/next.sh` — prints the ranked Ready/Backlog menu in two sections,
+  **Startable now** and **Blocked**, with model, priority, dependency blockers, and
+  transitive unblock score. Ranking keys, in order: startable before blocked, `Ready`
+  before `Backlog`, priority, how much the ticket unblocks transitively, board position.
+  See "How ticket order is decided" in `docs/METHODOLOGY.md`.
 - `bash tools/start_ticket.sh TICKET-XXX` — reconciles closed `In review` items to
   `Done`, verifies a clean `main`, pulls, creates/reuses the feature branch, marks the
   ticket file `IN_PROGRESS`, and moves the board item to `In progress`. If a blocked
@@ -105,8 +108,13 @@ When Vivek says "implement TICKET-XXX" (or "do", "work on", "start"), that is a
 complete instruction. Do not ask for confirmation between steps.
 
 1. **Resolve the ticket.** If Vivek said `next` or `implement next ticket`, run
-   `bash tools/next.sh` and present its menu. If Vivek gave an explicit ticket ID, skip
-   the menu.
+   `bash tools/next.sh` and present its menu. Present means **reproduce the table** in
+   your reply as a markdown table — the script's stdout is not reliably visible to Vivek,
+   and a prose summary of it is not a menu. Keep the two sections separate and in rank
+   order; the startable section is the only one he can pick from. Show at least the top
+   8 startable rows plus any blocked row needed to make a dependency chain legible, and
+   put your one-line recommendation *after* the table, never instead of it. If Vivek gave
+   an explicit ticket ID, skip the menu.
 2. **Read required files.** Read `docs/METHODOLOGY.md`, `docs/ARCHITECTURE.md`, the
    selected ticket file, and any relevant module `CLAUDE.md` files in full.
 3. **Start the ticket.** Run `bash tools/start_ticket.sh TICKET-XXX`. Stop if it fails.
@@ -122,8 +130,12 @@ complete instruction. Do not ask for confirmation between steps.
 9. **Report and stop.** Print the PR URL, test summary, files changed, and local test
    command. Then stop. The session is done.
 
-For `reorder`, print `https://github.com/users/vivekbhargava23/projects/2` and ask Vivek
-to drag-reorder in the browser, then rerun `next`. Do not programmatically reorder cards.
+For `reorder`, print `https://github.com/users/vivekbhargava23/projects/2`, restate the
+current ranked order so Vivek has something to drag *against*, and ask him to reorder in
+the browser, then rerun `next`. Do not programmatically reorder cards — the board is
+Vivek's surface, and the menu already derives a meaningful order without it. If the board
+stack disagrees with the menu, the menu reflects the dependency graph: reorder the board
+to match, or fix the `**Depends on:**` line that made the menu wrong.
 
 For `drop N`, confirm with Vivek first. On confirmation, close the issue as not planned,
 move the board item to `Done`, update the ticket status decoratively to `CLOSED`, summarize,
@@ -185,4 +197,6 @@ you recommend next. Do not attempt heroic recovery.
 - Do not disable failing tests to make CI pass.
 - Do not push forcefully to a branch with an open PR unless you explicitly say so.
 - Do not treat ticket-file status as authoritative. Board state is authoritative.
+- Do not file a ticket without a `**Depends on:**` line. `none` is a valid answer; a
+  missing line silently corrupts the ordering of every ticket downstream of it.
 - Do not write scripts that mutate board state outside the approved workflow scripts.

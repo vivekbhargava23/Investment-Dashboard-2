@@ -87,6 +87,34 @@ There is no DRAFT status. Tickets are drafted in chat; they only land in `docs/T
 
 The `**Status:**` line in ticket files (e.g. `QUEUED`, `IN_PROGRESS`) is **decorative**. Nothing reads it. Board column is authoritative.
 
+### How ticket order is decided
+
+`tools/next.sh` ranks every open `Ready`/`Backlog` ticket by these keys, in order. The
+same ordering is what the board card stack should reflect, and what the agent presents
+when Vivek asks what to implement next.
+
+1. **Startable before blocked.** A ticket whose `**Depends on:**` tickets are not all
+   merged cannot be started today, so it never outranks one that can — not even a
+   blocked CRITICAL over a startable MEDIUM. The menu prints these as two separate
+   sections; only the first section is pickable.
+2. **`Ready` before `Backlog`.** Dragging a card to `Ready` is Vivek's explicit "this
+   one next", and it overrides the computed keys below.
+3. **Priority.** CRITICAL → HIGH → MEDIUM → LOW.
+4. **How much the ticket unblocks**, counted *transitively* — every open ticket still
+   waiting behind it, not just its immediate dependents. This is what floats the root of
+   a long chain to the top: the first ticket in a five-deep chain scores 4, while the
+   last scores 0.
+5. **Board position**, as the final tiebreak within a band.
+
+Two rules follow from this:
+
+- **Every ticket declares `**Depends on:**`.** Omitting it is what makes an order
+  meaningless — an undeclared dependency reads as "no dependency", so the ticket looks
+  startable when it is not, and whatever it gates gets under-scored.
+- **The board is dragged to match this order, not against it.** When the card stack and
+  the menu disagree, the menu is showing the dependency reality; reorder the board, or
+  fix the `**Depends on:**` line that made the menu wrong.
+
 ---
 
 ## Priority levels
@@ -133,6 +161,8 @@ Each ticket is assigned to exactly one Milestone via the GitHub issue's `milesto
 
 **Status:** QUEUED | IN_PROGRESS | IN_REVIEW | MERGED
 **Priority:** CRITICAL | HIGH | MEDIUM | LOW
+**Recommended model:** Opus | Sonnet | Haiku — <reason>
+**Depends on:** TICKET-XXX, TICKET-YYY | none
 **Estimated session length:** 30 min | 1 hr | 2 hr
 **Drafted by:** Vivek + AI (chat session YYYY-MM-DD)
 **Implemented by:** <agent name> (session YYYY-MM-DD)
@@ -174,6 +204,7 @@ Before a ticket moves from chat draft → filed, walk this list. Each item is a 
 - [ ] **No silent fallback to a default value without surfacing it.** If the form's "FX rate auto-fill" can quietly fall back to `1.0` when yfinance is offline, that is silent corruption waiting to happen. Every fallback path either (a) surfaces a banner the user must acknowledge, or (b) refuses to submit. *Lesson from TICKET-009 (2026-05-04).*
 - [ ] **Test cases include at least one that would catch the real-world failure mode.** "Tests pass" is necessary, not sufficient — a test that asserts the form *constructs a Transaction* says nothing about whether the form *records the right values*. Aim for one acceptance test per spec rule that would observably fail if the rule were violated.
 - [ ] **Ticket file includes `**Milestone:**` field.** `tools/file.sh` extracts it from the body; missing milestone causes a warning (issue filed without milestone).
+- [ ] **Ticket file includes a `**Depends on:**` line, even when the answer is `none`.** This is the only input to ticket ordering — `tools/next.sh` parses it to decide what is startable and to compute how much each ticket unblocks. A ticket drafted without the line is read as having no dependencies, so it can be offered as startable when it is not, and every ticket it gates is under-scored. Name the tickets that must be **merged** before this one can begin, not tickets that merely touch the same files. *Lesson from the SYNC-1..7 chain (2026-09-04):* the chain ordered correctly only because every ticket in it declared its predecessors.
 - [ ] **Re-check open issues.** Scan the GitHub Projects board for open items. If a new ticket resolves a known open question, mention it in the ticket body.
 
 The first two items are about the *spec*; the last three are about the *implementation*. Both can be checked at draft time. None of them require running code.

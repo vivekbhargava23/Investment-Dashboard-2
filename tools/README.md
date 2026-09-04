@@ -21,9 +21,17 @@ bash tools/gate.sh
 
 ### `next.sh`
 
-Prints the ranked Ready/Backlog ticket menu from the GitHub Projects board. The
-menu includes priority, recommended model, dependency blockers, and unblock score.
-Blocked tickets are shown, not hidden.
+Prints the ranked Ready/Backlog ticket menu from the GitHub Projects board, split
+into **Startable now** and **Blocked** sections. Each row carries priority,
+recommended model, dependency blockers, and the transitive unblock score — how many
+open tickets are still waiting behind this one, following the chain all the way down
+rather than counting only immediate dependents.
+
+Ranking keys, in order: startable before blocked, `Ready` before `Backlog`, priority,
+unblock score, board position. Blocked tickets are shown for context, not hidden, but
+they never outrank a startable one. See "How ticket order is decided" in
+`docs/METHODOLOGY.md`; the ordering is only as good as the `**Depends on:**` lines in
+`docs/TICKETS/`.
 
 **Usage:**
 
