@@ -163,7 +163,8 @@ def test_parse_csv_bytes_strips_utf8_bom():
     assert rows[0].date == date(2026, 3, 1)
 
 
-def test_duplicate_reference_raises():
+def test_duplicate_reference_between_two_importable_rows_raises():
+    """Two importable rows under one reference would write one transaction id twice."""
     content = (
         _HEADER
         + "2026-03-01;10:00:00;Executed;REF001;SAP SE;Security;Buy;"
@@ -175,6 +176,52 @@ def test_duplicate_reference_raises():
         parse_csv_bytes(content.encode("utf-8"))
     assert exc_info.value.row_number == 3
     assert "duplicate reference REF001" in str(exc_info.value)
+
+
+def test_corporate_action_legs_may_share_a_reference():
+    """Real Scalable data: a corporate action is a Security leg plus a Cash leg.
+
+    Both carry one reference and neither is imported, so the file is fine. These
+    two rows are copied from a real export (2025-04-25).
+    """
+    content = (
+        _HEADER
+        + '2025-04-25;02:00:00;Executed;"WWUM 00477772743";'
+        '"Apple Short 205,25 $ Turbo Open End HSBC";Security;Corporate action;'
+        "DE000HT41XN9;-26;0,001;-0,026;;;EUR\n"
+        '2025-04-25;02:00:00;Executed;"WWUM 00477772743";'
+        '"Apple Short 205,25 $ Turbo Open End HSBC";Cash;Corporate action;'
+        "DE000HT41XN9;;;0,03;0,00;;EUR\n"
+    )
+
+    rows = parse_csv_bytes(content.encode("utf-8"))
+
+    assert [r.reference for r in rows] == ["WWUM 00477772743"] * 2
+    assert [r.type for r in rows] == ["Corporate action"] * 2
+
+
+def test_a_skipped_row_may_reuse_an_importable_rows_reference():
+    content = (
+        _HEADER
+        + "2026-03-01;10:00:00;Executed;REF001;SAP SE;Security;Buy;"
+        "DE0007164600;10;100,00;-1.000,00;0,99;0,00;EUR\n"
+        "2026-03-01;10:00:00;Executed;REF001;SAP SE;Cash;Corporate action;"
+        "DE0007164600;;;0,03;0,00;;EUR\n"
+    )
+
+    assert len(parse_csv_bytes(content.encode("utf-8"))) == 2
+
+
+def test_cancelled_rows_may_share_a_reference_with_the_executed_one():
+    content = (
+        _HEADER
+        + "2026-03-01;10:00:00;Cancelled;REF001;SAP SE;Security;Buy;"
+        "DE0007164600;10;100,00;-1.000,00;0,99;0,00;EUR\n"
+        "2026-03-01;10:05:00;Executed;REF001;SAP SE;Security;Buy;"
+        "DE0007164600;10;100,00;-1.000,00;0,99;0,00;EUR\n"
+    )
+
+    assert len(parse_csv_bytes(content.encode("utf-8"))) == 2
 
 
 def test_repeated_empty_reference_is_allowed():

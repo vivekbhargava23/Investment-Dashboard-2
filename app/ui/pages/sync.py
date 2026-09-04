@@ -40,6 +40,7 @@ from app.services.sync import (
     start_session,
     undo_last,
 )
+from app.ui.cache_keys import transactions_signature
 from app.ui.components.isin_mapper import (
     KIND_LABEL,
     SHARED_TICKER_HELP,
@@ -624,7 +625,9 @@ def render() -> None:
     _render_summary_card(applied, analysis, rows, first_sync=first_sync)
 
     try:
-        checks = _cached_feed_checks(f"{len(transactions)}:{applied.inserted}")
+        # Keyed on the book itself: the same book must not re-fetch every close
+        # just because this upload inserted a different number of rows.
+        checks = _cached_feed_checks(transactions_signature(transactions))
     except Exception:
         checks = {}
 
