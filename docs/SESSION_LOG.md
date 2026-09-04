@@ -44,6 +44,57 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-04 — TICKET-SYNC-1B: always import executed trades + last-trade valuation
+**Surface:** Claude Code
+**Model:** opus-5
+**Branch:** ticket-sync-1b-always-import-executed-trades-placeholder
+**Status at session end:** IN_REVIEW
+
+### What got done
+- `plan_import` no longer emits `UNMAPPED_ISIN` / `IGNORED_ISIN`. Every executed
+  Buy / Sell / Savings-plan row is planned for import; without a `mapped` entry
+  the ISIN itself becomes the placeholder ticker. `PlannedRow` gained
+  `feed_state` (`mapped` / `unmapped` / `ignored`, display only). A row with an
+  empty ISIN and an in-scope type is now a `VALIDATION_ERROR` ("row has no ISIN").
+- Import workbench: the two dead statuses left `_BLOCKED_STATUSES`, the filter
+  chips and `_STATUS_COLORS`; `_SILENT_STATUSES` / `_surfaced_rows` went with
+  them (nothing is silent any more). The ticker column marks placeholders
+  `(no feed)`, and the manual-mapping panel keys off `feed_state == "unmapped"`.
+  Saving a mapping (manual or auto-resolved) now calls `rewrite_ticker_for_isin`
+  so already-imported placeholder rows follow the new feed.
+- `LivePosition` gained `price_source: "live" | "last_trade"`. When
+  `get_current_prices` returns no entry for a ticker, `compute_live_positions`
+  values the position at its latest open lot's `price_native` × that lot's
+  `fx_rate_eur` instead of leaving it stale, so it counts towards portfolio
+  totals. The Overview status line appends "n position(s) valued at last trade
+  price" and the positions table carries a greyed `Price src` column.
+
+### Files touched
+- `app/domain/csv_import.py` — `FeedState`, `PlannedRow.feed_state`
+- `app/adapters/scalable_csv/planner.py` — `_resolve_ticker`, no more skip-on-feed
+- `app/ui/pages/import_workbench.py` — feed-less display + mapping write path
+- `app/domain/positions.py` — `LivePosition.price_source`
+- `app/services/valuation.py` — `_last_trade_price` fallback
+- `app/ui/components/positions_table.py`, `app/ui/pages/overview.py` — the label
+- 4 test files — 1097 → 1104 passing
+
+### Decisions made during the session
+- The spec asked for the price cell to read `€x · last trade`. `Price (€)` is a
+  `st.column_config.NumberColumn`, so text in it would have cost client-side
+  numeric sorting on a money column. The caveat went into its own greyed
+  `Price src` column instead.
+- Applied `rewrite_ticker_for_isin` to the auto-resolve save path too, not only
+  the manual Save the ticket names — auto-resolve is equally a mapping change,
+  and ADR-014 rule 2 admits no exception. SYNC-2 replaces both with `change_feed`.
+- The last-trade fallback covers a missing price only. A position whose price is
+  known but whose FX rate is unavailable stays stale, as before.
+
+### Out-of-scope items noticed
+- `RowStatus.UNMAPPED_ISIN` / `IGNORED_ISIN` are now unreachable but kept, with a
+  test asserting the planner never emits them. TICKET-SYNC-7 deletes them.
+- No screenshots this session — Vivek explicitly waived the visual-verification
+  step for this ticket.
+
 ## 2026-09-04 — TICKET-SYNC-1: stamp ISIN on import + repair backfill
 **Surface:** Claude Code
 **Model:** sonnet-5
