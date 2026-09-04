@@ -3,6 +3,7 @@
 **Priority:** MEDIUM
 **Estimated session length:** 2 hr
 **Recommended model:** Sonnet — a heuristic + UI pre-selection; bounded, well-tested.
+**Depends on:** none.
 **Drafted by:** Vivek + Claude Code (session 2026-06-05)
 **Implemented by:** TBD
 **Milestone:** Investment Panel

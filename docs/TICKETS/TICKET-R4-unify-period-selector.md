@@ -2,6 +2,8 @@
 
 **Status:** QUEUED
 **Priority:** MEDIUM
+**Recommended model:** Sonnet — one shared selector routed into an existing page; bounded UI change with clear tests.
+**Depends on:** none.
 **Estimated session length:** 45 min
 **Drafted by:** Vivek + Claude Chat (2026-05-31)
 **Implemented by:** TBD

@@ -49,6 +49,7 @@ class TicketEntry:
     board_index: int
     ticket_file: Path | None = None
     issue_state: str | None = None
+    board_item_id: str | None = None
 
 
 def repo_root() -> Path:
@@ -214,6 +215,7 @@ def build_ticket_entries(board_items: Sequence[dict[str, Any]], root: Path) -> l
                 board_index=index,
                 ticket_file=ticket_file,
                 issue_state=content.get("state"),
+                board_item_id=str(item.get("id")) if item.get("id") else None,
             )
         )
     return entries
@@ -370,14 +372,39 @@ def blockers_for(entry: TicketEntry, entries_by_id: dict[str, TicketEntry]) -> t
     return tuple(blockers)
 
 
+def direct_dependents(
+    entry: TicketEntry, entries: Sequence[TicketEntry]
+) -> list[TicketEntry]:
+    """Open tickets that name `entry` in their own `**Depends on:**` line."""
+    return [
+        downstream
+        for downstream in entries
+        if downstream.status in NEXT_STATUSES
+        and downstream.issue_state != "CLOSED"
+        and downstream.ticket_id != entry.ticket_id
+        and entry.ticket_id in downstream.dependencies
+    ]
+
+
 def unblock_score(entry: TicketEntry, entries: Sequence[TicketEntry]) -> int:
-    score = 0
-    for downstream in entries:
-        if downstream.status != "Backlog" or downstream.ticket_id == entry.ticket_id:
-            continue
-        if entry.ticket_id in downstream.dependencies:
-            score += 1
-    return score
+    """How many open tickets this one frees up, transitively.
+
+    Counting only direct dependents under-scores the root of a chain: SYNC-2 gates
+    SYNC-3, which gates SYNC-6A → SYNC-6B → SYNC-7, so a direct-only count reports 2
+    where the real reach is 5. The menu ranks on this number, so it has to mean
+    "everything still waiting behind me", not "everything one hop behind me".
+    """
+    seen: set[str] = set()
+    frontier = [entry]
+    while frontier:
+        current = frontier.pop()
+        for downstream in direct_dependents(current, entries):
+            # The guard also breaks cycles, should a ticket pair ever declare one.
+            if downstream.ticket_id in seen:
+                continue
+            seen.add(downstream.ticket_id)
+            frontier.append(downstream)
+    return len(seen)
 
 
 def rank_next_tickets(entries: Sequence[TicketEntry]) -> list[TicketEntry]:
@@ -388,12 +415,17 @@ def rank_next_tickets(entries: Sequence[TicketEntry]) -> list[TicketEntry]:
         if entry.status in NEXT_STATUSES and entry.issue_state != "CLOSED"
     ]
 
-    def sort_key(entry: TicketEntry) -> tuple[int, int, int, int]:
+    def sort_key(entry: TicketEntry) -> tuple[int, int, int, int, int]:
         blockers = blockers_for(entry, entries_by_id)
         return (
-            PRIORITY_ORDER.get(entry.priority, 99),
+            # Startability outranks everything. A blocked CRITICAL cannot be started at
+            # all, so listing it above a ready HIGH makes the order meaningless.
             1 if blockers else 0,
-            -unblock_score(entry, entries) if not blockers else 0,
+            # Vivek drags a card to Ready to say "this one next"; that hand-vetted
+            # signal beats the computed priority below it.
+            0 if entry.status == "Ready" else 1,
+            PRIORITY_ORDER.get(entry.priority, 99),
+            -unblock_score(entry, entries),
             entry.board_index,
         )
 
@@ -493,19 +525,37 @@ def print_next_menu(entries: Sequence[TicketEntry]) -> None:
         )
         return
 
-    rows = [
-        menu_row(index, entry, entries, entries_by_id)
-        for index, entry in enumerate(ranked, start=1)
-    ]
-    blocked = sum(1 for entry in ranked if blockers_for(entry, entries_by_id))
+    startable = [entry for entry in ranked if not blockers_for(entry, entries_by_id)]
+    blocked = [entry for entry in ranked if blockers_for(entry, entries_by_id)]
+    width = shutil.get_terminal_size((120, 24)).columns
+
     print(
         f"Up next — {len(ranked)} tickets "
-        f"({len(ranked) - blocked} unblocked, {blocked} blocked):"
+        f"({len(startable)} startable, {len(blocked)} blocked):"
     )
+
+    # Rank position is continuous across both sections so "row 9" is unambiguous, but
+    # the sections stay separate: nothing under "Blocked" can be started today.
+    numbered = list(enumerate(ranked, start=1))
+    for heading, section in (
+        ("Startable now — pick from here, top is the recommendation", startable),
+        ("Blocked — shown for context only, dependencies listed", blocked),
+    ):
+        if not section:
+            continue
+        section_ids = {member.ticket_id for member in section}
+        rows = [
+            menu_row(index, entry, entries, entries_by_id)
+            for index, entry in numbered
+            if entry.ticket_id in section_ids
+        ]
+        print("")
+        print(heading)
+        for line in format_menu_table(rows, width):
+            print(line)
+
     print("")
-    for line in format_menu_table(rows, shutil.get_terminal_size((120, 24)).columns):
-        print(line)
-    print("")
+    print("Order = startable first, then priority, then how much each ticket unblocks.")
     print("Reply with:")
     print("  implement TICKET-XXX   start a ticket")
     print("  reorder                open the board and drag-reorder, then rerun `next`")
@@ -513,9 +563,76 @@ def print_next_menu(entries: Sequence[TicketEntry]) -> None:
     print("  cancel                 do nothing")
     print("")
     print(
-        "Blocked tickets are shown intentionally. If you explicitly start one, "
-        "start_ticket warns first."
+        "Drag the board to match this order so the card stack and the menu agree; "
+        "board position is the final tiebreak within a band."
     )
+
+
+def move_board_item_after(
+    project_node_id: str, item_id: str, after_id: str | None
+) -> None:
+    """Place one card directly after another (or at the top when after_id is None)."""
+    mutation = """
+    mutation($project: ID!, $item: ID!, $after: ID) {
+      updateProjectV2ItemPosition(
+        input: {projectId: $project, itemId: $item, afterId: $after}
+      ) { clientMutationId }
+    }
+    """
+    command = [
+        "gh", "api", "graphql",
+        "-f", f"query={mutation}",
+        "-F", f"project={project_node_id}",
+        "-F", f"item={item_id}",
+    ]
+    if after_id is not None:
+        command += ["-F", f"after={after_id}"]
+    run(command, capture=True)
+
+
+def reorder_board(entries: Sequence[TicketEntry], *, dry_run: bool = False) -> int:
+    """Drag the board card stack into the same order the `next` menu ranks.
+
+    The menu already derives a meaningful order from the dependency graph; this makes
+    the board agree with it so the two surfaces never tell different stories. Only
+    Ready/Backlog cards move — In progress, In review and Done keep their positions.
+    """
+    ranked = rank_next_tickets(entries)
+    movable = [entry for entry in ranked if entry.board_item_id]
+    skipped = [entry for entry in ranked if not entry.board_item_id]
+
+    if not movable:
+        print("No board cards to reorder.")
+        return 0
+
+    current = [entry.ticket_id for entry in sorted(movable, key=lambda e: e.board_index)]
+    target = [entry.ticket_id for entry in movable]
+    if current == target:
+        print(f"Board already matches the ranked order ({len(movable)} cards).")
+        return 0
+
+    print(f"Reordering {len(movable)} Ready/Backlog cards to match the ranked order:")
+    for position, entry in enumerate(movable, start=1):
+        print(f"  {position:>3}  {compact_ticket_id(entry.ticket_id)}")
+    if dry_run:
+        print("")
+        print("Dry run — nothing moved.")
+        return 0
+
+    node_id = project_id()
+    # Walk top to bottom, pinning each card after the one already placed above it, so a
+    # partial failure leaves a correctly ordered prefix rather than a shuffled board.
+    after_id: str | None = None
+    for entry in movable:
+        assert entry.board_item_id is not None
+        move_board_item_after(node_id, entry.board_item_id, after_id)
+        after_id = entry.board_item_id
+
+    print("")
+    print(f"Board reordered: {len(movable)} cards now match `next`.")
+    for entry in skipped:
+        print(f"Skipped {compact_ticket_id(entry.ticket_id)}: no board card id.")
+    return 0
 
 
 def project_id() -> str:
@@ -806,6 +923,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     subparsers.add_parser("next")
     subparsers.add_parser("doctor")
 
+    reorder_parser = subparsers.add_parser("reorder")
+    reorder_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the target order without moving any card",
+    )
+
     start_parser = subparsers.add_parser("start")
     start_parser.add_argument("ticket")
 
@@ -820,6 +944,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             print_next_menu(load_entries(root))
         elif args.command == "doctor":
             return doctor(root)
+        elif args.command == "reorder":
+            return reorder_board(load_entries(root), dry_run=args.dry_run)
         elif args.command == "start":
             start_ticket(args.ticket, root)
         elif args.command == "finish":

@@ -21,6 +21,7 @@ def _ticket_file(
     body: str,
     *,
     status: str | None = None,
+    priority: str = "HIGH",
 ) -> None:
     status_lines = [f"**Status:** {status}"] if status is not None else []
     path = root / "docs" / "TICKETS" / f"{ticket_id}-{slug}.md"
@@ -29,7 +30,7 @@ def _ticket_file(
         "\n".join([
             f"# {ticket_id} \u2014 {title}",
             "",
-            "**Priority:** HIGH",
+            f"**Priority:** {priority}",
             *status_lines,
             "**Recommended model:** Sonnet - test",
             body,
@@ -147,6 +148,90 @@ def test_ranking_flags_blockers_and_prefers_unblockers(tmp_path: Path) -> None:
     assert ranked_ids.index("TICKET-RD1") < ranked_ids.index("TICKET-RD6")
     assert ranked_ids.index("TICKET-RD4") < ranked_ids.index("TICKET-RD7")
 
+    # Every startable ticket outranks every blocked one, whatever the priorities.
+    blocked_positions = [
+        index
+        for index, entry in enumerate(_mod.rank_next_tickets(entries))
+        if _mod.blockers_for(entry, by_id)
+    ]
+    startable_positions = [
+        index
+        for index, entry in enumerate(_mod.rank_next_tickets(entries))
+        if not _mod.blockers_for(entry, by_id)
+    ]
+    assert max(startable_positions) < min(blocked_positions)
+
+
+def test_blocked_critical_ranks_below_startable_lower_priority(tmp_path: Path) -> None:
+    """A CRITICAL you cannot start must not sit above a HIGH you can."""
+    _ticket_file(
+        tmp_path, "TICKET-A1", "root", "Root work", "**Depends on:** \u2014",
+        priority="HIGH",
+    )
+    _ticket_file(
+        tmp_path, "TICKET-A2", "gated", "Gated work", "**Depends on:** A1",
+        priority="CRITICAL",
+    )
+    board_items = [
+        _item(301, "TICKET-A2", "Gated work", "Backlog"),
+        _item(302, "TICKET-A1", "Root work", "Backlog"),
+    ]
+    entries = _mod.enrich_missing_dependencies(
+        _mod.build_ticket_entries(board_items, tmp_path), tmp_path
+    )
+
+    ranked_ids = [entry.ticket_id for entry in _mod.rank_next_tickets(entries)]
+
+    assert ranked_ids == ["TICKET-A1", "TICKET-A2"]
+
+
+def test_ready_outranks_backlog_among_startable_tickets(tmp_path: Path) -> None:
+    """Dragging a card to Ready is Vivek's override; it beats computed priority."""
+    _ticket_file(
+        tmp_path, "TICKET-B1", "vetted", "Vetted work", "**Depends on:** \u2014",
+        priority="MEDIUM",
+    )
+    _ticket_file(
+        tmp_path, "TICKET-B2", "urgent", "Urgent work", "**Depends on:** \u2014",
+        priority="CRITICAL",
+    )
+    board_items = [
+        _item(311, "TICKET-B2", "Urgent work", "Backlog"),
+        _item(312, "TICKET-B1", "Vetted work", "Ready"),
+    ]
+    entries = _mod.enrich_missing_dependencies(
+        _mod.build_ticket_entries(board_items, tmp_path), tmp_path
+    )
+
+    ranked_ids = [entry.ticket_id for entry in _mod.rank_next_tickets(entries)]
+
+    assert ranked_ids == ["TICKET-B1", "TICKET-B2"]
+
+
+def test_unblock_score_counts_the_whole_downstream_chain(tmp_path: Path) -> None:
+    """Direct-dependent counting under-scored the root of a dependency chain."""
+    chain = [
+        ("TICKET-S2", "mapping", "Mapping write path", "**Depends on:** \u2014"),
+        ("TICKET-S3", "manage", "Manage rows read-only", "**Depends on:** S2"),
+        ("TICKET-S6A", "engine", "Sync engine", "**Depends on:** S2 + S3"),
+        ("TICKET-S6B", "page", "Sync page", "**Depends on:** S6A"),
+        ("TICKET-S7", "retire", "Retire workbench", "**Depends on:** S6B"),
+    ]
+    for ticket_id, slug, title, body in chain:
+        _ticket_file(tmp_path, ticket_id, slug, title, body)
+    board_items = [
+        _item(400 + offset, ticket_id, title, "Backlog")
+        for offset, (ticket_id, _, title, _) in enumerate(chain)
+    ]
+    entries = _mod.enrich_missing_dependencies(
+        _mod.build_ticket_entries(board_items, tmp_path), tmp_path
+    )
+    by_id = _mod.entry_by_ticket_id(entries)
+
+    assert _mod.unblock_score(by_id["TICKET-S2"], entries) == 4
+    assert _mod.unblock_score(by_id["TICKET-S6A"], entries) == 2
+    assert _mod.unblock_score(by_id["TICKET-S7"], entries) == 0
+
 
 _SYNC_ROW = (
     "1",
@@ -187,3 +272,88 @@ def test_menu_table_keeps_title_readable_on_narrow_terminals() -> None:
     lines = _mod.format_menu_table([_SYNC_ROW], 40)
 
     assert "Stamp" in lines[2]
+
+
+def _reorder_fixture(tmp_path: Path) -> list:
+    """A board whose card stack is deliberately in the wrong order."""
+    tickets = [
+        ("TICKET-C1", "root", "Root work", "**Depends on:** \u2014", "HIGH"),
+        ("TICKET-C2", "gated", "Gated work", "**Depends on:** C1", "CRITICAL"),
+        ("TICKET-C3", "loose", "Loose work", "**Depends on:** \u2014", "MEDIUM"),
+    ]
+    for ticket_id, slug, title, body, priority in tickets:
+        _ticket_file(tmp_path, ticket_id, slug, title, body, priority=priority)
+    # Board order: the blocked CRITICAL sits on top, which is what we are fixing.
+    board_items = [
+        dict(_item(501, "TICKET-C2", "Gated work", "Backlog"), id="PVTI_c2"),
+        dict(_item(502, "TICKET-C3", "Loose work", "Backlog"), id="PVTI_c3"),
+        dict(_item(503, "TICKET-C1", "Root work", "Backlog"), id="PVTI_c1"),
+    ]
+    return _mod.enrich_missing_dependencies(
+        _mod.build_ticket_entries(board_items, tmp_path), tmp_path
+    )
+
+
+def test_build_ticket_entries_captures_board_item_id(tmp_path: Path) -> None:
+    entries = _reorder_fixture(tmp_path)
+    by_id = _mod.entry_by_ticket_id(entries)
+
+    assert by_id["TICKET-C1"].board_item_id == "PVTI_c1"
+
+
+def test_reorder_dry_run_reports_target_order_without_moving(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    def _fail(*args: object, **kwargs: object) -> None:
+        raise AssertionError("dry run must not touch the board")
+
+    monkeypatch.setattr(_mod, "move_board_item_after", _fail)
+    monkeypatch.setattr(_mod, "project_id", _fail)
+
+    assert _mod.reorder_board(_reorder_fixture(tmp_path), dry_run=True) == 0
+
+    out = capsys.readouterr().out
+    assert out.index("C1") < out.index("C3") < out.index("C2")
+    assert "Dry run" in out
+
+
+def test_reorder_pins_each_card_after_the_previous_one(
+    tmp_path: Path, monkeypatch
+) -> None:
+    moves: list[tuple[str, str | None]] = []
+    monkeypatch.setattr(_mod, "project_id", lambda: "PVT_board")
+    monkeypatch.setattr(
+        _mod,
+        "move_board_item_after",
+        lambda project, item, after: moves.append((item, after)),
+    )
+
+    assert _mod.reorder_board(_reorder_fixture(tmp_path)) == 0
+
+    # Startable HIGH, then startable MEDIUM, then the blocked CRITICAL — each one
+    # anchored to the card placed immediately above it.
+    assert moves == [
+        ("PVTI_c1", None),
+        ("PVTI_c3", "PVTI_c1"),
+        ("PVTI_c2", "PVTI_c3"),
+    ]
+
+
+def test_reorder_is_a_noop_when_the_board_already_matches(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    def _fail(*args: object, **kwargs: object) -> None:
+        raise AssertionError("a matching board must not be touched")
+
+    monkeypatch.setattr(_mod, "move_board_item_after", _fail)
+    monkeypatch.setattr(_mod, "project_id", _fail)
+    entries = _reorder_fixture(tmp_path)
+    ranked = _mod.rank_next_tickets(entries)
+    # Rebuild with the board already in ranked order.
+    ordered = [
+        entry.__class__(**{**entry.__dict__, "board_index": index})
+        for index, entry in enumerate(ranked)
+    ]
+
+    assert _mod.reorder_board(ordered) == 0
+    assert "already matches" in capsys.readouterr().out

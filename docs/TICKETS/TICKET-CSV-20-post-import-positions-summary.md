@@ -3,6 +3,7 @@
 **Priority:** MEDIUM
 **Estimated session length:** 1.5 hr
 **Recommended model:** Sonnet — read-only summary view built from existing services.
+**Depends on:** none.
 **Drafted by:** Vivek + Claude Code (session 2026-06-05)
 **Implemented by:** TBD
 **Milestone:** Investment Panel

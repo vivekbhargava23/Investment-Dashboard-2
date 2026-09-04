@@ -21,14 +21,40 @@ bash tools/gate.sh
 
 ### `next.sh`
 
-Prints the ranked Ready/Backlog ticket menu from the GitHub Projects board. The
-menu includes priority, recommended model, dependency blockers, and unblock score.
-Blocked tickets are shown, not hidden.
+Prints the ranked Ready/Backlog ticket menu from the GitHub Projects board, split
+into **Startable now** and **Blocked** sections. Each row carries priority,
+recommended model, dependency blockers, and the transitive unblock score — how many
+open tickets are still waiting behind this one, following the chain all the way down
+rather than counting only immediate dependents.
+
+Ranking keys, in order: startable before blocked, `Ready` before `Backlog`, priority,
+unblock score, board position. Blocked tickets are shown for context, not hidden, but
+they never outrank a startable one. See "How ticket order is decided" in
+`docs/METHODOLOGY.md`; the ordering is only as good as the `**Depends on:**` lines in
+`docs/TICKETS/`.
 
 **Usage:**
 
 ```bash
 bash tools/next.sh
+```
+
+### `reorder.sh`
+
+Moves the `Ready`/`Backlog` cards on the project board into the same order `next.sh`
+ranks, so the board and the menu never disagree. Cards in `In progress`, `In review`
+and `Done` are left alone. Each card is pinned directly after the one placed above it,
+so a partial failure leaves a correctly ordered prefix rather than a shuffled board.
+
+`tools/file.sh` calls this after filing new tickets: its own priority-band placement
+cannot see the `**Depends on:**` graph, so a blocked CRITICAL would otherwise land on
+top of the stack.
+
+**Usage:**
+
+```bash
+bash tools/reorder.sh            # move the cards
+bash tools/reorder.sh --dry-run  # print the target order, move nothing
 ```
 
 ### `start_ticket.sh`

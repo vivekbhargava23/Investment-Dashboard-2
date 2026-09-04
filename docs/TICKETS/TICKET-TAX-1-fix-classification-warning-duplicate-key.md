@@ -3,6 +3,7 @@
 **Priority:** HIGH
 **Estimated session length:** 45 min
 **Recommended model:** Sonnet — two UI pages, one cached-helper change, plus cache-key reasoning. Originally Haiku for Part A alone; Part B (added 2026-06-05) widens scope past a single-file mechanical fix.
+**Depends on:** none.
 **Drafted by:** Vivek + Claude Chat (2026-06-05); Part B added by Vivek + Claude Code (2026-06-05)
 **Implemented by:** TBD
 **Milestone:** Investment Panel

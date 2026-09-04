@@ -43,7 +43,8 @@ before editing. These files contain module-specific constraints.
 | Merges the PR | Writes the tests |
 | Drafts ADRs in chat | Runs tests and linters |
 | Approves architectural changes | Commits with conventional commit messages |
-| Drags cards on the project board | Pushes the branch |
+| Drags cards when he wants to override | Pushes the branch |
+| | Keeps board order ranked via `tools/reorder.sh` |
 | | Opens the PR via `gh pr create` |
 | | Moves board item Status values via scripts |
 
@@ -83,8 +84,11 @@ model before starting.
 
 The repetitive ritual lives in these entry points:
 
-- `bash tools/next.sh` — prints the ranked Ready/Backlog menu, including model,
-  priority, dependency blockers, and unblock score.
+- `bash tools/next.sh` — prints the ranked Ready/Backlog menu in two sections,
+  **Startable now** and **Blocked**, with model, priority, dependency blockers, and
+  transitive unblock score. Ranking keys, in order: startable before blocked, `Ready`
+  before `Backlog`, priority, how much the ticket unblocks transitively, board position.
+  See "How ticket order is decided" in `docs/METHODOLOGY.md`.
 - `bash tools/start_ticket.sh TICKET-XXX` — reconciles closed `In review` items to
   `Done`, verifies a clean `main`, pulls, creates/reuses the feature branch, marks the
   ticket file `IN_PROGRESS`, and moves the board item to `In progress`. If a blocked
@@ -93,6 +97,10 @@ The repetitive ritual lives in these entry points:
   `ruff check .`, `mypy app/`, and `lint-imports`, stopping at the first failure.
 - `bash tools/finish_ticket.sh TICKET-XXX` — reruns the gate, pushes the current branch,
   moves the board item to `In review`, and opens the PR with `Closes #N` in the body.
+- `bash tools/reorder.sh` — moves the Ready/Backlog board cards into the order
+  `next.sh` ranks, so the board and the menu never tell different stories. `--dry-run`
+  prints the target order without touching anything. `tools/file.sh` calls it after
+  filing, so newly filed tickets land in the right place.
 - `bash tools/doctor.sh` — non-mutating preflight diagnostics for local state, retired
   files, board sanity, and dependency blockers.
 
@@ -105,8 +113,13 @@ When Vivek says "implement TICKET-XXX" (or "do", "work on", "start"), that is a
 complete instruction. Do not ask for confirmation between steps.
 
 1. **Resolve the ticket.** If Vivek said `next` or `implement next ticket`, run
-   `bash tools/next.sh` and present its menu. If Vivek gave an explicit ticket ID, skip
-   the menu.
+   `bash tools/next.sh` and present its menu. Present means **reproduce the table** in
+   your reply as a markdown table — the script's stdout is not reliably visible to Vivek,
+   and a prose summary of it is not a menu. Keep the two sections separate and in rank
+   order; the startable section is the only one he can pick from. Show at least the top
+   8 startable rows plus any blocked row needed to make a dependency chain legible, and
+   put your one-line recommendation *after* the table, never instead of it. If Vivek gave
+   an explicit ticket ID, skip the menu.
 2. **Read required files.** Read `docs/METHODOLOGY.md`, `docs/ARCHITECTURE.md`, the
    selected ticket file, and any relevant module `CLAUDE.md` files in full.
 3. **Start the ticket.** Run `bash tools/start_ticket.sh TICKET-XXX`. Stop if it fails.
@@ -122,8 +135,12 @@ complete instruction. Do not ask for confirmation between steps.
 9. **Report and stop.** Print the PR URL, test summary, files changed, and local test
    command. Then stop. The session is done.
 
-For `reorder`, print `https://github.com/users/vivekbhargava23/projects/2` and ask Vivek
-to drag-reorder in the browser, then rerun `next`. Do not programmatically reorder cards.
+For `reorder`, run `bash tools/reorder.sh`. It drags the Ready/Backlog card stack into
+the same order `next.sh` ranks, and leaves In progress / In review / Done cards alone.
+Use `--dry-run` first if you want to show Vivek the target order before moving anything.
+This replaces the old "ask Vivek to drag cards in the browser" step — he asked for the
+board to be organised automatically on 2026-09-04. He can still drag freely afterwards;
+the next `reorder` run simply re-derives the ranked order.
 
 For `drop N`, confirm with Vivek first. On confirmation, close the issue as not planned,
 move the board item to `Done`, update the ticket status decoratively to `CLOSED`, summarize,
@@ -185,4 +202,8 @@ you recommend next. Do not attempt heroic recovery.
 - Do not disable failing tests to make CI pass.
 - Do not push forcefully to a branch with an open PR unless you explicitly say so.
 - Do not treat ticket-file status as authoritative. Board state is authoritative.
+- Do not file a ticket without a `**Depends on:**` line. `none` is a valid answer; a
+  missing line silently corrupts the ordering of every ticket downstream of it.
 - Do not write scripts that mutate board state outside the approved workflow scripts.
+  `tools/reorder.sh` is one of the approved scripts; card ordering goes through it, never
+  through ad-hoc `gh api graphql` calls.
