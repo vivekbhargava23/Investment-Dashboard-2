@@ -44,6 +44,37 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-04 — TICKET-SYNC-4: historical price-feed verification
+**Surface:** Codex
+**Model:** GPT-5
+**Branch:** ticket-sync-4-feed-verification-does-the-mapped
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added the immutable `FeedCheck` domain result and pure deviation evaluator, including
+  median/mean/single-sample central values and the fixed 15% suspicious threshold.
+- Added a stateless feed-check service that groups Scalable transactions by ISIN, selects
+  the latest three deterministically, resolves mapped tickers, converts historical closes
+  to EUR, and isolates unavailable price or FX observations per trade.
+- Covered EUR and converted USD feeds, partial/all feed failures, unmapped instruments,
+  last-three selection, and every domain status/calculation rule.
+
+### Files touched
+- `app/domain/feed_check.py` — immutable result model and pure evaluation
+- `app/services/feed_check.py` — price/FX port orchestration by ISIN
+- `tests/unit/domain/test_feed_check.py` — evaluator status and central-value tests
+- `tests/unit/services/test_feed_check.py` — service selection, conversion, and failure tests
+
+### Tests
+12 focused tests passed. Full gate: 1,151 passed, 97 skipped; Ruff, mypy, and all
+import-linter contracts passed.
+
+### Decisions made during the session
+- No architectural decisions made; implementation follows the approved Sync design.
+
+### Out-of-scope items noticed
+- None.
+
 ## 2026-09-04 — TICKET-SYNC-3: Scalable rows read-only except Notes
 **Surface:** Codex
 **Model:** GPT-5

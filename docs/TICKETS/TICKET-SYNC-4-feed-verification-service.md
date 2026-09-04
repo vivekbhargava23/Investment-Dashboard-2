@@ -1,6 +1,7 @@
 # TICKET-SYNC-4 — Feed verification: does the mapped ticker price what Scalable charged?
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Investment Panel
 **Recommended model:** Sonnet — pure domain function + one service over existing ports, fully specified.
 **Estimated session length:** 1.5 hr
