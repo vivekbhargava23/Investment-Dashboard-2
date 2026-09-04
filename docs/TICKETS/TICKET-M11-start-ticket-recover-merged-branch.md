@@ -1,6 +1,7 @@
-# TICKET-M11 — Start the next ticket from a merged feature branch
+# TICKET-M11 — Workflow handoff hardening and Done-ticket archive
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Investment Panel
 **Recommended model:** Sonnet — bounded workflow logic with subprocess-facing regression tests.
 **Estimated session length:** 1 hr
@@ -35,6 +36,17 @@ documented normal end state incompatible with starting the next ticket.
   refusal, and unmerged/PR-less branch refusal.
 - Update `AGENTS.md`, `tools/README.md`, and `docs/VIVEK.md` so the automatic handoff and
   its refusal cases are documented consistently.
+- Make GitHub rate limiting non-destructive: skip the `In review` -> `Done` reconcile with
+  a warning, and turn a throttled `In progress` board move into an explicit resumable
+  message rather than a half-started ticket.
+- Add `tools/archive.sh` (`archive` subcommand) moving board-`Done` ticket specs into
+  `docs/TICKETS/DONE/` with `git mv`, plus `--dry-run`. Make every ticket lookup glob
+  `docs/TICKETS` recursively first, so archiving can never hide a ticket from the
+  workflow. Surface pending archives in `doctor`.
+- Close the instruction gaps that let the previous session improvise: hard rules and a
+  session preflight at the top of `AGENTS.md`, stop conditions for script failure and
+  branch refusal, and explicit bans on self-filed tickets and blind retries of
+  board-mutating scripts.
 
 ## Acceptance criteria
 
@@ -45,6 +57,11 @@ documented normal end state incompatible with starting the next ticket.
 - [ ] Starting from an open, unmerged, or PR-less different-ticket branch changes
       nothing and explains why.
 - [ ] Starting the same ticket from its existing branch still reuses that branch.
+- [ ] A rate-limited board move leaves the branch usable and names the resumable rerun.
+- [ ] `bash tools/archive.sh` moves only board-`Done` specs, is idempotent, and a ticket
+      still resolves by ID once archived.
+- [ ] `AGENTS.md` states, before any other section, that Vivek picks tickets and that
+      stopping is a successful outcome.
 - [ ] Workflow documentation matches the implemented behavior.
 - [ ] `bash tools/gate.sh` passes.
 

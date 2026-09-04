@@ -19,6 +19,10 @@ PROJECT_OWNER = "@me"
 ACTIVE_STATUSES = {"Ready", "Backlog", "In progress", "In review"}
 NEXT_STATUSES = {"Ready", "Backlog"}
 DONE_STATUSES = {"Done"}
+
+# Merged ticket specs are archived here. Every lookup globs docs/TICKETS recursively,
+# so a ticket stays findable by ID whether it sits at the top level or under DONE/.
+ARCHIVE_DIRNAME = "DONE"
 PRIORITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
 # The board is the source of truth and keeps growing; every closed ticket stays on it.
@@ -158,9 +162,17 @@ def _title_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", value.lower())
 
 
+def tickets_dir(root: Path) -> Path:
+    return root / "docs" / "TICKETS"
+
+
+def ticket_file_candidates(root: Path, ticket_id: str) -> list[Path]:
+    """Every spec file for a ticket ID, at any depth under docs/TICKETS."""
+    return sorted(tickets_dir(root).rglob(f"{ticket_id}-*.md"))
+
+
 def find_ticket_file(root: Path, ticket_id: str, issue_title: str) -> Path | None:
-    tickets_dir = root / "docs" / "TICKETS"
-    candidates = sorted(tickets_dir.glob(f"{ticket_id}-*.md"))
+    candidates = ticket_file_candidates(root, ticket_id)
     if not candidates:
         return None
 
@@ -291,7 +303,7 @@ def github_issue_for_ticket(ticket_id: str) -> TicketEntry | None:
 
 
 def local_dependency_entry(root: Path, ticket_id: str) -> TicketEntry | None:
-    candidates = sorted((root / "docs" / "TICKETS").glob(f"{ticket_id}-*.md"))
+    candidates = ticket_file_candidates(root, ticket_id)
     if len(candidates) != 1:
         return None
     body = candidates[0].read_text(encoding="utf-8")
@@ -692,6 +704,46 @@ def set_project_status(entry: TicketEntry, status_name: str) -> None:
     )
 
 
+RATE_LIMIT_MARKERS = ("rate limit exceeded", "secondary rate limit", "was submitted too quickly")
+
+
+def is_rate_limit_error(exc: BaseException) -> bool:
+    """True when a gh failure is GitHub throttling us rather than a real error."""
+    text = str(exc)
+    if isinstance(exc, subprocess.CalledProcessError) and exc.stderr:
+        text = f"{text}\n{exc.stderr}"
+    lowered = text.lower()
+    return any(marker in lowered for marker in RATE_LIMIT_MARKERS)
+
+
+def pr_state_for_branch(branch: str) -> str | None:
+    """MERGED / OPEN / CLOSED for the newest PR opened from `branch`, else None.
+
+    Raises rather than guessing when GitHub cannot be reached: callers use this to
+    decide whether it is safe to leave a branch behind.
+    """
+    output = run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--head",
+            branch,
+            "--state",
+            "all",
+            "--limit",
+            "1",
+            "--json",
+            "state,number",
+        ],
+        capture=True,
+    )
+    records = json.loads(output or "[]")
+    if not records:
+        return None
+    return str(records[0].get("state") or "").upper() or None
+
+
 def issue_state(issue_number: int) -> str:
     return run(
         ["gh", "issue", "view", str(issue_number), "--json", "state", "-q", ".state"],
@@ -704,11 +756,23 @@ def reconcile_done(entries: Sequence[TicketEntry]) -> None:
     for entry in entries:
         if entry.status != "In review":
             continue
-        state = entry.issue_state or issue_state(entry.issue_number)
-        if state == "CLOSED":
-            set_project_status(entry, "Done")
-            print(f"Moved {entry.ticket_id} (issue #{entry.issue_number}) from In review to Done.")
-            moved += 1
+        try:
+            state = entry.issue_state or issue_state(entry.issue_number)
+            if state == "CLOSED":
+                set_project_status(entry, "Done")
+                print(
+                    f"Moved {entry.ticket_id} (issue #{entry.issue_number}) "
+                    "from In review to Done."
+                )
+                moved += 1
+        except (subprocess.CalledProcessError, RuntimeError) as exc:
+            if not is_rate_limit_error(exc):
+                raise
+            print(
+                f"Warning: GitHub is rate limiting; skipped the Done reconcile for "
+                f"{entry.ticket_id}. It is housekeeping only and the next run redoes it."
+            )
+            return
     if moved == 0:
         print("No closed In review items to move to Done.")
 
@@ -805,22 +869,62 @@ def start_ticket(ticket_arg: str, root: Path) -> None:
         )
 
     branch = current_branch()
-    if branch == "main":
+    if branch != "main" and branch_matches_ticket(branch, entry.ticket_id):
+        branch_name = branch
+        print(f"Reusing current branch {branch_name}.")
+    else:
+        if branch != "main":
+            return_to_main_from_merged_branch(branch)
         ensure_clean_tree()
         run(["git", "pull", "--ff-only", "origin", "main"])
         branch_name = branch_name_for(entry)
         run(["git", "checkout", "-b", branch_name])
-    else:
-        if not branch_matches_ticket(branch, entry.ticket_id):
-            raise RuntimeError(
-                f"Current branch {branch!r} does not look like it belongs to {entry.ticket_id}."
-            )
-        branch_name = branch
-        print(f"Reusing current branch {branch_name}.")
 
     mark_ticket_status(entry.ticket_file, "IN_PROGRESS")
-    set_project_status(entry, "In progress")
+    try:
+        set_project_status(entry, "In progress")
+    except (subprocess.CalledProcessError, RuntimeError) as exc:
+        if not is_rate_limit_error(exc):
+            raise
+        raise RuntimeError(
+            f"Branch {branch_name} is ready and the ticket file is marked IN_PROGRESS, but "
+            f"GitHub rate limiting blocked the board move to In progress.\n"
+            f"Do not implement yet. Wait for the limit to reset, then rerun:\n"
+            f"  bash tools/start_ticket.sh {entry.ticket_id}\n"
+            f"The rerun reuses this branch and only redoes the board move."
+        ) from exc
     print(f"Branch: {branch_name}")
+
+
+def return_to_main_from_merged_branch(branch: str) -> None:
+    """Leave a finished feature branch behind, but only when that is provably safe.
+
+    The ritual ends on a feature branch by design, so the next session starts there.
+    Returning to `main` is safe exactly when the tree is clean and the branch's PR is
+    already merged; anything else is unfinished work and must stop.
+    """
+    ensure_clean_tree()
+    try:
+        state = pr_state_for_branch(branch)
+    except (subprocess.CalledProcessError, RuntimeError) as exc:
+        raise RuntimeError(
+            f"Cannot confirm whether branch {branch!r} has been merged, so it is not safe "
+            f"to leave it. Resolve the GitHub error and rerun.\n{exc}"
+        ) from exc
+
+    if state != "MERGED":
+        described = {
+            "OPEN": "still has an open PR",
+            "CLOSED": "has a PR that was closed without merging",
+            None: "has no PR",
+        }.get(state, f"has a PR in state {state}")
+        raise RuntimeError(
+            f"Refusing to leave branch {branch!r}: it {described}. "
+            "Finish or abandon that work first, then start the next ticket."
+        )
+
+    print(f"Branch {branch} is merged; returning to main.")
+    run(["git", "checkout", "main"])
 
 
 def finish_ticket(ticket_arg: str, root: Path) -> None:
@@ -855,6 +959,58 @@ def finish_ticket(ticket_arg: str, root: Path) -> None:
     print(pr_url)
 
 
+def archive_candidates(entries: Sequence[TicketEntry], root: Path) -> list[tuple[Path, Path]]:
+    """(source, destination) pairs for Done tickets still sitting at the top level."""
+    archive_dir = tickets_dir(root) / ARCHIVE_DIRNAME
+    pairs: list[tuple[Path, Path]] = []
+    for entry in entries:
+        if entry.status not in DONE_STATUSES or entry.ticket_file is None:
+            continue
+        source = entry.ticket_file
+        if source.parent == archive_dir:
+            continue
+        if source.parent != tickets_dir(root):
+            continue
+        pairs.append((source, archive_dir / source.name))
+    return sorted(set(pairs))
+
+
+def archive_done_tickets(root: Path, *, dry_run: bool = False) -> int:
+    """Move board-Done ticket specs into docs/TICKETS/DONE/.
+
+    Only the board decides what is Done. Nothing looks tickets up by directory —
+    `ticket_file_candidates` globs docs/TICKETS recursively — so archiving is purely
+    cosmetic and can never hide a ticket from the workflow.
+    """
+    pairs = archive_candidates(load_entries(root), root)
+    if not pairs:
+        print("No Done tickets to archive.")
+        return 0
+
+    archive_dir = tickets_dir(root) / ARCHIVE_DIRNAME
+    for source, destination in pairs:
+        relative_source = source.relative_to(root)
+        relative_destination = destination.relative_to(root)
+        if dry_run:
+            print(f"Would move {relative_source} -> {relative_destination}")
+            continue
+        if destination.exists():
+            print(f"Skipping {relative_source}: {relative_destination} already exists.")
+            continue
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        run(["git", "mv", str(relative_source), str(relative_destination)])
+        print(f"Moved {relative_source} -> {relative_destination}")
+
+    if dry_run:
+        print(f"{len(pairs)} ticket(s) would move. Rerun without --dry-run to apply.")
+    else:
+        print(
+            f"Archived {len(pairs)} ticket(s). Review with `git status`, then commit with "
+            "`docs: archive done tickets`."
+        )
+    return 0
+
+
 def print_dependency_report(entries: Sequence[TicketEntry]) -> None:
     entries_by_id = entry_by_ticket_id(entries)
     for entry in rank_next_tickets(entries):
@@ -881,6 +1037,27 @@ def doctor(root: Path) -> int:
     else:
         print("Dirty tree: no")
 
+    if branch and branch != "main":
+        try:
+            state = pr_state_for_branch(branch)
+        except (subprocess.CalledProcessError, RuntimeError) as exc:
+            print(f"Branch PR state: unknown ({exc})")
+        else:
+            if state == "MERGED":
+                print(
+                    "Branch PR state: MERGED - `start_ticket.sh` will return to main "
+                    "automatically on the next ticket."
+                )
+            else:
+                print(f"Branch PR state: {state or 'no PR'} - work on this branch is unfinished.")
+
+    entries = load_entries(root)
+    pending_archive = archive_candidates(entries, root)
+    if pending_archive:
+        print(f"Done tickets not archived: {len(pending_archive)} (run `bash tools/archive.sh`)")
+    else:
+        print("Done tickets not archived: none")
+
     stale_paths = [
         root / "docs" / "CONTEXT.md",
         root / "tools" / "regen_context.py",
@@ -896,7 +1073,6 @@ def doctor(root: Path) -> int:
     else:
         print("Stale retired files: none")
 
-    entries = load_entries(root)
     active_ids: dict[str, list[TicketEntry]] = {}
     for entry in entries:
         if entry.status in ACTIVE_STATUSES:
@@ -930,6 +1106,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="print the target order without moving any card",
     )
 
+    archive_parser = subparsers.add_parser("archive")
+    archive_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the moves without touching any file",
+    )
+
     start_parser = subparsers.add_parser("start")
     start_parser.add_argument("ticket")
 
@@ -946,6 +1129,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return doctor(root)
         elif args.command == "reorder":
             return reorder_board(load_entries(root), dry_run=args.dry_run)
+        elif args.command == "archive":
+            return archive_done_tickets(root, dry_run=args.dry_run)
         elif args.command == "start":
             start_ticket(args.ticket, root)
         elif args.command == "finish":

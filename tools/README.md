@@ -59,9 +59,29 @@ bash tools/reorder.sh --dry-run  # print the target order, move nothing
 
 ### `start_ticket.sh`
 
-Starts a ticket from `main`: reconciles closed `In review` board items to `Done`,
-checks for a clean tree, pulls, creates or reuses the feature branch, marks the
-ticket file `IN_PROGRESS`, and moves the board item to `In progress`.
+Starts a ticket: reconciles closed `In review` board items to `Done`, gets onto an
+up-to-date `main`, creates or reuses the feature branch, marks the ticket file
+`IN_PROGRESS`, and moves the board item to `In progress`.
+
+It does not require you to already be on `main`. The session ritual deliberately ends on
+the feature branch, so the next session starts there. Branch handling:
+
+| Current branch | Behaviour |
+|---|---|
+| `main` | Pull `--ff-only`, create the ticket branch. |
+| The requested ticket's own branch | Reuse it. No GitHub call, so a rerun is cheap. |
+| Another ticket's branch, clean tree, PR merged | Check out `main`, fast-forward, branch. |
+| Another ticket's branch, PR open / closed-unmerged / absent | Refuse, change nothing. |
+| Any branch with a dirty tree | Refuse before any GitHub call, list the dirty files. |
+
+If GitHub cannot be reached to determine the PR state, it refuses rather than assuming
+the branch is disposable.
+
+**Rate limits.** If the board move to `In progress` fails because GitHub is rate limiting,
+the branch still exists and the command reports itself as resumable: rerun the same
+command once the limit resets and it reuses the branch and redoes only the board move.
+The `In review` → `Done` reconcile is treated as housekeeping and is skipped with a
+warning rather than aborting the start.
 
 **Usage:**
 
@@ -81,10 +101,31 @@ and opens the PR with a `Closes #N` footer.
 bash tools/finish_ticket.sh TICKET-M9
 ```
 
+### `archive.sh`
+
+Moves ticket specs the board marks `Done` out of `docs/TICKETS/` and into
+`docs/TICKETS/DONE/`, so the working folder only holds live work. Files move with
+`git mv`; the commit is left to you.
+
+**This cannot hide a ticket.** Every ticket lookup in `ticket_workflow.py` globs
+`docs/TICKETS` recursively via `ticket_file_candidates`, so a ticket resolves by ID from
+any depth. New tickets are always filed at the top level by `file.sh`; archiving is the
+only thing that moves them, and only after the board says `Done`. Board status stays the
+single source of truth — the archive directory is presentation, never state.
+
+**Usage:**
+
+```bash
+bash tools/archive.sh --dry-run  # list the moves, touch nothing
+bash tools/archive.sh            # git mv them into docs/TICKETS/DONE/
+```
+
 ### `doctor.sh`
 
-Non-mutating diagnostics for local workflow state: dirty tree, current branch,
-retired workflow files, board sanity, and dependency blockers.
+Non-mutating diagnostics for local workflow state: dirty tree, current branch, whether
+the current branch's PR is merged (i.e. whether `start_ticket.sh` can hand off from it),
+Done tickets awaiting archive, retired workflow files, board sanity, and dependency
+blockers.
 
 **Usage:**
 
@@ -95,7 +136,7 @@ bash tools/doctor.sh
 ### `ticket_workflow.py`
 
 Shared implementation behind `next.sh`, `start_ticket.sh`, `finish_ticket.sh`,
-and `doctor.sh`. Keep CLI behavior behind the shell entry points; import pure
+`archive.sh`, `reorder.sh`, and `doctor.sh`. Keep CLI behavior behind the shell entry points; import pure
 helpers in tests when dependency parsing or ranking changes.
 
 ### `file.sh`

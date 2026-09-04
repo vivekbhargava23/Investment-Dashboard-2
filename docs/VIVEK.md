@@ -46,6 +46,10 @@ The agent handles conda activation. To start multiple tickets in parallel: open 
 
 The next implementation session's Step 2 reconciles the board: any card still in `In review` with a closed issue is moved to Done. You do nothing. Next session is ready.
 
+You also don't need to switch branches. Sessions end on the ticket's feature branch by design. The next `start_ticket.sh` sees a clean tree and a merged PR and returns to an updated `main` on its own. If the branch's PR is *not* merged, or you have uncommitted changes, it refuses and says why rather than throwing work away.
+
+Say `archive` occasionally to tidy `docs/TICKETS/` — merged ticket specs move into `docs/TICKETS/DONE/`. It's cosmetic: tickets are still found by ID from either folder.
+
 ---
 
 ## Section 6 — Reordering tickets
@@ -58,13 +62,14 @@ To change the order tickets appear in the `next` menu:
 
 To promote a ticket from Backlog to Ready (so it appears first in the menu): drag it to the `Ready` column.
 
-No script needed. The agent never reorders cards programmatically.
+You can also say `reorder` in a session and the agent runs `tools/reorder.sh`, which drags the `Ready`/`Backlog` cards into the order the `next` menu ranks. Your manual drags always win until the next `reorder` run re-derives the order.
 
 ---
 
 ## Section 7 — Edge-case cheat sheet
 
-- **Agent stops mid-ritual** → read the stop reason, file a hotfix ticket in a new chat if needed.
+- **Agent stops mid-ritual** → read the stop reason, file a hotfix ticket in a new chat if needed. Stopping without changing anything is the correct behaviour; the agent is not allowed to file its own tickets or improvise a fix.
+- **`start_ticket.sh` refuses to leave the current branch** → its PR isn't merged, or the tree is dirty. Finish or merge that work first.
 - **PR needs changes** → comment on GitHub, then say `address PR review comments on TICKET-XXX` in a new Claude Code session.
 - **You find a bug after merge** → file a new ticket in chat.
 - **Board looks stale** → Step 2 of the next session reconciles it. If still stale after that, file a ticket.
