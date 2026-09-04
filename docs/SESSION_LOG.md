@@ -44,6 +44,43 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-04 — TICKET-SYNC-1: stamp ISIN on import + repair backfill
+**Surface:** Claude Code
+**Model:** sonnet-5
+**Branch:** ticket-sync-1-stamp-isin-on-every-imported
+**Status at session end:** IN_REVIEW
+
+### What got done
+- `_build_transaction` in `import_workbench.py` now stamps `isin=row.isin or
+  None` on every constructed `Transaction` (buy and sell). This line was lost
+  when TICKET-CSV-15 deleted `importer.py`, leaving 71 of 213 `scalable_csv`
+  transactions with `isin: null`.
+- `tools/backfill_isin_from_csv.py::_plan` now applies a second match rule:
+  when `csv_reference` doesn't resolve, it falls back to matching the
+  transaction's own `id` against the CSV reference→ISIN map — regardless of
+  the transaction's current `source` — and repairs `csv_reference` + `source`
+  alongside `isin`. This heals the three rows whose provenance was stripped
+  by a Manage-page edit (`source: manual`, `csv_reference: null`).
+
+### Files touched
+- `app/ui/pages/import_workbench.py` — `isin` kwarg in `_build_transaction`
+- `tests/unit/ui/test_import_workbench.py` — 1 new test, 1 assertion added,
+  `_make_planned_row` gained an `isin` parameter
+- `tools/backfill_isin_from_csv.py` — `_plan`/`_print_plan`/`_apply_plan`
+  rewritten for the by-reference / by-id / unmatched three-way split
+- `tests/unit/tools/test_backfill_isin_from_csv.py` — 3 new tests
+
+### Tests
+Gate green: 1091 passed, 96 skipped; ruff, mypy, lint-imports clean.
+
+### Decisions made during the session
+No architectural decisions. Followed the ticket's exact rule ordering.
+
+### Out-of-scope items noticed
+- The real `data/portfolio.json` backfill (dry-run then `--apply`) is
+  explicitly Vivek's step per the ticket, run after this PR merges — not
+  run in this session.
+
 ## 2026-09-04 — Next-menu table and board fetch cap
 **Surface:** Claude Code
 **Model:** opus-5

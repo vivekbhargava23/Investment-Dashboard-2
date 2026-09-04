@@ -262,6 +262,81 @@ def test_reference_not_in_csv_skipped(tmp_path: Path) -> None:
     assert data["transactions"][0]["isin"] is None
 
 
+def test_plan_repairs_provenance_when_matched_by_id(tmp_path: Path) -> None:
+    portfolio = tmp_path / "portfolio.json"
+    csv_path = tmp_path / "export.csv"
+
+    # Manage-page edit stripped csv_reference/source, but the original CSV
+    # reference is preserved as the transaction's own id.
+    _write_portfolio(portfolio, 3, [
+        _manual_tx("SCALDAMAGED1", "SAP.DE"),
+    ])
+    _write_csv(csv_path, [("SCALDAMAGED1", "DE0007164600")])
+
+    data = _read_portfolio(portfolio)
+    ref_to_isin = _mod._build_ref_to_isin(csv_path)
+    plan = _mod._plan(data, ref_to_isin)
+
+    assert plan["planned"] == []
+    assert plan["unmatched"] == []
+    assert plan["repaired_provenance"] == [
+        {
+            "tx_id": "SCALDAMAGED1",
+            "ticker": "SAP.DE",
+            "trade_date": "2025-01-15",
+            "csv_reference": "SCALDAMAGED1",
+            "isin_to_set": "DE0007164600",
+        }
+    ]
+
+
+def test_plan_leaves_unmatched_untouched(tmp_path: Path) -> None:
+    csv_path = tmp_path / "export.csv"
+    _write_csv(csv_path, [("REF001", "US67066G1040")])
+    ref_to_isin = _mod._build_ref_to_isin(csv_path)
+
+    data = {"transactions": [_manual_tx("UNKNOWNID", "SAP.DE")]}
+    plan = _mod._plan(data, ref_to_isin)
+
+    assert plan["planned"] == []
+    assert plan["repaired_provenance"] == []
+    assert plan["unmatched"] == [("UNKNOWNID", "None")]
+
+
+def test_apply_repairs_the_three_damaged_shapes(tmp_path: Path) -> None:
+    portfolio = tmp_path / "portfolio.json"
+    csv_path = tmp_path / "export.csv"
+
+    _write_portfolio(portfolio, 3, [
+        _scalable_tx("T1", "NVDA", "REF001", None),  # by-reference
+        _manual_tx("SCALDAMAGED1", "SAP.DE"),  # by-id repair
+        _manual_tx("UNKNOWNID", "MU"),  # unmatched
+    ])
+    _write_csv(csv_path, [
+        ("REF001", "US67066G1040"),
+        ("SCALDAMAGED1", "DE0007164600"),
+    ])
+
+    data = _read_portfolio(portfolio)
+    ref_to_isin = _mod._build_ref_to_isin(csv_path)
+    plan = _mod._plan(data, ref_to_isin)
+
+    assert len(plan["planned"]) == 1
+    assert len(plan["repaired_provenance"]) == 1
+    assert len(plan["unmatched"]) == 1
+
+    rc = main(["--portfolio", str(portfolio), "--csv", str(csv_path), "--apply"])
+    assert rc == 0
+
+    written = _read_portfolio(portfolio)
+    by_id = {t["id"]: t for t in written["transactions"]}
+    assert by_id["T1"]["isin"] == "US67066G1040"
+    assert by_id["SCALDAMAGED1"]["isin"] == "DE0007164600"
+    assert by_id["SCALDAMAGED1"]["csv_reference"] == "SCALDAMAGED1"
+    assert by_id["SCALDAMAGED1"]["source"] == "scalable_csv"
+    assert by_id["UNKNOWNID"]["isin"] is None
+
+
 def test_manual_transactions_silently_skipped(tmp_path: Path) -> None:
     portfolio = tmp_path / "portfolio.json"
     csv_path = tmp_path / "export.csv"

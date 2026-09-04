@@ -35,12 +35,13 @@ def _make_planned_row(
     csv_type: str = "Buy",
     conflict_tx_id: str | None = None,
     fx_rate_eur: Decimal | None = None,
+    isin: str = "DE0007164600",
 ) -> PlannedRow:
     return PlannedRow(
         row_number=2,
         trade_date=date(2026, 3, 1),
         csv_type=csv_type,
-        isin="DE0007164600",
+        isin=isin,
         reference=reference,
         description="SAP SE",
         shares=shares,
@@ -70,6 +71,12 @@ def test_build_transaction_buy() -> None:
     assert tx.source == "scalable_csv"
 
 
+def test_build_transaction_stamps_isin() -> None:
+    row = _make_planned_row(isin="KYG0535Q1331")
+    tx = _build_transaction(row)
+    assert tx is not None and tx.isin == "KYG0535Q1331"
+
+
 def test_build_transaction_sell_with_tax() -> None:
     row = PlannedRow(
         row_number=3,
@@ -93,6 +100,7 @@ def test_build_transaction_sell_with_tax() -> None:
     assert tx.notes is not None
     assert "tax_withheld_eur" in tx.notes
     assert "15" in tx.notes
+    assert tx.isin == row.isin
 
 
 def test_build_transaction_no_ticker_returns_none() -> None:

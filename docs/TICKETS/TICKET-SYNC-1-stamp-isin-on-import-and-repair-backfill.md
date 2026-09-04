@@ -1,6 +1,7 @@
 # TICKET-SYNC-1 — Stamp ISIN on every imported transaction + repair the backfill tool
 
 **Priority:** CRITICAL
+**Status:** IN_PROGRESS
 **Milestone:** Investment Panel
 **Recommended model:** Sonnet — two small, fully specified changes with tests.
 **Estimated session length:** 45 min
