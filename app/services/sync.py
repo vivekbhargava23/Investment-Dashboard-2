@@ -30,7 +30,11 @@ from app.ports.repository import TransactionRepository
 from app.ports.sync_store import SyncStore
 from app.ports.ticker_resolver import TickerResolver
 from app.services.isin_autoresolve import AutoResolveResult, autoresolve_isin
-from app.services.isin_remap import change_feed, mapped_owner_of_ticker
+from app.services.isin_remap import (
+    change_feed,
+    mapped_owner_of_ticker,
+    record_seen_isins,
+)
 
 EVENT_SESSION_START = "session_start"
 EVENT_AUTO_RESOLVE = "auto_resolve"
@@ -130,6 +134,13 @@ def analyse(
     """
     isin_doc = isin_repo.load()
     plan = planner(rows, tx_repo.load_all(), isin_doc)
+
+    # Every ISIN in the file gets an entry before anything else looks at the map,
+    # so an unmapped holding has a name to show and a row to be mapped from.
+    seen_doc = record_seen_isins(plan.rows, isin_doc)
+    if seen_doc is not None:
+        isin_repo.save(seen_doc)
+        isin_doc = seen_doc
 
     auto_resolved, isin_doc = _auto_resolve(
         plan, session_id, isin_doc, tx_repo, isin_repo, resolver, company_provider, store

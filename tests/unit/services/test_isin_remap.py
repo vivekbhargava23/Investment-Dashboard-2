@@ -7,6 +7,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.domain.csv_import import PlannedAction, PlannedRow, RowStatus
 from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
@@ -17,6 +18,7 @@ from app.services.isin_remap import (
     change_feed,
     check_consistency,
     count_transactions_for_isin,
+    record_seen_isins,
     repair,
     rewrite_ticker_for_isin,
 )
@@ -353,3 +355,92 @@ def test_repair_fixes_a_mismatch_and_is_idempotent() -> None:
     calls_before = repo.save_calls
     assert repair(doc, repo) == 0
     assert repo.save_calls == calls_before
+
+
+# ─── record_seen_isins (an ISIN in the file always gets an entry) ──────────────
+
+def _seen_row(
+    *,
+    isin: str = "DE0007030009",
+    description: str = "Rheinmetall AG",
+    trade_date: date = date(2026, 3, 1),
+    row_number: int = 2,
+    status: RowStatus = RowStatus.NEW,
+) -> PlannedRow:
+    return PlannedRow(
+        row_number=row_number,
+        trade_date=trade_date,
+        csv_type="Buy",
+        isin=isin,
+        reference=f"ref-{row_number}",
+        description=description,
+        shares=Decimal("1"),
+        price=Decimal("100"),
+        amount=Decimal("-100"),
+        fee=None,
+        tax=None,
+        status=status,
+        action=PlannedAction.INSERT,
+        proposed_ticker=isin,
+        feed_state="unmapped",
+    )
+
+
+def test_record_seen_isins_adds_an_unmapped_entry_with_the_brokers_name() -> None:
+    doc = record_seen_isins([_seen_row()], IsinMapDocument())
+
+    assert doc is not None
+    entry = doc.entries["DE0007030009"]
+    assert entry.status == "unmapped"
+    assert entry.name == "Rheinmetall AG"
+    assert entry.ticker is None
+    assert entry.last_seen_in_csv == date(2026, 3, 1)
+
+
+def test_record_seen_isins_stamps_last_seen_on_an_existing_mapping() -> None:
+    existing = IsinMapDocument(
+        entries={
+            "DE0007030009": IsinMapping(
+                ticker="RHM.DE",
+                name="Rheinmetall AG",
+                status="mapped",
+                instrument_kind=InstrumentKind.AKTIE,
+            )
+        }
+    )
+
+    doc = record_seen_isins([_seen_row(trade_date=date(2026, 5, 4))], existing)
+
+    assert doc is not None
+    entry = doc.entries["DE0007030009"]
+    assert entry.ticker == "RHM.DE"
+    assert entry.status == "mapped"
+    assert entry.last_seen_in_csv == date(2026, 5, 4)
+
+
+def test_record_seen_isins_uses_the_latest_row_for_the_name() -> None:
+    rows = [
+        _seen_row(description="Old name", trade_date=date(2026, 1, 1), row_number=2),
+        _seen_row(description="New name", trade_date=date(2026, 5, 1), row_number=3),
+    ]
+
+    doc = record_seen_isins(rows, IsinMapDocument())
+
+    assert doc is not None
+    assert doc.entries["DE0007030009"].name == "New name"
+
+
+def test_record_seen_isins_ignores_cancelled_rows_and_rows_without_an_isin() -> None:
+    rows = [
+        _seen_row(status=RowStatus.CANCELLED_OR_EXPIRED),
+        _seen_row(isin="", row_number=3),
+    ]
+
+    assert record_seen_isins(rows, IsinMapDocument()) is None
+
+
+def test_record_seen_isins_returns_none_when_nothing_changed() -> None:
+    doc = record_seen_isins([_seen_row()], IsinMapDocument())
+    assert doc is not None
+
+    assert record_seen_isins([_seen_row()], doc) is None

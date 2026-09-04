@@ -21,6 +21,7 @@ from app.services.isin_remap import (
     TickerAlreadyMappedError,
     change_feed,
     mapped_owner_of_ticker,
+    record_seen_isins,
 )
 from app.services.sync import build_transaction as _build_transaction
 from app.ui.backup import write_portfolio_backup as _write_backup
@@ -292,6 +293,11 @@ def _render_upload_section(log_path: Path) -> bool:
         existing_txs = tx_repo.load_all()
         isin_doc = isin_repo.load()
         new_plan = plan_import(parsed_rows, existing_txs, isin_doc)
+        # Give every ISIN in the file a map entry, so an unmapped holding has a
+        # name and shows up on the Mappings page instead of vanishing.
+        seen_doc = record_seen_isins(new_plan.rows, isin_doc)
+        if seen_doc is not None:
+            isin_repo.save(seen_doc)
         st.session_state[_KEY_PLAN] = new_plan
         if _KEY_CONFLICTS not in st.session_state:
             st.session_state[_KEY_CONFLICTS] = {}

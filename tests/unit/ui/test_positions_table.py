@@ -64,7 +64,9 @@ def test_price_src_marks_last_trade_positions_only() -> None:
     }
     df = build_positions_dataframe(positions, _make_summary(positions))
     assert _row(df, "NOFEED")["Price src"] == "last trade"
-    assert pd.isna(_row(df, "NVDA")["Price src"])
+    # Blank, not None: a pandas Styler renders None as the literal text "None",
+    # which is what every live row showed in the rendered table.
+    assert _row(df, "NVDA")["Price src"] == ""
 
 
 def test_dataframe_one_row_per_position() -> None:
@@ -155,17 +157,30 @@ def test_usd_position_price_in_eur() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Stale rows → blank (None) values so they sort to the end
+# Stale rows → blank (NaN) values so they render empty and sort to the end
 # ---------------------------------------------------------------------------
 
-def test_stale_row_has_none_live_fields() -> None:
+def test_stale_row_has_blank_live_fields() -> None:
     positions = {"STALE": _make_stale("STALE")}
     row = _row(build_positions_dataframe(positions, _make_summary(positions)), "STALE")
-    assert row["Price (€)"] is None
-    assert row["Value (€)"] is None
-    assert row["Gain (€)"] is None
-    assert row["Gain (%)"] is None
-    assert row["Weight (%)"] is None
+    for column in ("Price (€)", "Value (€)", "Gain (€)", "Gain (%)", "Weight (%)"):
+        assert pd.isna(row[column])
+
+
+def test_numeric_columns_are_float_dtype_even_when_every_value_is_missing() -> None:
+    """Object dtype is what made Streamlit print the literal text "None" in a cell."""
+    positions = {"STALE": _make_stale("STALE")}
+    df = build_positions_dataframe(positions, _make_summary(positions))
+
+    for column in ("Price (€)", "Value (€)", "Gain (€)", "Trend 30D (%)"):
+        assert df[column].dtype.kind == "f", column
+
+
+def test_a_missing_trend_is_blank_not_the_word_none() -> None:
+    positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
+    df = build_positions_dataframe(positions, _make_summary(positions), trend_values={})
+
+    assert pd.isna(df.iloc[0]["Trend 30D (%)"])
 
 
 def test_stale_row_keeps_book_fields() -> None:
@@ -175,3 +190,4 @@ def test_stale_row_keeps_book_fields() -> None:
     assert row["Cost (€)"] == 100.0  # 1 share * 100
     assert row["Shares"] == 1.0
     assert row["Lots"] == 1
+

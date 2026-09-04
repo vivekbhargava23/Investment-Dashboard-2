@@ -219,3 +219,38 @@ def test_result_name_falls_back_to_description_hint() -> None:
         FakeCompanyProvider({"X.DE": "EQUITY"}),
     )
     assert result.name == "My Corp"
+
+
+def test_a_symbol_that_is_just_the_isin_is_not_a_feed() -> None:
+    """yfinance answers some ISINs with a Stuttgart listing symbol == '<ISIN>.SG'.
+
+    Mapping to it looks like a feed and returns no prices, so it must not be one.
+    """
+    resolver = FakeResolver([_match("IE00BKVD2N49.SG", "Seagate Technology Holdings PLC")])
+
+    result = autoresolve_isin(
+        "IE00BKVD2N49",
+        "Seagate Technology",
+        resolver=resolver,
+        company_provider=FakeCompanyProvider({"IE00BKVD2N49.SG": "EQUITY"}),
+    )
+
+    assert result.ticker is None
+    assert result.confidence == "low"
+    assert "carries no price data" in result.reason
+
+
+def test_a_real_symbol_alongside_the_isin_placeholder_still_wins() -> None:
+    resolver = FakeResolver([
+        _match("IE00BKVD2N49.SG", "Seagate Technology Holdings PLC"),
+        _match("STX", "Seagate Technology Holdings PLC", currency=Currency.USD),
+    ])
+
+    result = autoresolve_isin(
+        "IE00BKVD2N49",
+        "Seagate Technology",
+        resolver=resolver,
+        company_provider=FakeCompanyProvider({"STX": "EQUITY"}),
+    )
+
+    assert result.ticker == "STX"

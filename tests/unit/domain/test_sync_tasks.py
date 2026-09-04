@@ -245,3 +245,24 @@ def test_matching_isin_with_a_healthy_feed_raises_no_task() -> None:
     tasks = build_tasks([rec()], {"US1": check()}, {}, [], COMPLETE, {"US1": "mapped"})
 
     assert tasks == []
+
+
+def test_a_mapped_feed_that_returns_no_prices_still_raises_a_no_feed_task() -> None:
+    """A mapping that fetches nothing is not a feed, however mapped it looks."""
+    [task] = build_tasks(
+        [rec()],
+        {"US1": check(status="no_feed")},
+        {},
+        [],
+        COMPLETE,
+        {"US1": "mapped"},
+    )
+
+    assert task.kind == "no_feed"
+    assert "AAPL is mapped to this holding but returns no prices" in task.detail
+
+
+def test_an_ignored_isin_with_a_dead_feed_still_raises_nothing() -> None:
+    assert build_tasks(
+        [rec()], {"US1": check(status="no_feed")}, {}, [], COMPLETE, {"US1": "ignored"}
+    ) == []

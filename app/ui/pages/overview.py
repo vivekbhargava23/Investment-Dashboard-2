@@ -199,11 +199,15 @@ def render() -> None:
     render_html(f'<div class="mb-24">{render_progress_bar(spb_pct, height_px=4)}</div>')
 
     isin_map_doc = get_isin_map_repo().load()
-    name_lookup: dict[str, str] = {
-        m.ticker: m.name
-        for m in isin_map_doc.entries.values()
-        if m.status == "mapped" and m.ticker
-    }
+    # Mapped holdings are keyed by their feed ticker; everything else trades under
+    # its ISIN as a placeholder ticker (ADR-014 rule 2), so key those by ISIN — a
+    # holding with no feed still has a name.
+    name_lookup: dict[str, str] = {}
+    for isin, m in isin_map_doc.entries.items():
+        if m.status == "mapped" and m.ticker:
+            name_lookup[m.ticker] = m.name
+        elif m.name:
+            name_lookup[isin.upper()] = m.name
 
     tickers = list(live_positions.keys())
     trend_value_map = _fetch_trend_values(tickers)
