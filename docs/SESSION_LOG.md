@@ -80,7 +80,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 - `docs/screenshots/sync-tab/` — states A, B, C and the duplicate task
 
 ### Tests
-1208 passing → 1233 passing (25 new). Gate clean: pytest, ruff, mypy, lint-imports.
+1208 passing → 1236 passing (28 new). Gate clean: pytest, ruff, mypy, lint-imports.
 
 ### Decisions made during the session
 - **Two fixes came out of looking at the screenshots**, which is what the visual step is
@@ -91,6 +91,21 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
   ISIN map stores no currency and fetching one per holding means a resolver call per row.
 - The two sidebar-count tests were updated for the new item, and the "no broker
   reference" test was narrowed to the brand block — the nav legitimately says "Scalable".
+
+### Follow-up in the same PR (2026-09-04, after Vivek tried a real export)
+- Vivek's real export failed with `Row 218: duplicate reference WWUM 00477772743`, and the
+  old Import CSV page failed identically — `parse_csv` delegates to `parse_csv_bytes`, so
+  SYNC-6A's guard broke both doors at once.
+- Cause: Scalable emits a corporate action as **two legs sharing one reference** (a Security
+  leg and a Cash leg). The design doc's "two identical references → parse error" was an
+  assumption; real data falsifies it. All seven exports in `~/Downloads` (May–September)
+  carry exactly this one duplicated reference.
+- Fix: the guard now only fires between two *importable* rows (Executed + Buy/Sell/Savings
+  plan), which is the case that would write two transactions under one id. Verified across
+  all seven exports: none has a duplicate among importable rows, and all seven parse.
+- Verified in the app on the real September export: 219 trades imported, and re-uploading
+  it reports "Holdings match this Scalable export (39/39)".
+- Also keyed the feed-check cache on the transactions signature instead of the apply count.
 
 ### Out-of-scope items noticed
 - The Import CSV workbench and ISIN Mappings pages still exist, as SYNC-6B intends;
