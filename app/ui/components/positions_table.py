@@ -107,10 +107,16 @@ def build_positions_dataframe(
     return df
 
 
+# st.dataframe paints its cells on a canvas, outside the document where the
+# theme's custom properties are defined, so a `var(--…)` colour resolves to
+# nothing and the text renders invisible. Styler colours here must be literal.
+_MUTED = "#9aa0a6"
+
+
 def _sign_color(v: object) -> str:
     """Pandas Styler cell colour: green positive, red negative, muted zero/blank."""
     if v is None or (isinstance(v, float) and pd.isna(v)):
-        return "color: var(--text3)"
+        return f"color: {_MUTED}"
     try:
         n = float(v)  # type: ignore[arg-type]
     except (TypeError, ValueError):
@@ -119,7 +125,7 @@ def _sign_color(v: object) -> str:
         return "color: #26a69a"
     if n < 0:
         return "color: #ef5350"
-    return "color: #9aa0a6"
+    return f"color: {_MUTED}"
 
 
 def render_positions_table(
@@ -144,7 +150,7 @@ def render_positions_table(
     # sign, so a big position with a small loss no longer reads as a big loss.
     styler = df.style.map(
         _sign_color, subset=["Gain (€)", "Gain (%)", "Trend 30D (%)"]
-    ).map(lambda _: "color: var(--text3)", subset=["Price src"])
+    ).map(lambda _: f"color: {_MUTED}", subset=["Price src"])
 
     st.dataframe(
         styler,

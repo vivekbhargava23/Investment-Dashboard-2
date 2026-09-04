@@ -222,3 +222,76 @@ class TestMarginalAllowanceState:
         # RHM.DE is an Aktie. The general-pot loss from VUSA.DE cannot offset it.
         # €500 Aktie gain is fully sheltered by the €1000 Sparerpauschbetrag.
         assert mt.marginal_total_tax_owed_eur.amount == Decimal("0")
+
+
+# ── Source inheritance (ADR-005 × ADR-014 rule 2) ────────────────────────────
+# A holding with no price feed trades under its ISIN, which carries no exchange
+# suffix for ADR-005 to infer a currency from. The synthetic sell defaulted to
+# source="manual", so the simulator rejected EUR broker rows the repository had
+# already accepted: "trades in USD but transaction recorded as EUR".
+
+_NO_FEED_ISIN = "DE000HT41XN9"
+_NO_FEED_MAP = IsinMapDocument(entries={
+    _NO_FEED_ISIN: IsinMapping(
+        ticker=None, name="Apple Short Turbo", status="unmapped",
+        instrument_kind=InstrumentKind.SONSTIGE,
+    ),
+})
+
+
+def _broker_buy(d: str, shares: str, price_eur: str, ticker: str) -> Transaction:
+    return Transaction(
+        ticker=ticker,
+        type=TransactionType.BUY,
+        trade_date=date.fromisoformat(d),
+        shares=Decimal(shares),
+        price_native=Money(amount=Decimal(price_eur), currency=_EUR),
+        fx_rate_eur=Decimal("1"),
+        isin=_NO_FEED_ISIN,
+        source="scalable_csv",
+    )
+
+
+def _simulate(txs: list[Transaction], req: SellSimulationRequest, isin_map: IsinMapDocument):
+    return simulate_sell(
+        request=req,
+        transactions=txs,
+        profile=_SINGLE,
+        live_positions={},
+        carryforward_eur_aktien=_zero(),
+        carryforward_eur_general=_zero(),
+        additional_dividend_income_eur=_zero(),
+        additional_interest_income_eur=_zero(),
+        isin_map=isin_map,
+    )
+
+
+def test_isin_ticker_holding_from_the_broker_simulates_in_eur() -> None:
+    txs = [_broker_buy("2026-01-05", "26", "3.00", _NO_FEED_ISIN)]
+    sim = _simulate(txs, _request("1", "3.00", ticker=_NO_FEED_ISIN), _NO_FEED_MAP)
+    assert sim.is_valid, sim.validation_error
+
+
+def test_a_manual_holding_still_faces_the_adr_005_currency_check() -> None:
+    """The stricter path is kept for hand-entered books, not widened away."""
+    manual = Transaction(
+        ticker="RHM.DE", type=TransactionType.BUY, trade_date=date(2026, 1, 5),
+        shares=Decimal("10"), price_native=_eur("100"), fx_rate_eur=Decimal("1"),
+    )
+    assert manual.source == "manual"
+    sim = _simulate([manual], _request("1", "100"), _SIM_MAP)
+    assert sim.is_valid, sim.validation_error
+
+
+def test_mixed_source_lots_fall_back_to_the_stricter_manual_check() -> None:
+    txs = [
+        _broker_buy("2026-01-05", "10", "3.00", _NO_FEED_ISIN),
+        Transaction(
+            ticker=_NO_FEED_ISIN, type=TransactionType.BUY, trade_date=date(2026, 2, 5),
+            shares=Decimal("5"), price_native=Money(amount=Decimal("3"), currency=_USD),
+            fx_rate_eur=Decimal("0.9"), isin=_NO_FEED_ISIN,
+        ),
+    ]
+    sim = _simulate(txs, _request("1", "3.00", ticker=_NO_FEED_ISIN), _NO_FEED_MAP)
+    assert not sim.is_valid
+    assert "ADR-005" in (sim.validation_error or "")

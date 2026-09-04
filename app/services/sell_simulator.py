@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -18,7 +19,7 @@ from app.domain.fifo import SellExceedsOpenSharesError, compute_positions, simul
 from app.domain.isin_map import IsinMapDocument
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
-from app.domain.positions import LivePosition, OpenLot
+from app.domain.positions import LivePosition, OpenLot, Position
 from app.domain.realised_gain import RealisedGain
 from app.domain.tax.models import MarginalTaxImpact, TaxProfile
 from app.services.tax_planning import compute_marginal_tax_for_realised_gains
@@ -95,6 +96,22 @@ def _invalid(request: SellSimulationRequest, message: str) -> SellSimulation:
     )
 
 
+def _source_of(
+    position: Position, transactions: Sequence[Transaction]
+) -> Literal["scalable_csv", "manual", "switch", "unknown"]:
+    """The source of the buys behind ``position``, for the simulated sell to inherit.
+
+    Mixed sources (a hand-entered top-up on a broker-imported holding) fall back
+    to "manual", which is the stricter of the two: the simulation is then held to
+    the same currency check a hand-entered sell would face.
+    """
+    lot_tx_ids = {lot.source_transaction_id for lot in position.open_lots}
+    sources = {tx.source for tx in transactions if tx.id in lot_tx_ids}
+    if len(sources) == 1:
+        return sources.pop()
+    return "manual"
+
+
 def simulate_sell(
     request: SellSimulationRequest,
     transactions: Sequence[Transaction],
@@ -126,6 +143,13 @@ def simulate_sell(
     # Step 2: build the hypothetical sell transaction
     # Use a deterministic ID so simulate_sell is pure (same input → same output).
     stable_id = f"sim-{ticker}-{request.sell_date}-{request.shares}-{request.sell_price_native.amount}"
+    # The sell inherits the source of the lots it consumes. ADR-005 infers a
+    # settlement currency from the ticker for *manual* rows only, and a holding
+    # with no feed trades under its ISIN (ADR-014 rule 2) — a symbol that carries
+    # no exchange suffix to infer from. Defaulting to "manual" made the simulator
+    # reject its own book: broker rows the repository accepts in EUR came back as
+    # "trades in USD but transaction recorded as EUR".
+    source = _source_of(position, transactions)
     try:
         hypothetical_sell = Transaction(
             id=stable_id,
@@ -136,6 +160,7 @@ def simulate_sell(
             price_native=request.sell_price_native,
             fx_rate_eur=request.sell_fx_rate_eur,
             notes="[simulator]",
+            source=source,
         )
     except Exception as exc:
         return _invalid(request, f"Invalid sell parameters: {exc}")

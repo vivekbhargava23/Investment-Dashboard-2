@@ -1,9 +1,13 @@
 # ruff: noqa: E501
+from collections.abc import Sequence
 from datetime import date, datetime
+from pathlib import Path
 
 import streamlit as st
 
+from app.domain.isin_map import IsinMapDocument
 from app.domain.market_data import ChartPeriod, OhlcUnavailableError
+from app.domain.models import Transaction
 from app.domain.positions import LivePosition, PortfolioSummary
 from app.domain.returns import ReturnWindow, WindowStats
 from app.domain.tax.models import TaxProfile, TaxYearSummary
@@ -11,7 +15,7 @@ from app.services.market_data import get_ohlc_histories, get_ohlc_history
 from app.services.returns import compute_return_stats_by_period
 from app.services.tax_planning import compute_current_tax_summary
 from app.services.valuation import compute_live_positions, compute_portfolio_summary
-from app.ui.cache_keys import transactions_signature
+from app.ui.cache_keys import file_mtime_key, transactions_signature
 from app.ui.components.charts import render_candlestick
 from app.ui.components.metric_card import build_metric_card
 from app.ui.components.perf_heatmap import render_heatmap
@@ -66,8 +70,16 @@ def _cached_portfolio_summary(tx_sig: str, as_of_iso: str) -> PortfolioSummary:
     return compute_portfolio_summary(live_positions, as_of)
 
 
+def _isin_map_signature() -> str:
+    from app.config import get_settings
+
+    return file_mtime_key(Path(get_settings().isin_map_json_path))
+
+
 @st.cache_data(ttl=60, show_spinner=False)
-def _cached_tax_summary_for_overview(tx_sig: str, year: int) -> TaxYearSummary | None:
+def _cached_tax_summary_for_overview(
+    tx_sig: str, isin_sig: str, year: int
+) -> TaxYearSummary | None:
     try:
         repo = get_tax_profile_repo()
         doc = repo.load()
@@ -82,6 +94,9 @@ def _cached_tax_summary_for_overview(tx_sig: str, year: int) -> TaxYearSummary |
             additional_dividend_income_eur=inputs.additional_dividend_income_eur,
             additional_interest_income_eur=inputs.additional_interest_income_eur,
             as_of=datetime(year, 12, 31),
+            # Without the map every sell is unclassifiable, so this raised on any
+            # book with a sell in it and the Sparerpauschbetrag tiles read "—".
+            isin_map=get_isin_map_repo().load(),
         )
     except Exception:
         return None
@@ -121,6 +136,33 @@ def _fetch_trend_values(tickers: list[str]) -> dict[str, float | None]:
     return trend_value_map
 
 
+def build_name_lookup(
+    isin_map_doc: IsinMapDocument, transactions: Sequence[Transaction]
+) -> dict[str, str]:
+    """Ticker → display name for every key a position might be filed under.
+
+    Mapped holdings are keyed by their feed ticker; a holding with no feed trades
+    under its ISIN as a placeholder ticker (ADR-014 rule 2), so ISINs are keys
+    too. Neither is enough on its own: the ticker a position carries comes from
+    its transactions, and that drifts from the map the moment an entry loses its
+    ticker (unmapped, ignored) while the book keeps trading under the old symbol.
+    The book's own ISIN bridges the two, so a row shows its name instead of
+    printing its ticker twice.
+    """
+    name_lookup: dict[str, str] = {}
+    for isin, m in isin_map_doc.entries.items():
+        if not m.name:
+            continue
+        name_lookup[isin.upper()] = m.name
+        if m.ticker:
+            name_lookup[m.ticker] = m.name
+    for tx in transactions:
+        entry = isin_map_doc.entries.get(tx.isin) if tx.isin else None
+        if entry is not None and entry.name and tx.ticker not in name_lookup:
+            name_lookup[tx.ticker] = entry.name
+    return name_lookup
+
+
 def render() -> None:
     repo = get_repository()
     transactions = repo.load_all()
@@ -130,7 +172,7 @@ def render() -> None:
 
     live_positions = _cached_live_positions(sig, now.date().isoformat())
     summary = _cached_portfolio_summary(sig, now_iso)
-    tax_summary = _cached_tax_summary_for_overview(sig, now.year)
+    tax_summary = _cached_tax_summary_for_overview(sig, _isin_map_signature(), now.year)
     record_price_fetch(summary.as_of)
 
     cost_basis_eur = format_eur(summary.total_cost_basis_eur)
@@ -199,15 +241,7 @@ def render() -> None:
     render_html(f'<div class="mb-24">{render_progress_bar(spb_pct, height_px=4)}</div>')
 
     isin_map_doc = get_isin_map_repo().load()
-    # Mapped holdings are keyed by their feed ticker; everything else trades under
-    # its ISIN as a placeholder ticker (ADR-014 rule 2), so key those by ISIN — a
-    # holding with no feed still has a name.
-    name_lookup: dict[str, str] = {}
-    for isin, m in isin_map_doc.entries.items():
-        if m.status == "mapped" and m.ticker:
-            name_lookup[m.ticker] = m.name
-        elif m.name:
-            name_lookup[isin.upper()] = m.name
+    name_lookup = build_name_lookup(isin_map_doc, transactions)
 
     tickers = list(live_positions.keys())
     trend_value_map = _fetch_trend_values(tickers)

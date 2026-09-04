@@ -1,221 +1,256 @@
 {
   "version": 2,
   "entries": {
-    "US5738741041": {
-      "ticker": "MRVL",
-      "name": "Marvell Technology, Inc.",
+    "IE00BFMXXD54": {
+      "ticker": "VUAA.DE",
+      "name": "Vanguard S&P 500 (Acc)",
       "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "US67066G1040": {
-      "ticker": "NVDA",
-      "name": "NVIDIA Corporation",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "JP3236330001": {
-      "ticker": "285A.T",
-      "name": "Kioxia Holdings Corporation",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "US9581021055": {
-      "ticker": "WDC",
-      "name": "Western Digital Corporation",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "US0079031078": {
-      "ticker": "AMD",
-      "name": "Advanced Micro Devices, Inc.",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "US78392B2060": {
-      "ticker": "SKHY",
-      "name": "SK hynix Inc.",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "US0420682058": {
-      "ticker": "ARM",
-      "name": "Arm Holdings plc",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "AT0000969985": {
-      "ticker": "ATS.VI",
-      "name": "AT & S Austria Technologie & Systemtechnik Aktiengesellschaft",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "US11135F1012": {
-      "ticker": "AVGO",
-      "name": "Broadcom Inc.",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "JP3148800000": {
-      "ticker": "4062.T",
-      "name": "Ibiden Co.,Ltd.",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
+      "last_seen_in_csv": "2026-06-23",
+      "instrument_kind": "AKTIENFONDS"
     },
     "US5951121038": {
       "ticker": "MU",
-      "name": "Micron Technology, Inc.",
+      "name": "Micron Technology",
       "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "IE00BKVD2N49": {
-      "ticker": "IE00BKVD2N49.SG",
-      "name": "Seagate Technology Holdings PLC",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "JP3119600009": {
-      "ticker": "2802.T",
-      "name": "Ajinomoto Co., Inc.",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "IE00BFMXXD54": {
-      "ticker": "IE00BFMXXD54.SG",
-      "name": "Vanguard S&P 500 UCITS ETF USD",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "MISCHFONDS"
-    },
-    "US84615Q1031": {
-      "ticker": "SPCX",
-      "name": "Space Exploration Technologies Corp.",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "US15643U1043": {
-      "ticker": "LEU",
-      "name": "Centrus Energy Corp.",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "AKTIE"
-    },
-    "US81762P1021": {
-      "ticker": "NOW",
-      "name": "ServiceNow, Inc.",
-      "status": "mapped",
-      "last_seen_in_csv": null,
+      "last_seen_in_csv": "2026-07-28",
       "instrument_kind": "AKTIE"
     },
     "US0091581068": {
       "ticker": "APD",
-      "name": "Air Products and Chemicals, Inc.",
+      "name": "Air Products & Chem",
       "status": "mapped",
-      "last_seen_in_csv": null,
+      "last_seen_in_csv": "2026-05-12",
       "instrument_kind": "AKTIE"
     },
     "CA65704Y1079": {
       "ticker": "NIOB.CN",
-      "name": "North American Niobium and Critical Minerals Corp.",
+      "name": "North American Niobium and Critical Minerals",
       "status": "mapped",
-      "last_seen_in_csv": null,
+      "last_seen_in_csv": "2026-04-20",
+      "instrument_kind": "AKTIE"
+    },
+    "US78392B1070": {
+      "ticker": "HY9H.F",
+      "name": "SK Hynix GDR",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-08-07",
+      "instrument_kind": "AKTIE"
+    },
+    "DE0007030009": {
+      "ticker": "RHM.DE",
+      "name": "Rheinmetall",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-05-14",
+      "instrument_kind": "AKTIE"
+    },
+    "US00215W1009": {
+      "ticker": "ASX",
+      "name": "ASE Technology Holding",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-08-12",
       "instrument_kind": "AKTIE"
     },
     "US1717793095": {
       "ticker": "CIEN",
-      "name": "Ciena Corporation",
+      "name": "Ciena Co",
       "status": "mapped",
-      "last_seen_in_csv": null,
+      "last_seen_in_csv": "2026-03-30",
       "instrument_kind": "AKTIE"
     },
     "JP3721400004": {
-      "ticker": "5631.T",
-      "name": "The Japan Steel Works, Ltd.",
+      "ticker": "J9R.F",
+      "name": "Japan Steel Works",
       "status": "mapped",
-      "last_seen_in_csv": null,
+      "last_seen_in_csv": "2026-06-23",
       "instrument_kind": "AKTIE"
     },
     "US50155Q1004": {
       "ticker": "KD",
-      "name": "Kyndryl Holdings, Inc.",
+      "name": "Kyndryl Holdings",
       "status": "mapped",
-      "last_seen_in_csv": null,
+      "last_seen_in_csv": "2026-03-03",
       "instrument_kind": "AKTIE"
     },
-    "IE00BMFKG444": {
-      "ticker": "IE00BMFKG444.SG",
-      "name": "VUV/USD",
+    "IE00B42NKQ00": {
+      "ticker": "IUES.L",
+      "name": "iShares S&P 500 Energy Sector (Acc)",
       "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "MISCHFONDS"
+      "last_seen_in_csv": "2026-03-03",
+      "instrument_kind": "AKTIENFONDS"
+    },
+    "IE00BMFKG444": {
+      "ticker": "XNAS.DE",
+      "name": "Xtrackers Nasdaq 100 (Acc)",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-02-25",
+      "instrument_kind": "AKTIENFONDS"
     },
     "IE00B8KQN827": {
       "ticker": "ETN",
-      "name": "Eaton Corporation plc",
+      "name": "Eaton",
       "status": "mapped",
-      "last_seen_in_csv": null,
+      "last_seen_in_csv": "2026-08-27",
       "instrument_kind": "AKTIE"
     },
-    "CH0491507486": {
-      "ticker": "CH0491507486.SG",
-      "name": "21Shares TEZOS ETP",
+    "US5738741041": {
+      "ticker": "MRVL",
+      "name": "Marvell Technology",
       "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "MISCHFONDS"
-    },
-    "CH1109575535": {
-      "ticker": "CH1109575535.SG",
-      "name": "21Shares Stellar ETP",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "MISCHFONDS"
-    },
-    "CH1129538448": {
-      "ticker": "CH1129538448.SG",
-      "name": "21Shares Polygon ETP",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "MISCHFONDS"
+      "last_seen_in_csv": "2026-08-24",
+      "instrument_kind": "AKTIE"
     },
     "GB00BNRRF105": {
-      "ticker": "GB00BNRRF105.SG",
-      "name": "CoinShares Physical Staked Algo",
-      "status": "mapped",
-      "last_seen_in_csv": null,
-      "instrument_kind": "MISCHFONDS"
+      "ticker": null,
+      "name": "CoinShares Physical Staked Algorand",
+      "status": "ignored",
+      "last_seen_in_csv": "2026-02-18",
+      "instrument_kind": "SONSTIGE"
     },
     "US24703L2025": {
       "ticker": "DELL",
-      "name": "Dell Technologies Inc.",
+      "name": "Dell Technologies C",
       "status": "mapped",
-      "last_seen_in_csv": null,
+      "last_seen_in_csv": "2026-02-03",
       "instrument_kind": "AKTIE"
     },
     "FR0004038263": {
       "ticker": "PARRO.PA",
-      "name": "Parrot S.A.",
+      "name": "Parrot",
       "status": "mapped",
-      "last_seen_in_csv": null,
+      "last_seen_in_csv": "2026-01-23",
+      "instrument_kind": "AKTIE"
+    },
+    "US11135F1012": {
+      "ticker": "AVGO",
+      "name": "Broadcom",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-07-29",
       "instrument_kind": "AKTIE"
     },
     "US0404132054": {
       "ticker": "ANET",
-      "name": "Arista Networks, Inc.",
+      "name": "Arista Networks",
       "status": "mapped",
-      "last_seen_in_csv": null,
+      "last_seen_in_csv": "2026-01-19",
+      "instrument_kind": "AKTIE"
+    },
+    "IE00B3WJKG14": {
+      "ticker": "QDVE.DE",
+      "name": "iShares S&P 500 Information Technology Sector (Acc)",
+      "status": "mapped",
+      "last_seen_in_csv": "2025-12-06",
+      "instrument_kind": "AKTIENFONDS"
+    },
+    "IE000QDFFK00": {
+      "ticker": "ANAV.DE",
+      "name": "BNP Paribas Nasdaq 100 (Acc)",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-06-23",
+      "instrument_kind": "AKTIENFONDS"
+    },
+    "DE000HT41XN9": {
+      "ticker": null,
+      "name": "Apple Short 205,22 $ Turbo Open End HSBC",
+      "status": "unmapped",
+      "last_seen_in_csv": "2025-04-25",
+      "instrument_kind": "SONSTIGE"
+    },
+    "US67066G1040": {
+      "ticker": "NVDA",
+      "name": "NVIDIA",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-08-24",
+      "instrument_kind": "AKTIE"
+    },
+    "JP3119600009": {
+      "ticker": "AJINF",
+      "name": "Ajinomoto",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-07-13",
+      "instrument_kind": "AKTIE"
+    },
+    "US15643U1043": {
+      "ticker": "LEU",
+      "name": "Centrus Energy A",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-05-28",
+      "instrument_kind": "AKTIE"
+    },
+    "US81762P1021": {
+      "ticker": "NOW",
+      "name": "ServiceNow",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-05-13",
+      "instrument_kind": "AKTIE"
+    },
+    "KYG0535Q1331": {
+      "ticker": "AY7A.F",
+      "name": "ASMPT",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-08-30",
+      "instrument_kind": "AKTIE"
+    },
+    "JP3148800000": {
+      "ticker": "4062.T",
+      "name": "Ibiden",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-07-28",
+      "instrument_kind": "AKTIE"
+    },
+    "JP3236330001": {
+      "ticker": "285A.T",
+      "name": "Kioxia Holdings",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-08-07",
+      "instrument_kind": "AKTIE"
+    },
+    "US9581021055": {
+      "ticker": "WDC.MU",
+      "name": "Western Digital",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-08-06",
+      "instrument_kind": "AKTIE"
+    },
+    "US0079031078": {
+      "ticker": "AMD",
+      "name": "Advanced Micro Devices",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-08-05",
+      "instrument_kind": "AKTIE"
+    },
+    "US78392B2060": {
+      "ticker": "SKHY",
+      "name": "SK Hynix Inc.",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-08-05",
+      "instrument_kind": "AKTIE"
+    },
+    "US0420682058": {
+      "ticker": "ARM",
+      "name": "Arm Holdings",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-08-05",
+      "instrument_kind": "AKTIE"
+    },
+    "AT0000969985": {
+      "ticker": "ATS.VI",
+      "name": "AT&S Austria Technologie & Systemtechnik",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-08-05",
+      "instrument_kind": "AKTIE"
+    },
+    "IE00BKVD2N49": {
+      "ticker": "847.F",
+      "name": "Seagate Technology Hldgs",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-07-28",
+      "instrument_kind": "AKTIE"
+    },
+    "US84615Q1031": {
+      "ticker": "SPCX",
+      "name": "Space Exploration Technologies",
+      "status": "mapped",
+      "last_seen_in_csv": "2026-06-12",
       "instrument_kind": "AKTIE"
     }
   }

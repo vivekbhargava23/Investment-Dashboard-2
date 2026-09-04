@@ -9,11 +9,13 @@ no longer apply.
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import pandas as pd
 
 from app.domain.positions import LivePosition
-from app.ui.components.positions_table import build_positions_dataframe
+from app.ui.components import positions_table
+from app.ui.components.positions_table import _sign_color, build_positions_dataframe
 from tests.unit.ui.test_overview_render import (
     _make_live_position,
     _make_live_position_usd,
@@ -191,3 +193,22 @@ def test_stale_row_keeps_book_fields() -> None:
     assert row["Shares"] == 1.0
     assert row["Lots"] == 1
 
+
+
+# ── Styler colours must be literal, not theme variables ──────────────────────
+# st.dataframe paints cells on a canvas where `var(--…)` does not resolve, so a
+# CSS-variable colour rendered the whole Price src column invisible.
+
+
+def test_sign_colour_for_a_blank_cell_is_a_literal_colour() -> None:
+    assert "var(" not in _sign_color(None)
+    assert "var(" not in _sign_color(float("nan"))
+
+
+def test_sign_colour_for_a_zero_is_a_literal_colour() -> None:
+    assert "var(" not in _sign_color(0.0)
+
+
+def test_positions_table_module_declares_no_css_variable_colours() -> None:
+    source = Path(positions_table.__file__).read_text()
+    assert "color: var(--" not in source

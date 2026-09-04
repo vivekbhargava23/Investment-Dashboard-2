@@ -84,3 +84,53 @@ def test_empty_isin_map_raises_for_any_ticker() -> None:
 def test_ticker_match_is_case_insensitive_in_map() -> None:
     isin_map = _map_with(("US1234567890", "nvda", InstrumentKind.AKTIE))
     assert classify_instrument("NVDA", isin_map) == InstrumentKind.AKTIE
+
+
+# ── Placeholder-ISIN tickers (ADR-014 rule 2) ────────────────────────────────
+# A holding with no price feed trades under its ISIN, so its map entry has no
+# ticker to match on. Before these, one such holding — a certificate, a crypto
+# ETP — raised and took the whole tax year's summary down with it.
+
+
+def _no_feed_map(isin: str, kind: InstrumentKind | None) -> IsinMapDocument:
+    return IsinMapDocument(
+        entries={
+            isin: IsinMapping(
+                ticker=None, name="No-feed holding", status="ignored", instrument_kind=kind
+            )
+        }
+    )
+
+
+def test_isin_as_ticker_classifies_from_its_own_entry() -> None:
+    isin_map = _no_feed_map("DE000HT41XN9", InstrumentKind.SONSTIGE)
+    assert classify_instrument("DE000HT41XN9", isin_map) == InstrumentKind.SONSTIGE
+
+
+def test_isin_with_exchange_suffix_classifies_from_its_own_entry() -> None:
+    isin_map = _no_feed_map("GB00BNRRF105", InstrumentKind.SONSTIGE)
+    assert classify_instrument("GB00BNRRF105.SG", isin_map) == InstrumentKind.SONSTIGE
+
+
+def test_isin_as_ticker_without_a_kind_still_raises() -> None:
+    isin_map = _no_feed_map("DE000HT41XN9", None)
+    with pytest.raises(InstrumentClassificationError) as exc_info:
+        classify_instrument("DE000HT41XN9", isin_map)
+    assert "Tax kind" in str(exc_info.value)
+
+
+def test_feed_ticker_wins_over_an_isin_of_the_same_name() -> None:
+    """A real feed match is never displaced by the ISIN fallback."""
+    isin_map = IsinMapDocument(
+        entries={
+            "US0000000001": IsinMapping(
+                ticker="LEU", name="Centrus", status="mapped",
+                instrument_kind=InstrumentKind.AKTIE,
+            ),
+            "LEU": IsinMapping(
+                ticker=None, name="Decoy", status="ignored",
+                instrument_kind=InstrumentKind.SONSTIGE,
+            ),
+        }
+    )
+    assert classify_instrument("LEU", isin_map) == InstrumentKind.AKTIE
