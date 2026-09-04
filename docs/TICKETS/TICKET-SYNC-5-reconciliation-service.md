@@ -1,6 +1,7 @@
 # TICKET-SYNC-5 — Reconciliation: shares per ISIN in the CSV vs in the book, with a cause
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Investment Panel
 **Recommended model:** Sonnet — pure domain logic over existing plan rows and transactions.
 **Estimated session length:** 1.5 hr

@@ -44,6 +44,43 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-04 — TICKET-SYNC-5: reconciliation service (shares per ISIN vs book)
+**Surface:** Claude Code
+**Model:** claude-sonnet-5
+**Branch:** ticket-sync-5-reconciliation-shares-per-isin-in
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added the pure `reconcile()` domain function: computes CSV-expected shares per ISIN
+  from `PlannedRow`s (Buy/Savings plan add, Sell subtracts, Security transfer signed,
+  cancelled rows excluded) versus book shares from `Transaction`s, and explains any
+  mismatch with a first-match-wins cause (validation failure, transfer imbalance,
+  manual edit of a CSV row, corporate action, manual entry for the same instrument,
+  planner conflict, or "unknown").
+- Output is sorted by `|diff| × last trade price` descending, then ISIN.
+- Added a thin stateless service wrapper `reconcile_book()` that loads transactions
+  from the `TransactionRepository` port and delegates to the domain function.
+- Added `tests/fakes/repository.py` (`FakeTransactionRepository`) since none existed yet.
+
+### Files touched
+- `app/domain/reconcile.py` — `ReconcileRow` model + `reconcile()` pure function
+- `app/services/reconcile.py` — `reconcile_book()` port orchestration
+- `tests/fakes/repository.py` — new in-memory `FakeTransactionRepository`
+- `tests/unit/domain/test_reconcile.py` — one test per cause (1–9) + guard/reserved/
+  partial/sort-order tests
+- `tests/unit/services/test_reconcile.py` — service delegates to the domain via the port
+
+### Tests
+13 new tests passed. Full gate: 1,164 passed, 97 skipped; ruff, mypy, and all
+import-linter contracts passed.
+
+### Decisions made during the session
+- No architectural decisions made; implementation follows `docs/DESIGN/SYNC-TAB.md`
+  and the ticket's fixed rules verbatim.
+
+### Out-of-scope items noticed
+- None.
+
 ## 2026-09-04 — TICKET-SYNC-4: historical price-feed verification
 **Surface:** Codex
 **Model:** GPT-5
