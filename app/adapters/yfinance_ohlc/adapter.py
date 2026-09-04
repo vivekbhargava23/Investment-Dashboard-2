@@ -59,7 +59,21 @@ class YfinanceOhlcAdapter:
         handling, and bar construction can never drift between them.
         """
         interval = self._interval_for_period(period)
-        df = yf.Ticker(ticker).history(period=period.value, interval=interval, auto_adjust=False)
+        try:
+            df = yf.Ticker(ticker).history(
+                period=period.value, interval=interval, auto_adjust=False
+            )
+        except OhlcUnavailableError:
+            raise
+        except Exception as exc:
+            # yfinance raises whatever it likes for a symbol it dislikes — an
+            # unmapped holding is carried under its ISIN as a placeholder ticker
+            # (ADR-014 rule 2), and yfinance rejects that with
+            # ValueError("Invalid ISIN number: …"). Every such failure is one
+            # ticker having no data, which is what this port promises to report.
+            raise OhlcUnavailableError(
+                reason=f"yfinance could not fetch {ticker} period={period.value}: {exc}"
+            ) from exc
 
         if df.empty:
             raise OhlcUnavailableError(
@@ -138,7 +152,8 @@ class YfinanceOhlcAdapter:
         """Batch helper: isolate per-ticker failures so one bad ticker never fails the batch."""
         try:
             return self._fetch_series(ticker, period)
-        except OhlcUnavailableError:
+        except Exception as exc:
+            _log.warning("Skipping OHLC fetch for %s: %s", ticker, exc)
             return None
 
     def clear_cache(self) -> None:
