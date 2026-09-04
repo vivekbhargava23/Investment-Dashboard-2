@@ -231,3 +231,25 @@ def test_sorted_by_impact_descending_then_isin() -> None:
     results = reconcile([small, large], [])
 
     assert [r.isin for r in results] == ["US12", "US11"]
+
+
+def test_name_comes_from_the_latest_trade_not_a_later_cash_row() -> None:
+    trade = make_row(
+        isin="US9", reference="ref-1", description="Vanguard FTSE All-World",
+        trade_date=date(2026, 3, 1),
+    )
+    dividend = make_row(
+        isin="US9",
+        row_number=2,
+        reference="ref-2",
+        description="Dividend Vanguard FTSE All-World",
+        csv_type="Distribution",
+        trade_date=date(2026, 3, 2),
+        shares=None,
+        status=RowStatus.OUT_OF_SCOPE_V1,
+        action=PlannedAction.SKIP,
+    )
+
+    [result] = reconcile([trade, dividend], [])
+
+    assert result.name == "Vanguard FTSE All-World"

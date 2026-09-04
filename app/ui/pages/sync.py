@@ -452,7 +452,8 @@ def _render_tasks(
     if not tasks:
         return
 
-    st.subheader(f"{len(tasks)} thing{'s' if len(tasks) > 1 else ''} need you")
+    noun = "thing needs" if len(tasks) == 1 else "things need"
+    st.subheader(f"{len(tasks)} {noun} you")
     decisions = {row.reference: row for row in analysis.decision_rows}
 
     for index, task in enumerate(tasks):
@@ -585,7 +586,7 @@ def _render_all_instruments() -> None:
 # ─── page entry point ─────────────────────────────────────────────────────────
 
 def render() -> None:
-    st.title("Sync with Scalable")
+    # The topbar already names the page; a second title just eats vertical space.
     _render_feedback()
 
     store = get_sync_store()
