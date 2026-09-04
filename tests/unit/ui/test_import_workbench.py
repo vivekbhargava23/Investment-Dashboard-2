@@ -5,7 +5,13 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from app.domain.csv_import import ImportPlan, PlannedAction, PlannedRow, RowStatus
+from app.domain.csv_import import (
+    FeedState,
+    ImportPlan,
+    PlannedAction,
+    PlannedRow,
+    RowStatus,
+)
 from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import TransactionType
 from app.domain.money import Currency, Money
@@ -15,10 +21,11 @@ from app.ui.pages.import_workbench import (
     _build_transaction,
     _count_blocked,
     _count_ready,
+    _get_unique_unmapped_isins,
     _ignore_isin,
     _load_import_log,
     _md5,
-    _surfaced_rows,
+    _ticker_cell,
     _write_backup,
 )
 
@@ -36,6 +43,7 @@ def _make_planned_row(
     conflict_tx_id: str | None = None,
     fx_rate_eur: Decimal | None = None,
     isin: str = "DE0007164600",
+    feed_state: FeedState | None = "mapped",
 ) -> PlannedRow:
     return PlannedRow(
         row_number=2,
@@ -52,6 +60,7 @@ def _make_planned_row(
         status=status,
         action=action,
         proposed_ticker=ticker,
+        feed_state=feed_state,
         conflict_tx_id=conflict_tx_id,
         fx_rate_eur=fx_rate_eur,
     )
@@ -173,40 +182,48 @@ def test_count_ready_already_imported_not_counted() -> None:
     assert _count_ready(plan, {}, set()) == 0
 
 
-# ─── ignored ISINs are silent (TICKET-CSV-14) ─────────────────────────────────
+# ─── blocked rows and feed-less tickers (TICKET-SYNC-1B) ──────────────────────
 
 def _skip_row(reference: str, status: RowStatus) -> PlannedRow:
     return _make_planned_row(reference=reference, status=status, action=PlannedAction.SKIP)
 
 
-def test_count_blocked_excludes_ignored() -> None:
-    """Ignored ISINs must not inflate the 'blocked' count the user reads."""
+def test_count_blocked_counts_only_unimportable_rows() -> None:
     plan = ImportPlan(rows=(
-        _skip_row("A", RowStatus.UNMAPPED_ISIN),
+        _make_planned_row(reference="A", status=RowStatus.NEW),
         _skip_row("B", RowStatus.INTERNAL_TRANSFER),
-        _skip_row("C", RowStatus.IGNORED_ISIN),
-        _skip_row("D", RowStatus.IGNORED_ISIN),
+        _skip_row("C", RowStatus.VALIDATION_ERROR),
     ))
-    # Two genuinely-blocked rows; the two ignored rows are silent.
     assert _count_blocked(plan) == 2
 
 
-def test_surfaced_rows_excludes_ignored() -> None:
-    """Ignored rows never appear in the workbench table or filter chips."""
+def test_count_blocked_zero_for_feedless_rows() -> None:
+    """A CSV of nothing but unmapped ISINs has nothing blocked — it all imports."""
     plan = ImportPlan(rows=(
-        _make_planned_row(reference="A", status=RowStatus.NEW),
-        _skip_row("B", RowStatus.IGNORED_ISIN),
-    ))
-    assert [r.reference for r in _surfaced_rows(plan)] == ["A"]
-
-
-def test_count_blocked_zero_when_only_ignored() -> None:
-    """A CSV whose only leftovers are ignored ISINs reads as nothing to deal with."""
-    plan = ImportPlan(rows=(
-        _make_planned_row(reference="A", status=RowStatus.NEW),
-        _skip_row("B", RowStatus.IGNORED_ISIN),
+        _make_planned_row(reference="A", status=RowStatus.NEW, feed_state="unmapped"),
+        _make_planned_row(reference="B", status=RowStatus.NEW, feed_state="ignored"),
     ))
     assert _count_blocked(plan) == 0
+    assert _count_ready(plan, {}, set()) == 2
+
+
+def test_ticker_cell_marks_feedless_rows() -> None:
+    unmapped = _make_planned_row(ticker="KYG0535Q1331", feed_state="unmapped")
+    ignored = _make_planned_row(ticker="KYG0535Q1331", feed_state="ignored")
+    mapped = _make_planned_row(ticker="SAP.DE", feed_state="mapped")
+    assert _ticker_cell(unmapped) == "KYG0535Q1331 (no feed)"
+    assert _ticker_cell(ignored) == "KYG0535Q1331 (no feed)"
+    assert _ticker_cell(mapped) == "SAP.DE"
+
+
+def test_unmapped_isins_panel_lists_only_unmapped_feed_state() -> None:
+    plan = ImportPlan(rows=(
+        _make_planned_row(reference="A", isin="KYG0535Q1331", feed_state="unmapped"),
+        _make_planned_row(reference="B", isin="KYG0535Q1331", feed_state="unmapped"),
+        _make_planned_row(reference="C", isin="IE00B3RBWM25", feed_state="ignored"),
+        _make_planned_row(reference="D", isin="DE0007164600", feed_state="mapped"),
+    ))
+    assert [isin for isin, _ in _get_unique_unmapped_isins(plan)] == ["KYG0535Q1331"]
 
 
 # ─── import log ───────────────────────────────────────────────────────────────
