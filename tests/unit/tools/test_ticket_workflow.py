@@ -146,3 +146,44 @@ def test_ranking_flags_blockers_and_prefers_unblockers(tmp_path: Path) -> None:
     assert ranked_ids.index("TICKET-RD1") < ranked_ids.index("TICKET-RD2")
     assert ranked_ids.index("TICKET-RD1") < ranked_ids.index("TICKET-RD6")
     assert ranked_ids.index("TICKET-RD4") < ranked_ids.index("TICKET-RD7")
+
+
+_SYNC_ROW = (
+    "1",
+    "SYNC-1",
+    "CRITICAL",
+    "Sonnet",
+    "#204",
+    "Backlog",
+    "Stamp ISIN on every row",
+    "unblocks 5",
+)
+
+
+def test_truncate_marks_elided_text() -> None:
+    assert _mod.truncate("NAV history", 20) == "NAV history"
+    assert _mod.truncate("NAV history backfill", 11) == "NAV histor…"
+    assert _mod.truncate("anything", 0) == ""
+
+
+def test_menu_table_aligns_columns_and_fits_terminal_width() -> None:
+    rows = [
+        _SYNC_ROW,
+        ("2", "RD5", "HIGH", "Opus", "#144", "Backlog", "NAV history backfill", "ready"),
+    ]
+
+    lines = _mod.format_menu_table(rows, 120)
+
+    assert lines[0].split() == list(_mod.MENU_HEADERS)
+    assert set(lines[1].strip()) == {"-", " "}
+    assert "SYNC-1" in lines[2] and "unblocks 5" in lines[2]
+    assert all(len(line) <= 120 for line in lines)
+    header_offset = lines[0].index("Title")
+    assert lines[2].index("Stamp ISIN") == header_offset
+    assert lines[3].index("NAV history") == header_offset
+
+
+def test_menu_table_keeps_title_readable_on_narrow_terminals() -> None:
+    lines = _mod.format_menu_table([_SYNC_ROW], 40)
+
+    assert "Stamp" in lines[2]
