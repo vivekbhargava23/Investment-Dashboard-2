@@ -80,7 +80,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 - `docs/screenshots/sync-tab/` — states A, B, C and the duplicate task
 
 ### Tests
-1208 passing → 1236 passing (28 new). Gate clean: pytest, ruff, mypy, lint-imports.
+1208 passing → 1238 passing (30 new). Gate clean: pytest, ruff, mypy, lint-imports.
 
 ### Decisions made during the session
 - **Two fixes came out of looking at the screenshots**, which is what the visual step is
@@ -106,6 +106,18 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 - Verified in the app on the real September export: 219 trades imported, and re-uploading
   it reports "Holdings match this Scalable export (39/39)".
 - Also keyed the feed-check cache on the transactions signature instead of the apply count.
+
+### Second follow-up: Live Overview crashed after the real import
+- After importing the real export, `overview` died with
+  `ValueError: Invalid ISIN number: DE000HT41XN9` out of `get_ohlc_histories`.
+- Cause: an unmapped holding trades under its ISIN as a placeholder ticker (SYNC-1B,
+  ADR-014 rule 2), and yfinance rejects an ISIN-shaped symbol with a plain ValueError.
+  `_fetch_series_safe` caught only `OhlcUnavailableError`, so the error escaped
+  `pool.map` and took the page with it — the port explicitly promises the opposite
+  ("per-ticker failures are omitted from the result, never raised").
+- Fix: `_fetch_series` wraps any provider error as `OhlcUnavailableError` and the batch
+  helper isolates anything at all. The price adapter already did this; the OHLC adapter
+  was the odd one out. Verified in the app on a book holding a placeholder ticker.
 
 ### Out-of-scope items noticed
 - The Import CSV workbench and ISIN Mappings pages still exist, as SYNC-6B intends;
