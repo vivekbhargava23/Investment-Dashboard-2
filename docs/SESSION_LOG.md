@@ -80,7 +80,7 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 - `docs/screenshots/sync-tab/` — states A, B, C and the duplicate task
 
 ### Tests
-1208 passing → 1238 passing (30 new). Gate clean: pytest, ruff, mypy, lint-imports.
+1208 passing → 1249 passing (41 new). Gate clean: pytest, ruff, mypy, lint-imports.
 
 ### Decisions made during the session
 - **Two fixes came out of looking at the screenshots**, which is what the visual step is
@@ -118,6 +118,28 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 - Fix: `_fetch_series` wraps any provider error as `OhlcUnavailableError` and the batch
   helper isolates anything at all. The price adapter already did this; the OHLC adapter
   was the odd one out. Verified in the app on a book holding a placeholder ticker.
+
+### Third follow-up: what a real import looked like on the Live Overview
+- **ISIN shown as ticker *and* name.** Nothing has ever written an `unmapped` entry when
+  an ISIN is first seen, so a holding auto-resolve could not map had no map entry at all:
+  no name to show, and no row on the Mappings page to map it from. `record_seen_isins`
+  now creates one from the broker's description and stamps `last_seen_in_csv` (which
+  nothing had ever set, so that column was permanently "—"). Called from both the Sync
+  service and the old workbench.
+- **Feeds that were not feeds.** yfinance answers some ISINs with a Stuttgart listing
+  whose symbol is literally `<ISIN>.SG`. Auto-resolve mapped 8 of Vivek's holdings to
+  those; they return no prices, so the holding sat at its last trade price while the app
+  claimed a feed. Auto-resolve now rejects a symbol that is just the ISIN, and a mapped
+  feed that returns no closes raises the same "no price feed" task as an unmapped one —
+  otherwise the existing bad mappings would stay silent.
+- **The unlabelled column printing "None".** It is the price-source column; it now has a
+  label and blank empty cells (a column of strings and `None` is object dtype and the grid
+  prints `str(None)`). Numeric columns are coerced to float for the same reason, which
+  also keeps them sortable.
+- A probe app established that the greyed `None` still shown in an empty *numeric* cell is
+  Streamlit's own empty-value placeholder, with or without a Styler — not our data.
+- Verified against the real September export in a sandbox: 39 holdings, all named, no
+  ISIN-as-ticker mappings left, Overview renders.
 
 ### Out-of-scope items noticed
 - The Import CSV workbench and ISIN Mappings pages still exist, as SYNC-6B intends;
