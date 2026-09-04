@@ -1,6 +1,7 @@
 # TICKET-SYNC-2 — Mapping write path: rewrite every row, guard shared tickers, invalidate caches (ADR-014)
 
 **Priority:** CRITICAL
+**Status:** IN_PROGRESS
 **Milestone:** Investment Panel
 **Recommended model:** Sonnet — small, fully specified changes in services, wiring and one page.
 **Estimated session length:** 1 hr
