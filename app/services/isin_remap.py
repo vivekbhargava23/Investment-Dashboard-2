@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
+from app.domain.isin_map import IsinMapDocument, IsinMapping
+from app.domain.models import Transaction
+from app.domain.tax.classification import InstrumentKind
 from app.ports.repository import TransactionRepository
 
 
@@ -48,3 +53,122 @@ def delete_transactions_for_isin(
     if removed:
         tx_repo.save_all(remaining)
     return removed
+
+
+class TickerAlreadyMappedError(Exception):
+    """Raised when a ticker is already the feed of a different mapped ISIN.
+
+    ADR-014 rule 4: two instruments must not merge into one FIFO position by
+    accident. The caller may override deliberately with ``allow_shared_ticker``.
+    """
+
+    def __init__(self, ticker: str, other_isin: str) -> None:
+        super().__init__(
+            f"{ticker} is already the feed for {other_isin}"
+        )
+        self.ticker = ticker
+        self.other_isin = other_isin
+
+
+def _mapped_owner_of_ticker(
+    isin_doc: IsinMapDocument,
+    ticker: str,
+    exclude_isin: str,
+) -> str | None:
+    """Return the ISIN (other than ``exclude_isin``) that already feeds off ``ticker``."""
+    for other_isin, mapping in isin_doc.entries.items():
+        if other_isin == exclude_isin:
+            continue
+        if mapping.status == "mapped" and mapping.ticker == ticker:
+            return other_isin
+    return None
+
+
+def change_feed(
+    isin: str,
+    ticker: str,
+    kind: InstrumentKind,
+    isin_doc: IsinMapDocument,
+    tx_repo: TransactionRepository,
+    *,
+    allow_shared_ticker: bool = False,
+    name: str | None = None,
+) -> tuple[IsinMapDocument, int]:
+    """Point ``isin`` at ``ticker`` and rewrite every transaction carrying that ISIN.
+
+    Returns ``(new_doc, rewritten_count)``. The caller saves ``new_doc``.
+
+    Write order is fixed (ADR-014 rule 9): transactions first, then the map. If the
+    caller's map save fails, stored tickers are ahead of the map, which
+    :func:`check_consistency` detects and :func:`repair` fixes idempotently.
+
+    Raises :class:`TickerAlreadyMappedError` when another ``mapped`` ISIN already
+    uses ``ticker`` and ``allow_shared_ticker`` is False.
+    """
+    if not allow_shared_ticker:
+        other_isin = _mapped_owner_of_ticker(isin_doc, ticker, isin)
+        if other_isin is not None:
+            raise TickerAlreadyMappedError(ticker, other_isin)
+
+    existing = isin_doc.entries.get(isin)
+    entry = IsinMapping(
+        ticker=ticker,
+        name=name or (existing.name if existing else isin),
+        status="mapped",
+        last_seen_in_csv=existing.last_seen_in_csv if existing else None,
+        instrument_kind=kind,
+    )
+    new_entries = dict(isin_doc.entries)
+    new_entries[isin] = entry
+    new_doc = IsinMapDocument(version=isin_doc.version, entries=new_entries)
+
+    rewritten = rewrite_ticker_for_isin(tx_repo, isin, ticker)
+    return new_doc, rewritten
+
+
+def check_consistency(
+    isin_doc: IsinMapDocument,
+    txs: Sequence[Transaction],
+) -> list[tuple[str, str, str]]:
+    """Return ``(isin, map_ticker, stored_ticker)`` for every mismatch.
+
+    A mismatch means the mapping write path was bypassed (or a map save failed
+    after the transactions were rewritten). One entry per distinct stored ticker
+    per ISIN, in map order.
+    """
+    mismatches: list[tuple[str, str, str]] = []
+    for isin, mapping in isin_doc.entries.items():
+        if mapping.status != "mapped" or mapping.ticker is None:
+            continue
+        stored = {tx.ticker for tx in txs if tx.isin == isin}
+        for stored_ticker in sorted(stored - {mapping.ticker}):
+            mismatches.append((isin, mapping.ticker, stored_ticker))
+    return mismatches
+
+
+def repair(
+    isin_doc: IsinMapDocument,
+    tx_repo: TransactionRepository,
+) -> int:
+    """Re-run the rewrite for every mapped ISIN. Returns the number of rows changed.
+
+    Idempotent: a second call on a consistent book returns 0.
+    """
+    txs = tx_repo.load_all()
+    updated: list[Transaction] = []
+    changed = 0
+    targets = {
+        isin: mapping.ticker
+        for isin, mapping in isin_doc.entries.items()
+        if mapping.status == "mapped" and mapping.ticker is not None
+    }
+    for tx in txs:
+        target = targets.get(tx.isin) if tx.isin else None
+        if target is not None and tx.ticker != target:
+            updated.append(tx.model_copy(update={"ticker": target}))
+            changed += 1
+        else:
+            updated.append(tx)
+    if changed:
+        tx_repo.save_all(updated)
+    return changed
