@@ -1,3 +1,4 @@
+import hashlib
 import time
 from collections.abc import Sequence
 from datetime import date, datetime
@@ -20,11 +21,17 @@ _TTL_SECONDS = 60.0
 
 
 def _tx_sig(transactions: list[Transaction]) -> str:
-    """Stable key over a transaction list; changes when any tx is added or removed."""
+    """Stable key over a transaction list.
+
+    Covers ids *and* tickers: a mapping change rewrites tickers in place without
+    adding or removing a row, so an id-only key would serve the old valuation
+    (ADR-014 consequence 1).
+    """
     if not transactions:
         return "empty"
-    sorted_ids = sorted(str(tx.id) for tx in transactions)
-    return f"{len(transactions)}:{sorted_ids[-1]}"
+    payload = "|".join(sorted(f"{tx.id}:{tx.ticker}" for tx in transactions))
+    digest = hashlib.sha1(payload.encode()).hexdigest()[:12]
+    return f"{len(transactions)}:{digest}"
 
 
 def _live_fx_rates(

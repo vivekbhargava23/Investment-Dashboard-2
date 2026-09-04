@@ -43,3 +43,15 @@ def test_transactions_signature_order_insensitive():
     sig1 = _transactions_signature([tx1, tx2])
     sig2 = _transactions_signature([tx2, tx1])
     assert sig1 == sig2
+
+
+def test_transactions_signature_changes_when_only_a_ticker_is_rewritten():
+    """ADR-014: a mapping change rewrites tickers in place, so the key must move."""
+    tx = Transaction(
+        id=str(uuid4()), ticker="DE000A0F5UF5", type="buy", trade_date=date(2024, 1, 1),
+        shares=Decimal("10"), price_native=Money(amount=Decimal("150"), currency=Currency.EUR),
+        fx_rate_eur=Decimal("1"), isin="DE000A0F5UF5", source="scalable_csv",
+    )
+    remapped = tx.model_copy(update={"ticker": "EXS1.DE"})
+
+    assert _transactions_signature([tx]) != _transactions_signature([remapped])

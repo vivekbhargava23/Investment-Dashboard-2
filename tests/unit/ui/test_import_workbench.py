@@ -16,6 +16,7 @@ from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import TransactionType
 from app.domain.money import Currency, Money
 from app.domain.tax.classification import InstrumentKind
+from app.services.isin_autoresolve import AutoResolveResult
 from app.ui.pages.import_workbench import (
     _append_import_log,
     _build_transaction,
@@ -354,3 +355,87 @@ def test_import_workbench_module_importable() -> None:
 def test_import_workbench_has_render_function() -> None:
     from app.ui.pages.import_workbench import render
     assert callable(render)
+
+
+# ---------------------------------------------------------------------------
+# Auto-resolve refuses a ticker another mapped ISIN already feeds off (ADR-014 rule 4)
+# ---------------------------------------------------------------------------
+
+
+class _FakeIsinRepo:
+    def __init__(self, doc: IsinMapDocument) -> None:
+        self.doc = doc
+        self.saved: IsinMapDocument | None = None
+
+    def load(self) -> IsinMapDocument:
+        return self.doc
+
+    def save(self, doc: IsinMapDocument) -> None:
+        self.saved = doc
+        self.doc = doc
+
+
+class _FakeTxRepo:
+    def __init__(self, txs: list[object] | None = None) -> None:
+        self._txs = list(txs or [])
+
+    def load_all(self) -> list[object]:
+        return list(self._txs)
+
+    def save_all(self, txs: object) -> None:
+        self._txs = list(txs)  # type: ignore[arg-type]
+
+
+def _autoresolve_env(monkeypatch, doc: IsinMapDocument, result: AutoResolveResult):
+    import app.ui.pages.import_workbench as iw
+
+    isin_repo = _FakeIsinRepo(doc)
+    monkeypatch.setattr(iw, "get_isin_map_repo", lambda: isin_repo)
+    monkeypatch.setattr(iw, "get_repository", _FakeTxRepo)
+    monkeypatch.setattr(iw, "get_ticker_resolver", lambda: None)
+    monkeypatch.setattr(iw, "get_company_provider", lambda: None)
+    monkeypatch.setattr(iw, "autoresolve_isin", lambda *a, **k: result)
+    return iw, isin_repo
+
+
+def test_autoresolve_demotes_a_result_whose_ticker_is_already_taken(
+    monkeypatch, tmp_path: Path
+) -> None:
+    doc = IsinMapDocument(
+        entries={
+            "US0378331005": IsinMapping(
+                ticker="NVDA", name="Nvidia (old ISIN)", status="mapped",
+                instrument_kind=InstrumentKind.AKTIE,
+            )
+        }
+    )
+    result = AutoResolveResult(
+        isin="US67066G1040", ticker="NVDA", name="Nvidia",
+        instrument_kind=InstrumentKind.AKTIE, confidence="high", reason="exact match",
+    )
+    iw, isin_repo = _autoresolve_env(monkeypatch, doc, result)
+
+    results, saved = iw._run_autoresolve(
+        [("US67066G1040", "NVIDIA CORP")], tmp_path / "log.jsonl"
+    )
+
+    assert saved == set()
+    assert isin_repo.saved is None
+    assert results["US67066G1040"].confidence == "low"
+    assert "already the feed for US0378331005" in results["US67066G1040"].reason
+
+
+def test_autoresolve_saves_a_free_ticker(monkeypatch, tmp_path: Path) -> None:
+    result = AutoResolveResult(
+        isin="US67066G1040", ticker="NVDA", name="Nvidia",
+        instrument_kind=InstrumentKind.AKTIE, confidence="high", reason="exact match",
+    )
+    iw, isin_repo = _autoresolve_env(monkeypatch, IsinMapDocument(), result)
+
+    _, saved = iw._run_autoresolve(
+        [("US67066G1040", "NVIDIA CORP")], tmp_path / "log.jsonl"
+    )
+
+    assert saved == {"US67066G1040"}
+    assert isin_repo.saved is not None
+    assert isin_repo.saved.entries["US67066G1040"].ticker == "NVDA"

@@ -10,13 +10,16 @@ import pytest
 from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
+from app.domain.tax.classification import InstrumentKind
 from app.ports.repository import TransactionNotFoundError
+from app.services.isin_remap import change_feed
+from app.ui.components.isin_mapper import SHARED_TICKER_LABEL
 from app.ui.pages.mappings import (
     _delete_mapping,
     _ignore_isin,
     _init_state,
     _restore_isin,
-    _save_mapping,
+    _save_feed,
     _set_instrument_kind,
     _unmap_isin,
     _validate_ticker,
@@ -58,21 +61,21 @@ def test_validate_ticker_strips_whitespace_before_check() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _save_mapping
+# change_feed — the single mapping write path the page calls (ADR-014)
 # ---------------------------------------------------------------------------
 
 def _make_doc(**entries: IsinMapping) -> IsinMapDocument:
     return IsinMapDocument(entries=dict(entries))
 
 
-def test_save_mapping_flips_status_to_mapped() -> None:
+def test_change_feed_flips_status_to_mapped() -> None:
     isin = "CA65704Y1079"
     doc = _make_doc(**{
         isin: IsinMapping(ticker=None, name="North American Niobium", status="unmapped",
                           last_seen_in_csv=date(2026, 4, 20))
     })
     from app.domain.tax.classification import InstrumentKind
-    updated, _ = _save_mapping(isin, "NAN.V", InstrumentKind.AKTIE, doc)
+    updated, _ = change_feed(isin, "NAN.V", InstrumentKind.AKTIE, doc, _FakeRepo())
     entry = updated.entries[isin]
     assert entry.ticker == "NAN.V"
     assert entry.status == "mapped"
@@ -81,19 +84,19 @@ def test_save_mapping_flips_status_to_mapped() -> None:
     assert entry.instrument_kind == InstrumentKind.AKTIE
 
 
-def test_save_mapping_updates_existing_mapped_entry() -> None:
+def test_change_feed_updates_existing_mapped_entry() -> None:
     isin = "DE0007030009"
     doc = _make_doc(**{
         isin: IsinMapping(ticker="RHM.DE", name="Rheinmetall", status="mapped",
                           last_seen_in_csv=date(2026, 3, 30))
     })
     from app.domain.tax.classification import InstrumentKind
-    updated, _ = _save_mapping(isin, "RHM.XETRA", InstrumentKind.AKTIE, doc)
+    updated, _ = change_feed(isin, "RHM.XETRA", InstrumentKind.AKTIE, doc, _FakeRepo())
     assert updated.entries[isin].ticker == "RHM.XETRA"
     assert updated.entries[isin].status == "mapped"
 
 
-def test_save_mapping_preserves_other_entries() -> None:
+def test_change_feed_preserves_other_entries() -> None:
     doc = _make_doc(
         **{
             "US67066G1040": IsinMapping(ticker="NVDA", name="NVIDIA", status="mapped"),
@@ -101,7 +104,7 @@ def test_save_mapping_preserves_other_entries() -> None:
         }
     )
     from app.domain.tax.classification import InstrumentKind
-    updated, _ = _save_mapping("CA65704Y1079", "NAN.V", InstrumentKind.AKTIE, doc)
+    updated, _ = change_feed("CA65704Y1079", "NAN.V", InstrumentKind.AKTIE, doc, _FakeRepo())
     assert "US67066G1040" in updated.entries
     assert updated.entries["US67066G1040"].ticker == "NVDA"
 
@@ -160,8 +163,8 @@ def test_init_state_does_not_include_edit_ticker_value() -> None:
     assert "mappings_edit_ticker_value" not in state
 
 
-def test_save_mapping_with_ticker_from_searchbox_symbol() -> None:
-    """Ticker derived from TickerMatch.symbol is accepted by _save_mapping."""
+def test_change_feed_with_ticker_from_searchbox_symbol() -> None:
+    """Ticker derived from TickerMatch.symbol is accepted by change_feed."""
     isin = "DE0007030009"
     doc = _make_doc(**{
         isin: IsinMapping(ticker=None, name="Rheinmetall", status="unmapped",
@@ -169,7 +172,7 @@ def test_save_mapping_with_ticker_from_searchbox_symbol() -> None:
     })
     from app.domain.tax.classification import InstrumentKind
     ticker_from_match = "RHM.DE"
-    updated, _ = _save_mapping(isin, ticker_from_match, InstrumentKind.AKTIE, doc)
+    updated, _ = change_feed(isin, ticker_from_match, InstrumentKind.AKTIE, doc, _FakeRepo())
     assert updated.entries[isin].ticker == "RHM.DE"
     assert updated.entries[isin].status == "mapped"
 
@@ -509,3 +512,80 @@ def test_mapped_dataframe_last_seen_passthrough() -> None:
     ])
     assert df.iloc[0]["Last seen"] == date(2026, 1, 1)
     assert df.iloc[1]["Last seen"] is None
+
+
+# ---------------------------------------------------------------------------
+# _save_feed — the page's guard + save + invalidate sequence
+# ---------------------------------------------------------------------------
+
+
+class _FakeIsinRepo:
+    def __init__(self) -> None:
+        self.saved: IsinMapDocument | None = None
+
+    def save(self, doc: IsinMapDocument) -> None:
+        self.saved = doc
+
+
+def _save_feed_env(monkeypatch, repo: _FakeRepo) -> _FakeIsinRepo:
+    import app.ui.pages.mappings as m
+
+    isin_repo = _FakeIsinRepo()
+    monkeypatch.setattr(m, "get_repository", lambda: repo)
+    monkeypatch.setattr(m, "get_isin_map_repo", lambda: isin_repo)
+    monkeypatch.setattr(m, "invalidate_view_caches", lambda: None)
+    m.st.session_state.mappings_feedback = None
+    return isin_repo
+
+
+def test_save_feed_writes_rows_then_map_and_reports_the_count(monkeypatch) -> None:
+    isin = "US67066G1040"
+    repo = _FakeRepo([_make_tx("tx1", isin, isin), _make_tx("tx2", isin, isin)])
+    isin_repo = _save_feed_env(monkeypatch, repo)
+    doc = _make_doc(**{isin: IsinMapping(ticker=None, name="Nvidia", status="unmapped")})
+
+    n = _save_feed(isin, "NVDA", InstrumentKind.AKTIE, doc, allow_shared_ticker=False)
+
+    assert n == 2
+    assert isin_repo.saved is not None
+    assert isin_repo.saved.entries[isin].ticker == "NVDA"
+    assert all(tx.ticker == "NVDA" for tx in repo.load_all())
+
+
+def test_save_feed_refuses_a_taken_ticker_and_writes_nothing(monkeypatch) -> None:
+    import app.ui.pages.mappings as m
+
+    isin = "US67066G1040"
+    repo = _FakeRepo([_make_tx("tx1", isin, isin)])
+    isin_repo = _save_feed_env(monkeypatch, repo)
+    doc = _make_doc(
+        **{
+            "US0378331005": IsinMapping(ticker="NVDA", name="Nvidia", status="mapped"),
+            isin: IsinMapping(ticker=None, name="Nvidia (new ISIN)", status="unmapped"),
+        }
+    )
+
+    n = _save_feed(isin, "NVDA", InstrumentKind.AKTIE, doc, allow_shared_ticker=False)
+
+    assert n is None
+    assert isin_repo.saved is None
+    assert repo.load_all()[0].ticker == isin
+    level, msg = m.st.session_state.mappings_feedback
+    assert level == "warning"
+    assert "already the feed for US0378331005" in msg
+    assert SHARED_TICKER_LABEL in msg
+
+
+def test_save_feed_merges_when_the_user_confirms(monkeypatch) -> None:
+    isin = "US67066G1040"
+    repo = _FakeRepo([_make_tx("tx1", isin, isin)])
+    isin_repo = _save_feed_env(monkeypatch, repo)
+    doc = _make_doc(
+        **{"US0378331005": IsinMapping(ticker="NVDA", name="Nvidia", status="mapped")}
+    )
+
+    n = _save_feed(isin, "NVDA", InstrumentKind.AKTIE, doc, allow_shared_ticker=True)
+
+    assert n == 1
+    assert isin_repo.saved is not None
+    assert isin_repo.saved.entries[isin].ticker == "NVDA"

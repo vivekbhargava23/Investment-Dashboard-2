@@ -6,11 +6,17 @@ from __future__ import annotations
 
 import streamlit as st
 
-from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.tax.classification import InstrumentKind
 from app.ports.ticker_resolver import TickerMatch
+from app.services.isin_remap import TickerAlreadyMappedError
+from app.services.valuation import clear_caches
 from app.ui.components.ticker_searchbox import render_ticker_searchbox
-from app.ui.wiring import get_company_provider, get_ticker_resolver
+from app.ui.wiring import (
+    get_company_provider,
+    get_live_fx_provider,
+    get_price_provider,
+    get_ticker_resolver,
+)
 
 KIND_OPTIONS: list[InstrumentKind] = list(InstrumentKind)
 
@@ -81,22 +87,26 @@ def render_isin_mapper_row(
     return selected_match, selected_kind
 
 
-def build_mapping(
-    isin: str,
-    ticker: str,
-    kind: InstrumentKind,
-    description: str,
-    current_doc: IsinMapDocument,
-) -> IsinMapDocument:
-    """Return a new IsinMapDocument with the given ISIN mapped."""
-    existing = current_doc.entries.get(isin)
-    entry = IsinMapping(
-        ticker=ticker,
-        name=description if description else (existing.name if existing else isin),
-        status="mapped",
-        last_seen_in_csv=existing.last_seen_in_csv if existing else None,
-        instrument_kind=kind,
+# Ticking this passes ``allow_shared_ticker`` — the deliberate "these two ISINs
+# are the same instrument" merge of ADR-014 rule 4.
+SHARED_TICKER_LABEL = "Same instrument (ISIN change)"
+
+SHARED_TICKER_HELP = "Only tick this when the ISIN changed but the instrument did not."
+
+
+def shared_ticker_message(exc: TickerAlreadyMappedError) -> str:
+    """The warning shown when a ticker is already another mapped ISIN's feed."""
+    return (
+        f"{exc.ticker} is already the feed for {exc.other_isin}. "
+        f"Tick '{SHARED_TICKER_LABEL}' to merge on purpose."
     )
-    new_entries = dict(current_doc.entries)
-    new_entries[isin] = entry
-    return IsinMapDocument(version=current_doc.version, entries=new_entries)
+
+
+def invalidate_view_caches() -> None:
+    """Drop every cached view after a mapping write.
+
+    Positions, NAV and the price/FX feeds are all keyed on tickers, and a remap
+    rewrites tickers in place (ADR-014 consequence 1).
+    """
+    st.cache_data.clear()
+    clear_caches(get_price_provider(), get_live_fx_provider())

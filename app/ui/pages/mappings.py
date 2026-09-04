@@ -11,15 +11,26 @@ from typing import Any, cast
 import pandas as pd
 import streamlit as st
 
-from app.domain.isin_map import IsinMapDocument, IsinMapping
+from app.domain.isin_map import IsinMapDocument
 from app.domain.tax.classification import InstrumentKind
 from app.ports.ticker_resolver import TickerMatch
 from app.services.isin_remap import (
+    TickerAlreadyMappedError,
+    change_feed,
+    check_consistency,
     count_transactions_for_isin,
     delete_transactions_for_isin,
-    rewrite_ticker_for_isin,
+    repair,
 )
-from app.ui.components.isin_mapper import KIND_LABEL, KIND_OPTIONS, suggest_kind
+from app.ui.components.isin_mapper import (
+    KIND_LABEL,
+    KIND_OPTIONS,
+    SHARED_TICKER_HELP,
+    SHARED_TICKER_LABEL,
+    invalidate_view_caches,
+    shared_ticker_message,
+    suggest_kind,
+)
 from app.ui.components.ticker_searchbox import render_ticker_searchbox
 from app.ui.wiring import (
     get_isin_map_repo,
@@ -32,6 +43,10 @@ _TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,29}$")
 # Column widths for the Mapped table: ISIN, Name, Ticker, Tax kind, Last seen,
 # then four action slots (Edit, Kind, Unmap, Remove).
 _MAPPED_COLS = [1.8, 2.2, 1.0, 1.3, 1.0, 0.7, 0.7, 0.8, 0.9]
+
+# The edit row swaps Last seen for the merge checkbox, which needs room for its
+# label, and keeps Save/Cancel wide enough not to wrap.
+_EDIT_COLS = [1.8, 1.8, 2.0, 1.6, 2.2, 0.9, 0.9]
 
 # ── Mapped table (TICKET-RD2) ───────────────────────────────────────────────
 # st.dataframe gives client-side sort/search with no page rerun. It can't host
@@ -82,19 +97,34 @@ def _validate_ticker(ticker: str) -> str | None:
     return None
 
 
-def _save_mapping(isin: str, ticker: str, kind: InstrumentKind | None, current_doc: IsinMapDocument) -> tuple[IsinMapDocument, str]:
-    """Return (updated_doc, resolved_name_or_warning_note)."""
-    existing = current_doc.entries.get(isin)
-    updated_entry = IsinMapping(
-        ticker=ticker,
-        name=existing.name if existing else isin,
-        status="mapped",
-        last_seen_in_csv=existing.last_seen_in_csv if existing else None,
-        instrument_kind=kind,
-    )
-    new_entries = dict(current_doc.entries)
-    new_entries[isin] = updated_entry
-    return IsinMapDocument(version=current_doc.version, entries=new_entries), updated_entry.name
+def _save_feed(
+    isin: str,
+    ticker: str,
+    kind: InstrumentKind,
+    doc: IsinMapDocument,
+    *,
+    allow_shared_ticker: bool,
+) -> int | None:
+    """Point ``isin`` at ``ticker``, saving rows then map. None if the guard fired.
+
+    Sets the page feedback in both cases, so the caller only decides where to
+    rerun to.
+    """
+    try:
+        new_doc, rewritten = change_feed(
+            isin,
+            ticker,
+            kind,
+            doc,
+            get_repository(),
+            allow_shared_ticker=allow_shared_ticker,
+        )
+    except TickerAlreadyMappedError as exc:
+        st.session_state.mappings_feedback = ("warning", shared_ticker_message(exc))
+        return None
+    get_isin_map_repo().save(new_doc)
+    invalidate_view_caches()
+    return rewritten
 
 
 def _delete_mapping(isin: str, current_doc: IsinMapDocument) -> IsinMapDocument:
@@ -176,7 +206,7 @@ def _render_unmapped_section(
     st.caption("These ISINs were seen in your CSV but have no ticker assigned. Transactions for these ISINs were skipped.")
 
     for isin, mapping in unmapped.items():
-        col_isin, col_name, col_ticker, col_kind, col_btn, col_ignore = st.columns([2, 2, 2, 2, 0.7, 0.7])
+        col_isin, col_name, col_ticker, col_kind, col_merge, col_btn, col_ignore = st.columns([1.8, 1.8, 2, 1.8, 2.2, 0.8, 0.9])
         with col_isin:
             st.code(isin, language=None)
         with col_name:
@@ -206,6 +236,12 @@ def _render_unmapped_section(
                 key=f"mappings_kind_unmapped_{isin}",
                 label_visibility="collapsed",
             )
+        with col_merge:
+            allow_shared = st.checkbox(
+                SHARED_TICKER_LABEL,
+                key=f"mappings_shared_unmapped_{isin}",
+                help=SHARED_TICKER_HELP,
+            )
         with col_btn:
             save_disabled = selected_match is None or selected_kind is None
             if st.button("Save", key=f"mappings_save_unmapped_{isin}", disabled=save_disabled):
@@ -223,15 +259,19 @@ def _render_unmapped_section(
                         st.rerun()
                     else:
                         hint, warn = _try_resolve(raw)
-                        updated_doc, _ = _save_mapping(isin, raw, selected_kind, doc)
-                        get_isin_map_repo().save(updated_doc)
-                        if hint:
-                            msg = f"Mapped {isin} → {raw} ({hint}), Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}."
-                        elif warn:
-                            msg = f"Mapped {isin} → {raw}. Warning: {warn}. Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}."
-                        else:
-                            msg = f"Mapped {isin} → {raw}, Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}."
-                        st.session_state.mappings_feedback = ("success", msg)
+                        n = _save_feed(
+                            isin, raw, selected_kind, doc,
+                            allow_shared_ticker=allow_shared,
+                        )
+                        if n is not None:
+                            kind_label = KIND_LABEL.get(selected_kind, selected_kind)
+                            if hint:
+                                msg = f"Mapped {isin} → {raw} ({hint}), Tax kind: {kind_label}. Rewrote {n} transaction(s)."
+                            elif warn:
+                                msg = f"Mapped {isin} → {raw}. Warning: {warn}. Tax kind: {kind_label}. Rewrote {n} transaction(s)."
+                            else:
+                                msg = f"Mapped {isin} → {raw}, Tax kind: {kind_label}. Rewrote {n} transaction(s)."
+                            st.session_state.mappings_feedback = ("success", msg)
                         st.rerun()
         with col_ignore:
             if st.button("Ignore", key=f"mappings_ignore_unmapped_{isin}"):
@@ -339,7 +379,7 @@ def _render_mapped_section(
 
 
 def _render_edit_row(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
-    cols = st.columns(_MAPPED_COLS)
+    cols = st.columns(_EDIT_COLS)
     cols[0].code(isin, language=None)
     cols[1].write(mapping.name or "—")
     with cols[2]:
@@ -367,7 +407,12 @@ def _render_edit_row(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
             key=f"mappings_edit_kind_{isin}",
             label_visibility="collapsed",
         )
-    cols[4].write(mapping.last_seen_in_csv.isoformat() if mapping.last_seen_in_csv else "—")
+    with cols[4]:
+        allow_shared = st.checkbox(
+            SHARED_TICKER_LABEL,
+            key=f"mappings_shared_edit_{isin}",
+            help=SHARED_TICKER_HELP,
+        )
     with cols[5]:
         save_disabled = selected_match is None or selected_kind is None
         if st.button("Save", key=f"mappings_edit_save_{isin}", type="primary", disabled=save_disabled):
@@ -385,17 +430,20 @@ def _render_edit_row(isin: str, mapping: Any, doc: IsinMapDocument) -> None:
                     st.rerun()
                 else:
                     hint, warn = _try_resolve(raw)
-                    updated_doc, _ = _save_mapping(isin, raw, selected_kind, doc)
-                    get_isin_map_repo().save(updated_doc)
-                    n = rewrite_ticker_for_isin(get_repository(), isin, raw)
-                    st.session_state.mappings_editing_isin = None
-                    if hint:
-                        msg = f"Updated {isin} → {raw} ({hint}), Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}. Rewrote {n} transaction(s)."
-                    elif warn:
-                        msg = f"Updated {isin} → {raw}. Warning: {warn}. Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}. Rewrote {n} transaction(s)."
-                    else:
-                        msg = f"Updated {isin} → {raw}, Tax kind: {KIND_LABEL.get(selected_kind, selected_kind)}. Rewrote {n} transaction(s)."
-                    st.session_state.mappings_feedback = ("success", msg)
+                    n = _save_feed(
+                        isin, raw, selected_kind, doc,
+                        allow_shared_ticker=allow_shared,
+                    )
+                    if n is not None:
+                        st.session_state.mappings_editing_isin = None
+                        kind_label = KIND_LABEL.get(selected_kind, selected_kind)
+                        if hint:
+                            msg = f"Updated {isin} → {raw} ({hint}), Tax kind: {kind_label}. Rewrote {n} transaction(s)."
+                        elif warn:
+                            msg = f"Updated {isin} → {raw}. Warning: {warn}. Tax kind: {kind_label}. Rewrote {n} transaction(s)."
+                        else:
+                            msg = f"Updated {isin} → {raw}, Tax kind: {kind_label}. Rewrote {n} transaction(s)."
+                        st.session_state.mappings_feedback = ("success", msg)
                     st.rerun()
     with cols[6]:
         if st.button("Cancel", key=f"mappings_edit_cancel_{isin}"):
@@ -470,6 +518,43 @@ def _render_remove_confirmation(isin: str, mapping: Any, doc: IsinMapDocument) -
 
 
 # ---------------------------------------------------------------------------
+# Consistency banner (ADR-014 rule 9)
+# ---------------------------------------------------------------------------
+
+
+def _render_consistency_banner(doc: IsinMapDocument) -> None:
+    """Surface mapped ISINs whose stored rows disagree with the map.
+
+    That only happens when the write path was bypassed, or when a map save
+    failed after the rows were already rewritten. Repair re-runs the rewrite,
+    which is idempotent. (SYNC-6B moves this onto the Sync page.)
+    """
+    mismatches = check_consistency(doc, get_repository().load_all())
+    if not mismatches:
+        return
+
+    n = len({isin for isin, _, _ in mismatches})
+    col_msg, col_btn = st.columns([5, 1])
+    with col_msg:
+        st.warning(f"{n} mapping(s) are out of sync with the book")
+        st.caption(
+            " · ".join(
+                f"{isin}: map says {map_ticker}, book says {stored}"
+                for isin, map_ticker, stored in mismatches[:5]
+            )
+        )
+    with col_btn:
+        if st.button("Repair", key="mappings_repair", type="primary"):
+            changed = repair(doc, get_repository())
+            invalidate_view_caches()
+            st.session_state.mappings_feedback = (
+                "success",
+                f"Repaired {changed} transaction(s) to match the mapping.",
+            )
+            st.rerun()
+
+
+# ---------------------------------------------------------------------------
 # Page entry point
 # ---------------------------------------------------------------------------
 
@@ -511,6 +596,8 @@ def render() -> None:
     with col_refresh:
         if st.button("↺ Refresh", key="mappings_refresh"):
             st.rerun()
+
+    _render_consistency_banner(doc)
 
     if unmapped:
         st.divider()

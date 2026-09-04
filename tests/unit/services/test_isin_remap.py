@@ -5,10 +5,21 @@ from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
 
+import pytest
+
+from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
+from app.domain.tax.classification import InstrumentKind
 from app.ports.repository import TransactionNotFoundError
-from app.services.isin_remap import count_transactions_for_isin, rewrite_ticker_for_isin
+from app.services.isin_remap import (
+    TickerAlreadyMappedError,
+    change_feed,
+    check_consistency,
+    count_transactions_for_isin,
+    repair,
+    rewrite_ticker_for_isin,
+)
 
 # ---------------------------------------------------------------------------
 # Fake repo
@@ -179,3 +190,166 @@ def test_count_multiple_matches() -> None:
 def test_count_none_isin_not_matched() -> None:
     repo = FakeRepo([_tx("tx1", "NVDA", isin=None)])
     assert count_transactions_for_isin(repo, "US67066G1040") == 0
+
+
+# ---------------------------------------------------------------------------
+# change_feed (ADR-014 rules 2 and 4)
+# ---------------------------------------------------------------------------
+
+
+def _doc(**entries: IsinMapping) -> IsinMapDocument:
+    return IsinMapDocument(version=2, entries=dict(entries))
+
+
+def _mapped(ticker: str, name: str = "Some Instrument") -> IsinMapping:
+    return IsinMapping(
+        ticker=ticker,
+        name=name,
+        status="mapped",
+        instrument_kind=InstrumentKind.AKTIE,
+    )
+
+
+def test_change_feed_rewrites_every_row_and_returns_count() -> None:
+    repo = FakeRepo([
+        _tx("tx1", "US67066G1040", "US67066G1040"),
+        _tx("tx2", "US67066G1040", "US67066G1040"),
+        _tx("tx3", "AAPL", "US0378331005"),
+    ])
+    doc = _doc(US67066G1040=IsinMapping(ticker=None, name="Nvidia", status="unmapped"))
+
+    new_doc, count = change_feed(
+        "US67066G1040", "NVDA", InstrumentKind.AKTIE, doc, repo
+    )
+
+    assert count == 2
+    assert {tx.id: tx.ticker for tx in repo.load_all()} == {
+        "tx1": "NVDA",
+        "tx2": "NVDA",
+        "tx3": "AAPL",
+    }
+    entry = new_doc.entries["US67066G1040"]
+    assert entry.ticker == "NVDA"
+    assert entry.status == "mapped"
+    assert entry.name == "Nvidia"
+    assert entry.instrument_kind is InstrumentKind.AKTIE
+    # The caller saves the map; change_feed never mutates the input document.
+    assert doc.entries["US67066G1040"].ticker is None
+
+
+def test_change_feed_names_a_brand_new_entry_after_its_isin() -> None:
+    new_doc, _ = change_feed(
+        "US0378331005", "AAPL", InstrumentKind.AKTIE, _doc(), FakeRepo()
+    )
+    assert new_doc.entries["US0378331005"].name == "US0378331005"
+
+
+def test_change_feed_with_no_transactions_returns_zero() -> None:
+    repo = FakeRepo([_tx("tx1", "AAPL", "US0378331005")])
+    _, count = change_feed(
+        "US67066G1040", "NVDA", InstrumentKind.AKTIE, _doc(), repo
+    )
+    assert count == 0
+    assert repo.save_calls == 0
+
+
+def test_change_feed_refuses_a_ticker_another_mapped_isin_already_uses() -> None:
+    repo = FakeRepo([_tx("tx1", "US67066G1040", "US67066G1040")])
+    doc = _doc(US0378331005=_mapped("NVDA", "Nvidia (old ISIN)"))
+
+    with pytest.raises(TickerAlreadyMappedError) as excinfo:
+        change_feed("US67066G1040", "NVDA", InstrumentKind.AKTIE, doc, repo)
+
+    assert excinfo.value.ticker == "NVDA"
+    assert excinfo.value.other_isin == "US0378331005"
+    # Nothing was written: the guard runs before the rewrite.
+    assert repo.save_calls == 0
+    assert repo.load_all()[0].ticker == "US67066G1040"
+
+
+def test_change_feed_allows_a_shared_ticker_when_explicitly_confirmed() -> None:
+    repo = FakeRepo([_tx("tx1", "US67066G1040", "US67066G1040")])
+    doc = _doc(US0378331005=_mapped("NVDA", "Nvidia (old ISIN)"))
+
+    new_doc, count = change_feed(
+        "US67066G1040",
+        "NVDA",
+        InstrumentKind.AKTIE,
+        doc,
+        repo,
+        allow_shared_ticker=True,
+    )
+
+    assert count == 1
+    assert new_doc.entries["US67066G1040"].ticker == "NVDA"
+    assert new_doc.entries["US0378331005"].ticker == "NVDA"
+
+
+def test_change_feed_ignores_a_ticker_held_by_an_ignored_entry() -> None:
+    doc = _doc(US0378331005=IsinMapping(ticker="NVDA", name="junk", status="ignored"))
+    new_doc, _ = change_feed(
+        "US67066G1040", "NVDA", InstrumentKind.AKTIE, doc, FakeRepo()
+    )
+    assert new_doc.entries["US67066G1040"].ticker == "NVDA"
+
+
+def test_change_feed_remapping_the_same_isin_is_not_a_collision() -> None:
+    doc = _doc(US67066G1040=_mapped("NVDA"))
+    new_doc, _ = change_feed(
+        "US67066G1040", "NVDA", InstrumentKind.AKTIENFONDS, doc, FakeRepo()
+    )
+    assert new_doc.entries["US67066G1040"].instrument_kind is InstrumentKind.AKTIENFONDS
+
+
+# ---------------------------------------------------------------------------
+# check_consistency / repair
+# ---------------------------------------------------------------------------
+
+
+def test_check_consistency_is_empty_when_the_book_agrees_with_the_map() -> None:
+    txs = [_tx("tx1", "NVDA", "US67066G1040")]
+    assert check_consistency(_doc(US67066G1040=_mapped("NVDA")), txs) == []
+
+
+def test_check_consistency_finds_a_stale_stored_ticker() -> None:
+    txs = [_tx("tx1", "NVDA", "US67066G1040"), _tx("tx2", "NVDA.DE", "US67066G1040")]
+    assert check_consistency(_doc(US67066G1040=_mapped("NVDA")), txs) == [
+        ("US67066G1040", "NVDA", "NVDA.DE")
+    ]
+
+
+def test_check_consistency_ignores_unmapped_and_ignored_entries() -> None:
+    doc = _doc(
+        US67066G1040=IsinMapping(ticker=None, name="n", status="unmapped"),
+        US0378331005=IsinMapping(ticker="AAPL", name="a", status="ignored"),
+    )
+    txs = [
+        _tx("tx1", "US67066G1040", "US67066G1040"),
+        _tx("tx2", "AAPL.DE", "US0378331005"),
+    ]
+    assert check_consistency(doc, txs) == []
+
+
+def test_repair_fixes_a_mismatch_and_is_idempotent() -> None:
+    repo = FakeRepo([
+        _tx("tx1", "NVDA.DE", "US67066G1040"),
+        _tx("tx2", "NVDA", "US67066G1040"),
+        _tx("tx3", "AAPL", "US0378331005"),
+        _tx("tx4", "SAP.DE", isin=None, source="manual"),
+    ])
+    doc = _doc(US67066G1040=_mapped("NVDA"), US0378331005=_mapped("AAPL"))
+
+    assert check_consistency(doc, repo.load_all())
+    assert repair(doc, repo) == 1
+    assert check_consistency(doc, repo.load_all()) == []
+    assert {tx.id: tx.ticker for tx in repo.load_all()} == {
+        "tx1": "NVDA",
+        "tx2": "NVDA",
+        "tx3": "AAPL",
+        "tx4": "SAP.DE",
+    }
+
+    # Second run has nothing to do and leaves the repository untouched.
+    calls_before = repo.save_calls
+    assert repair(doc, repo) == 0
+    assert repo.save_calls == calls_before
