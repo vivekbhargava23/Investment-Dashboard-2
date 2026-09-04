@@ -72,7 +72,14 @@ def _transfer_net(rows: Sequence[PlannedRow]) -> Decimal:
 
 
 def _name(rows: Sequence[PlannedRow]) -> str:
-    latest = max(rows, key=lambda r: (r.trade_date, r.row_number))
+    """The instrument's name, taken from its most recent trade.
+
+    Cash rows carry the payout's description ("Dividend SAP SE"), so naming a
+    holding after the latest row of any kind renames it every time it pays.
+    """
+    trades = [r for r in rows if r.csv_type in _ADD_TYPES | _SUB_TYPES | {_TRANSFER_TYPE}]
+    candidates = trades or list(rows)
+    latest = max(candidates, key=lambda r: (r.trade_date, r.row_number))
     return latest.description
 
 

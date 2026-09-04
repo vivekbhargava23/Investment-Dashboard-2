@@ -85,10 +85,16 @@ def build_tasks(
             continue
         state = feed_states.get(row.isin)
         check = checks.get(row.isin)
-        if state == "unmapped":
-            tasks.append(_no_feed_task(row))
+        if state == "ignored":
+            continue
+        # A holding with no usable feed, whether because no ticker is mapped or
+        # because the mapped one returns no closes. Both leave it at its last
+        # trade price, so both deserve the same task — a mapping that fetches
+        # nothing is not a feed, however mapped it looks.
+        if state == "unmapped" or (check is not None and check.status == "no_feed"):
+            tasks.append(_no_feed_task(row, check))
             claimed.add(row.isin)
-        elif state != "ignored" and check is not None and check.status == "suspicious":
+        elif check is not None and check.status == "suspicious":
             tasks.append(_suspicious_task(row, check))
             claimed.add(row.isin)
 
@@ -157,8 +163,18 @@ def _sell_exceeds_task(row: ReconcileRow, message: str) -> SyncTask:
     )
 
 
-def _no_feed_task(row: ReconcileRow) -> SyncTask:
+def _no_feed_task(row: ReconcileRow, check: FeedCheck | None = None) -> SyncTask:
     shares = _format_shares(row.shares_csv)
+    detail = (
+        "Every trade for this holding is in your book. Without a price feed it "
+        "is valued at your last trade price, so its market value is stale — "
+        "pick a feed to value it live, or ignore it to stop being asked."
+    )
+    if check is not None and check.status == "no_feed" and check.ticker:
+        detail = (
+            f"{check.ticker} is mapped to this holding but returns no prices, so it "
+            f"is valued at your last trade price. {detail}"
+        )
     return SyncTask(
         kind="no_feed",
         isin=row.isin,
@@ -166,11 +182,7 @@ def _no_feed_task(row: ReconcileRow) -> SyncTask:
         headline=(
             f"No price feed for {row.name} ({shares} shares, valued at last trade price)"
         ),
-        detail=(
-            "Every trade for this holding is in your book. Without a price feed it "
-            "is valued at your last trade price, so its market value is stale — "
-            "pick a feed to value it live, or ignore it to stop being asked."
-        ),
+        detail=detail,
         impact_eur=_impact(row.shares_csv, row.last_trade_price_eur),
     )
 

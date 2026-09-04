@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import pandas as pd
+
 from app.domain.market_data import ChartPeriod
 from app.ui.components.positions_table import build_positions_dataframe
 from app.ui.pages.overview import _fetch_trend_values
@@ -113,7 +115,8 @@ def test_trend_value_appears_in_dataframe() -> None:
     assert df.iloc[0]["Trend 30D (%)"] == 5.3
 
 
-def test_trend_value_none_when_no_data() -> None:
+def test_trend_value_blank_when_no_data() -> None:
     positions = {"NVDA": _make_live_position("NVDA")}
     df = build_positions_dataframe(positions, _make_summary(positions))
-    assert df.iloc[0]["Trend 30D (%)"] is None
+    # NaN, not None: the column stays float dtype so the grid can sort it.
+    assert pd.isna(df.iloc[0]["Trend 30D (%)"])

@@ -142,3 +142,39 @@ def test_clear_cache_clears_ohlc(adapter: YfinanceOhlcAdapter) -> None:
         assert len(adapter._ohlc_cache) == 0
         adapter.get_ohlc_history("NVDA", ChartPeriod.SIX_MONTH)
         assert mock_ticker.call_count == 2
+
+
+def test_yfinance_error_becomes_ohlc_unavailable(adapter: YfinanceOhlcAdapter) -> None:
+    """yfinance rejects an ISIN-shaped symbol with ValueError, not our error type.
+
+    An unmapped holding trades under its ISIN as a placeholder ticker, so this is
+    ordinary input, and the port promises OhlcUnavailableError for a ticker with
+    no data.
+    """
+    with patch("app.adapters.yfinance_ohlc.adapter.yf.Ticker") as mock_ticker:
+        mock_ticker.return_value.history.side_effect = ValueError(
+            "Invalid ISIN number: DE000HT41XN9"
+        )
+        with pytest.raises(OhlcUnavailableError):
+            adapter.get_ohlc_history("DE000HT41XN9", ChartPeriod.ONE_MONTH)
+
+
+def test_one_rejected_ticker_does_not_fail_the_batch(adapter: YfinanceOhlcAdapter) -> None:
+    """One bad ticker used to take the whole Live Overview page down with it."""
+    good = _make_df([("2024-01-02", 450.0, 465.0, 445.0, 460.0, 1_000.0)])
+
+    class _FakeTicker:
+        def __init__(self, ticker: str) -> None:
+            self._ticker = ticker
+
+        def history(self, *args: object, **kwargs: object) -> pd.DataFrame:
+            if self._ticker == "DE000HT41XN9":
+                raise ValueError("Invalid ISIN number: DE000HT41XN9")
+            return good
+
+    with patch("app.adapters.yfinance_ohlc.adapter.yf.Ticker", _FakeTicker):
+        result = adapter.get_ohlc_histories(
+            ["NVDA", "DE000HT41XN9"], ChartPeriod.ONE_MONTH
+        )
+
+    assert set(result) == {"NVDA"}

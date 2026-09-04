@@ -41,6 +41,15 @@ tickers not in the ISIN map or with `IsinMapping.instrument_kind = None`.
 A silent default of AKTIE would silently miscompute tax by the full Teilfreistellung
 percentage (up to 30% of the gain). Loud failure forces the right fix.
 
+## Lookup order: feed ticker, then ISIN
+
+`classify_instrument` matches `IsinMapping.ticker` first, then falls back to the map
+key itself — the ticker with any exchange suffix stripped. A holding with no price
+feed trades under its ISIN (ADR-014 rule 2), so its entry has no ticker to match on;
+without the fallback a classified certificate or crypto ETP is invisible here and one
+of them raises for the whole tax year. The fallback resolves *which entry*, never
+*which kind*: an entry found by ISIN with no `instrument_kind` still raises.
+
 ## The pipeline order is law
 
 The order in `pipeline.py` is set by German tax law (§ 20 EStG, InvStG). Reordering

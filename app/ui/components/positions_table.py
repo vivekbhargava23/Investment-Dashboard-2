@@ -21,7 +21,8 @@ _COLUMNS = [
     "Name",
     "Price (€)",
     # Price stays a sortable NumberColumn, so the "last trade" caveat rides in its
-    # own text column rather than being formatted into the money value.
+    # own text column rather than being formatted into the money value. The column
+    # is named, not blank: an unlabelled column reading "last trade" explains nothing.
     "Price src",
     "Shares",
     "Cost (€)",
@@ -32,6 +33,21 @@ _COLUMNS = [
     "Trend 30D (%)",
     "Lots",
     "Sim",
+]
+
+
+# Every column Streamlit renders as a number. Kept explicit so a new column has to
+# say which it is.
+_NUMERIC_COLUMNS = [
+    "Price (€)",
+    "Shares",
+    "Cost (€)",
+    "Value (€)",
+    "Gain (€)",
+    "Gain (%)",
+    "Weight (%)",
+    "Trend 30D (%)",
+    "Lots",
 ]
 
 
@@ -69,7 +85,8 @@ def build_positions_dataframe(
                 "Ticker": ticker,
                 "Name": name_lookup.get(ticker, ticker),
                 "Price (€)": price,
-                "Price src": "last trade" if p.price_source == "last_trade" else None,
+                # Blank, not None: a pandas Styler renders None as the text "None".
+                "Price src": "last trade" if p.price_source == "last_trade" else "",
                 "Shares": shares,
                 "Cost (€)": float(p.position.cost_basis_eur.amount),
                 "Value (€)": value,
@@ -81,13 +98,25 @@ def build_positions_dataframe(
                 "Sim": f"/?page=simulator&ticker={ticker}",
             }
         )
-    return pd.DataFrame(rows, columns=_COLUMNS)
+    df = pd.DataFrame(rows, columns=_COLUMNS)
+    # A column holding floats *and* None lands in object dtype, and Streamlit then
+    # renders the missing cells as the literal text "None" — which reads like a
+    # value. Coercing to float turns them into NaN, which renders blank.
+    for column in _NUMERIC_COLUMNS:
+        df[column] = pd.to_numeric(df[column], errors="coerce")
+    return df
+
+
+# st.dataframe paints its cells on a canvas, outside the document where the
+# theme's custom properties are defined, so a `var(--…)` colour resolves to
+# nothing and the text renders invisible. Styler colours here must be literal.
+_MUTED = "#9aa0a6"
 
 
 def _sign_color(v: object) -> str:
     """Pandas Styler cell colour: green positive, red negative, muted zero/blank."""
     if v is None or (isinstance(v, float) and pd.isna(v)):
-        return "color: var(--text3)"
+        return f"color: {_MUTED}"
     try:
         n = float(v)  # type: ignore[arg-type]
     except (TypeError, ValueError):
@@ -96,7 +125,7 @@ def _sign_color(v: object) -> str:
         return "color: #26a69a"
     if n < 0:
         return "color: #ef5350"
-    return "color: #9aa0a6"
+    return f"color: {_MUTED}"
 
 
 def render_positions_table(
@@ -121,7 +150,7 @@ def render_positions_table(
     # sign, so a big position with a small loss no longer reads as a big loss.
     styler = df.style.map(
         _sign_color, subset=["Gain (€)", "Gain (%)", "Trend 30D (%)"]
-    ).map(lambda _: "color: var(--text3)", subset=["Price src"])
+    ).map(lambda _: f"color: {_MUTED}", subset=["Price src"])
 
     st.dataframe(
         styler,
@@ -131,7 +160,7 @@ def render_positions_table(
         height=(len(df) + 1) * 35 + 3,
         column_config={
             "Price (€)": st.column_config.NumberColumn(format="%.2f"),
-            "Price src": st.column_config.TextColumn(label="", width="small"),
+            "Price src": st.column_config.TextColumn(label="Price src", width="small"),
             "Shares": st.column_config.NumberColumn(format="%.4g"),
             "Cost (€)": st.column_config.NumberColumn(format="€%.2f"),
             "Value (€)": st.column_config.NumberColumn(format="€%.2f"),

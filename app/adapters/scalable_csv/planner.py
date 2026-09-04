@@ -4,7 +4,11 @@ from __future__ import annotations
 import hashlib
 from decimal import Decimal
 
-from app.adapters.scalable_csv.parser import ParsedCsvRow
+from app.adapters.scalable_csv.parser import (
+    EXECUTED_STATUS,
+    IN_SCOPE_TYPES,
+    ParsedCsvRow,
+)
 from app.domain.csv_import import (
     FeedState,
     ImportPlan,
@@ -14,9 +18,6 @@ from app.domain.csv_import import (
 )
 from app.domain.isin_map import IsinMapDocument
 from app.domain.models import Transaction
-
-_EXECUTED_STATUS = "Executed"
-_IN_SCOPE_TYPES = frozenset({"Buy", "Sell", "Savings plan"})
 
 # Expected amount sign per row type: "negative"=cash out, "positive"=cash in.
 _EXPECTED_AMOUNT_SIGN: dict[str, str] = {
@@ -144,7 +145,7 @@ def plan_import(
     planned: list[PlannedRow] = []
 
     for row in rows:
-        if row.status != _EXECUTED_STATUS:
+        if row.status != EXECUTED_STATUS:
             planned.append(_make(row, RowStatus.CANCELLED_OR_EXPIRED, PlannedAction.SKIP))
             continue
 
@@ -153,7 +154,7 @@ def plan_import(
             planned.append(_make(row, RowStatus.INTERNAL_TRANSFER, PlannedAction.SKIP))
             continue
 
-        if row.type not in _IN_SCOPE_TYPES:
+        if row.type not in IN_SCOPE_TYPES:
             planned.append(_make(row, RowStatus.OUT_OF_SCOPE_V1, PlannedAction.SKIP))
             continue
 

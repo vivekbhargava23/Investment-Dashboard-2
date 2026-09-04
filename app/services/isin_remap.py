@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from app.domain.csv_import import PlannedRow, RowStatus
 from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction
 from app.domain.tax.classification import InstrumentKind
@@ -172,3 +173,48 @@ def repair(
     if changed:
         tx_repo.save_all(updated)
     return changed
+
+
+def record_seen_isins(
+    plan_rows: Sequence[PlannedRow],
+    isin_doc: IsinMapDocument,
+) -> IsinMapDocument | None:
+    """Give every ISIN in the file a map entry, and stamp when it was last seen.
+
+    Returns a new document, or None when nothing changed (so the caller can skip
+    the write). An ISIN the map has never heard of becomes an ``unmapped`` entry
+    carrying the broker's name for it: without that entry the holding has no name
+    anywhere in the app — it trades under its ISIN as a placeholder ticker — and
+    the Mappings page cannot offer it for mapping at all.
+    """
+    latest_row: dict[str, PlannedRow] = {}
+    for row in plan_rows:
+        if not row.isin or row.status == RowStatus.CANCELLED_OR_EXPIRED:
+            continue
+        seen = latest_row.get(row.isin)
+        if seen is None or (row.trade_date, row.row_number) > (seen.trade_date, seen.row_number):
+            latest_row[row.isin] = row
+
+    entries = dict(isin_doc.entries)
+    changed = False
+
+    for isin, row in latest_row.items():
+        existing = entries.get(isin)
+        if existing is None:
+            entries[isin] = IsinMapping(
+                ticker=None,
+                name=row.description or isin,
+                status="unmapped",
+                last_seen_in_csv=row.trade_date,
+                instrument_kind=None,
+            )
+            changed = True
+        elif existing.last_seen_in_csv != row.trade_date:
+            entries[isin] = existing.model_copy(
+                update={"last_seen_in_csv": row.trade_date}
+            )
+            changed = True
+
+    if not changed:
+        return None
+    return IsinMapDocument(version=isin_doc.version, entries=entries)

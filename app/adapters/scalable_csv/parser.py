@@ -14,6 +14,11 @@ from pydantic import BaseModel, ConfigDict
 
 _EXPECTED_COLUMNS = 14
 
+# The rows the importer actually turns into transactions. They live here, not in
+# the planner, because the duplicate-reference guard below needs them too.
+EXECUTED_STATUS = "Executed"
+IN_SCOPE_TYPES = frozenset({"Buy", "Sell", "Savings plan"})
+
 
 class ParseError(Exception):
     def __init__(self, row_number: int, message: str) -> None:
@@ -77,9 +82,13 @@ def parse_csv(path: Path) -> list[ParsedCsvRow]:
 def parse_csv_bytes(data: bytes) -> list[ParsedCsvRow]:
     """Parse a Scalable Capital CSV export held in memory (the Sync upload path).
 
-    Raises ParseError on malformed rows and on a non-empty ``reference`` that
-    appears twice — a duplicated reference makes the file unimportable, because
-    the reference is the identity used to decide what is already in the book.
+    Raises ParseError on malformed rows, and on a non-empty ``reference`` shared
+    by two *importable* rows: the reference becomes the transaction id, so that
+    file would write two transactions under one identity.
+
+    A reference repeated across rows the importer skips is normal broker data and
+    parses fine — Scalable emits a corporate action as two legs (a Security leg
+    and a Cash leg) carrying one reference.
     """
     content = data.decode("utf-8-sig")
 
@@ -133,7 +142,7 @@ def parse_csv_bytes(data: bytes) -> list[ParsedCsvRow]:
             raise ParseError(row_number, f"Invalid date '{date_str.strip()}'") from exc
 
         reference = reference.strip()
-        if reference:
+        if reference and status.strip() == EXECUTED_STATUS and type_.strip() in IN_SCOPE_TYPES:
             if reference in seen_references:
                 raise ParseError(row_number, f"duplicate reference {reference}")
             seen_references.add(reference)

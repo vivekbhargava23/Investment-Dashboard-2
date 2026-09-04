@@ -23,6 +23,7 @@ mkdir -p "$DATA_DIR/backups" "$DATA_DIR/fx_cache"
 # returns [] for a missing file, but raises on an empty/zero-byte or version-less file.
 printf '{"version": 2, "entries": {}}' > "$DATA_DIR/isin_map.json"
 printf '[]' > "$DATA_DIR/import_log.json"
+printf '[]' > "$DATA_DIR/sync_log.json"
 
 export PORTFOLIO_JSON_PATH="$DATA_DIR/portfolio.json"
 export TAX_PROFILE_JSON_PATH="$DATA_DIR/tax_profile.json"
@@ -32,6 +33,7 @@ export ISIN_MAP_JSON_PATH="$DATA_DIR/isin_map.json"
 export THESIS_JSON_PATH="$DATA_DIR/thesis.json"
 export BACKUPS_DIR="$DATA_DIR/backups"
 export IMPORT_LOG_JSON_PATH="$DATA_DIR/import_log.json"
+export SYNC_LOG_JSON_PATH="$DATA_DIR/sync_log.json"
 export FX_CACHE_DIR="$DATA_DIR/fx_cache"
 
 echo "app_sandbox: DATA_DIR=$DATA_DIR" >&2

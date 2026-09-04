@@ -301,7 +301,9 @@ def test_auto_resolve_refuses_a_ticker_another_isin_already_uses() -> None:
         _rows(_buy("ref-1")), session, store, tx_repo, isin_repo, resolver, company
     )
 
-    assert ISIN not in isin_repo.load().entries
+    # It is recorded as seen, but never mapped onto the other ISIN's feed.
+    assert isin_repo.load().entries[ISIN].status == "unmapped"
+    assert isin_repo.load().entries[ISIN].ticker is None
     assert analysis.auto_resolved[ISIN].confidence == "low"
 
 

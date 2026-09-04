@@ -17,10 +17,8 @@ from app.ports.ticker_resolver import TickerMatch
 from app.services.isin_remap import (
     TickerAlreadyMappedError,
     change_feed,
-    check_consistency,
     count_transactions_for_isin,
     delete_transactions_for_isin,
-    repair,
 )
 from app.ui.components.isin_mapper import (
     KIND_LABEL,
@@ -518,43 +516,6 @@ def _render_remove_confirmation(isin: str, mapping: Any, doc: IsinMapDocument) -
 
 
 # ---------------------------------------------------------------------------
-# Consistency banner (ADR-014 rule 9)
-# ---------------------------------------------------------------------------
-
-
-def _render_consistency_banner(doc: IsinMapDocument) -> None:
-    """Surface mapped ISINs whose stored rows disagree with the map.
-
-    That only happens when the write path was bypassed, or when a map save
-    failed after the rows were already rewritten. Repair re-runs the rewrite,
-    which is idempotent. (SYNC-6B moves this onto the Sync page.)
-    """
-    mismatches = check_consistency(doc, get_repository().load_all())
-    if not mismatches:
-        return
-
-    n = len({isin for isin, _, _ in mismatches})
-    col_msg, col_btn = st.columns([5, 1])
-    with col_msg:
-        st.warning(f"{n} mapping(s) are out of sync with the book")
-        st.caption(
-            " · ".join(
-                f"{isin}: map says {map_ticker}, book says {stored}"
-                for isin, map_ticker, stored in mismatches[:5]
-            )
-        )
-    with col_btn:
-        if st.button("Repair", key="mappings_repair", type="primary"):
-            changed = repair(doc, get_repository())
-            invalidate_view_caches()
-            st.session_state.mappings_feedback = (
-                "success",
-                f"Repaired {changed} transaction(s) to match the mapping.",
-            )
-            st.rerun()
-
-
-# ---------------------------------------------------------------------------
 # Page entry point
 # ---------------------------------------------------------------------------
 
@@ -596,8 +557,6 @@ def render() -> None:
     with col_refresh:
         if st.button("↺ Refresh", key="mappings_refresh"):
             st.rerun()
-
-    _render_consistency_banner(doc)
 
     if unmapped:
         st.divider()

@@ -12,6 +12,19 @@ from app.ports.ticker_resolver import TickerMatch, TickerResolver
 
 _DE_SUFFIXES = {".DE", ".F", ".MU", ".BE", ".DU", ".HM", ".HA", ".SG", ".NW"}
 
+
+def _is_placeholder_symbol(symbol: str, isin: str) -> bool:
+    """True when the "ticker" is just the ISIN, with or without an exchange suffix.
+
+    yfinance Search answers some ISINs with a Stuttgart listing whose symbol is
+    literally ``<ISIN>.SG``. Mapping to it looks like a feed and behaves like
+    none: it returns no closes, so the holding stays at its last trade price
+    while the app claims it has a feed.
+    """
+    base = symbol.split(".", 1)[0].strip().upper()
+    return base == isin.strip().upper()
+
+
 _QUOTE_TYPE_TO_KIND: dict[str, InstrumentKind] = {
     "EQUITY": InstrumentKind.AKTIE,
     "ETF": InstrumentKind.AKTIENFONDS,
@@ -63,12 +76,26 @@ def autoresolve_isin(
             reason="yfinance Search returned no matches for ISIN",
         )
 
-    if len(matches) == 1:
-        chosen = matches[0]
+    usable = [m for m in matches if not _is_placeholder_symbol(m.symbol, isin)]
+    if not usable:
+        return AutoResolveResult(
+            isin=isin,
+            ticker=None,
+            name=None,
+            instrument_kind=None,
+            confidence="low",
+            reason=(
+                "yfinance Search only returned the ISIN itself as a symbol, "
+                "which carries no price data"
+            ),
+        )
+
+    if len(usable) == 1:
+        chosen = usable[0]
         confidence: Literal["high", "medium", "low"] = "high"
         reason = f"yfinance Search single match: {chosen.symbol}"
     else:
-        chosen, confidence, reason = _pick_best(matches, description_hint)
+        chosen, confidence, reason = _pick_best(usable, description_hint)
 
     kind, kind_reason = _resolve_kind(chosen.symbol, company_provider)
 

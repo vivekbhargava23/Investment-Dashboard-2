@@ -1,6 +1,7 @@
 # TICKET-SYNC-6B — The Sync page (upload → analyse → safe changes applied → tasks → holdings)
 
 **Priority:** CRITICAL
+**Status:** IN_PROGRESS
 **Milestone:** Investment Panel
 **Recommended model:** Sonnet — rendering over SYNC-6A services; every state is specified in the design doc.
 **Estimated session length:** 2 hr

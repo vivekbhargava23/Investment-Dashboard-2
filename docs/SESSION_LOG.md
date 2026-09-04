@@ -44,6 +44,215 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-04 — TICKET-SYNC-6B (follow-up: unbreak the app after the real import)
+**Surface:** Claude Code
+**Model:** opus-5
+**Duration:** ~60 min
+**Branch:** ticket-sync-6b-the-sync-page-upload-analyse
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/225
+**Status at session end:** IN_REVIEW
+
+### What got done
+Vivek reported the Live Overview showing tickers instead of names, the sell simulator
+broken, and the ISIN mapping unintuitive. All three were one defect plus its fallout.
+
+**Root cause.** Every tax and name lookup searched the ISIN map *by ticker*. The sync
+import brought in eight holdings whose map entries have no ticker (`unmapped`,
+`ignored`), so they were invisible to those lookups even though the entry carried a
+perfectly good name. Six of 36 holdings were affected.
+
+- `app/domain/tax/classification.py` — `classify_instrument` now falls back to the ISIN
+  when the ticker is one (with or without an exchange suffix), which is exactly what a
+  holding with no feed trades under (ADR-014 rule 2). Before this, one unclassifiable
+  holding raised and `tax.py:651` returned, so the **whole Tax Dashboard** was a warning
+  banner — the closed CoinShares Algorand ETP took the year down with it.
+- `app/ui/pages/overview.py` — `build_name_lookup` (extracted, so it is testable) keys a
+  holding by its feed ticker *and* its ISIN, then bridges the two through the book's own
+  ISIN. That is what stops a row printing its ticker in the Name column.
+- `app/ui/pages/overview.py` — the Overview's tax tiles never passed `isin_map` to
+  `compute_current_tax_summary`, so it raised on any book with a sell and the bare
+  `except` swallowed it: Sparerpauschbetrag and Tax Headroom had always read "—".
+  Pre-existing (TICKET-011), not from the sync work. The cache is now keyed on the map's
+  mtime as the Tax page already does.
+- `app/services/sell_simulator.py` — the synthetic sell defaulted to `source="manual"`,
+  which triggers ADR-005 ticker→currency inference. A holding trading under its ISIN has
+  no exchange suffix to infer from, so the simulator rejected EUR broker rows the
+  repository had accepted: "trades in USD but transaction recorded as EUR". The sell now
+  inherits the source of the lots it consumes; mixed sources fall back to `manual`, the
+  stricter check.
+- `app/ui/components/positions_table.py` — styler colours were `var(--text3)`.
+  `st.dataframe` paints on a canvas where theme custom properties do not resolve, so the
+  **entire Price src column rendered invisible** — the column TICKET-SYNC-6B had just
+  added to explain stale prices. Colours are literal now.
+
+**Data repair** (local only — `data/portfolio.json` is gitignored; `data/isin_map.json`
+is tracked). Every ISIN was probed against a live yfinance feed before deciding:
+- Mapped four holdings the import left unmapped: AMD, ARM, ATS.VI (AT&S), SPCX (SpaceX).
+- Repointed two "mapped to their own ISIN" holdings at real symbols: `US15643U1043` → LEU
+  (Centrus), `US81762P1021` → NOW (ServiceNow). Both returned prices under the ISIN, so
+  this is readability, not a fix.
+- `IUES.DE` is delisted and returned no closes; IE00B42NKQ00 now points at `IUES.L`.
+- `IE000QDFFK00` was named "AXA Nasdaq 100" — `ANAV.DE` is BNP Paribas Easy II, and the
+  CSV agrees. Renamed.
+- Gave the two genuinely feedless holdings a tax kind so they stop breaking the tax year:
+  the HSBC Apple Short turbo (26 still open) and the CoinShares Algorand ETP, both
+  `SONSTIGE`. **Vivek should confirm SONSTIGE for the crypto ETP** — it is a debt
+  security, so no Teilfreistellung, but auto-resolve had previously guessed MISCHFONDS
+  (15%) for 21Shares ETPs. It changes the realised-gain tax on a closed position.
+- Twelve transactions were retickered to match (`US15643U1043`→LEU, `US81762P1021`→NOW,
+  10 × `IUES.DE`→`IUES.L`).
+
+### Files touched
+- `app/domain/tax/classification.py` — ISIN fallback in `classify_instrument`
+- `app/ui/pages/overview.py` — `build_name_lookup`, isin_map into the tax summary
+- `app/services/sell_simulator.py` — synthetic sell inherits its position's source
+- `app/ui/components/positions_table.py` — literal styler colours
+- `data/isin_map.json` — 12 entries repaired
+- `tests/unit/domain/tax/test_classification.py` — 4 new
+- `tests/unit/ui/test_overview_helpers.py` — 5 new
+- `tests/unit/services/test_sell_simulator.py` — 3 new
+- `tests/unit/ui/test_positions_table.py` — 3 new
+
+### Tests
+1249 passing → 1264 passing (15 new). ruff, mypy, lint-imports clean.
+
+Verified against the real book, not fixtures: 36/36 tickers classify, all 26 open
+positions simulate a sell, and the Tax Dashboard computes (YTD realised €7.873,13,
+€1.538,07 owed if closed today).
+
+### Decisions made during the session
+- Classification resolves by ISIN as a *fallback*, not a signature change. Threading an
+  ISIN through `RealisedGain` and FIFO would have been the larger, more invasive fix; the
+  placeholder-ticker convention is already law (ADR-014 rule 2), so honouring it here is
+  the smaller correct change. No ADR needed.
+- The crypto ETP was classified SONSTIGE, flagged above for Vivek to confirm.
+
+### Out-of-scope items noticed
+- **Streamlit 1.57 + pandas 3.0.5 render every empty numeric cell as the literal text
+  "None"** in `st.dataframe` — reproduced in a 20-line standalone app, with and without a
+  Styler, with and without `column_config`. `pyproject.toml` says `pandas>=2.2` with no
+  upper bound, so pandas 3 came in on its own. Affects every nullable column in every
+  grid, not just Trend 30D. Recommend a ticket: pin `pandas<3` or wait for Streamlit.
+  Note this makes the "renders blank" claim in commit 2175a75 untrue on this stack.
+- Commit `2175a75` committed a sandbox-generated `data/isin_map.json` that dropped eight
+  of Vivek's real mappings. The working tree had the real file; this session's commit
+  restores it. Worth a guard so a sandbox map can never be committed.
+- The Mappings page welds three separate decisions together — which price feed, what tax
+  kind, whether to import CSV rows. A holding with no feed cannot be given a tax kind
+  through the UI at all; the two entries above had to be set by migration. This is the
+  "unintuitive" part of Vivek's report and is still open. Recommend a ticket.
+
+### Tokens used (rough)
+~120k
+
+## 2026-09-04 — TICKET-SYNC-6B
+**Surface:** Claude Code
+**Model:** opus-5
+**Duration:** ~80 min
+**Branch:** ticket-sync-6b-the-sync-page-upload-analyse
+**PR:** (opened at session end)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- `app/ui/pages/sync.py` — the Sync page. Dropping an export parses it, opens a session,
+  auto-resolves, and imports every row new by reference in one shot; then the summary
+  card, the numbered task list (inline mapper for feed tasks, Replace/Keep both for
+  duplicates, text for the rest), the holdings table with the feed-check cell, the
+  cash-events line, Details and All instruments.
+- `Undo last sync` is enabled by comparing the stored md5s with `store.current_md5s()`,
+  never by probing with try/except.
+- The mapping-consistency banner and its Repair button moved off the Mappings page.
+- Sidebar + topbar: `sync` / "Sync with Scalable" in SETTINGS, before Manage Portfolio.
+- `app/ui/price_clock.py` — records when live prices were last valued (set by the
+  Overview page) so the market-values line can say "as of …" truthfully rather than
+  starting a price fetch of its own.
+- `tools/app_sandbox.sh` now isolates `SYNC_LOG_JSON_PATH`; without it a sandbox run
+  would have written the sync log into the real `data/`.
+
+### Files touched
+- `app/ui/pages/sync.py` — new page
+- `app/ui/pages/mappings.py` — consistency banner removed (moved to Sync)
+- `app/ui/components/sidebar.py`, `app/ui/components/topbar.py` — nav + title
+- `app/ui/price_clock.py`, `app/ui/pages/overview.py` — last price fetch
+- `app/domain/reconcile.py` — name a holding after its latest *trade*
+- `tools/app_sandbox.sh` — isolate the sync log
+- `tests/unit/ui/test_sync_page.py` (new), `tests/unit/domain/test_reconcile.py`,
+  `tests/unit/ui/test_sidebar_structure.py`, `tests/unit/ui/test_components.py`
+- `docs/screenshots/sync-tab/` — states A, B, C and the duplicate task
+
+### Tests
+1208 passing → 1249 passing (41 new). Gate clean: pytest, ruff, mypy, lint-imports.
+
+### Decisions made during the session
+- **Two fixes came out of looking at the screenshots**, which is what the visual step is
+  for: the ETF row read "Dividend Vanguard FTSE All-World" because `reconcile._name`
+  took the latest row of any kind, so every dividend renamed its holding — now it takes
+  the latest trade; and the page repeated the title the topbar already renders.
+- **The Feed column shows the ticker alone**, not the design doc's "ticker · ccy": the
+  ISIN map stores no currency and fetching one per holding means a resolver call per row.
+- The two sidebar-count tests were updated for the new item, and the "no broker
+  reference" test was narrowed to the brand block — the nav legitimately says "Scalable".
+
+### Follow-up in the same PR (2026-09-04, after Vivek tried a real export)
+- Vivek's real export failed with `Row 218: duplicate reference WWUM 00477772743`, and the
+  old Import CSV page failed identically — `parse_csv` delegates to `parse_csv_bytes`, so
+  SYNC-6A's guard broke both doors at once.
+- Cause: Scalable emits a corporate action as **two legs sharing one reference** (a Security
+  leg and a Cash leg). The design doc's "two identical references → parse error" was an
+  assumption; real data falsifies it. All seven exports in `~/Downloads` (May–September)
+  carry exactly this one duplicated reference.
+- Fix: the guard now only fires between two *importable* rows (Executed + Buy/Sell/Savings
+  plan), which is the case that would write two transactions under one id. Verified across
+  all seven exports: none has a duplicate among importable rows, and all seven parse.
+- Verified in the app on the real September export: 219 trades imported, and re-uploading
+  it reports "Holdings match this Scalable export (39/39)".
+- Also keyed the feed-check cache on the transactions signature instead of the apply count.
+
+### Second follow-up: Live Overview crashed after the real import
+- After importing the real export, `overview` died with
+  `ValueError: Invalid ISIN number: DE000HT41XN9` out of `get_ohlc_histories`.
+- Cause: an unmapped holding trades under its ISIN as a placeholder ticker (SYNC-1B,
+  ADR-014 rule 2), and yfinance rejects an ISIN-shaped symbol with a plain ValueError.
+  `_fetch_series_safe` caught only `OhlcUnavailableError`, so the error escaped
+  `pool.map` and took the page with it — the port explicitly promises the opposite
+  ("per-ticker failures are omitted from the result, never raised").
+- Fix: `_fetch_series` wraps any provider error as `OhlcUnavailableError` and the batch
+  helper isolates anything at all. The price adapter already did this; the OHLC adapter
+  was the odd one out. Verified in the app on a book holding a placeholder ticker.
+
+### Third follow-up: what a real import looked like on the Live Overview
+- **ISIN shown as ticker *and* name.** Nothing has ever written an `unmapped` entry when
+  an ISIN is first seen, so a holding auto-resolve could not map had no map entry at all:
+  no name to show, and no row on the Mappings page to map it from. `record_seen_isins`
+  now creates one from the broker's description and stamps `last_seen_in_csv` (which
+  nothing had ever set, so that column was permanently "—"). Called from both the Sync
+  service and the old workbench.
+- **Feeds that were not feeds.** yfinance answers some ISINs with a Stuttgart listing
+  whose symbol is literally `<ISIN>.SG`. Auto-resolve mapped 8 of Vivek's holdings to
+  those; they return no prices, so the holding sat at its last trade price while the app
+  claimed a feed. Auto-resolve now rejects a symbol that is just the ISIN, and a mapped
+  feed that returns no closes raises the same "no price feed" task as an unmapped one —
+  otherwise the existing bad mappings would stay silent.
+- **The unlabelled column printing "None".** It is the price-source column; it now has a
+  label and blank empty cells (a column of strings and `None` is object dtype and the grid
+  prints `str(None)`). Numeric columns are coerced to float for the same reason, which
+  also keeps them sortable.
+- A probe app established that the greyed `None` still shown in an empty *numeric* cell is
+  Streamlit's own empty-value placeholder, with or without a Styler — not our data.
+- Verified against the real September export in a sandbox: 39 holdings, all named, no
+  ISIN-as-ticker mappings left, Overview renders.
+
+### Out-of-scope items noticed
+- The Import CSV workbench and ISIN Mappings pages still exist, as SYNC-6B intends;
+  SYNC-7 retires them after two real syncs.
+- An unpaired security transfer shows as a share difference with cause "transfer
+  imbalance" (visible in `03_state_c_tasks.png`). That is the SYNC-5 rule working as
+  specified, not a bug.
+
+### Tokens used (rough)
+~100k
+
+
 ## 2026-09-04 — TICKET-SYNC-6A
 **Surface:** Claude Code
 **Model:** opus-5
