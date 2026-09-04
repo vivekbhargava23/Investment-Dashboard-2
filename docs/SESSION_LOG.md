@@ -44,6 +44,107 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-04 — TICKET-SYNC-6B (follow-up: unbreak the app after the real import)
+**Surface:** Claude Code
+**Model:** opus-5
+**Duration:** ~60 min
+**Branch:** ticket-sync-6b-the-sync-page-upload-analyse
+**PR:** https://github.com/vivekbhargava23/Investment-Dashboard-2/pull/225
+**Status at session end:** IN_REVIEW
+
+### What got done
+Vivek reported the Live Overview showing tickers instead of names, the sell simulator
+broken, and the ISIN mapping unintuitive. All three were one defect plus its fallout.
+
+**Root cause.** Every tax and name lookup searched the ISIN map *by ticker*. The sync
+import brought in eight holdings whose map entries have no ticker (`unmapped`,
+`ignored`), so they were invisible to those lookups even though the entry carried a
+perfectly good name. Six of 36 holdings were affected.
+
+- `app/domain/tax/classification.py` — `classify_instrument` now falls back to the ISIN
+  when the ticker is one (with or without an exchange suffix), which is exactly what a
+  holding with no feed trades under (ADR-014 rule 2). Before this, one unclassifiable
+  holding raised and `tax.py:651` returned, so the **whole Tax Dashboard** was a warning
+  banner — the closed CoinShares Algorand ETP took the year down with it.
+- `app/ui/pages/overview.py` — `build_name_lookup` (extracted, so it is testable) keys a
+  holding by its feed ticker *and* its ISIN, then bridges the two through the book's own
+  ISIN. That is what stops a row printing its ticker in the Name column.
+- `app/ui/pages/overview.py` — the Overview's tax tiles never passed `isin_map` to
+  `compute_current_tax_summary`, so it raised on any book with a sell and the bare
+  `except` swallowed it: Sparerpauschbetrag and Tax Headroom had always read "—".
+  Pre-existing (TICKET-011), not from the sync work. The cache is now keyed on the map's
+  mtime as the Tax page already does.
+- `app/services/sell_simulator.py` — the synthetic sell defaulted to `source="manual"`,
+  which triggers ADR-005 ticker→currency inference. A holding trading under its ISIN has
+  no exchange suffix to infer from, so the simulator rejected EUR broker rows the
+  repository had accepted: "trades in USD but transaction recorded as EUR". The sell now
+  inherits the source of the lots it consumes; mixed sources fall back to `manual`, the
+  stricter check.
+- `app/ui/components/positions_table.py` — styler colours were `var(--text3)`.
+  `st.dataframe` paints on a canvas where theme custom properties do not resolve, so the
+  **entire Price src column rendered invisible** — the column TICKET-SYNC-6B had just
+  added to explain stale prices. Colours are literal now.
+
+**Data repair** (local only — `data/portfolio.json` is gitignored; `data/isin_map.json`
+is tracked). Every ISIN was probed against a live yfinance feed before deciding:
+- Mapped four holdings the import left unmapped: AMD, ARM, ATS.VI (AT&S), SPCX (SpaceX).
+- Repointed two "mapped to their own ISIN" holdings at real symbols: `US15643U1043` → LEU
+  (Centrus), `US81762P1021` → NOW (ServiceNow). Both returned prices under the ISIN, so
+  this is readability, not a fix.
+- `IUES.DE` is delisted and returned no closes; IE00B42NKQ00 now points at `IUES.L`.
+- `IE000QDFFK00` was named "AXA Nasdaq 100" — `ANAV.DE` is BNP Paribas Easy II, and the
+  CSV agrees. Renamed.
+- Gave the two genuinely feedless holdings a tax kind so they stop breaking the tax year:
+  the HSBC Apple Short turbo (26 still open) and the CoinShares Algorand ETP, both
+  `SONSTIGE`. **Vivek should confirm SONSTIGE for the crypto ETP** — it is a debt
+  security, so no Teilfreistellung, but auto-resolve had previously guessed MISCHFONDS
+  (15%) for 21Shares ETPs. It changes the realised-gain tax on a closed position.
+- Twelve transactions were retickered to match (`US15643U1043`→LEU, `US81762P1021`→NOW,
+  10 × `IUES.DE`→`IUES.L`).
+
+### Files touched
+- `app/domain/tax/classification.py` — ISIN fallback in `classify_instrument`
+- `app/ui/pages/overview.py` — `build_name_lookup`, isin_map into the tax summary
+- `app/services/sell_simulator.py` — synthetic sell inherits its position's source
+- `app/ui/components/positions_table.py` — literal styler colours
+- `data/isin_map.json` — 12 entries repaired
+- `tests/unit/domain/tax/test_classification.py` — 4 new
+- `tests/unit/ui/test_overview_helpers.py` — 5 new
+- `tests/unit/services/test_sell_simulator.py` — 3 new
+- `tests/unit/ui/test_positions_table.py` — 3 new
+
+### Tests
+1249 passing → 1264 passing (15 new). ruff, mypy, lint-imports clean.
+
+Verified against the real book, not fixtures: 36/36 tickers classify, all 26 open
+positions simulate a sell, and the Tax Dashboard computes (YTD realised €7.873,13,
+€1.538,07 owed if closed today).
+
+### Decisions made during the session
+- Classification resolves by ISIN as a *fallback*, not a signature change. Threading an
+  ISIN through `RealisedGain` and FIFO would have been the larger, more invasive fix; the
+  placeholder-ticker convention is already law (ADR-014 rule 2), so honouring it here is
+  the smaller correct change. No ADR needed.
+- The crypto ETP was classified SONSTIGE, flagged above for Vivek to confirm.
+
+### Out-of-scope items noticed
+- **Streamlit 1.57 + pandas 3.0.5 render every empty numeric cell as the literal text
+  "None"** in `st.dataframe` — reproduced in a 20-line standalone app, with and without a
+  Styler, with and without `column_config`. `pyproject.toml` says `pandas>=2.2` with no
+  upper bound, so pandas 3 came in on its own. Affects every nullable column in every
+  grid, not just Trend 30D. Recommend a ticket: pin `pandas<3` or wait for Streamlit.
+  Note this makes the "renders blank" claim in commit 2175a75 untrue on this stack.
+- Commit `2175a75` committed a sandbox-generated `data/isin_map.json` that dropped eight
+  of Vivek's real mappings. The working tree had the real file; this session's commit
+  restores it. Worth a guard so a sandbox map can never be committed.
+- The Mappings page welds three separate decisions together — which price feed, what tax
+  kind, whether to import CSV rows. A holding with no feed cannot be given a tax kind
+  through the UI at all; the two entries above had to be set by migration. This is the
+  "unintuitive" part of Vivek's report and is still open. Recommend a ticket.
+
+### Tokens used (rough)
+~120k
+
 ## 2026-09-04 — TICKET-SYNC-6B
 **Surface:** Claude Code
 **Model:** opus-5
