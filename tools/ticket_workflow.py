@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 from collections.abc import Sequence
@@ -19,6 +20,15 @@ ACTIVE_STATUSES = {"Ready", "Backlog", "In progress", "In review"}
 NEXT_STATUSES = {"Ready", "Backlog"}
 DONE_STATUSES = {"Done"}
 PRIORITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+
+# The board is the source of truth and keeps growing; every closed ticket stays on it.
+# Keep this comfortably above the live item count or the menu silently drops tickets.
+BOARD_ITEM_LIMIT = "500"
+
+MENU_HEADERS = ("#", "Ticket", "Pri", "Model", "Issue", "Status", "Title", "Notes")
+MENU_COLUMN_CAPS: tuple[int | None, ...] = (3, 16, 8, 7, 6, 11, None, 32)
+MENU_TITLE_COLUMN = 6
+MENU_MIN_TITLE_WIDTH = 24
 
 _FULL_TICKET_RE = re.compile(r"\bTICKET-([A-Z0-9][A-Z0-9-]*)\b")
 _BARE_TICKET_RE = re.compile(r"\b([A-Z]+(?:-[A-Z]+)*-?[0-9]+[A-Z0-9-]*)\b")
@@ -402,7 +412,7 @@ def load_board_items() -> list[dict[str, Any]]:
             "--format",
             "json",
             "--limit",
-            "100",
+            BOARD_ITEM_LIMIT,
         ],
         capture=True,
     )
@@ -411,6 +421,66 @@ def load_board_items() -> list[dict[str, Any]]:
     if not isinstance(items, list):
         return []
     return [item for item in items if isinstance(item, dict)]
+
+
+def truncate(text: str, width: int) -> str:
+    if width <= 0:
+        return ""
+    if len(text) <= width:
+        return text
+    return text[: max(1, width - 1)].rstrip() + "…"
+
+
+def menu_row(
+    index: int,
+    entry: TicketEntry,
+    entries: Sequence[TicketEntry],
+    entries_by_id: dict[str, TicketEntry],
+) -> tuple[str, ...]:
+    blockers = blockers_for(entry, entries_by_id)
+    if blockers:
+        notes = "blocked by " + ", ".join(blockers)
+    else:
+        score = unblock_score(entry, entries)
+        notes = f"unblocks {score}" if score else "ready"
+    return (
+        str(index),
+        compact_ticket_id(entry.ticket_id),
+        entry.priority,
+        entry.model,
+        f"#{entry.issue_number}",
+        entry.status,
+        entry.title,
+        notes,
+    )
+
+
+def format_menu_table(rows: Sequence[Sequence[str]], terminal_width: int) -> list[str]:
+    capped = [
+        [cell if cap is None else truncate(cell, cap) for cell, cap in zip(row, MENU_COLUMN_CAPS)]
+        for row in rows
+    ]
+    widths = [
+        max([len(header)] + [len(row[column]) for row in capped])
+        for column, header in enumerate(MENU_HEADERS)
+    ]
+    gutters = 2 * len(MENU_HEADERS)
+    other_columns = sum(width for column, width in enumerate(widths) if column != MENU_TITLE_COLUMN)
+    widths[MENU_TITLE_COLUMN] = max(
+        MENU_MIN_TITLE_WIDTH,
+        min(widths[MENU_TITLE_COLUMN], terminal_width - other_columns - gutters),
+    )
+
+    def render(cells: Sequence[str]) -> str:
+        padded = [
+            truncate(cell, widths[column]).ljust(widths[column])
+            for column, cell in enumerate(cells)
+        ]
+        return ("  " + "  ".join(padded)).rstrip()
+
+    lines = [render(MENU_HEADERS), render(["-" * width for width in widths])]
+    lines.extend(render(row) for row in capped)
+    return lines
 
 
 def print_next_menu(entries: Sequence[TicketEntry]) -> None:
@@ -423,18 +493,18 @@ def print_next_menu(entries: Sequence[TicketEntry]) -> None:
         )
         return
 
-    print(f"Up next ({len(ranked)} tickets):")
+    rows = [
+        menu_row(index, entry, entries, entries_by_id)
+        for index, entry in enumerate(ranked, start=1)
+    ]
+    blocked = sum(1 for entry in ranked if blockers_for(entry, entries_by_id))
+    print(
+        f"Up next — {len(ranked)} tickets "
+        f"({len(ranked) - blocked} unblocked, {blocked} blocked):"
+    )
     print("")
-    for index, entry in enumerate(ranked, start=1):
-        blockers = blockers_for(entry, entries_by_id)
-        blocked = f" ⛔ blocked by {', '.join(blockers)}" if blockers else ""
-        score = unblock_score(entry, entries)
-        score_text = f" unblocks {score}" if score and not blockers else ""
-        print(
-            f"  {index}. {entry.ticket_id} - {entry.title} "
-            f"[{entry.priority}] [{entry.model}] (issue #{entry.issue_number}, {entry.status})"
-            f"{blocked}{score_text}"
-        )
+    for line in format_menu_table(rows, shutil.get_terminal_size((120, 24)).columns):
+        print(line)
     print("")
     print("Reply with:")
     print("  implement TICKET-XXX   start a ticket")

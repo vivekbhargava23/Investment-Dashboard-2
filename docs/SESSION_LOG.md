@@ -44,7 +44,33 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
-## 2026-09-03 — Dashboard launcher and Conda repair
+## 2026-09-04 — Next-menu table and board fetch cap
+**Surface:** Claude Code
+**Model:** opus-5
+**Branch:** chore/next-menu-table
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Reworked `tools/next.sh` output into an aligned table (rank, ticket, priority,
+  model, issue, status, title, notes) so the queue is scannable by priority.
+- Raised the board item fetch from 100 to 500. The board holds 116 items, so the
+  old cap silently dropped TICKET-R4 from the menu; the menu now lists 19 tickets
+  instead of 18.
+
+### Files touched
+- `tools/ticket_workflow.py` — table renderer, `BOARD_ITEM_LIMIT`
+- `tests/unit/tools/test_ticket_workflow.py` — 3 new tests
+
+### Tests
+Gate green: pytest, ruff, mypy, lint-imports.
+
+### Decisions made during the session
+- No architectural decisions. Title column flexes to terminal width; every other
+  column is capped and elided with an ellipsis.
+
+### Out-of-scope items noticed
+- No ticket was filed for this; it came out of Vivek noticing the menu had
+  shrunk and lost its tabular shape.
 **Surface:** Codex
 **Model:** GPT-5
 **Branch:** codex/dashboard-launcher
