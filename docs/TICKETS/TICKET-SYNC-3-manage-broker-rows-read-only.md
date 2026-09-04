@@ -1,6 +1,7 @@
 # TICKET-SYNC-3 — Manage Portfolio: Scalable rows are read-only except Notes
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Investment Panel
 **Recommended model:** Sonnet — one page, one pure helper, clear tests.
 **Estimated session length:** 1 hr

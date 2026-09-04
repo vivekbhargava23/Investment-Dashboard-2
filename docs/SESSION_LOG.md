@@ -44,6 +44,39 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-04 — TICKET-SYNC-3: Scalable rows read-only except Notes
+**Surface:** Codex
+**Model:** GPT-5
+**Branch:** ticket-sync-3-manage-portfolio-scalable-rows-are
+**Status at session end:** IN_REVIEW
+
+### What got done
+- Added pure service helpers that identify Scalable Capital rows and copy a transaction
+  with only its Notes changed, preserving every broker provenance field.
+- Branched the Manage Portfolio edit surface once: imported rows now show a read-only
+  summary, ISIN Mappings guidance, and a notes-only form; manual rows keep the existing
+  full edit form.
+- Disabled per-row and bulk deletion whenever the selection includes a Scalable row,
+  with guidance to use the existing Danger zone instead.
+- Captured and inspected before/after screenshots against an isolated sandbox portfolio.
+
+### Files touched
+- `app/services/trading.py` — broker-row and notes-copy helpers
+- `app/ui/pages/manage.py` — notes-only broker form and delete protection
+- `tests/unit/ui/test_manage_form_pipeline.py` — provenance-preservation tests
+- `tests/unit/ui/test_manage_page.py` — broker/manual render and delete tests
+- `docs/screenshots/ticket-sync-3/` — visual verification evidence
+
+### Tests
+39 focused tests passed. Full gate: 1,139 passed, 97 skipped; Ruff, mypy, and all
+import-linter contracts passed.
+
+### Decisions made during the session
+- No architectural decisions made; implementation follows ADR-014 and the ticket spec.
+
+### Out-of-scope items noticed
+- None.
+
 ## 2026-09-04 — TICKET-M11: workflow handoff hardening + Done-ticket archive
 **Surface:** Claude Code
 **Model:** opus-5

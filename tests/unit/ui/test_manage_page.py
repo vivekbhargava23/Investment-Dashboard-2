@@ -4,6 +4,8 @@ These do not require a Streamlit context.
 """
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
@@ -11,6 +13,8 @@ from app.ports.ticker_resolver import TickerMatch
 from app.ui.pages.manage import (
     _init_state,
     _match_label,
+    _render_edit_form,
+    _render_transactions_table,
     _tx_to_form_values,
     build_transactions_dataframe,
     filter_transactions,
@@ -227,3 +231,93 @@ def test_filter_combines_conditions() -> None:
         notes_query="core",
     )
     assert out == [keep]
+
+
+# ---------------------------------------------------------------------------
+# TICKET-SYNC-3: broker rows are notes-only and cannot be deleted per-row
+# ---------------------------------------------------------------------------
+
+def _context_mock() -> MagicMock:
+    context = MagicMock()
+    context.__enter__.return_value = context
+    return context
+
+
+@patch("app.ui.pages.manage.st")
+def test_broker_edit_form_is_notes_only(mock_st: MagicMock) -> None:
+    tx = _usd_tx(
+        source="scalable_csv",
+        isin="US0091581068",
+        csv_reference="SCALABLE-REF-1",
+        notes="Imported position",
+    )
+    mock_st.form.return_value = _context_mock()
+    mock_st.columns.return_value = [_context_mock(), _context_mock()]
+    mock_st.text_input.return_value = tx.notes
+    mock_st.form_submit_button.side_effect = [False, False]
+
+    with patch("app.ui.components.ticker_searchbox.render_ticker_searchbox") as searchbox:
+        _render_edit_form(tx)
+
+    caption = mock_st.caption.call_args.args[0]
+    assert "Imported from Scalable Capital · APD · US0091581068" in caption
+    assert "ISIN Mappings page" in caption
+    mock_st.text_input.assert_called_once_with("Notes", value="Imported position")
+    searchbox.assert_not_called()
+
+
+@patch("app.ui.pages.manage._render_recording_preview")
+@patch("app.ui.pages.manage.get_ticker_resolver")
+@patch("app.ui.pages.manage.st")
+def test_manual_edit_form_keeps_ticker_searchbox(
+    mock_st: MagicMock,
+    mock_get_resolver: MagicMock,
+    _mock_preview: MagicMock,
+) -> None:
+    tx = _eur_tx()
+    match = TickerMatch(
+        symbol="RHM.DE", name="Rheinmetall", exchange="XETRA", currency=Currency.EUR
+    )
+    mock_get_resolver.return_value.lookup.return_value = match
+    mock_st.form.return_value = _context_mock()
+    mock_st.columns.side_effect = [
+        [_context_mock(), _context_mock()],
+        [_context_mock(), _context_mock()],
+    ]
+    mock_st.radio.return_value = "Buy"
+    mock_st.date_input.return_value = tx.trade_date
+    mock_st.number_input.side_effect = [1.0, 1452.75, 0.0]
+    mock_st.text_input.return_value = ""
+    mock_st.form_submit_button.side_effect = [False, False]
+
+    with patch(
+        "app.ui.components.ticker_searchbox.render_ticker_searchbox", return_value=match
+    ) as searchbox:
+        _render_edit_form(tx)
+
+    searchbox.assert_called_once()
+
+
+@patch("app.ui.pages.manage.st")
+def test_delete_is_disabled_when_selection_contains_broker_row(mock_st: MagicMock) -> None:
+    tx = _usd_tx(source="scalable_csv", csv_reference="SCALABLE-REF-1")
+    mock_st.session_state = SimpleNamespace(manage_deleting_tx_ids=None)
+    filter_cols = [MagicMock(), MagicMock(), MagicMock()]
+    filter_cols[0].text_input.return_value = ""
+    filter_cols[1].selectbox.return_value = "All"
+    filter_cols[2].text_input.return_value = ""
+    action_cols = [MagicMock(), MagicMock(), MagicMock()]
+    mock_st.columns.side_effect = [filter_cols, action_cols]
+    mock_st.dataframe.return_value = SimpleNamespace(
+        selection=SimpleNamespace(rows=[0])
+    )
+
+    _render_transactions_table([tx])
+
+    delete_call = action_cols[1].button.call_args
+    assert delete_call.args[0] == "🗑 Delete"
+    assert delete_call.kwargs["disabled"] is True
+    assert delete_call.kwargs["help"] == (
+        "Scalable rows are the book — they would come back on the next sync. "
+        "Use the Danger zone to erase imported data."
+    )

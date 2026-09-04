@@ -35,7 +35,7 @@ from app.services.data_admin import (
     erase_transactions,
 )
 from app.services.sell_simulator import SellSimulationRequest
-from app.services.trading import build_transaction
+from app.services.trading import build_transaction, is_broker_row, with_notes
 from app.services.valuation import clear_caches
 from app.ui.backup import write_portfolio_backup
 from app.ui.format import format_date, format_eur
@@ -721,7 +721,20 @@ def _render_transactions_table(txs: list[Transaction]) -> None:
         st.session_state.manage_editing_tx_id = sel_txs[0].id
         st.rerun()
     del_label = "🗑 Delete" if n == 1 else f"🗑 Delete {n}"
-    if del_col.button(del_label, key="tx_delete_selected", type="primary"):
+    has_broker_row = any(is_broker_row(t) for t in sel_txs)
+    delete_help = (
+        "Scalable rows are the book — they would come back on the next sync. "
+        "Use the Danger zone to erase imported data."
+        if has_broker_row
+        else None
+    )
+    if del_col.button(
+        del_label,
+        key="tx_delete_selected",
+        type="primary",
+        disabled=has_broker_row,
+        help=delete_help,
+    ):
         st.session_state.manage_deleting_tx_ids = [t.id for t in sel_txs]
         st.rerun()
 
@@ -772,6 +785,10 @@ def _render_delete_confirmation(txs: list[Transaction]) -> None:
 # ---------------------------------------------------------------------------
 
 def _render_edit_form(tx: Transaction) -> None:
+    if is_broker_row(tx):
+        _render_broker_notes_form(tx)
+        return
+
     st.subheader(f"Edit Transaction — {tx.ticker}")
     vals = _tx_to_form_values(tx)
 
@@ -852,6 +869,46 @@ def _render_edit_form(tx: Transaction) -> None:
             fees_eur=fees_eur,
             notes=notes or None,
         )
+
+
+def _render_broker_notes_form(tx: Transaction) -> None:
+    """Render the notes-only edit surface for Scalable Capital transactions."""
+    st.subheader(f"Edit Transaction — {tx.ticker}")
+    st.caption(
+        f"Imported from Scalable Capital · {tx.ticker} · {tx.isin or '—'}. "
+        "Ticker, shares and amounts come from the CSV. To change the ticker, "
+        "change the ISIN mapping on the ISIN Mappings page."
+    )
+    st.write(
+        f"**{tx.type.value.upper()}** · {format_date(tx.trade_date)} · "
+        f"{tx.shares:g} share(s) · {format_eur(tx.cost_eur)}"
+    )
+
+    with st.form("manage_broker_notes_form"):
+        notes = st.text_input("Notes", value=tx.notes or "")
+        col_save, col_cancel = st.columns([1, 5])
+        with col_save:
+            submitted = st.form_submit_button("Save Changes", type="primary")
+        with col_cancel:
+            cancelled = st.form_submit_button("Cancel")
+
+    if cancelled:
+        st.session_state.manage_editing_tx_id = None
+        st.rerun()
+
+    if not submitted:
+        return
+
+    try:
+        get_repository().update(with_notes(tx, notes or None))
+    except Exception as e:
+        st.error(f"Failed to update: {e}")
+        return
+
+    st.cache_data.clear()
+    st.session_state.manage_editing_tx_id = None
+    st.session_state.manage_feedback = ("success", f"Updated notes for {tx.ticker}.")
+    st.rerun()
 
 
 def _handle_edit_submit(
