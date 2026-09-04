@@ -44,6 +44,65 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-04 — TICKET-SYNC-6B
+**Surface:** Claude Code
+**Model:** opus-5
+**Duration:** ~80 min
+**Branch:** ticket-sync-6b-the-sync-page-upload-analyse
+**PR:** (opened at session end)
+**Status at session end:** IN_REVIEW
+
+### What got done
+- `app/ui/pages/sync.py` — the Sync page. Dropping an export parses it, opens a session,
+  auto-resolves, and imports every row new by reference in one shot; then the summary
+  card, the numbered task list (inline mapper for feed tasks, Replace/Keep both for
+  duplicates, text for the rest), the holdings table with the feed-check cell, the
+  cash-events line, Details and All instruments.
+- `Undo last sync` is enabled by comparing the stored md5s with `store.current_md5s()`,
+  never by probing with try/except.
+- The mapping-consistency banner and its Repair button moved off the Mappings page.
+- Sidebar + topbar: `sync` / "Sync with Scalable" in SETTINGS, before Manage Portfolio.
+- `app/ui/price_clock.py` — records when live prices were last valued (set by the
+  Overview page) so the market-values line can say "as of …" truthfully rather than
+  starting a price fetch of its own.
+- `tools/app_sandbox.sh` now isolates `SYNC_LOG_JSON_PATH`; without it a sandbox run
+  would have written the sync log into the real `data/`.
+
+### Files touched
+- `app/ui/pages/sync.py` — new page
+- `app/ui/pages/mappings.py` — consistency banner removed (moved to Sync)
+- `app/ui/components/sidebar.py`, `app/ui/components/topbar.py` — nav + title
+- `app/ui/price_clock.py`, `app/ui/pages/overview.py` — last price fetch
+- `app/domain/reconcile.py` — name a holding after its latest *trade*
+- `tools/app_sandbox.sh` — isolate the sync log
+- `tests/unit/ui/test_sync_page.py` (new), `tests/unit/domain/test_reconcile.py`,
+  `tests/unit/ui/test_sidebar_structure.py`, `tests/unit/ui/test_components.py`
+- `docs/screenshots/sync-tab/` — states A, B, C and the duplicate task
+
+### Tests
+1208 passing → 1233 passing (25 new). Gate clean: pytest, ruff, mypy, lint-imports.
+
+### Decisions made during the session
+- **Two fixes came out of looking at the screenshots**, which is what the visual step is
+  for: the ETF row read "Dividend Vanguard FTSE All-World" because `reconcile._name`
+  took the latest row of any kind, so every dividend renamed its holding — now it takes
+  the latest trade; and the page repeated the title the topbar already renders.
+- **The Feed column shows the ticker alone**, not the design doc's "ticker · ccy": the
+  ISIN map stores no currency and fetching one per holding means a resolver call per row.
+- The two sidebar-count tests were updated for the new item, and the "no broker
+  reference" test was narrowed to the brand block — the nav legitimately says "Scalable".
+
+### Out-of-scope items noticed
+- The Import CSV workbench and ISIN Mappings pages still exist, as SYNC-6B intends;
+  SYNC-7 retires them after two real syncs.
+- An unpaired security transfer shows as a share difference with cause "transfer
+  imbalance" (visible in `03_state_c_tasks.png`). That is the SYNC-5 rule working as
+  specified, not a bug.
+
+### Tokens used (rough)
+~100k
+
+
 ## 2026-09-04 — TICKET-SYNC-6A
 **Surface:** Claude Code
 **Model:** opus-5
