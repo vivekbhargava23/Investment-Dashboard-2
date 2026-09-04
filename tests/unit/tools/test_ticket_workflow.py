@@ -5,6 +5,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 _SCRIPT = Path(__file__).resolve().parent.parent.parent.parent / "tools" / "ticket_workflow.py"
 _spec = importlib.util.spec_from_file_location("ticket_workflow", _SCRIPT)
 assert _spec is not None and _spec.loader is not None
@@ -357,3 +359,137 @@ def test_reorder_is_a_noop_when_the_board_already_matches(
 
     assert _mod.reorder_board(ordered) == 0
     assert "already matches" in capsys.readouterr().out
+
+
+def _start_env(tmp_path: Path, monkeypatch, *, branch: str, dirty: str = "") -> list[list[str]]:
+    """Patch out git/GitHub so start_ticket's branch logic can be exercised."""
+    _ticket_file(tmp_path, "TICKET-N1", "next", "Next", "**Depends on:** none")
+    entry = _mod.build_ticket_entries([_item(1, "TICKET-N1", "Next", "Ready")], tmp_path)[0]
+
+    commands: list[list[str]] = []
+    monkeypatch.setattr(_mod, "load_entries", lambda root: [entry])
+    monkeypatch.setattr(_mod, "reconcile_done", lambda entries: None)
+    monkeypatch.setattr(_mod, "current_branch", lambda: branch)
+    monkeypatch.setattr(_mod, "working_tree_status", lambda: dirty)
+    monkeypatch.setattr(_mod, "set_project_status", lambda entry, status: None)
+    monkeypatch.setattr(_mod, "run", lambda command, **kwargs: commands.append(list(command)) or "")
+    return commands
+
+
+def test_start_returns_to_main_from_a_clean_merged_branch(tmp_path: Path, monkeypatch) -> None:
+    commands = _start_env(tmp_path, monkeypatch, branch="ticket-old-something")
+    monkeypatch.setattr(_mod, "pr_state_for_branch", lambda branch: "MERGED")
+
+    _mod.start_ticket("TICKET-N1", tmp_path)
+
+    assert ["git", "checkout", "main"] in commands
+    assert ["git", "pull", "--ff-only", "origin", "main"] in commands
+    assert commands[-1][:3] == ["git", "checkout", "-b"]
+    assert commands[-1][3].startswith("ticket-n1-")
+
+
+def test_start_refuses_to_leave_a_branch_with_an_open_pr(tmp_path: Path, monkeypatch) -> None:
+    commands = _start_env(tmp_path, monkeypatch, branch="ticket-old-something")
+    monkeypatch.setattr(_mod, "pr_state_for_branch", lambda branch: "OPEN")
+
+    with pytest.raises(RuntimeError, match="open PR"):
+        _mod.start_ticket("TICKET-N1", tmp_path)
+    assert commands == []
+
+
+def test_start_refuses_to_leave_a_branch_with_no_pr(tmp_path: Path, monkeypatch) -> None:
+    commands = _start_env(tmp_path, monkeypatch, branch="ticket-old-something")
+    monkeypatch.setattr(_mod, "pr_state_for_branch", lambda branch: None)
+
+    with pytest.raises(RuntimeError, match="no PR"):
+        _mod.start_ticket("TICKET-N1", tmp_path)
+    assert commands == []
+
+
+def test_start_refuses_to_leave_a_dirty_branch_without_asking_github(
+    tmp_path: Path, monkeypatch
+) -> None:
+    commands = _start_env(
+        tmp_path, monkeypatch, branch="ticket-old-something", dirty=" M app/thing.py\n"
+    )
+
+    def _fail(branch: str) -> str:
+        raise AssertionError("a dirty tree must stop before any GitHub call")
+
+    monkeypatch.setattr(_mod, "pr_state_for_branch", _fail)
+
+    with pytest.raises(RuntimeError, match="app/thing.py"):
+        _mod.start_ticket("TICKET-N1", tmp_path)
+    assert commands == []
+
+
+def test_start_still_reuses_the_branch_for_the_same_ticket(tmp_path: Path, monkeypatch) -> None:
+    commands = _start_env(tmp_path, monkeypatch, branch="ticket-n1-next")
+
+    def _fail(branch: str) -> str:
+        raise AssertionError("same-ticket reuse must not consult GitHub")
+
+    monkeypatch.setattr(_mod, "pr_state_for_branch", _fail)
+
+    _mod.start_ticket("TICKET-N1", tmp_path)
+
+    assert commands == []
+
+
+def test_start_reports_a_resumable_failure_when_the_board_move_is_rate_limited(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _start_env(tmp_path, monkeypatch, branch="main")
+
+    def _throttled(entry: object, status: str) -> None:
+        raise RuntimeError("GraphQL: API rate limit exceeded for user ID 1")
+
+    monkeypatch.setattr(_mod, "set_project_status", _throttled)
+
+    with pytest.raises(RuntimeError, match="rerun"):
+        _mod.start_ticket("TICKET-N1", tmp_path)
+
+
+def test_ticket_files_are_found_after_being_archived(tmp_path: Path) -> None:
+    _ticket_file(tmp_path, "TICKET-Z9", "old", "Old work", "**Depends on:** none")
+    source = tmp_path / "docs" / "TICKETS" / "TICKET-Z9-old.md"
+    destination = tmp_path / "docs" / "TICKETS" / "DONE" / "TICKET-Z9-old.md"
+    destination.parent.mkdir(parents=True)
+    source.rename(destination)
+
+    found = _mod.find_ticket_file(tmp_path, "TICKET-Z9", "TICKET-Z9 — Old work")
+
+    assert found == destination
+
+
+def test_archive_moves_only_done_tickets_from_the_top_level(tmp_path: Path) -> None:
+    _ticket_file(tmp_path, "TICKET-D1", "done", "Done work", "**Depends on:** none")
+    _ticket_file(tmp_path, "TICKET-R1", "ready", "Ready work", "**Depends on:** none")
+    entries = _mod.build_ticket_entries(
+        [
+            _item(1, "TICKET-D1", "Done work", "Done"),
+            _item(2, "TICKET-R1", "Ready work", "Ready"),
+        ],
+        tmp_path,
+    )
+
+    pairs = _mod.archive_candidates(entries, tmp_path)
+
+    assert [source.name for source, _ in pairs] == ["TICKET-D1-done.md"]
+    assert pairs[0][1] == tmp_path / "docs" / "TICKETS" / "DONE" / "TICKET-D1-done.md"
+
+
+def test_archive_is_idempotent_once_a_ticket_is_already_filed_away(tmp_path: Path) -> None:
+    _ticket_file(tmp_path, "TICKET-D1", "done", "Done work", "**Depends on:** none")
+    source = tmp_path / "docs" / "TICKETS" / "TICKET-D1-done.md"
+    destination = tmp_path / "docs" / "TICKETS" / "DONE" / "TICKET-D1-done.md"
+    destination.parent.mkdir(parents=True)
+    source.rename(destination)
+    entries = _mod.build_ticket_entries([_item(1, "TICKET-D1", "Done work", "Done")], tmp_path)
+
+    assert _mod.archive_candidates(entries, tmp_path) == []
+
+
+def test_rate_limit_detection_ignores_ordinary_failures() -> None:
+    assert _mod.is_rate_limit_error(RuntimeError("API rate limit exceeded for user ID 1"))
+    assert not _mod.is_rate_limit_error(RuntimeError("could not resolve to a Repository"))

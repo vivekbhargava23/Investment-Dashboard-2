@@ -13,6 +13,39 @@
 This file is for the implementation agent. Vivek's day-to-day workflow lives in
 `docs/VIVEK.md` and is not your concern.
 
+## Hard Rules — Read These Even If You Read Nothing Else
+
+1. **Vivek picks the tickets.** Never file, create, or start a ticket he did not ask for.
+   Recommending one in prose is correct; running `tools/file.sh` for it is not.
+2. **Stopping is a successful outcome.** When a workflow script fails, report the exact
+   error and your recommendation, then stop. A blocked session that changed nothing is a
+   good session. Do not invent recovery work to avoid stopping.
+3. **A script failure authorises nothing.** After a failed script you may not file a
+   ticket, create a branch, commit, push, or mutate the board in response.
+4. **Do not re-run a script that mutates GitHub state** after a failure unless the error
+   text says the rerun is safe. Board mutations cost API budget; blind retries are what
+   exhaust the rate limit.
+5. **Never push to `main` directly. Never merge your own PRs.**
+
+The rest of this file expands on these. If a later section ever seems to license an
+exception, the rule above wins.
+
+## Session Preflight
+
+Before step 1 of the ritual, run `git status -sb`.
+
+- On `main` with a clean tree: proceed.
+- Not on `main`: `bash tools/start_ticket.sh` now handles this itself. It refuses on a
+  dirty tree, refuses if the current branch's PR is open, closed-unmerged, or missing,
+  and only when the branch's PR is **merged** does it check out `main`, fast-forward, and
+  create the next ticket branch.
+- Dirty tree: stop and report the dirty files. Never stash, reset, or discard Vivek's
+  working changes to unblock yourself.
+
+This is the only recovery you may perform without asking. Anything beyond it — switching
+branches by hand, deleting branches, force-pushing, filing a ticket about the blockage —
+is out of bounds.
+
 ## Local Environment
 
 `tools/*.sh` run on stock macOS bash 3.2 + BSD userland. You need `git`, `gh`
@@ -90,9 +123,14 @@ The repetitive ritual lives in these entry points:
   before `Backlog`, priority, how much the ticket unblocks transitively, board position.
   See "How ticket order is decided" in `docs/METHODOLOGY.md`.
 - `bash tools/start_ticket.sh TICKET-XXX` — reconciles closed `In review` items to
-  `Done`, verifies a clean `main`, pulls, creates/reuses the feature branch, marks the
+  `Done`, gets onto an up-to-date `main`, creates/reuses the feature branch, marks the
   ticket file `IN_PROGRESS`, and moves the board item to `In progress`. If a blocked
-  ticket is explicitly requested, it warns and continues.
+  ticket is explicitly requested, it warns and continues. It is safe to run while still
+  checked out on the previous ticket's branch: with a clean tree and a merged PR it
+  returns to `main` automatically, and it refuses (changing nothing) on a dirty tree or
+  an unmerged branch. It is idempotent — rerunning it on the branch it just created only
+  redoes the board move, which is the documented recovery when GitHub rate-limits the
+  board update.
 - `bash tools/gate.sh` — activates `investment-dashboard` and runs `pytest`,
   `ruff check .`, `mypy app/`, and `lint-imports`, stopping at the first failure.
 - `bash tools/finish_ticket.sh TICKET-XXX` — reruns the gate, pushes the current branch,
@@ -101,6 +139,12 @@ The repetitive ritual lives in these entry points:
   `next.sh` ranks, so the board and the menu never tell different stories. `--dry-run`
   prints the target order without touching anything. `tools/file.sh` calls it after
   filing, so newly filed tickets land in the right place.
+- `bash tools/archive.sh` — moves ticket specs the board marks `Done` from
+  `docs/TICKETS/` into `docs/TICKETS/DONE/`. `--dry-run` prints the moves without touching
+  anything. It stages the moves with `git mv` and leaves the commit to you
+  (`docs: archive done tickets`). **Ticket lookup is directory-agnostic** — every lookup
+  globs `docs/TICKETS` recursively, so an archived ticket is still found by ID. New
+  tickets are always filed at the top level of `docs/TICKETS/`; only archiving moves them.
 - `bash tools/doctor.sh` — non-mutating preflight diagnostics for local state, retired
   files, board sanity, and dependency blockers.
 
@@ -142,6 +186,13 @@ This replaces the old "ask Vivek to drag cards in the browser" step — he asked
 board to be organised automatically on 2026-09-04. He can still drag freely afterwards;
 the next `reorder` run simply re-derives the ranked order.
 
+For `archive`, run `bash tools/archive.sh --dry-run`, show Vivek the moves, then run
+`bash tools/archive.sh` and commit with `docs: archive done tickets`. It must be its own
+commit — archiving is housekeeping and must never be mixed into an implementation commit.
+Only the board decides what is Done; ticket-file status is still not
+authoritative. `bash tools/doctor.sh` reports how many Done tickets are waiting to be
+archived, so you never have to guess.
+
 For `drop N`, confirm with Vivek first. On confirmation, close the issue as not planned,
 move the board item to `Done`, update the ticket status decoratively to `CLOSED`, summarize,
 and rerun the menu. Do not drop without confirmation.
@@ -178,6 +229,9 @@ If Vivek says "merged", "done", or "approved and merged", the session is over. D
 update files, commit, push, or move the card. The next `start_ticket.sh` run reconciles
 closed `In review` items to `Done`.
 
+Ending the session on the feature branch is correct and expected. Do not check out `main`
+"to tidy up" — the next `start_ticket.sh` handles the handoff itself.
+
 ## Stop Conditions
 
 Stop and report without committing, pushing, or opening a PR if:
@@ -190,12 +244,22 @@ Stop and report without committing, pushing, or opening a PR if:
 6. The ticket requires an architectural change not covered by an ADR.
 7. You discover a bug in `main` unrelated to your ticket.
 8. The ticket conflicts with a recently merged change.
+9. Any workflow script fails for any reason, including GitHub API rate limits.
+10. `start_ticket.sh` refuses to leave the current branch.
 
 When stopping, tell Vivek which check failed, the exact error, what you tried, and what
 you recommend next. Do not attempt heroic recovery.
 
 ## What You Do Not Do
 
+- Do not file, create, or start a ticket Vivek did not ask for, including tickets that
+  would fix a workflow problem you just hit. Write the recommendation in your reply and
+  let Vivek decide.
+- Do not re-run a board-mutating script after a failure unless the error says it is safe.
+  `start_ticket.sh` is the one exception: its rate-limit message names itself as the
+  resumable rerun.
+- Do not move ticket files by hand. `bash tools/archive.sh` is the only way tickets change
+  directory.
 - Do not refactor outside ticket scope.
 - Do not edit `docs/ARCHITECTURE.md` or `docs/METHODOLOGY.md` without a ticket for it.
 - Do not skip tests because the change is small.

@@ -87,6 +87,18 @@ There is no DRAFT status. Tickets are drafted in chat; they only land in `docs/T
 
 The `**Status:**` line in ticket files (e.g. `QUEUED`, `IN_PROGRESS`) is **decorative**. Nothing reads it. Board column is authoritative.
 
+### Where ticket files live
+
+Tickets are filed at the top level of `docs/TICKETS/`. Once the board marks a ticket
+`Done`, `bash tools/archive.sh` moves its spec into `docs/TICKETS/DONE/` so the working
+folder shows only live work.
+
+Directory is presentation, not state. Every ticket lookup globs `docs/TICKETS`
+recursively, so a ticket resolves by ID whether it sits at the top level or under
+`DONE/`. Nothing in the workflow infers status from the folder, and no rule requires
+tickets to be in one directory — so archiving can never make a ticket unfindable. Move
+ticket files only with `archive.sh`, never by hand.
+
 ### How ticket order is decided
 
 `tools/next.sh` ranks every open `Ready`/`Backlog` ticket by these keys, in order. The
