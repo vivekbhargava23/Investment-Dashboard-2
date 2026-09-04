@@ -5,7 +5,8 @@
 **Recommended model:** Sonnet — pure domain function + one service over existing ports, fully specified.
 **Estimated session length:** 1.5 hr
 **Drafted by:** Vivek + Claude (Cowork session 2026-09-03)
-**Depends on:** SYNC-1 (isin on rows). Independent of SYNC-2/3.
+**Depends on:** TICKET-SYNC-1.
+**Can run independently of:** TICKET-SYNC-2 and TICKET-SYNC-3.
 
 > **After this ticket merges:** for every ISIN with a mapped ticker the app can say `ok`, `suspicious`, `no_feed` or `unchecked`, with the numbers behind it, by comparing the EUR trade prices in the CSV rows with the feed's historical close. This is what tells the user *when and where* a ticker is wrong.
 

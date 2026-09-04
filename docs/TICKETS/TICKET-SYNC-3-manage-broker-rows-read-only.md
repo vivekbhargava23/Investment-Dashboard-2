@@ -5,7 +5,7 @@
 **Recommended model:** Sonnet — one page, one pure helper, clear tests.
 **Estimated session length:** 1 hr
 **Drafted by:** Vivek + Claude (Cowork session 2026-09-03)
-**Depends on:** SYNC-2 merged.
+**Depends on:** TICKET-SYNC-2.
 
 > **After this ticket merges:** a transaction with `source == "scalable_csv"` can no longer have its ticker, type, date, shares, total or fees changed on the Manage page. Only Notes is editable. The form says where to change the ticker instead.
 

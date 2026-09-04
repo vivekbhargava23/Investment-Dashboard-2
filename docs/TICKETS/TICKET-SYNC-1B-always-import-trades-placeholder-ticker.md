@@ -5,7 +5,8 @@
 **Recommended model:** Opus — changes the planner's import scope and adds a valuation fallback (money code).
 **Estimated session length:** 1.5 hr
 **Drafted by:** Vivek + Claude (Cowork session 2026-09-03, after second review)
-**Depends on:** SYNC-1 merged. Read ADR-014 rules 7–8 first.
+**Depends on:** TICKET-SYNC-1.
+**Required reading:** ADR-014 rules 7–8.
 
 > **After this ticket merges:** uploading a CSV puts every executed Buy / Sell / Savings-plan row into the book regardless of ISIN mapping. Unmapped ISINs get the ISIN as ticker; the Overview values such positions at their last trade price and says so. Picking a feed later only changes the ticker (SYNC-2), never which trades exist.
 

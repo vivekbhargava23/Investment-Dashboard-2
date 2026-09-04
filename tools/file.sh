@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # tools/file.sh — file one or more TICKET-*.md files as GitHub issues + board items
 #
-# Usage: bash tools/file.sh
+# Usage: bash tools/file.sh [docs/DECISIONS/ADR-*.md docs/DESIGN/*.md ...]
 #
 # Finds every untracked docs/TICKETS/TICKET-*.md, validates them, creates GitHub
-# issues, adds each issue to the project board (Backlog), sets each item's
-# position by priority band (banded-prepend, ADR-010), commits, and pushes.
-# No POSITION field. No clean-tree guard for ticket files. No batch separator.
+# issues (or reuses an existing exact-ID issue), adds each issue to the project
+# board (Backlog) if absent, sets new items' positions by priority band
+# (banded-prepend, ADR-010), commits the explicit planning bundle, and pushes.
+# Related ADR/design files must be passed explicitly. Unrelated dirty files abort.
 #
 # Portability: POSIX sh + bash 3.2+. No GNU-only constructs.
 #   Tested on: Linux (bash 5.2, GNU grep 3.11)
@@ -17,6 +18,21 @@ set -euo pipefail
 
 PROJECT_NUMBER=2
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+RELATED_FILES=("$@")
+
+for f in "${RELATED_FILES[@]}"; do
+  case "$f" in
+    docs/DECISIONS/*.md|docs/DESIGN/*.md) ;;
+    *)
+      echo "Error: related file '$f' must be a Markdown file under docs/DECISIONS/ or docs/DESIGN/."
+      exit 1
+      ;;
+  esac
+  if [ ! -f "$REPO_ROOT/$f" ]; then
+    echo "Error: related file '$f' does not exist."
+    exit 1
+  fi
+done
 
 # ---------------------------------------------------------------------------
 # Step 1 — Branch handling
@@ -62,6 +78,33 @@ if [ "${#NEW_FILES[@]}" -eq 0 ]; then
 fi
 
 echo "Found ${#NEW_FILES[@]} new ticket file(s): ${NEW_FILES[*]}"
+
+# Refuse to silently leave related docs or runtime data behind. Only the newly
+# discovered ticket files and explicitly named ADR/design files may be dirty.
+unexpected_dirty=()
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  path="${line:3}"
+  allowed=false
+  for f in "${NEW_FILES[@]}" "${RELATED_FILES[@]}"; do
+    if [ "$path" = "$f" ]; then
+      allowed=true
+      break
+    fi
+  done
+  if [ "$allowed" = false ]; then
+    unexpected_dirty+=("$line")
+  fi
+done < <(git status --porcelain --untracked-files=all)
+
+if [ "${#unexpected_dirty[@]}" -gt 0 ]; then
+  echo ""
+  echo "Error: working tree contains changes outside the explicit filing bundle:"
+  printf '  %s\n' "${unexpected_dirty[@]}"
+  echo "Stash/commit runtime changes, or pass related ADR/design paths as arguments."
+  echo "git push uploads commits only; uncommitted files are never included."
+  exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Step 4 — Validate every ticket file before any side effects
@@ -151,6 +194,47 @@ echo ""
 echo "All ${#VALID_FILES[@]} file(s) passed validation."
 
 # ---------------------------------------------------------------------------
+# Preflight existing issues before any GitHub side effects
+# ---------------------------------------------------------------------------
+declare -a EXISTING_URLS=()
+duplicate_errors=0
+
+echo "Checking for existing ticket issues..."
+for i in "${!VALID_IDS[@]}"; do
+  ticket_id="${VALID_IDS[$i]}"
+  matches="$(gh issue list \
+    --state all \
+    --limit 200 \
+    --search "$ticket_id in:title" \
+    --json number,title,state,url \
+    --jq ".[] | select(.title | startswith(\"$ticket_id — \"))")"
+  open_count="$(printf '%s\n' "$matches" | jq -s '[.[] | select(.state == "OPEN")] | length')"
+  total_count="$(printf '%s\n' "$matches" | jq -s 'length')"
+
+  if [ "$open_count" -gt 1 ]; then
+    echo "  Error: $ticket_id has $open_count open issues. Resolve duplicates before filing."
+    duplicate_errors=$((duplicate_errors + 1))
+    EXISTING_URLS+=("")
+  elif [ "$open_count" -eq 1 ]; then
+    existing_url="$(printf '%s\n' "$matches" | jq -rs '[.[] | select(.state == "OPEN")][0].url')"
+    echo "  $ticket_id: reusing $existing_url"
+    EXISTING_URLS+=("$existing_url")
+  elif [ "$total_count" -gt 0 ]; then
+    echo "  Error: $ticket_id is already reserved by a closed issue. Use a new ticket ID."
+    duplicate_errors=$((duplicate_errors + 1))
+    EXISTING_URLS+=("")
+  else
+    echo "  $ticket_id: new issue"
+    EXISTING_URLS+=("")
+  fi
+done
+
+if [ "$duplicate_errors" -gt 0 ]; then
+  echo "Aborting before issue, board, git, or push side effects."
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
 # Resolve board IDs via name lookup
 # ---------------------------------------------------------------------------
 echo "Resolving project board IDs..."
@@ -184,7 +268,12 @@ for i in "${!VALID_FILES[@]}"; do
   priority_lower="$(echo "${VALID_PRIORITIES[$i]}" | tr '[:upper:]' '[:lower:]')"
   milestone="${VALID_MILESTONES[$i]}"
 
-  echo "Creating issue for $ticket_id..."
+  existing_url="${EXISTING_URLS[$i]}"
+  if [ -n "$existing_url" ]; then
+    echo "Synchronizing existing issue for $ticket_id..."
+  else
+    echo "Creating issue for $ticket_id..."
+  fi
 
   # Check if milestone exists (open or closed); auto-create if missing.
   # Use array to preserve multi-word milestone names like "Investment Panel".
@@ -205,11 +294,19 @@ for i in "${!VALID_FILES[@]}"; do
     fi
   fi
 
-  issue_url="$(gh issue create \
-    --title "$ticket_id — $title" \
-    --body-file "$f" \
-    --label "$priority_lower" \
-    "${milestone_args[@]}")"
+  if [ -n "$existing_url" ]; then
+    issue_num="$(echo "$existing_url" | sed -nE 's|.*/([0-9]+)$|\1|p')"
+    issue_url="$(gh issue edit "$issue_num" \
+      --body-file "$f" \
+      --add-label "$priority_lower" \
+      "${milestone_args[@]}")"
+  else
+    issue_url="$(gh issue create \
+      --title "$ticket_id — $title" \
+      --body-file "$f" \
+      --label "$priority_lower" \
+      "${milestone_args[@]}")"
+  fi
 
   # sed -nE works on both BSD and GNU grep (replaces grep -oP '\d+$')
   issue_num="$(echo "$issue_url" | sed -nE 's|.*/([0-9]+)$|\1|p')"
@@ -224,6 +321,7 @@ done
 # Step 6 — Add each issue to the project board (Backlog)
 # ---------------------------------------------------------------------------
 declare -a ITEM_IDS=()
+declare -a ITEM_NEW_FLAGS=()
 echo ""
 for i in "${!CREATED_URLS[@]}"; do
   issue_url="${CREATED_URLS[$i]}"
@@ -232,11 +330,22 @@ for i in "${!CREATED_URLS[@]}"; do
 
   echo "Adding $ticket_id (issue #$issue_num) to board..."
 
+  existing_item_id="$(gh project item-list "$PROJECT_NUMBER" --owner @me --limit 500 --format json \
+    | jq -r --arg url "$issue_url" '.items[] | select(.content.url == $url) | .id' \
+    | head -1)"
+  if [ -n "$existing_item_id" ]; then
+    echo "  Already on board (item $existing_item_id); preserving its current status and position."
+    ITEM_IDS+=("$existing_item_id")
+    ITEM_NEW_FLAGS+=("0")
+    continue
+  fi
+
   item_id="$(gh project item-add "$PROJECT_NUMBER" --owner @me --url "$issue_url" --format json | jq -r '.id')"
   if [ -z "$item_id" ]; then
     echo "  Warning: item-add failed for $issue_url. Add manually:"
     echo "    gh project item-add $PROJECT_NUMBER --owner @me --url $issue_url"
     ITEM_IDS+=("")
+    ITEM_NEW_FLAGS+=("0")
     continue
   fi
 
@@ -249,6 +358,7 @@ for i in "${!CREATED_URLS[@]}"; do
 
   echo "  Added to Backlog (item $item_id)"
   ITEM_IDS+=("$item_id")
+  ITEM_NEW_FLAGS+=("1")
 done
 
 # ---------------------------------------------------------------------------
@@ -305,6 +415,11 @@ for i in "${!ITEM_IDS[@]}"; do
   if [ -z "$item_id" ]; then
     ITEM_BACKLOG_RANKS+=("?")
     echo "  $ticket_id: skipping reorder (item was not added to board)"
+    continue
+  fi
+  if [ "${ITEM_NEW_FLAGS[$i]}" != "1" ]; then
+    ITEM_BACKLOG_RANKS+=("existing")
+    echo "  $ticket_id: existing board item; position unchanged."
     continue
   fi
 
@@ -422,7 +537,7 @@ done
 ids_csv="$(IFS=', '; echo "${CREATED_IDS[*]}")"
 commit_msg="docs: file $ids_csv"
 
-git add docs/TICKETS/TICKET-*.md
+git add "${VALID_FILES[@]}" "${RELATED_FILES[@]}"
 git commit -m "$commit_msg"
 
 echo "Pushing..."

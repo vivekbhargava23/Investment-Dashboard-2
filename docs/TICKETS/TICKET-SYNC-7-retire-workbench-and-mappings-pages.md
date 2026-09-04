@@ -5,7 +5,8 @@
 **Recommended model:** Haiku for the deletions; Sonnet if the "All instruments" move needs judgement.
 **Estimated session length:** 1 hr
 **Drafted by:** Vivek + Claude (Cowork session 2026-09-03)
-**Depends on:** SYNC-6B merged and used by Vivek for **two real Scalable exports** with holdings matching and no `unknown` cause. Vivek confirms this in the ticket before it is started.
+**Depends on:** TICKET-SYNC-6B.
+**Additional gate:** The Sync page has been used for **two real Scalable exports** with holdings matching and no `unknown` cause; Vivek confirms this before the ticket is started.
 
 > **After this ticket merges:** there is one door for broker data — the Sync tab. The old workbench and mappings pages, their sidebar entries, tests and screenshots are gone; their remaining useful parts live in the Sync tab's **All instruments** expander.
 

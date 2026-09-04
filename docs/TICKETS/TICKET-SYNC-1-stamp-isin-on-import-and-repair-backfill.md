@@ -5,7 +5,8 @@
 **Recommended model:** Sonnet — two small, fully specified changes with tests.
 **Estimated session length:** 45 min
 **Drafted by:** Vivek + Claude (Cowork session 2026-09-03)
-**Depends on:** nothing. Blocks SYNC-2..7.
+**Depends on:** none.
+**Blocks:** SYNC-1B, SYNC-2, SYNC-3, SYNC-4, SYNC-5, SYNC-6A, SYNC-6B, SYNC-7.
 
 > **After this ticket merges:** every transaction created by the CSV import carries its ISIN, and `tools/backfill_isin_from_csv.py` can heal the 71 existing rows with `isin: null` plus the 3 rows whose provenance was stripped by a Manage-page edit.
 

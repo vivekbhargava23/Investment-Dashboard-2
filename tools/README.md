@@ -74,14 +74,28 @@ helpers in tests when dependency parsing or ranking changes.
 
 ### `file.sh`
 
-Files one or more `docs/TICKETS/TICKET-*.md` drafts as GitHub issues and
-adds them to the project board (Backlog). Commit and push included.
+Files one or more untracked `docs/TICKETS/TICKET-*.md` drafts as GitHub issues
+and adds them to the project board (Backlog). Related ADR/design files must be
+passed explicitly so the committed planning bundle is complete:
 
 **Usage:**
 
 ```bash
 bash tools/file.sh
+bash tools/file.sh \
+  docs/DECISIONS/ADR-014-example.md \
+  docs/DESIGN/example-design.md
 ```
+
+The command is safe to resume after a partial GitHub failure: an existing open
+issue with the exact ticket ID is updated and reused, and an existing project
+card keeps its status and position. Multiple open issues for one ticket ID, or
+a ticket ID already held by a closed issue, abort before side effects.
+
+The working tree may contain only the new ticket files and explicitly listed
+ADR/design files. Runtime-data changes must be committed or stashed separately.
+The script stages only that explicit bundle; `git push` never includes other
+modified or untracked files.
 
 ### `setup_github.sh`
 

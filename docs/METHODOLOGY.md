@@ -61,7 +61,7 @@ All transitions are managed by the agent or by the post-merge GitHub Action. Viv
 
 | Transition | Who does it | When |
 |---|---|---|
-| filed → Backlog | `tools/file.sh` | Ticket file committed; GitHub issue created |
+| filed → Backlog | `tools/file.sh` | Ticket planning bundle committed; GitHub issue created or safely reused |
 | Backlog → Ready | Vivek (drag on board) | Ticket is vetted and next in line |
 | Ready/Backlog → In progress | Implementation agent | Step 5 of the ritual (branching) |
 | In progress → In review | Implementation agent | Step 8c of the ritual (after push) |
@@ -83,7 +83,7 @@ Edge cases:
 - **CLOSED** — abandoned without merging. `gh issue close <N> --reason "not planned"`. Agent also moves board item to Done.
 - **SUPERSEDED** — replaced by a later ticket. Issue closed with reason "not planned".
 
-There is no DRAFT status. Tickets are drafted in chat; they only land in `docs/TICKETS/` once they are filed (via `bash tools/file.sh`).
+There is no DRAFT status. Tickets are drafted in chat; they only land in `docs/TICKETS/` once they are filed (via `bash tools/file.sh`). The filing command is resumable: it reuses an exact-ID open issue and existing board card rather than creating duplicates after a partial failure.
 
 The `**Status:**` line in ticket files (e.g. `QUEUED`, `IN_PROGRESS`) is **decorative**. Nothing reads it. Board column is authoritative.
 
@@ -188,9 +188,15 @@ When Claude Chat (or any chat surface) drafts a ticket, the final response **mus
 2. **ADR file content** — if any architectural decision was made, also as a `.md` file for `docs/DECISIONS/`.
 
 **Vivek's filing steps:**
-1. Save each `.md` file to `docs/TICKETS/`.
-2. Run `bash tools/file.sh` once.
-3. Done. Issues created, board updated, commit pushed.
+1. Save each ticket `.md` file to `docs/TICKETS/`.
+2. Save any related ADR/design files under `docs/DECISIONS/` or `docs/DESIGN/`.
+3. Run `bash tools/file.sh`, passing every related ADR/design path explicitly.
+4. Done. Issues are created or reused, board cards are added once, and the complete explicit planning bundle is committed and pushed.
+
+`file.sh` refuses unrelated dirty files. This prevents runtime data from being
+folded into a documentation commit and prevents referenced ADR/design files from
+being silently left behind. A Git push transfers commits only; it never uploads
+uncommitted working-tree files.
 
 No heredoc, no `cat | bash`, no `POSITION:` field, no `ID: / TITLE:` header block. All metadata lives inside the ticket body.
 

@@ -5,7 +5,8 @@
 **Recommended model:** Sonnet — pure domain logic over existing plan rows and transactions.
 **Estimated session length:** 1.5 hr
 **Drafted by:** Vivek + Claude (Cowork session 2026-09-03)
-**Depends on:** SYNC-1 and SYNC-1B. Independent of SYNC-2/3/4.
+**Depends on:** TICKET-SYNC-1, TICKET-SYNC-1B.
+**Can run independently of:** TICKET-SYNC-2, TICKET-SYNC-3, and TICKET-SYNC-4.
 
 > **After this ticket merges:** one pure function answers "does the dashboard hold what Scalable holds?" per ISIN, and if not, why — in a sentence a new user understands.
 

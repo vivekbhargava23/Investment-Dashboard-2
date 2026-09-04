@@ -5,7 +5,8 @@
 **Recommended model:** Sonnet — small, fully specified changes in services, wiring and one page.
 **Estimated session length:** 1 hr
 **Drafted by:** Vivek + Claude (Cowork session 2026-09-03, revised after review)
-**Depends on:** SYNC-1 and SYNC-1B merged. Read `docs/DECISIONS/ADR-014-isin-identity-ticker-derived.md` in full first.
+**Depends on:** TICKET-SYNC-1, TICKET-SYNC-1B.
+**Required reading:** `docs/DECISIONS/ADR-014-isin-identity-ticker-derived.md` in full.
 
 > **After this ticket merges:** changing an ISIN→ticker mapping rewrites every transaction with that ISIN in the same operation, refuses to merge two different instruments by accident, and every cached view invalidates. The repository is untouched — reads return stored facts.
 
