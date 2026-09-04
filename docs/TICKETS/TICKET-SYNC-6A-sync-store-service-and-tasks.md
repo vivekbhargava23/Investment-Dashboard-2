@@ -1,6 +1,7 @@
 # TICKET-SYNC-6A — Sync engine: store port + JSON adapter, sync service, completeness check, task derivation (no UI)
 
 **Priority:** CRITICAL
+**Status:** IN_PROGRESS
 **Milestone:** Investment Panel
 **Recommended model:** Opus — orchestration of writes, snapshots and undo; must respect the layer rules exactly.
 **Estimated session length:** 2.5 hr

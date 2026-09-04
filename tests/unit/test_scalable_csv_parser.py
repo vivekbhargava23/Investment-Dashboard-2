@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from app.adapters.scalable_csv.parser import ParseError, parse_csv
+from app.adapters.scalable_csv.parser import ParseError, parse_csv, parse_csv_bytes
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "scalable_csv"
 
@@ -133,3 +133,56 @@ def test_row_numbers_are_correct(tmp_path: Path):
     rows = parse_csv(csv_path)
     assert rows[0].row_number == 2  # line 1 is header, line 2 is first data row
     assert rows[1].row_number == 3
+
+
+_HEADER = (
+    "date;time;status;reference;description;assetType;type;isin;"
+    "shares;price;amount;fee;tax;currency\n"
+)
+
+
+def test_parse_csv_bytes_matches_parse_csv(tmp_path: Path):
+    content = (
+        _HEADER
+        + "2026-03-01;10:00:00;Executed;REF001;SAP SE;Security;Buy;"
+        "DE0007164600;10;100,00;-1.000,00;0,99;0,00;EUR\n"
+    )
+    csv_path = tmp_path / "one_row.csv"
+    csv_path.write_text(content)
+    assert parse_csv_bytes(content.encode("utf-8")) == parse_csv(csv_path)
+
+
+def test_parse_csv_bytes_strips_utf8_bom():
+    content = (
+        _HEADER
+        + "2026-03-01;10:00:00;Executed;REF001;SAP SE;Security;Buy;"
+        "DE0007164600;10;100,00;-1.000,00;0,99;0,00;EUR\n"
+    )
+    rows = parse_csv_bytes(content.encode("utf-8-sig"))
+    assert len(rows) == 1
+    assert rows[0].date == date(2026, 3, 1)
+
+
+def test_duplicate_reference_raises():
+    content = (
+        _HEADER
+        + "2026-03-01;10:00:00;Executed;REF001;SAP SE;Security;Buy;"
+        "DE0007164600;10;100,00;-1.000,00;0,99;0,00;EUR\n"
+        "2026-03-02;10:00:00;Executed;REF001;SAP SE;Security;Buy;"
+        "DE0007164600;5;100,00;-500,00;0,99;0,00;EUR\n"
+    )
+    with pytest.raises(ParseError) as exc_info:
+        parse_csv_bytes(content.encode("utf-8"))
+    assert exc_info.value.row_number == 3
+    assert "duplicate reference REF001" in str(exc_info.value)
+
+
+def test_repeated_empty_reference_is_allowed():
+    content = (
+        _HEADER
+        + "2026-03-01;10:00:00;Executed;;Deposit;Cash;Deposit;"
+        ";;;1.000,00;;;EUR\n"
+        "2026-03-02;10:00:00;Executed;;Deposit;Cash;Deposit;"
+        ";;;500,00;;;EUR\n"
+    )
+    assert len(parse_csv_bytes(content.encode("utf-8"))) == 2
