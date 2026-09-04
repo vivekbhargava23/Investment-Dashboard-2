@@ -145,6 +145,7 @@ def _build_transaction(row: PlannedRow) -> Transaction | None:
         fees_native=fees_native,
         fx_rate_eur=Decimal("1"),
         notes=notes,
+        isin=row.isin or None,
         csv_reference=row.reference,
         source="scalable_csv",
     )
