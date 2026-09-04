@@ -23,6 +23,7 @@ from app.ui.components.positions_table import render_positions_table
 from app.ui.components.progress_bar import render_progress_bar
 from app.ui.components.treemap import render_treemap
 from app.ui.format import format_eur, format_pct
+from app.ui.price_clock import record_price_fetch
 from app.ui.render import render_html
 from app.ui.wiring import (
     get_isin_map_repo,
@@ -130,6 +131,7 @@ def render() -> None:
     live_positions = _cached_live_positions(sig, now.date().isoformat())
     summary = _cached_portfolio_summary(sig, now_iso)
     tax_summary = _cached_tax_summary_for_overview(sig, now.year)
+    record_price_fetch(summary.as_of)
 
     cost_basis_eur = format_eur(summary.total_cost_basis_eur)
     ur_gain = summary.total_unrealised_gain_eur.amount

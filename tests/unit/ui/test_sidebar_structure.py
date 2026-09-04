@@ -106,12 +106,17 @@ def test_no_underline_attribute_in_html() -> None:
 
 
 def test_brand_block_no_broker_reference() -> None:
-    """Brand block contains 'Investment Panel' and no broker/country reference."""
+    """Brand block contains 'Investment Panel' and no broker/country reference.
+
+    Scoped to the brand block: the nav below it legitimately names the broker on
+    the "Sync with Scalable" item (TICKET-SYNC-6B).
+    """
     html = _capture_sidebar_html()
-    assert "Investment Panel" in html
-    assert "Scalable" not in html
-    assert "Capital" not in html
-    assert "· DE" not in html
+    brand = html[: html.index('<div class="sidebar-nav">')]
+    assert "Investment Panel" in brand
+    assert "Scalable" not in brand
+    assert "Capital" not in brand
+    assert "· DE" not in brand
 
 
 def test_footer_present_with_date() -> None:
@@ -139,8 +144,8 @@ def test_no_badge_renders_no_nav_badge_span() -> None:
 
 
 def test_nav_items_total_count() -> None:
-    """NAV_ITEMS has 10 entries: 9 post-ADR-008 pages + the Catalysts page (PANEL-2)."""
-    assert len(NAV_ITEMS) == 10
+    """NAV_ITEMS has 11 entries: 10 previous pages + the Sync page (SYNC-6B)."""
+    assert len(NAV_ITEMS) == 11
 
 
 def test_sections_cover_all_items() -> None:

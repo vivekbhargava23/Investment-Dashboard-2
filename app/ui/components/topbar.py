@@ -15,6 +15,7 @@ PAGE_TITLES: dict[str, str] = {
     "company": "Company Deep Dive",
     "catalysts": "Catalysts",
     "simulator": "Sell Simulator",
+    "sync": "Sync with Scalable",
     "manage": "Manage Portfolio",
     "mappings": "ISIN Mappings",
     "import_workbench": "Import CSV",
