@@ -70,7 +70,7 @@ class TickerAlreadyMappedError(Exception):
         self.other_isin = other_isin
 
 
-def _mapped_owner_of_ticker(
+def mapped_owner_of_ticker(
     isin_doc: IsinMapDocument,
     ticker: str,
     exclude_isin: str,
@@ -106,7 +106,7 @@ def change_feed(
     uses ``ticker`` and ``allow_shared_ticker`` is False.
     """
     if not allow_shared_ticker:
-        other_isin = _mapped_owner_of_ticker(isin_doc, ticker, isin)
+        other_isin = mapped_owner_of_ticker(isin_doc, ticker, isin)
         if other_isin is not None:
             raise TickerAlreadyMappedError(ticker, other_isin)
 

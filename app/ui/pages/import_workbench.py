@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -18,12 +19,19 @@ from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.services.isin_autoresolve import AutoResolveResult, autoresolve_isin
-from app.services.isin_remap import rewrite_ticker_for_isin
+from app.services.isin_remap import (
+    TickerAlreadyMappedError,
+    change_feed,
+    mapped_owner_of_ticker,
+)
 from app.ui.backup import write_portfolio_backup as _write_backup
 from app.ui.components.isin_mapper import (
     KIND_LABEL,
-    build_mapping,
+    SHARED_TICKER_HELP,
+    SHARED_TICKER_LABEL,
+    invalidate_view_caches,
     render_isin_mapper_row,
+    shared_ticker_message,
 )
 from app.ui.wiring import (
     get_company_provider,
@@ -202,20 +210,36 @@ def _run_autoresolve(
         )
         results[isin] = result
 
+        ticker, kind = result.ticker, result.instrument_kind
         if (
             result.confidence in ("high", "medium")
-            and result.ticker is not None
-            and result.instrument_kind is not None
+            and ticker is not None
+            and kind is not None
             and isin not in rejected
         ):
-            entries[isin] = IsinMapping(
-                ticker=result.ticker,
-                name=result.name or description,
-                status="mapped",
-                instrument_kind=result.instrument_kind,
-            )
-            saved_isins.add(isin)
-            rewrite_ticker_for_isin(get_repository(), isin, result.ticker)
+            doc_so_far = IsinMapDocument(version=isin_doc.version, entries=entries)
+            # ADR-014 rule 4: merging two instruments onto one feed is a
+            # deliberate act, never something auto-resolve does on its own.
+            # Demote to low so the ISIN drops into manual review instead.
+            owner = mapped_owner_of_ticker(doc_so_far, ticker, isin)
+            if owner is not None:
+                result = replace(
+                    result,
+                    confidence="low",
+                    reason=f"{ticker} is already the feed for {owner}",
+                )
+                results[isin] = result
+            else:
+                new_doc, _ = change_feed(
+                    isin,
+                    ticker,
+                    kind,
+                    doc_so_far,
+                    get_repository(),
+                    name=result.name or description,
+                )
+                entries = dict(new_doc.entries)
+                saved_isins.add(isin)
 
         auto_resolve_log.append({
             "isin": isin,
@@ -616,8 +640,8 @@ def _render_autoresolve_panel(plan: ImportPlan, log_path: Path) -> None:
 
         with st.expander(f"Map ISINs manually ({len(remaining_unmapped)})", expanded=True):
             for isin, description in remaining_unmapped:
-                col_isin, col_search_kind, col_save, col_ignore = st.columns(
-                    [1.5, 3.5, 0.7, 0.7]
+                col_isin, col_search_kind, col_merge, col_save, col_ignore = st.columns(
+                    [1.5, 3.5, 1.4, 0.7, 0.7]
                 )
                 with col_isin:
                     st.code(isin)
@@ -626,22 +650,36 @@ def _render_autoresolve_panel(plan: ImportPlan, log_path: Path) -> None:
                     selected_match, selected_kind = render_isin_mapper_row(
                         isin, description, key_prefix="iw_manual"
                     )
+                with col_merge:
+                    allow_shared = st.checkbox(
+                        SHARED_TICKER_LABEL,
+                        key=f"iw_manual_shared_{isin}",
+                        help=SHARED_TICKER_HELP,
+                    )
                 with col_save:
                     save_disabled = selected_match is None or selected_kind is None
                     if st.button("Save", key=f"iw_manual_save_{isin}", disabled=save_disabled):
                         if selected_match and selected_kind:
-                            updated_doc = build_mapping(
-                                isin, selected_match.symbol, selected_kind, description, isin_doc
-                            )
-                            isin_repo.save(updated_doc)
-                            isin_doc = updated_doc
-                            # ADR-014 rule 2: a mapping change rewrites the rows it
-                            # covers, so already-imported placeholder rows follow the
-                            # new feed instead of staying on the ISIN.
-                            rewrite_ticker_for_isin(
-                                get_repository(), isin, selected_match.symbol
-                            )
-                            saved_any = True
+                            try:
+                                # ADR-014 rule 2: a mapping change rewrites the rows
+                                # it covers, so already-imported placeholder rows
+                                # follow the new feed instead of staying on the ISIN.
+                                updated_doc, _ = change_feed(
+                                    isin,
+                                    selected_match.symbol,
+                                    selected_kind,
+                                    isin_doc,
+                                    get_repository(),
+                                    allow_shared_ticker=allow_shared,
+                                    name=description or None,
+                                )
+                            except TickerAlreadyMappedError as exc:
+                                st.warning(shared_ticker_message(exc))
+                            else:
+                                isin_repo.save(updated_doc)
+                                isin_doc = updated_doc
+                                invalidate_view_caches()
+                                saved_any = True
                 with col_ignore:
                     if st.button("Ignore", key=f"iw_manual_ignore_{isin}"):
                         isin_doc = _ignore_isin(isin, description, isin_doc)
