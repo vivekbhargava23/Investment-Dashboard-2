@@ -470,3 +470,24 @@ def test_clear_caches() -> None:
 
     pp.clear_cache.assert_called_once()
     fp.clear_cache.assert_called_once()
+
+
+def test_tx_sig_changes_when_only_a_ticker_is_rewritten() -> None:
+    """ADR-014: remapping an ISIN rewrites tickers without changing the row count."""
+    from app.services.valuation import _tx_sig
+
+    tx = Transaction(
+        id="tx1",
+        type=TransactionType.BUY,
+        ticker="DE000A0F5UF5",
+        trade_date=date(2024, 1, 1),
+        shares=Decimal("10"),
+        price_native=Money(amount=Decimal("150"), currency=Currency.EUR),
+        fx_rate_eur=Decimal("1"),
+        isin="DE000A0F5UF5",
+        source="scalable_csv",
+    )
+    remapped = tx.model_copy(update={"ticker": "EXS1.DE"})
+
+    assert _tx_sig([tx]) != _tx_sig([remapped])
+    assert _tx_sig([tx]) == _tx_sig([tx.model_copy()])
