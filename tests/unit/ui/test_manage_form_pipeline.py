@@ -14,7 +14,7 @@ from app.domain.fifo import SellExceedsOpenSharesError, compute_positions
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.ports.price_feed import PriceUnavailableError
-from app.services.trading import build_transaction
+from app.services.trading import build_transaction, is_broker_row, with_notes
 from tests.fakes.fx_feed import FakeFxProvider
 from tests.fakes.price_feed import FakePriceProvider
 
@@ -37,6 +37,55 @@ _FAKE_FX = FakeFxProvider(
         (Currency.JPY, Currency.EUR, _TRADE_DATE): Decimal("0.006111"),
     }
 )
+
+
+# ---------------------------------------------------------------------------
+# Broker-row helpers
+# ---------------------------------------------------------------------------
+
+def test_is_broker_row_distinguishes_scalable_from_manual() -> None:
+    manual = Transaction(
+        id="manual-1",
+        type=TransactionType.BUY,
+        ticker="RHM.DE",
+        trade_date=_TRADE_DATE,
+        shares=Decimal("1"),
+        price_native=Money(amount=Decimal("1387.21"), currency=Currency.EUR),
+        fees_native=Money(amount=Decimal("0.99"), currency=Currency.EUR),
+        fx_rate_eur=Decimal("1"),
+    )
+    broker = manual.model_copy(update={"source": "scalable_csv"})
+
+    assert is_broker_row(broker) is True
+    assert is_broker_row(manual) is False
+
+
+def test_with_notes_preserves_broker_transaction_provenance() -> None:
+    tx = Transaction(
+        id="broker-1",
+        type=TransactionType.BUY,
+        ticker="NVDA",
+        trade_date=_TRADE_DATE,
+        shares=Decimal("2.5"),
+        price_native=Money(amount=Decimal("155.1234"), currency=Currency.USD),
+        fees_native=Money(amount=Decimal("1.25"), currency=Currency.USD),
+        fx_rate_eur=Decimal("0.85"),
+        notes="old note",
+        isin="US67066G1040",
+        csv_reference="SCALABLE-REF-1",
+        source="scalable_csv",
+    )
+
+    updated = with_notes(tx, "new note")
+
+    assert updated.notes == "new note"
+    assert updated.model_dump(exclude={"notes"}) == tx.model_dump(exclude={"notes"})
+    assert updated.source == tx.source
+    assert updated.isin == tx.isin
+    assert updated.csv_reference == tx.csv_reference
+    assert updated.fees_native == tx.fees_native
+    assert updated.price_native == tx.price_native
+    assert updated.id == tx.id
 
 
 # ---------------------------------------------------------------------------

@@ -23,6 +23,16 @@ _FOUR_DP = Decimal("0.0001")
 _TWO_DP = Decimal("0.01")
 
 
+def is_broker_row(tx: Transaction) -> bool:
+    """True for transactions imported from a broker file (ADR-014)."""
+    return tx.source == "scalable_csv"
+
+
+def with_notes(tx: Transaction, notes: str | None) -> Transaction:
+    """Return a copy with only notes changed, preserving all provenance."""
+    return tx.model_copy(update={"notes": notes})
+
+
 def build_transaction(
     ticker: str,
     tx_type: TransactionType,
