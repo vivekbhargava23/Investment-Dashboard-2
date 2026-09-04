@@ -91,6 +91,8 @@ class LivePosition(BaseModel):
     unrealised_gain_pct: Decimal | None
     current_fx_rate: Decimal | None
     staleness_reason: str | None
+    # "last_trade": no live price, so the latest lot's price stands in (ADR-014 rule 8).
+    price_source: Literal["live", "last_trade"] = "live"
 
     @model_validator(mode="after")
     def validate_valuation_consistency(self) -> LivePosition:

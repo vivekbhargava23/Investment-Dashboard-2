@@ -20,6 +20,9 @@ _COLUMNS = [
     "Ticker",
     "Name",
     "Price (€)",
+    # Price stays a sortable NumberColumn, so the "last trade" caveat rides in its
+    # own text column rather than being formatted into the money value.
+    "Price src",
     "Shares",
     "Cost (€)",
     "Value (€)",
@@ -66,6 +69,7 @@ def build_positions_dataframe(
                 "Ticker": ticker,
                 "Name": name_lookup.get(ticker, ticker),
                 "Price (€)": price,
+                "Price src": "last trade" if p.price_source == "last_trade" else None,
                 "Shares": shares,
                 "Cost (€)": float(p.position.cost_basis_eur.amount),
                 "Value (€)": value,
@@ -117,7 +121,7 @@ def render_positions_table(
     # sign, so a big position with a small loss no longer reads as a big loss.
     styler = df.style.map(
         _sign_color, subset=["Gain (€)", "Gain (%)", "Trend 30D (%)"]
-    )
+    ).map(lambda _: "color: var(--text3)", subset=["Price src"])
 
     st.dataframe(
         styler,
@@ -127,6 +131,7 @@ def render_positions_table(
         height=(len(df) + 1) * 35 + 3,
         column_config={
             "Price (€)": st.column_config.NumberColumn(format="%.2f"),
+            "Price src": st.column_config.TextColumn(label="", width="small"),
             "Shares": st.column_config.NumberColumn(format="%.4g"),
             "Cost (€)": st.column_config.NumberColumn(format="€%.2f"),
             "Value (€)": st.column_config.NumberColumn(format="€%.2f"),

@@ -7,7 +7,7 @@ from typing import Literal
 from app.domain.fifo import compute_positions
 from app.domain.models import Transaction
 from app.domain.money import Currency, Money
-from app.domain.positions import LivePosition, PortfolioSummary
+from app.domain.positions import LivePosition, OpenLot, PortfolioSummary, Position
 from app.ports.fx_feed import FxRateUnavailableError, LiveFxProvider
 from app.ports.price_feed import PriceProvider
 from app.ports.repository import TransactionRepository
@@ -44,6 +44,17 @@ def _live_fx_rates(
     return rates
 
 
+def _last_trade_price(position: Position) -> tuple[Money, Decimal] | None:
+    """Price and FX rate of the position's latest open lot, or None if it has none."""
+    latest: OpenLot | None = None
+    for lot in position.open_lots:
+        if latest is None or lot.trade_date >= latest.trade_date:
+            latest = lot
+    if latest is None:
+        return None
+    return latest.cost_per_share_native, latest.fx_rate_eur
+
+
 def compute_live_positions(
     transactions: Sequence[Transaction],
     price_provider: PriceProvider,
@@ -77,12 +88,25 @@ def compute_live_positions(
         unrealised_gain_pct: Decimal | None = None
         current_fx_rate: Decimal | None = None
         staleness_reason: str | None = None
+        price_source: Literal["live", "last_trade"] = "live"
 
         try:
             live_price_native = prices.get(ticker)
 
             if live_price_native is None:
-                staleness_reason = "Live price unavailable"
+                # No feed for this ticker: value it at its latest lot price rather
+                # than dropping it out of the portfolio total (ADR-014 rule 8).
+                last_trade = _last_trade_price(position)
+                if last_trade is None:
+                    staleness_reason = "Live price unavailable"
+                else:
+                    live_price_native, lot_fx_rate = last_trade
+                    price_source = "last_trade"
+                    current_fx_rate = lot_fx_rate
+                    live_value_eur = Money(
+                        amount=position.open_shares * live_price_native.amount * lot_fx_rate,
+                        currency=Currency.EUR,
+                    )
             elif live_price_native.currency == Currency.EUR:
                 live_value_eur = Money(
                     amount=position.open_shares * live_price_native.amount,
@@ -123,6 +147,7 @@ def compute_live_positions(
             unrealised_gain_eur = None
             unrealised_gain_pct = None
             current_fx_rate = None
+            price_source = "live"
 
         live_positions[ticker] = LivePosition(
             position=position,
@@ -132,6 +157,7 @@ def compute_live_positions(
             unrealised_gain_pct=unrealised_gain_pct,
             current_fx_rate=current_fx_rate,
             staleness_reason=staleness_reason,
+            price_source=price_source,
         )
 
     return live_positions

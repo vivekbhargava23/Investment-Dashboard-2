@@ -148,8 +148,8 @@ def test_compute_live_positions_empty() -> None:
     assert res == {}
 
 
-def test_per_ticker_failure_isolation(eur_buy: Transaction) -> None:
-    # Two transactions, one price missing from the fake provider
+def test_missing_price_falls_back_to_last_trade(eur_buy: Transaction) -> None:
+    """No feed → valued at the latest lot price, not dropped (ADR-014 rule 8)."""
     t2 = Transaction(
         id="t2",
         ticker="NOPRICE.DE",
@@ -168,9 +168,53 @@ def test_per_ticker_failure_isolation(eur_buy: Transaction) -> None:
 
     res = compute_live_positions([eur_buy, t2], pp, fp, date(2026, 6, 7))
 
-    assert res["RHM.DE"].is_stale is False
-    assert res["NOPRICE.DE"].is_stale is True
-    assert res["NOPRICE.DE"].staleness_reason == "Live price unavailable"
+    assert res["RHM.DE"].price_source == "live"
+    lp = res["NOPRICE.DE"]
+    assert lp.price_source == "last_trade"
+    assert lp.is_stale is False
+    assert lp.staleness_reason is None
+    # 10 shares × €100 last-trade price
+    assert lp.live_value_eur == Money(amount=Decimal("1000"), currency=Currency.EUR)
+    assert lp.unrealised_gain_eur == Money(amount=Decimal("0"), currency=Currency.EUR)
+
+
+def test_last_trade_fallback_uses_latest_lot_and_its_fx(usd_buy: Transaction) -> None:
+    """The newest open lot wins, translated at that lot's stored FX rate."""
+    later = usd_buy.model_copy(
+        update={
+            "id": "t2b",
+            "trade_date": date(2025, 6, 1),
+            "shares": Decimal("5"),
+            "price_native": Money(amount=Decimal("200"), currency=Currency.USD),
+            "fx_rate_eur": Decimal("0.8"),
+        }
+    )
+    pp = FakePriceProvider()  # no price for NVDA
+    fp = FakeFxProvider()
+
+    res = compute_live_positions([usd_buy, later], pp, fp, date(2026, 6, 7))
+
+    lp = res["NVDA"]
+    assert lp.price_source == "last_trade"
+    assert lp.live_price_native == Money(amount=Decimal("200"), currency=Currency.USD)
+    assert lp.current_fx_rate == Decimal("0.8")
+    # 15 shares × $200 × 0.8 EUR/USD
+    assert lp.live_value_eur == Money(amount=Decimal("2400"), currency=Currency.EUR)
+
+
+def test_last_trade_positions_count_towards_totals(eur_buy: Transaction) -> None:
+    t2 = eur_buy.model_copy(update={"id": "t2", "ticker": "NOPRICE.DE"})
+    pp = FakePriceProvider(
+        current_prices={"RHM.DE": Money(amount=Decimal("110"), currency=Currency.EUR)}
+    )
+    fp = FakeFxProvider()
+
+    res = compute_live_positions([eur_buy, t2], pp, fp, date(2026, 6, 7))
+    summary = compute_portfolio_summary(res, datetime.now())
+
+    # €1100 live + €1000 at last trade — the feed-less position is not silently excluded.
+    assert summary.total_value_eur.amount == Decimal("2100")
+    assert summary.live_position_count == 2
 
 
 def test_fx_failure_marks_usd_stale(eur_buy: Transaction, usd_buy: Transaction) -> None:
@@ -265,18 +309,22 @@ def test_compute_live_positions_one_batched_price_fetch(
     assert pp.batch_call_count == 1
 
 
-def test_portfolio_summary_aggregates_live_only(eur_buy: Transaction) -> None:
-    # 2 live, 1 stale
+def test_portfolio_summary_aggregates_live_only(
+    eur_buy: Transaction, usd_buy: Transaction
+) -> None:
+    # 2 live, 1 stale. Staleness now needs a missing FX rate — a missing *price*
+    # falls back to the last trade instead of going stale.
     t2 = eur_buy.model_copy(update={"id": "t2", "ticker": "LIVE2"})
-    t_stale = eur_buy.model_copy(update={"id": "t3", "ticker": "STALE"})
+    t_stale = usd_buy.model_copy(update={"id": "t3", "ticker": "STALE"})
 
     pp = FakePriceProvider(
         current_prices={
             "RHM.DE": Money(amount=Decimal("110"), currency=Currency.EUR),
             "LIVE2": Money(amount=Decimal("110"), currency=Currency.EUR),
+            "STALE": Money(amount=Decimal("110"), currency=Currency.USD),
         }
     )
-    fp = FakeFxProvider()
+    fp = FakeFxProvider()  # no USD rate
 
     res = compute_live_positions([eur_buy, t2, t_stale], pp, fp, date(2026, 6, 7))
     lp1 = res["RHM.DE"]

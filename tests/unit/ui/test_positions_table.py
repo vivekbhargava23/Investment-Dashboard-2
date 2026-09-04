@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import math
 
+import pandas as pd
+
 from app.domain.positions import LivePosition
 from app.ui.components.positions_table import build_positions_dataframe
 from tests.unit.ui.test_overview_render import (
@@ -44,9 +46,25 @@ def test_dataframe_has_expected_columns() -> None:
     positions = {"NVDA": _make_live_position("NVDA", "5", "400")}
     df = build_positions_dataframe(positions, _make_summary(positions))
     assert list(df.columns) == [
-        "Ticker", "Name", "Price (€)", "Shares", "Cost (€)", "Value (€)",
+        "Ticker", "Name", "Price (€)", "Price src", "Shares", "Cost (€)", "Value (€)",
         "Gain (€)", "Gain (%)", "Weight (%)", "Trend 30D (%)", "Lots", "Sim",
     ]
+
+
+def test_price_src_marks_last_trade_positions_only() -> None:
+    live = _make_live_position("NVDA", "5", "400")
+    positions = {
+        "NVDA": live,
+        "NOFEED": live.model_copy(
+            update={
+                "position": _make_position_with_lot("NOFEED", "1", "100"),
+                "price_source": "last_trade",
+            }
+        ),
+    }
+    df = build_positions_dataframe(positions, _make_summary(positions))
+    assert _row(df, "NOFEED")["Price src"] == "last trade"
+    assert pd.isna(_row(df, "NVDA")["Price src"])
 
 
 def test_dataframe_one_row_per_position() -> None:
