@@ -44,61 +44,88 @@ def _plan(
     portfolio: dict[str, object],
     ref_to_isin: dict[str, str],
 ) -> dict[str, object]:
-    """Compute backfill plan without touching the portfolio dict."""
+    """Compute backfill plan without touching the portfolio dict.
+
+    For every transaction with ``isin is None``, in order:
+      1. ``csv_reference`` is a key in ``ref_to_isin`` -> backfill by reference.
+      2. else the transaction's own ``id`` is a key in ``ref_to_isin`` -> the row's
+         provenance was stripped (e.g. by a Manage-page edit); repair it by setting
+         ``isin``, ``csv_reference = id``, and ``source = "scalable_csv"``. Applies
+         regardless of the transaction's current ``source``.
+      3. else left untouched, counted as unmatched.
+    """
     planned: list[dict[str, str]] = []
+    repaired_provenance: list[dict[str, str]] = []
     already_set = 0
-    no_ref = 0
-    not_found: list[tuple[str, str]] = []
+    unmatched: list[tuple[str, str]] = []
 
     for tx in portfolio.get("transactions", []):  # type: ignore[union-attr]
-        if tx.get("source") != "scalable_csv":  # type: ignore[union-attr]
-            continue
         isin = tx.get("isin")  # type: ignore[union-attr]
-        csv_ref = tx.get("csv_reference")  # type: ignore[union-attr]
-        tx_id: str = tx.get("id", "")  # type: ignore[union-attr]
-
         if isin is not None:
             already_set += 1
-        elif csv_ref is None:
-            no_ref += 1
-        elif csv_ref not in ref_to_isin:
-            not_found.append((tx_id, str(csv_ref)))
-        else:
+            continue
+
+        csv_ref = tx.get("csv_reference")  # type: ignore[union-attr]
+        tx_id: str = tx.get("id", "")  # type: ignore[union-attr]
+        ticker = str(tx.get("ticker", ""))  # type: ignore[union-attr]
+
+        if csv_ref is not None and csv_ref in ref_to_isin:
             planned.append(
                 {
                     "tx_id": tx_id,
-                    "ticker": str(tx.get("ticker", "")),  # type: ignore[union-attr]
+                    "ticker": ticker,
                     "csv_reference": str(csv_ref),
                     "isin_to_set": ref_to_isin[str(csv_ref)],
                 }
             )
+        elif tx_id in ref_to_isin:
+            repaired_provenance.append(
+                {
+                    "tx_id": tx_id,
+                    "ticker": ticker,
+                    "trade_date": str(tx.get("trade_date", "")),  # type: ignore[union-attr]
+                    "csv_reference": tx_id,
+                    "isin_to_set": ref_to_isin[tx_id],
+                }
+            )
+        else:
+            unmatched.append((tx_id, str(csv_ref)))
 
     return {
         "planned": planned,
+        "repaired_provenance": repaired_provenance,
         "already_set": already_set,
-        "no_ref": no_ref,
-        "not_found": not_found,
+        "unmatched": unmatched,
     }
 
 
 def _print_plan(plan: dict[str, object], portfolio_path: Path) -> None:
     planned: list[dict[str, str]] = plan["planned"]  # type: ignore[assignment]
-    not_found: list[tuple[str, str]] = plan["not_found"]  # type: ignore[assignment]
+    repaired_provenance: list[dict[str, str]] = plan["repaired_provenance"]  # type: ignore[assignment]
+    unmatched: list[tuple[str, str]] = plan["unmatched"]  # type: ignore[assignment]
 
     print(f"\nBackfill plan for {portfolio_path}:")
-    print(f"  Planned changes:            {len(planned)}")
+    print(f"  Backfilled by reference:    {len(planned)}")
+    print(f"  Repaired by id (provenance): {len(repaired_provenance)}")
+    print(f"  Unmatched:                  {len(unmatched)}")
     print(f"  Already set (skipped):      {plan['already_set']}")
-    print(f"  No csv_reference:           {plan['no_ref']}")
-    print(f"  Reference not found in CSV: {len(not_found)}")
 
     if planned:
-        print("\nFirst 5 planned changes:")
+        print("\nFirst 5 backfilled by reference:")
         for change in planned[:5]:
             print(f"  {change['tx_id']} ({change['ticker']}) → {change['isin_to_set']}")
 
-    if not_found:
-        print("\nFirst 5 references not found in CSV:")
-        for tx_id, csv_ref in not_found[:5]:
+    if repaired_provenance:
+        print("\nRepaired by id (provenance restored):")
+        for change in repaired_provenance:
+            print(
+                f"  {change['tx_id']} ({change['ticker']}, {change['trade_date']}) "
+                f"→ {change['isin_to_set']}"
+            )
+
+    if unmatched:
+        print("\nFirst 5 unmatched:")
+        for tx_id, csv_ref in unmatched[:5]:
             print(f"  tx {tx_id!r}  csv_reference={csv_ref!r}")
 
 
@@ -106,14 +133,26 @@ def _apply_plan(
     portfolio: dict[str, object],
     plan: dict[str, object],
 ) -> int:
-    """Mutate portfolio in-place, setting isin on planned transactions. Returns change count."""
+    """Mutate portfolio in-place. Sets isin for by-reference rows; sets isin,
+    csv_reference, and source for repaired-provenance rows. Returns change count."""
     planned: list[dict[str, str]] = plan["planned"]  # type: ignore[assignment]
-    ref_to_set = {c["csv_reference"]: c["isin_to_set"] for c in planned}
+    repaired_provenance: list[dict[str, str]] = plan["repaired_provenance"]  # type: ignore[assignment]
+    isin_by_reference = {c["csv_reference"]: c["isin_to_set"] for c in planned}
+    isin_by_id = {c["tx_id"]: c["isin_to_set"] for c in repaired_provenance}
+
     count = 0
     for tx in portfolio.get("transactions", []):  # type: ignore[union-attr]
+        if tx.get("isin") is not None:  # type: ignore[union-attr]
+            continue
         csv_ref = tx.get("csv_reference")  # type: ignore[union-attr]
-        if csv_ref in ref_to_set and tx.get("isin") is None:  # type: ignore[union-attr]
-            tx["isin"] = ref_to_set[str(csv_ref)]  # type: ignore[index]
+        tx_id: str = tx.get("id", "")  # type: ignore[union-attr]
+        if csv_ref in isin_by_reference:
+            tx["isin"] = isin_by_reference[str(csv_ref)]  # type: ignore[index]
+            count += 1
+        elif tx_id in isin_by_id:
+            tx["isin"] = isin_by_id[tx_id]  # type: ignore[index]
+            tx["csv_reference"] = tx_id  # type: ignore[index]
+            tx["source"] = "scalable_csv"  # type: ignore[index]
             count += 1
     return count
 
