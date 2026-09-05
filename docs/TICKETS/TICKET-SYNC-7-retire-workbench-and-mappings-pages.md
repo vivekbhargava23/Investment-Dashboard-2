@@ -1,6 +1,7 @@
 # TICKET-SYNC-7 — Close the loop on the Sync tab: corporate actions, write-off, one instrument card, session-safe undo, retire the old pages
 
 **Priority:** HIGH
+**Status:** IN_PROGRESS
 **Milestone:** Investment Panel
 **Recommended model:** Opus — touches FIFO-relevant import scope, reconciliation, undo correctness and a page deletion in one PR; every step has a real-data check.
 **Estimated session length:** 4–5 hr. One PR, one commit per step so each step reads on its own.
