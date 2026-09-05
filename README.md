@@ -42,6 +42,17 @@ python -m app.scripts.seed_portfolio
 
 This will create a `data/portfolio.json` file. You can then run the dashboard to view the data.
 
+## Import
+
+**Sync with Scalable** is the one door for broker data. Drop your Scalable Capital
+CSV export on it and every trade that is new by reference is imported on the spot,
+with no further click. Anything that needs a decision — a holding with no price
+feed, a share count that disagrees, a row that looks like a duplicate of something
+you entered by hand — is listed above the holdings table as a numbered task, each
+with the buttons that settle it. **Undo last sync** puts `portfolio.json` and
+`isin_map.json` back exactly as they were before the upload, including every change
+you made while the file was open.
+
 ## Run
 
 The easiest way on macOS is to double-click `run_dashboard.command` in Finder.

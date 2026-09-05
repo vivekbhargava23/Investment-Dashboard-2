@@ -123,6 +123,7 @@ investment-dashboard/
 │   ├── services/
 │   │   ├── valuation.py
 │   │   ├── trading.py
+│   │   ├── isin_admin.py    # ISIN-map edits that are not a feed change
 │   │   └── tax_planning.py
 │   ├── ports/
 │   │   ├── repository.py    # Protocol
@@ -143,10 +144,10 @@ investment-dashboard/
 │       │   ├── research.py        # Research page (OHLC chart, fundamentals)
 │       │   ├── analytics.py       # Analytics & Risk (Performance, Concentration, Correlation, Technicals, Position Sizer tabs)
 │       │   ├── company.py         # Company Deep Dive (profile, snapshot, financials tabs)
-│       │   ├── mappings.py        # ISIN → ticker resolution
-│       │   └── import_workbench.py  # Scalable Capital CSV import flow
+│       │   └── sync.py            # Sync with Scalable: upload → import → tasks → undo
 │       │   # Note: per-lot view is rendered inside the Tax page; a standalone Lots page is not currently in scope.
 │       ├── components/       # Reusable UI bits
+│       │   └── instrument_card.py  # feed / tax kind / write-off / remove, per ISIN
 │       ├── format.py
 │       └── styles/dark.css
 ├── data/

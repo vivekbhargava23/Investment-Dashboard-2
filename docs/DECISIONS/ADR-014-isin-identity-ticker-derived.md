@@ -1,6 +1,6 @@
 # ADR-014 — ISIN is the identity of a broker holding; the ticker is its price feed
 
-**Status:** Proposed (2026-09-03, revised twice the same day after external review)
+**Status:** Accepted (2026-09-05, TICKET-SYNC-7 — the SYNC-1..7 chain implements every rule)
 **Date:** 2026-09-03
 **Drafted by:** Vivek + Claude (Cowork session 2026-09-03)
 **Related:** Completes Stage 1 of TICKET-CSV-8 properly. Extends ADR-006 (classification as data).
