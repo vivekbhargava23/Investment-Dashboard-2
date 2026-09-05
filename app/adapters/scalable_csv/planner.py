@@ -10,10 +10,13 @@ from app.adapters.scalable_csv.parser import (
     ParsedCsvRow,
 )
 from app.domain.csv_import import (
+    CORPORATE_ACTION_TYPE,
+    SECURITY_ASSET_TYPE,
     FeedState,
     ImportPlan,
     PlannedAction,
     PlannedRow,
+    ProposedType,
     RowStatus,
 )
 from app.domain.isin_map import IsinMapDocument
@@ -97,9 +100,11 @@ def _content_hash(tx: Transaction) -> str:
 def _row_content_hash(row: ParsedCsvRow, ticker: str, tx_type_str: str) -> str:
     if row.shares is None or row.price is None:
         return ""
+    # abs(): a corporate action's share count is signed in the file, but the
+    # transaction it would become always holds a positive quantity.
     key = (
         f"{tx_type_str}|{ticker}|{row.date}|"
-        f"{row.shares:.6f}|{row.price:.4f}|EUR"
+        f"{abs(row.shares):.6f}|{row.price:.4f}|EUR"
     )
     return hashlib.sha1(key.encode()).hexdigest()
 
@@ -116,6 +121,35 @@ def _resolve_ticker(isin: str, isin_doc: IsinMapDocument) -> tuple[str, FeedStat
     if mapping is not None and mapping.status == "ignored":
         return isin.upper(), "ignored"
     return isin.upper(), "unmapped"
+
+
+def _is_importable_corporate_action(row: ParsedCsvRow) -> bool:
+    """True for the Security leg of a corporate action that moves shares.
+
+    Scalable books a knock-out as two legs sharing one reference: a Security leg
+    carrying the share movement and a Cash leg carrying the payout. Only the
+    Security leg is a transaction; without it the position never closes and the
+    book keeps valuing shares the broker has already taken away.
+    """
+    return (
+        row.type == CORPORATE_ACTION_TYPE
+        and row.asset_type == SECURITY_ASSET_TYPE
+        and row.shares is not None
+        and row.shares != Decimal("0")
+        and row.price is not None
+    )
+
+
+def _proposed_type(row: ParsedCsvRow) -> ProposedType:
+    """The direction to import a row under.
+
+    Buy and Savings plan add shares, Sell removes them, and a corporate action
+    says which it is in the sign of its share count.
+    """
+    if row.type == CORPORATE_ACTION_TYPE:
+        shares = row.shares or Decimal("0")
+        return "sell" if shares < 0 else "buy"
+    return "sell" if row.type == "Sell" else "buy"
 
 
 def plan_import(
@@ -154,7 +188,7 @@ def plan_import(
             planned.append(_make(row, RowStatus.INTERNAL_TRANSFER, PlannedAction.SKIP))
             continue
 
-        if row.type not in IN_SCOPE_TYPES:
+        if row.type not in IN_SCOPE_TYPES and not _is_importable_corporate_action(row):
             planned.append(_make(row, RowStatus.OUT_OF_SCOPE_V1, PlannedAction.SKIP))
             continue
 
@@ -175,7 +209,7 @@ def plan_import(
 
         ticker, feed_state = _resolve_ticker(row.isin, isin_doc)
 
-        tx_type_str = "buy" if row.type in ("Buy", "Savings plan") else "sell"
+        tx_type_str = _proposed_type(row)
         row_hash = _row_content_hash(row, ticker, tx_type_str)
 
         if row_hash and row_hash in existing_by_content:
@@ -186,6 +220,7 @@ def plan_import(
                     RowStatus.ALREADY_IMPORTED,
                     PlannedAction.NOOP,
                     ticker=ticker,
+                    proposed_type=tx_type_str,
                     feed_state=feed_state,
                 ))
             else:
@@ -194,6 +229,7 @@ def plan_import(
                     RowStatus.CONFLICT_WITH_MANUAL,
                     PlannedAction.REPLACE,
                     ticker=ticker,
+                    proposed_type=tx_type_str,
                     feed_state=feed_state,
                     conflict_tx_id=existing_tx.id,
                 ))
@@ -208,6 +244,7 @@ def plan_import(
                 RowStatus.VALIDATION_ERROR,
                 PlannedAction.SKIP,
                 ticker=ticker,
+                proposed_type=tx_type_str,
                 feed_state=feed_state,
                 error_message=validation_error,
             ))
@@ -218,6 +255,7 @@ def plan_import(
             RowStatus.NEW,
             PlannedAction.INSERT,
             ticker=ticker,
+            proposed_type=tx_type_str,
             feed_state=feed_state,
         ))
 
@@ -230,6 +268,7 @@ def _make(
     action: PlannedAction,
     *,
     ticker: str | None = None,
+    proposed_type: ProposedType | None = None,
     feed_state: FeedState | None = None,
     conflict_tx_id: str | None = None,
     error_message: str | None = None,
@@ -239,10 +278,14 @@ def _make(
         row_number=row.row_number,
         trade_date=row.date,
         csv_type=row.type,
+        asset_type=row.asset_type,
         isin=row.isin,
         reference=row.reference,
         description=row.description,
-        shares=row.shares,
+        # A corporate action carries a signed share count; the quantity a
+        # transaction holds is always positive, and ``proposed_type`` keeps the
+        # direction the sign used to carry.
+        shares=abs(row.shares) if row.shares is not None else None,
         price=row.price,
         amount=row.amount,
         fee=row.fee,
@@ -250,6 +293,7 @@ def _make(
         status=status,
         action=action,
         proposed_ticker=ticker,
+        proposed_type=proposed_type,
         feed_state=feed_state,
         conflict_tx_id=conflict_tx_id,
         error_message=error_message,

@@ -21,12 +21,15 @@ def make_row(
     status: RowStatus = RowStatus.NEW,
     action: PlannedAction = PlannedAction.INSERT,
     proposed_ticker: str | None = "AAPL",
+    proposed_type: str | None = None,
+    asset_type: str = "Security",
     conflict_tx_id: str | None = None,
 ) -> PlannedRow:
     return PlannedRow(
         row_number=row_number,
         trade_date=trade_date,
         csv_type=csv_type,
+        asset_type=asset_type,
         isin=isin,
         reference=reference,
         description=description,
@@ -38,6 +41,7 @@ def make_row(
         status=status,
         action=action,
         proposed_ticker=proposed_ticker,
+        proposed_type=proposed_type,
         feed_state="mapped",
         conflict_tx_id=conflict_tx_id,
         error_message=None,
@@ -150,27 +154,6 @@ def test_manual_edit_of_a_csv_row_is_the_cause() -> None:
     assert result.cause == "edited manually on the Manage page"
 
 
-def test_corporate_action_is_the_cause() -> None:
-    buy_row = make_row(isin="US6", reference="ref-6-buy", shares=Decimal("10"))
-    ca_row = make_row(
-        row_number=2,
-        isin="US6",
-        csv_type="Corporate action",
-        reference="ref-6-ca",
-        trade_date=date(2026, 2, 1),
-        shares=None,
-        price=None,
-        amount=None,
-        status=RowStatus.OUT_OF_SCOPE_V1,
-        action=PlannedAction.SKIP,
-    )
-
-    [result] = reconcile([buy_row, ca_row], [])
-
-    assert result.matches is False
-    assert result.cause == "corporate action on 2026-02-01 — not imported"
-
-
 def test_manual_entry_for_same_instrument_is_the_cause() -> None:
     row = make_row(isin="US7", reference="ref-7", proposed_ticker="TSLA")
     manual_tx = make_tx(isin=None, ticker="TSLA", shares=Decimal("3"), source="manual")
@@ -253,3 +236,87 @@ def test_name_comes_from_the_latest_trade_not_a_later_cash_row() -> None:
     [result] = reconcile([trade, dividend], [])
 
     assert result.name == "Vanguard FTSE All-World"
+
+
+# ─── corporate actions (TICKET-SYNC-7) ────────────────────────────────────────
+
+def test_corporate_action_security_leg_closes_the_position() -> None:
+    """26 bought, 26 knocked out by a corporate action → the CSV side is 0."""
+    rows = [
+        make_row(reference="buy", shares=Decimal("26"), price=Decimal("3")),
+        make_row(
+            row_number=2,
+            trade_date=date(2026, 2, 1),
+            csv_type="Corporate action",
+            reference="ca",
+            shares=Decimal("26"),
+            price=Decimal("0.001"),
+            amount=Decimal("-0.026"),
+            proposed_type="sell",
+        ),
+    ]
+    txs = [
+        make_tx(id="buy", shares=Decimal("26")),
+        make_tx(id="ca", type=TransactionType.SELL, shares=Decimal("26")),
+    ]
+    result = reconcile(rows, txs)
+    assert len(result) == 1
+    assert result[0].shares_csv == Decimal("0")
+    assert result[0].shares_book == Decimal("0")
+    assert result[0].matches
+    assert result[0].cause is None
+
+
+def test_corporate_action_cash_leg_moves_no_shares() -> None:
+    rows = [
+        make_row(reference="buy", shares=Decimal("26"), price=Decimal("3")),
+        make_row(
+            row_number=2,
+            csv_type="Corporate action",
+            asset_type="Cash",
+            reference="ca",
+            shares=None,
+            price=None,
+            amount=Decimal("0.03"),
+        ),
+    ]
+    result = reconcile(rows, [make_tx(id="buy", shares=Decimal("26"))])
+    assert result[0].shares_csv == Decimal("26")
+    assert result[0].matches
+
+
+def test_a_knocked_out_holding_is_not_valued_at_the_knock_out_price() -> None:
+    rows = [
+        make_row(reference="buy", shares=Decimal("26"), price=Decimal("3")),
+        make_row(
+            row_number=2,
+            trade_date=date(2026, 2, 1),
+            csv_type="Corporate action",
+            reference="ca",
+            shares=Decimal("26"),
+            price=Decimal("0.001"),
+            proposed_type="sell",
+        ),
+    ]
+    result = reconcile(rows, [])
+    assert result[0].last_trade_price_eur == Decimal("3")
+    assert result[0].name == "Apple Inc."
+
+
+def test_a_corporate_action_no_longer_explains_a_share_difference() -> None:
+    """Cause rule 6 is gone: the leg is imported, so it cannot be the excuse."""
+    rows = [
+        make_row(reference="buy", shares=Decimal("26"), price=Decimal("3")),
+        make_row(
+            row_number=2,
+            trade_date=date(2026, 2, 1),
+            csv_type="Corporate action",
+            reference="ca",
+            shares=Decimal("26"),
+            price=Decimal("0.001"),
+            proposed_type="sell",
+        ),
+    ]
+    result = reconcile(rows, [make_tx(id="buy", shares=Decimal("26"))])
+    assert not result[0].matches
+    assert result[0].cause == "unknown — check Details"

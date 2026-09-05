@@ -7,7 +7,12 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
 
-from app.domain.csv_import import PlannedRow, RowStatus
+from app.domain.csv_import import (
+    CORPORATE_ACTION_TYPE,
+    SECURITY_ASSET_TYPE,
+    PlannedRow,
+    RowStatus,
+)
 from app.domain.models import Transaction, TransactionType
 
 MATCH_TOLERANCE = Decimal("0.000001")
@@ -39,12 +44,28 @@ def _isin_universe(
     return isins
 
 
+def _is_corporate_action_security_leg(row: PlannedRow) -> bool:
+    """The leg of a corporate action that moves shares (the Cash leg does not)."""
+    return (
+        row.csv_type == CORPORATE_ACTION_TYPE
+        and row.asset_type == SECURITY_ASSET_TYPE
+        and row.shares is not None
+    )
+
+
 def _shares_csv(rows: Sequence[PlannedRow]) -> Decimal:
     total = Decimal("0")
     for row in rows:
         if row.status == RowStatus.CANCELLED_OR_EXPIRED or row.shares is None:
             continue
-        if row.csv_type in _ADD_TYPES or row.csv_type == _TRANSFER_TYPE:
+        if _is_corporate_action_security_leg(row):
+            # The planner strips the file's sign off the share count and keeps the
+            # direction in ``proposed_type``; a knock-out is a sell of everything.
+            if row.proposed_type == "sell":
+                total -= row.shares
+            else:
+                total += row.shares
+        elif row.csv_type in _ADD_TYPES or row.csv_type == _TRANSFER_TYPE:
             total += row.shares
         elif row.csv_type in _SUB_TYPES:
             total -= row.shares
@@ -76,6 +97,7 @@ def _name(rows: Sequence[PlannedRow]) -> str:
 
     Cash rows carry the payout's description ("Dividend SAP SE"), so naming a
     holding after the latest row of any kind renames it every time it pays.
+    Corporate actions are excluded for the same reason.
     """
     trades = [r for r in rows if r.csv_type in _ADD_TYPES | _SUB_TYPES | {_TRANSFER_TYPE}]
     candidates = trades or list(rows)
@@ -84,6 +106,11 @@ def _name(rows: Sequence[PlannedRow]) -> str:
 
 
 def _last_trade_price_eur(rows: Sequence[PlannedRow]) -> Decimal | None:
+    """The price of the latest real trade — never a corporate action.
+
+    A knock-out settles at €0,001; valuing the rest of a holding at that price
+    would wipe it off the screen rather than value it.
+    """
     candidates = [
         row
         for row in rows
@@ -126,16 +153,6 @@ def _cause(
     for tx in transactions:
         if tx.id in references and tx.source != "scalable_csv":
             return "edited manually on the Manage page"
-
-    # 6. corporate actions are never imported.
-    corporate_actions = [
-        r
-        for r in rows
-        if r.csv_type == "Corporate action" and r.status != RowStatus.CANCELLED_OR_EXPIRED
-    ]
-    if corporate_actions:
-        latest = max(corporate_actions, key=lambda r: (r.trade_date, r.row_number))
-        return f"corporate action on {latest.trade_date.isoformat()} — not imported"
 
     # 7. a manual transaction for the same instrument, under the ticker the CSV uses.
     mapped_ticker = next(

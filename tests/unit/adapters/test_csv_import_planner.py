@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
-from app.adapters.scalable_csv.parser import ParsedCsvRow
+from app.adapters.scalable_csv.parser import ParsedCsvRow, parse_csv
 from app.adapters.scalable_csv.planner import plan_import
 from app.domain.csv_import import PlannedAction, RowStatus
 from app.domain.isin_map import IsinMapDocument, IsinMapping
@@ -461,3 +462,83 @@ def test_validation_error_fires_for_unmapped_row() -> None:
     r = plan.rows[0]
     assert r.status == RowStatus.VALIDATION_ERROR
     assert r.proposed_ticker == "UNKNOWN000001"
+
+
+# ─── corporate actions (TICKET-SYNC-7) ────────────────────────────────────────
+
+_KNOCKOUT_ISIN = "DE000HT41XN9"
+_KNOCKOUT_FIXTURE = (
+    Path(__file__).resolve().parents[2] / "fixtures" / "scalable_knockout.csv"
+)
+
+
+def _knockout_rows() -> list[ParsedCsvRow]:
+    """The real Scalable rows for the HSBC Apple turbo knock-out, verbatim."""
+    return parse_csv(_KNOCKOUT_FIXTURE)
+
+
+def test_real_knockout_pair_parses_despite_the_shared_reference() -> None:
+    """Both legs carry `WWUM 00477772743`; only one of them is importable."""
+    rows = _knockout_rows()
+    shared = [r for r in rows if r.reference == "WWUM 00477772743"]
+    assert len(shared) == 2
+    assert {r.asset_type for r in shared} == {"Cash", "Security"}
+
+
+def test_corporate_action_security_leg_imports_as_a_sell() -> None:
+    plan = plan_import(_knockout_rows(), [], IsinMapDocument())
+    by_row = {r.row_number: r for r in plan.rows}
+
+    security_leg = next(
+        r for r in plan.rows if r.csv_type == "Corporate action" and r.asset_type == "Security"
+    )
+    assert security_leg.status == RowStatus.NEW
+    assert security_leg.action == PlannedAction.INSERT
+    assert security_leg.proposed_type == "sell"
+    # Stored positive: the direction lives in proposed_type, not in the sign.
+    assert security_leg.shares == Decimal("26")
+    assert security_leg.price == Decimal("0.001")
+    assert security_leg.proposed_ticker == _KNOCKOUT_ISIN
+
+    cash_leg = next(
+        r for r in plan.rows if r.csv_type == "Corporate action" and r.asset_type == "Cash"
+    )
+    assert cash_leg.status == RowStatus.OUT_OF_SCOPE_V1
+    assert cash_leg.action == PlannedAction.SKIP
+
+    # The original buy is still a plain new buy, the cancelled sell still cancelled.
+    buy = next(r for r in plan.rows if r.csv_type == "Buy")
+    assert buy.status == RowStatus.NEW
+    assert buy.proposed_type == "buy"
+    assert by_row[buy.row_number].shares == Decimal("26")
+    cancelled = next(r for r in plan.rows if r.status == RowStatus.CANCELLED_OR_EXPIRED)
+    assert cancelled.csv_type == "Sell"
+
+    new_rows = [r for r in plan.rows if r.status == RowStatus.NEW]
+    assert len(new_rows) == 2
+
+
+def test_positive_corporate_action_security_leg_imports_as_a_buy() -> None:
+    row = _row(
+        type_="Corporate action",
+        reference="CA-POS",
+        shares=Decimal("5"),
+        price=Decimal("0.001"),
+        amount=Decimal("0.005"),
+    )
+    plan = plan_import([row], [], IsinMapDocument())
+    assert plan.rows[0].status == RowStatus.NEW
+    assert plan.rows[0].proposed_type == "buy"
+    assert plan.rows[0].shares == Decimal("5")
+
+
+def test_zero_share_corporate_action_stays_out_of_scope() -> None:
+    row = _row(
+        type_="Corporate action",
+        reference="CA-ZERO",
+        shares=Decimal("0"),
+        price=Decimal("0"),
+        amount=Decimal("0"),
+    )
+    plan = plan_import([row], [], IsinMapDocument())
+    assert plan.rows[0].status == RowStatus.OUT_OF_SCOPE_V1

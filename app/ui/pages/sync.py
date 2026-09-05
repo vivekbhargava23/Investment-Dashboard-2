@@ -15,7 +15,12 @@ import streamlit as st
 
 from app.adapters.scalable_csv.parser import ParseError, parse_csv_bytes
 from app.adapters.scalable_csv.planner import plan_import
-from app.domain.csv_import import PlannedRow, RowStatus
+from app.domain.csv_import import (
+    CASH_ASSET_TYPE,
+    CORPORATE_ACTION_TYPE,
+    PlannedRow,
+    RowStatus,
+)
 from app.domain.feed_check import FeedCheck
 from app.domain.fifo import SellExceedsOpenSharesError, compute_positions
 from app.domain.isin_map import IsinMapDocument, IsinMapping
@@ -74,6 +79,11 @@ _CASH_TYPES: dict[str, str] = {
     "Interest": "interest",
     "Taxes": "taxes",
 }
+
+_CORPORATE_ACTION_LABEL = "corporate actions"
+
+# The order the cash line reads in.
+_CASH_LABELS = ("dividends", "interest", "taxes", _CORPORATE_ACTION_LABEL)
 
 
 # ─── pure helpers ─────────────────────────────────────────────────────────────
@@ -184,19 +194,28 @@ def cash_line(rows: tuple[PlannedRow, ...] | list[PlannedRow]) -> str | None:
 
     Read from the file only — cash events are information, never stored.
     """
-    totals: dict[str, Decimal] = {label: Decimal("0") for label in _CASH_TYPES.values()}
+    totals: dict[str, Decimal] = {label: Decimal("0") for label in _CASH_LABELS}
     seen = False
     for row in rows:
-        label = _CASH_TYPES.get(row.csv_type)
-        if label is None or row.amount is None:
+        if row.status == RowStatus.CANCELLED_OR_EXPIRED or row.amount is None:
             continue
-        if row.status == RowStatus.CANCELLED_OR_EXPIRED:
-            continue
+        # The Cash leg of a corporate action is the payout that came with the
+        # share movement — information, never imported (SYNC-TAB import scope).
+        if (
+            row.csv_type == CORPORATE_ACTION_TYPE
+            and row.asset_type == CASH_ASSET_TYPE
+        ):
+            label = _CORPORATE_ACTION_LABEL
+        else:
+            cash_label = _CASH_TYPES.get(row.csv_type)
+            if cash_label is None:
+                continue
+            label = cash_label
         totals[label] += abs(row.amount)
         seen = True
     if not seen:
         return None
-    parts = [f"€{totals[label]:,.2f} {label}" for label in ("dividends", "interest", "taxes")]
+    parts = [f"€{totals[label]:,.2f} {label}" for label in _CASH_LABELS]
     return "Cash events in this file: " + " · ".join(parts)
 
 

@@ -389,11 +389,12 @@ def test_holdings_dataframe_marks_a_holding_with_no_mapping() -> None:
     assert df.iloc[0]["Tax kind"] == "⚠ unset"
 
 
-def _cash_row(csv_type: str, amount: str) -> PlannedRow:
+def _cash_row(csv_type: str, amount: str, asset_type: str = "Cash") -> PlannedRow:
     return PlannedRow(
         row_number=2,
         trade_date=date(2026, 3, 1),
         csv_type=csv_type,
+        asset_type=asset_type,
         isin="",
         reference="",
         description=csv_type,
@@ -416,8 +417,28 @@ def test_cash_line_sums_by_kind() -> None:
     ]
 
     assert cash_line(rows) == (
-        "Cash events in this file: €20.00 dividends · €1.25 interest · €3.00 taxes"
+        "Cash events in this file: €20.00 dividends · €1.25 interest · €3.00 taxes "
+        "· €0.00 corporate actions"
     )
+
+
+def test_cash_line_reports_the_corporate_action_cash_leg() -> None:
+    """The Cash leg is the payout that came with a knock-out — shown, never imported."""
+    rows = [
+        _cash_row("Distribution", "12.50"),
+        _cash_row("Corporate action", "0.03"),
+    ]
+
+    assert cash_line(rows) == (
+        "Cash events in this file: €12.50 dividends · €0.00 interest · €0.00 taxes "
+        "· €0.03 corporate actions"
+    )
+
+
+def test_cash_line_ignores_the_corporate_action_security_leg() -> None:
+    rows = [_cash_row("Corporate action", "-0.026", asset_type="Security")]
+
+    assert cash_line(rows) is None
 
 
 def test_cash_line_is_absent_without_cash_events() -> None:

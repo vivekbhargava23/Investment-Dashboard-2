@@ -5,6 +5,7 @@ import json
 from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -20,6 +21,7 @@ from app.services.sync import (
     UndoNotPossible,
     analyse,
     apply_safe,
+    build_transaction,
     change_feed_in_session,
     resolve_conflict,
     start_session,
@@ -511,3 +513,44 @@ def test_plan_is_an_import_plan() -> None:
         _rows(_buy("ref-1")), session, store, tx_repo, isin_repo, resolver, company
     )
     assert isinstance(analysis.plan, ImportPlan)
+
+
+# ─── corporate actions (TICKET-SYNC-7) ────────────────────────────────────────
+
+_KNOCKOUT_FIXTURE = (
+    Path(__file__).resolve().parents[2] / "fixtures" / "scalable_knockout.csv"
+)
+
+
+def test_build_transaction_turns_a_knock_out_into_a_sell() -> None:
+    from app.adapters.scalable_csv.parser import parse_csv
+
+    plan = plan_import(parse_csv(_KNOCKOUT_FIXTURE), [], IsinMapDocument())
+    leg = next(
+        r for r in plan.rows
+        if r.csv_type == "Corporate action" and r.asset_type == "Security"
+    )
+
+    tx = build_transaction(leg)
+
+    assert tx is not None
+    assert tx.type == TransactionType.SELL
+    assert tx.shares == Decimal("26")
+    assert tx.price_native == Money(amount=Decimal("0.001"), currency=Currency.EUR)
+    assert tx.isin == "DE000HT41XN9"
+    assert tx.source == "scalable_csv"
+    assert tx.notes is not None
+    assert tx.notes.startswith("corporate action: Apple Short")
+
+
+def test_the_knock_out_pair_imports_exactly_one_transaction() -> None:
+    from app.adapters.scalable_csv.parser import parse_csv
+
+    plan = plan_import(parse_csv(_KNOCKOUT_FIXTURE), [], IsinMapDocument())
+    txs = [tx for tx in (build_transaction(r) for r in plan.rows) if tx is not None]
+
+    corporate = [t for t in txs if (t.notes or "").startswith("corporate action")]
+    assert len(corporate) == 1
+    # Both legs share one Scalable reference; only one becomes a transaction, so
+    # the book never writes two rows under one identity.
+    assert len({t.id for t in txs}) == len(txs)

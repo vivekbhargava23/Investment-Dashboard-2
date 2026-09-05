@@ -10,6 +10,17 @@ from pydantic import BaseModel, ConfigDict
 
 FeedState = Literal["mapped", "unmapped", "ignored"]
 
+# The direction the planner proposes for an importable row. Derived, because the
+# CSV type alone no longer decides it: a corporate action carries its direction in
+# the sign of its share count, not in its type.
+ProposedType = Literal["buy", "sell"]
+
+# Scalable books a corporate action as two legs sharing one reference: a Security
+# leg carrying the share movement and a Cash leg carrying the payout.
+CORPORATE_ACTION_TYPE = "Corporate action"
+SECURITY_ASSET_TYPE = "Security"
+CASH_ASSET_TYPE = "Cash"
+
 
 class RowStatus(StrEnum):
     ALREADY_IMPORTED = "already_imported"
@@ -40,6 +51,7 @@ class PlannedRow(BaseModel):
     row_number: int
     trade_date: date
     csv_type: str
+    asset_type: str = ""
     isin: str
     reference: str
     description: str
@@ -51,6 +63,7 @@ class PlannedRow(BaseModel):
     status: RowStatus
     action: PlannedAction
     proposed_ticker: str | None = None
+    proposed_type: ProposedType | None = None
     feed_state: FeedState | None = None
     conflict_tx_id: str | None = None
     error_message: str | None = None

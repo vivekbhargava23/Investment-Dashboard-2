@@ -17,7 +17,12 @@ from decimal import Decimal
 from typing import Literal
 from uuid import uuid4
 
-from app.domain.csv_import import ImportPlan, PlannedRow, RowStatus
+from app.domain.csv_import import (
+    CORPORATE_ACTION_TYPE,
+    ImportPlan,
+    PlannedRow,
+    RowStatus,
+)
 from app.domain.isin_map import IsinMapDocument
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
@@ -263,10 +268,17 @@ def build_transaction(row: PlannedRow) -> Transaction | None:
     if row.proposed_ticker is None or row.shares is None or row.price is None:
         return None
 
-    tx_type = TransactionType.SELL if row.csv_type == "Sell" else TransactionType.BUY
+    # The planner decides the direction: a corporate action carries it in the sign
+    # of its share count, not in its CSV type.
+    proposed = row.proposed_type or ("sell" if row.csv_type == "Sell" else "buy")
+    tx_type = TransactionType.SELL if proposed == "sell" else TransactionType.BUY
 
-    notes_parts = [row.description]
-    if row.csv_type == "Sell" and row.tax is not None and row.tax != Decimal("0"):
+    notes_parts = [
+        f"corporate action: {row.description}"
+        if row.csv_type == CORPORATE_ACTION_TYPE
+        else row.description
+    ]
+    if proposed == "sell" and row.tax is not None and row.tax != Decimal("0"):
         notes_parts.append(f"tax_withheld_eur={row.tax}")
     notes = "; ".join(notes_parts) or None
 
