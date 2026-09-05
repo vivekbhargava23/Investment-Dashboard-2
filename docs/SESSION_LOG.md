@@ -78,12 +78,19 @@ Nine steps, one commit each, in the ticket's order.
   `app/services/isin_admin.py` where the sync service can use them too.
 - **The old doors are gone**: `import_workbench.py`, `mappings.py`, `isin_mapper.py`,
   their tests, both nav entries, and the dead `UNMAPPED_ISIN` / `IGNORED_ISIN` statuses.
+- **In-app explainers** (Vivek asked for these mid-session, in this PR). Every control
+  on the Sync tab carries a collapsed popover answering three questions: what it is,
+  when to use it, what it does not do. `app/ui/components/explainers.py` holds the copy
+  as data so it is written once and can be tested; the tests check structure, not
+  wording — every task kind has one, every task explainer names an action, none points
+  at a deleted page, and Write off and Remove each reference the other.
 
 ### Files touched
 - `app/adapters/scalable_csv/planner.py`, `app/domain/csv_import.py`,
   `app/domain/reconcile.py`, `app/domain/models.py` — corporate actions, write-off source
 - `app/services/sync.py`, `app/services/isin_admin.py` (new), `app/services/trading.py`
-- `app/ui/components/instrument_card.py` (new), `app/ui/pages/sync.py`,
+- `app/ui/components/instrument_card.py` (new), `app/ui/components/explainers.py` (new),
+  `app/ui/pages/sync.py`,
   `app/ui/pages/manage.py`, `app/ui/backup.py`, sidebar/topbar
 - deleted: `app/ui/pages/import_workbench.py`, `app/ui/pages/mappings.py`,
   `app/ui/components/isin_mapper.py` and their tests
