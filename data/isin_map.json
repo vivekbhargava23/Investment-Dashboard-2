@@ -151,7 +151,7 @@
     "DE000HT41XN9": {
       "ticker": null,
       "name": "Apple Short 205,22 $ Turbo Open End HSBC",
-      "status": "unmapped",
+      "status": "ignored",
       "last_seen_in_csv": "2025-04-25",
       "instrument_kind": "SONSTIGE"
     },
