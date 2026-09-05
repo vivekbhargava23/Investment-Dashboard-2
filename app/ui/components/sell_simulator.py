@@ -350,7 +350,7 @@ def render_sell_simulator(default_ticker: str | None = None) -> None:
             "Open the Mappings page to classify this ticker, then retry."
         )
         if st.button("Open Mappings page", key="sim_open_mappings"):
-            st.query_params["page"] = "mappings"
+            st.query_params["page"] = "sync"
         return
     except Exception as exc:
         st.error(f"Simulation error: {exc}")

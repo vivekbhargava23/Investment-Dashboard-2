@@ -632,7 +632,7 @@ def _render_classification_warning(exc: InstrumentClassificationError) -> None:
         "Open the Mappings page to classify them."
     )
     if st.button("Open Mappings page", key="tax_open_mappings"):
-        st.query_params["page"] = "mappings"
+        st.query_params["page"] = "sync"
 
 
 def render() -> None:

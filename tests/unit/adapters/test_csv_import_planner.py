@@ -152,14 +152,17 @@ def test_missing_isin_is_validation_error() -> None:
     assert r.error_message == "row has no ISIN"
 
 
-def test_no_row_is_ever_unmapped_or_ignored() -> None:
-    """The planner must not emit the two dead statuses (SYNC-7 deletes them)."""
+def test_the_dead_feed_statuses_are_gone() -> None:
+    """A missing or ignored feed has never blocked an import since SYNC-1B."""
+    assert not hasattr(RowStatus, "UNMAPPED_ISIN")
+    assert not hasattr(RowStatus, "IGNORED_ISIN")
+
+
+def test_an_unmapped_or_ignored_feed_still_imports_the_trade() -> None:
     rows = [
         _row(reference="A", isin="UNKNOWN000001"),
         _row(reference="B"),
-        _row(reference="C", isin=""),
-        _row(reference="D", type_="Security transfer"),
-        _row(reference="E", status="Cancelled"),
+        _row(reference="C", isin=_VWCE_ISIN),
     ]
     doc = IsinMapDocument(
         entries={
@@ -167,9 +170,10 @@ def test_no_row_is_ever_unmapped_or_ignored() -> None:
             _VWCE_ISIN: IsinMapping(ticker=None, name="VWCE", status="unmapped"),
         }
     )
+
     plan = plan_import(rows, [], doc)
-    dead = {RowStatus.UNMAPPED_ISIN, RowStatus.IGNORED_ISIN}
-    assert not [r for r in plan.rows if r.status in dead]
+
+    assert [r.status for r in plan.rows] == [RowStatus.NEW] * 3
 
 
 # ─── test 4: USD ticker is NEW (EUR-native, no FX needed) ────────────────────
