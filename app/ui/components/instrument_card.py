@@ -11,6 +11,7 @@ feed Save needs a ticker match, because a feed *is* a ticker.
 """
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Literal
 
@@ -199,6 +200,54 @@ def render_kind_control(
     )
 
 
+def render_write_off_control(
+    isin: str,
+    name: str,
+    open_shares: Decimal,
+    *,
+    key_prefix: str,
+    state_key: str,
+    today: date,
+) -> tuple[Decimal, date] | None:
+    """Offer to write the holding down to €0. Returns (shares, date) once confirmed.
+
+    Two fields, because both are judgement calls: when the broker actually stopped
+    carrying it, and how much of it is gone.
+    """
+    if st.session_state.get(state_key) != isin:
+        if st.button(
+            f"Write off remaining {format_shares(open_shares)} shares…",
+            key=f"{key_prefix}_writeoff_{isin}",
+            help="Records a €0 sell. The history — and the realised loss — are kept.",
+        ):
+            st.session_state[state_key] = isin
+            st.rerun()
+        return None
+
+    col_date, col_shares = st.columns(2)
+    on_date = col_date.date_input(
+        "Write-off date", value=today, key=f"{key_prefix}_wo_date_{isin}"
+    )
+    shares = col_shares.number_input(
+        "Shares",
+        min_value=0.0,
+        max_value=float(open_shares),
+        value=float(open_shares),
+        key=f"{key_prefix}_wo_shares_{isin}",
+    )
+    col_yes, col_no, _ = st.columns([1, 1, 4])
+    confirmed = col_yes.button(
+        "Write off", key=f"{key_prefix}_wo_confirm_{isin}", type="primary"
+    )
+    if col_no.button("Cancel", key=f"{key_prefix}_wo_cancel_{isin}"):
+        st.session_state[state_key] = None
+        st.rerun()
+    if not confirmed:
+        return None
+    st.session_state[state_key] = None
+    return Decimal(str(shares)), on_date
+
+
 def render_remove_control(
     isin: str,
     name: str,
@@ -244,6 +293,7 @@ def render_remove_control(
 
 FEEDBACK_KEY = "instrument_card.feedback"
 _REMOVE_STATE_KEY = "instrument_card.confirming_remove"
+_WRITE_OFF_STATE_KEY = "instrument_card.confirming_write_off"
 
 
 def render_feedback() -> None:
@@ -277,9 +327,12 @@ def render_instrument_card(
     from app.services.isin_admin import apply_ignore, apply_kind, open_shares_for_isin
     from app.services.isin_remap import change_feed
     from app.services.sync import (
+        WriteOffNotPossible,
         change_feed_in_session,
         ignore_in_session,
         set_kind_in_session,
+        write_off,
+        write_off_in_session,
     )
     from app.ui.wiring import get_isin_map_repo, get_repository, get_sync_store
 
@@ -377,6 +430,52 @@ def render_instrument_card(
             f"{KIND_LABEL.get(selected_kind, selected_kind.value)}.",
         )
         st.rerun()
+
+    if open_shares > 0:
+        write_off_choice = render_write_off_control(
+            isin,
+            display_name,
+            open_shares,
+            key_prefix=key_prefix,
+            state_key=_WRITE_OFF_STATE_KEY,
+            today=date.today(),
+        )
+        if write_off_choice is not None:
+            shares, on_date = write_off_choice
+            try:
+                if session_id:
+                    write_off_in_session(
+                        isin,
+                        display_name,
+                        shares,
+                        on_date,
+                        session_id,
+                        get_repository(),
+                        get_isin_map_repo(),
+                        get_sync_store(),
+                    )
+                else:
+                    write_off(
+                        isin,
+                        display_name,
+                        shares,
+                        on_date,
+                        get_isin_map_repo(),
+                        get_repository(),
+                    )
+            except WriteOffNotPossible as exc:
+                _say("warning", str(exc))
+                st.rerun()
+            invalidate_view_caches()
+            kind = mapping.instrument_kind if mapping else None
+            kind_text = KIND_LABEL.get(kind, kind.value) if kind else "its tax kind"
+            _say(
+                "success",
+                f"Wrote off {format_shares(shares)} {display_name or isin} at €0 on "
+                f"{on_date.isoformat()}. The loss shows on the Tax Dashboard under "
+                f"{kind_text}.",
+            )
+            st.rerun()
 
     if context == "all_instruments":
         removed = render_remove_control(

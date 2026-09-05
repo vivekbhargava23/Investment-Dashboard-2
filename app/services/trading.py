@@ -28,6 +28,36 @@ def is_broker_row(tx: Transaction) -> bool:
     return tx.source == "scalable_csv"
 
 
+def is_write_off_row(tx: Transaction) -> bool:
+    """True for a holding written down to €0 by hand on the Sync tab."""
+    return tx.source == "write_off"
+
+
+def is_read_only_row(tx: Transaction) -> bool:
+    """True when only ``notes`` may be edited.
+
+    A broker row is the book and must not be retyped (SYNC-3). A write-off is a
+    generated row whose shape carries its meaning — €0, that date, that ISIN —
+    so it is edited the same way. Deleting it is a different matter: that is how
+    a write-off is reversed.
+    """
+    return is_broker_row(tx) or is_write_off_row(tx)
+
+
+SOURCE_LABEL: dict[str, str] = {
+    "scalable_csv": "Scalable",
+    "manual": "manual",
+    "switch": "switch",
+    "unknown": "unknown",
+    "write_off": "write-off",
+}
+
+
+def source_label(tx: Transaction) -> str:
+    """How a transaction's provenance reads in the Manage table."""
+    return SOURCE_LABEL.get(tx.source, tx.source)
+
+
 def with_notes(tx: Transaction, notes: str | None) -> Transaction:
     """Return a copy with only notes changed, preserving all provenance."""
     return tx.model_copy(update={"notes": notes})

@@ -34,7 +34,7 @@ from app.ports.isin_map import IsinMapRepository
 from app.ports.repository import TransactionRepository
 from app.ports.sync_store import SyncStore
 from app.ports.ticker_resolver import TickerResolver
-from app.services.isin_admin import apply_ignore, apply_kind
+from app.services.isin_admin import apply_ignore, apply_kind, open_shares_for_isin
 from app.services.isin_autoresolve import AutoResolveResult, autoresolve_isin
 from app.services.isin_remap import (
     change_feed,
@@ -51,6 +51,7 @@ EVENT_FEED_CHANGE = "feed_change"
 EVENT_IGNORE = "ignore"
 EVENT_KIND = "kind_change"
 EVENT_REPAIR = "repair"
+EVENT_WRITE_OFF = "write_off"
 EVENT_UNDO = "undo"
 
 
@@ -457,6 +458,98 @@ def repair_in_session(
     changed = repair(isin_repo.load(), tx_repo)
     _log(store, session_id, EVENT_REPAIR, changed=changed)
     return changed
+
+
+class WriteOffNotPossible(Exception):
+    """Raised when a write-off would take a holding below zero shares."""
+
+
+def _ticker_for(isin: str, isin_repo: IsinMapRepository) -> str:
+    """The ticker a write-off trades under: the ISIN's feed, else the ISIN itself.
+
+    Same rule as an imported trade (ADR-014 rule 2), so the row lands on the same
+    FIFO position the buys did rather than opening a second one.
+    """
+    mapping = isin_repo.load().entries.get(isin)
+    if mapping is not None and mapping.status == "mapped" and mapping.ticker:
+        return mapping.ticker
+    return isin.upper()
+
+
+def build_write_off(
+    isin: str,
+    name: str,
+    shares: Decimal,
+    on_date: date,
+    isin_repo: IsinMapRepository,
+    tx_repo: TransactionRepository,
+) -> Transaction:
+    """The €0 sell that closes a holding the broker never closed.
+
+    Refuses to write off more than is open: a write-off is an admission that the
+    shares are gone, not a way to go short.
+    """
+    if shares <= Decimal("0"):
+        raise WriteOffNotPossible("Write off a positive number of shares.")
+    open_shares = open_shares_for_isin(tx_repo, isin)
+    if shares > open_shares:
+        raise WriteOffNotPossible(
+            f"Only {open_shares.normalize():f} share(s) of {name or isin} are open; "
+            f"{shares.normalize():f} cannot be written off."
+        )
+
+    return Transaction(
+        id=f"writeoff-{isin}-{on_date.isoformat()}",
+        type=TransactionType.SELL,
+        ticker=_ticker_for(isin, isin_repo),
+        trade_date=on_date,
+        shares=shares,
+        price_native=Money(amount=Decimal("0"), currency=Currency.EUR),
+        fees_native=None,
+        fx_rate_eur=Decimal("1"),
+        notes=f"write-off: {name or isin}",
+        isin=isin,
+        csv_reference=None,
+        source="write_off",
+    )
+
+
+def write_off(
+    isin: str,
+    name: str,
+    shares: Decimal,
+    on_date: date,
+    isin_repo: IsinMapRepository,
+    tx_repo: TransactionRepository,
+) -> Transaction:
+    """Write a holding down to €0, keeping its history. No session open."""
+    tx = build_write_off(isin, name, shares, on_date, isin_repo, tx_repo)
+    tx_repo.save_all([*tx_repo.load_all(), tx])
+    return tx
+
+
+def write_off_in_session(
+    isin: str,
+    name: str,
+    shares: Decimal,
+    on_date: date,
+    session_id: str,
+    tx_repo: TransactionRepository,
+    isin_repo: IsinMapRepository,
+    store: SyncStore,
+) -> Transaction:
+    """Write a holding down to €0 inside the open session, so undo can take it back."""
+    tx = build_write_off(isin, name, shares, on_date, isin_repo, tx_repo)
+    tx_repo.save_all([*tx_repo.load_all(), tx])
+    _log(
+        store,
+        session_id,
+        EVENT_WRITE_OFF,
+        isin=isin,
+        shares=str(shares),
+        on_date=on_date.isoformat(),
+    )
+    return tx
 
 # ─── undo ─────────────────────────────────────────────────────────────────────
 

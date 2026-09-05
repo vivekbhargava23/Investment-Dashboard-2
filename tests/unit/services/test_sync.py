@@ -20,6 +20,7 @@ from app.ports.ticker_resolver import TickerMatch
 from app.services.isin_admin import apply_ignore
 from app.services.sync import (
     UndoNotPossible,
+    WriteOffNotPossible,
     analyse,
     apply_safe,
     build_transaction,
@@ -30,6 +31,8 @@ from app.services.sync import (
     set_kind_in_session,
     start_session,
     undo_last,
+    write_off,
+    write_off_in_session,
 )
 from tests.fakes.repository import FakeTransactionRepository
 from tests.fakes.sync_store import FakeSyncStore
@@ -666,3 +669,108 @@ def test_an_unlogged_write_still_blocks_undo() -> None:
     assert not _undo_still_possible(store)
     with pytest.raises(UndoNotPossible):
         undo_last(store)
+
+
+# ─── write-off (TICKET-SYNC-7) ────────────────────────────────────────────────
+
+_TURBO = "DE000HT41XN9"
+
+
+def _held(shares: str = "26") -> Transaction:
+    return Transaction(
+        id="buy-1",
+        type=TransactionType.BUY,
+        ticker=_TURBO,
+        trade_date=date(2025, 4, 9),
+        shares=Decimal(shares),
+        price_native=Money(amount=Decimal("3"), currency=Currency.EUR),
+        fx_rate_eur=Decimal("1"),
+        isin=_TURBO,
+        source="scalable_csv",
+    )
+
+
+def test_write_off_records_a_zero_euro_sell_that_keeps_the_history() -> None:
+    store, tx_repo, isin_repo, _, _ = _setup(txs=[_held()])
+
+    tx = write_off(
+        _TURBO, "Apple turbo", Decimal("26"), date(2026, 3, 1), isin_repo, tx_repo
+    )
+
+    assert tx.type == TransactionType.SELL
+    assert tx.shares == Decimal("26")
+    assert tx.price_native.amount == Decimal("0")
+    assert tx.fx_rate_eur == Decimal("1")
+    assert tx.fees_native is None
+    assert tx.csv_reference is None
+    assert tx.source == "write_off"
+    assert tx.isin == _TURBO
+    assert tx.ticker == _TURBO
+    assert tx.notes == "write-off: Apple turbo"
+    assert tx.id == f"writeoff-{_TURBO}-2026-03-01"
+    # The buy is still there: a write-off never deletes history.
+    assert len(tx_repo.load_all()) == 2
+
+
+def test_write_off_trades_under_the_mapped_feed_when_there_is_one() -> None:
+    doc = IsinMapDocument(
+        entries={
+            _TURBO: IsinMapping(
+                ticker="AMD", name="Apple turbo", status="mapped",
+                instrument_kind=InstrumentKind.SONSTIGE,
+            )
+        }
+    )
+    store, tx_repo, isin_repo, _, _ = _setup(doc, txs=[_held()])
+
+    tx = write_off(
+        _TURBO, "Apple turbo", Decimal("26"), date(2026, 3, 1), isin_repo, tx_repo
+    )
+
+    assert tx.ticker == "AMD"
+
+
+def test_write_off_refuses_more_shares_than_are_open() -> None:
+    store, tx_repo, isin_repo, _, _ = _setup(txs=[_held()])
+
+    with pytest.raises(WriteOffNotPossible, match="26"):
+        write_off(
+            _TURBO, "Apple turbo", Decimal("27"), date(2026, 3, 1), isin_repo, tx_repo
+        )
+
+    assert len(tx_repo.load_all()) == 1
+
+
+def test_write_off_refuses_a_non_positive_share_count() -> None:
+    store, tx_repo, isin_repo, _, _ = _setup(txs=[_held()])
+
+    with pytest.raises(WriteOffNotPossible):
+        write_off(
+            _TURBO, "Apple turbo", Decimal("0"), date(2026, 3, 1), isin_repo, tx_repo
+        )
+
+
+def test_write_off_in_session_keeps_undo_possible_and_undo_takes_it_back() -> None:
+    store, tx_repo, isin_repo, resolver, company = _setup(txs=[_held()])
+    portfolio_before = store.portfolio_bytes
+    isin_map_before = store.isin_map_bytes
+    session = start_session("export.csv", "md5-1", store)
+
+    write_off_in_session(
+        _TURBO,
+        "Apple turbo",
+        Decimal("26"),
+        date(2026, 3, 1),
+        session,
+        tx_repo,
+        isin_repo,
+        store,
+    )
+
+    assert store.events()[-1] == "write_off"
+    assert _undo_still_possible(store)
+
+    undo_last(store)
+
+    assert store.portfolio_bytes == portfolio_before
+    assert store.isin_map_bytes == isin_map_before

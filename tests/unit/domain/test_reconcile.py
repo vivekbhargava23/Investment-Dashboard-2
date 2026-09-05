@@ -320,3 +320,63 @@ def test_a_corporate_action_no_longer_explains_a_share_difference() -> None:
     result = reconcile(rows, [make_tx(id="buy", shares=Decimal("26"))])
     assert not result[0].matches
     assert result[0].cause == "unknown — check Details"
+
+
+# ─── write-off (TICKET-SYNC-7) ────────────────────────────────────────────────
+
+def test_a_written_off_holding_reconciles_at_zero() -> None:
+    """26 bought, 26 written off by hand → both sides read 0 and there is no cause."""
+    rows = [make_row(reference="buy", shares=Decimal("26"), price=Decimal("3"))]
+    txs = [
+        make_tx(id="buy", shares=Decimal("26")),
+        make_tx(
+            id="writeoff-US1000000001-2026-03-01",
+            type=TransactionType.SELL,
+            shares=Decimal("26"),
+            source="write_off",
+        ),
+    ]
+
+    [result] = reconcile(rows, txs)
+
+    assert result.shares_csv == Decimal("0")
+    assert result.shares_book == Decimal("0")
+    assert result.matches
+    assert result.cause is None
+
+
+def test_a_partial_write_off_leaves_the_rest_matching() -> None:
+    rows = [make_row(reference="buy", shares=Decimal("26"), price=Decimal("3"))]
+    txs = [
+        make_tx(id="buy", shares=Decimal("26")),
+        make_tx(
+            id="writeoff-1",
+            type=TransactionType.SELL,
+            shares=Decimal("10"),
+            source="write_off",
+        ),
+    ]
+
+    [result] = reconcile(rows, txs)
+
+    assert result.shares_csv == Decimal("16")
+    assert result.shares_book == Decimal("16")
+    assert result.matches
+
+
+def test_a_write_off_is_never_the_cause_of_a_difference() -> None:
+    rows = [make_row(reference="buy", shares=Decimal("26"), price=Decimal("3"))]
+    txs = [
+        make_tx(
+            id="writeoff-1",
+            type=TransactionType.SELL,
+            shares=Decimal("10"),
+            source="write_off",
+        ),
+    ]
+
+    [result] = reconcile(rows, txs)
+
+    assert not result.matches
+    assert result.cause is not None
+    assert "manual entry" not in result.cause

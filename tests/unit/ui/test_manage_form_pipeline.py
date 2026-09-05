@@ -14,7 +14,14 @@ from app.domain.fifo import SellExceedsOpenSharesError, compute_positions
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.ports.price_feed import PriceUnavailableError
-from app.services.trading import build_transaction, is_broker_row, with_notes
+from app.services.trading import (
+    build_transaction,
+    is_broker_row,
+    is_read_only_row,
+    is_write_off_row,
+    source_label,
+    with_notes,
+)
 from tests.fakes.fx_feed import FakeFxProvider
 from tests.fakes.price_feed import FakePriceProvider
 
@@ -58,6 +65,42 @@ def test_is_broker_row_distinguishes_scalable_from_manual() -> None:
 
     assert is_broker_row(broker) is True
     assert is_broker_row(manual) is False
+
+
+def test_a_write_off_row_is_read_only_but_not_a_broker_row() -> None:
+    """Deleting the row is how a write-off is reversed, so it must stay deletable."""
+    manual = Transaction(
+        id="manual-1",
+        type=TransactionType.SELL,
+        ticker="RHM.DE",
+        trade_date=_TRADE_DATE,
+        shares=Decimal("1"),
+        price_native=Money(amount=Decimal("0"), currency=Currency.EUR),
+        fx_rate_eur=Decimal("1"),
+    )
+    written_off = manual.model_copy(update={"source": "write_off"})
+
+    assert is_write_off_row(written_off) is True
+    assert is_read_only_row(written_off) is True
+    # Not a broker row: the Delete button is disabled only for broker rows.
+    assert is_broker_row(written_off) is False
+    assert is_read_only_row(manual) is False
+
+
+def test_the_source_column_labels_a_write_off() -> None:
+    manual = Transaction(
+        id="manual-1",
+        type=TransactionType.BUY,
+        ticker="RHM.DE",
+        trade_date=_TRADE_DATE,
+        shares=Decimal("1"),
+        price_native=Money(amount=Decimal("1387.21"), currency=Currency.EUR),
+        fx_rate_eur=Decimal("1"),
+    )
+
+    assert source_label(manual.model_copy(update={"source": "write_off"})) == "write-off"
+    assert source_label(manual.model_copy(update={"source": "scalable_csv"})) == "Scalable"
+    assert source_label(manual) == "manual"
 
 
 def test_with_notes_preserves_broker_transaction_provenance() -> None:

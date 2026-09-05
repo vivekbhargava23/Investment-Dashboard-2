@@ -22,6 +22,10 @@ _ADD_TYPES = frozenset({"Buy", "Savings plan"})
 _SUB_TYPES = frozenset({"Sell"})
 _TRANSFER_TYPE = "Security transfer"
 
+# A holding written down to zero by hand. The broker file will never mention it,
+# so it is subtracted from the CSV side to keep the two sides comparable.
+_WRITE_OFF_SOURCE = "write_off"
+
 
 class ReconcileRow(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -70,6 +74,14 @@ def _shares_csv(rows: Sequence[PlannedRow]) -> Decimal:
         elif row.csv_type in _SUB_TYPES:
             total -= row.shares
     return total
+
+
+def _write_off_shares(transactions: Sequence[Transaction]) -> Decimal:
+    """Shares written off by hand for this ISIN (always sells, always positive)."""
+    return sum(
+        (tx.shares for tx in transactions if tx.source == _WRITE_OFF_SOURCE),
+        Decimal("0"),
+    )
 
 
 def _shares_book(transactions: Sequence[Transaction]) -> Decimal:
@@ -166,6 +178,8 @@ def _cause(
         manual_matches = [
             tx for tx in transactions if tx.source == "manual" and tx.ticker == mapped_ticker
         ]
+        # A write-off is a manual entry the CSV side already accounts for, so it
+        # is never the explanation for a difference.
         if manual_matches:
             manual_shares = manual_matches[0].shares
             return (
@@ -210,7 +224,7 @@ def reconcile(
         isin_rows = rows_by_isin.get(isin, [])
         isin_txs = tx_by_isin.get(isin, [])
 
-        shares_csv = _shares_csv(isin_rows)
+        shares_csv = _shares_csv(isin_rows) - _write_off_shares(isin_txs)
         shares_book = _shares_book(isin_txs)
         diff = shares_csv - shares_book
         matches = abs(diff) < MATCH_TOLERANCE

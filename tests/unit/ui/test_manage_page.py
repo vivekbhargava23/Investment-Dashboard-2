@@ -157,7 +157,9 @@ def test_match_label_jpy() -> None:
 
 def test_transactions_dataframe_columns() -> None:
     df = build_transactions_dataframe([_eur_tx()])
-    assert list(df.columns) == ["Ticker", "Type", "Date", "Shares", "Cost (€)", "Notes"]
+    assert list(df.columns) == [
+        "Ticker", "Type", "Date", "Shares", "Cost (€)", "Source", "Notes"
+    ]
 
 
 def test_transactions_dataframe_row_order_matches_input() -> None:
@@ -261,7 +263,7 @@ def test_broker_edit_form_is_notes_only(mock_st: MagicMock) -> None:
 
     caption = mock_st.caption.call_args.args[0]
     assert "Imported from Scalable Capital · APD · US0091581068" in caption
-    assert "ISIN Mappings page" in caption
+    assert "price feed on the Sync tab" in caption
     mock_st.text_input.assert_called_once_with("Notes", value="Imported position")
     searchbox.assert_not_called()
 
