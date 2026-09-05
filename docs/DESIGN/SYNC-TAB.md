@@ -53,7 +53,7 @@ Then the **holdings table** (one row per ISIN with shares > 0 in CSV or in book)
 `Name (Scalable) · Shares Scalable · Shares dashboard · Feed (ticker · ccy) · Feed check ·
 Tax kind`. Shares only — cost per open lot including fees is not derivable from the CSV, so
 cost is shown from the book and not compared. Selecting a row shows an action bar: **Change feed** (search box + kind
-selector + Save) and **Ignore**. Saving a feed change re-runs the import of the current
+selector + Save) and **Use last trade price**. Saving a feed change re-runs the import of the current
 file automatically so previously skipped rows come in.
 
 **State C — something needs you.** Same screen; a numbered **task list** above the table,
@@ -61,7 +61,7 @@ ordered by |shares diff × last trade price| descending. Task types (exactly the
 
 | Task | Trigger | Action shown |
 |---|---|---|
-| No price feed for *Name* (n shares, valued at last trade price) | ISIN unmapped, shares_csv > 0 | inline mapper row (search + kind + Save) · Ignore (= keep last-trade valuation, stop asking) |
+| No price feed for *Name* (n shares, valued at last trade price) | ISIN unmapped, shares_csv > 0 | inline mapper row (search + kind + Save) · **Use last trade price** (= keep last-trade valuation, stop asking) |
 | Price feed for *Name* looks wrong — your trades avg €x, feed *T* closed €y | FeedCheck.status == suspicious | inline mapper row prefilled placeholder = CSV name |
 | Shares differ: *Name* — Scalable a, dashboard b | reconcile diff ≠ 0 | text only, with the cause sentence |
 | Sell exceeds shares held: *Name* | FIFO raises for that ISIN | text only, with the cause sentence |
@@ -72,7 +72,7 @@ Below the table: `Cash events in this file: €d dividends · €i interest · �
 the current CSV only, not stored). At the bottom, one collapsed expander **Details**: raw
 CSV table, per-row plan status table, last 5 import-log entries. A second collapsed
 expander **All instruments** holds the old Mappings page content (mapped / ignored / closed
-positions) with Change feed · Kind · Ignore · Restore · Remove.
+positions) with Change feed · Kind · Use last trade price · Restore · Remove.
 
 ## What disappears
 
@@ -92,11 +92,16 @@ brokers), notes edits, delete, danger zone.
   comparison. Two identical `reference` values in one file → parse error, nothing imported.
 - Import scope: every row with status Executed and type Buy / Savings plan / Sell is
   imported, ticker = mapping ticker if `mapped`, else the ISIN itself. `ignored` and
-  `unmapped` are valuation states, not import filters.
+  `unmapped` are valuation states, not import filters. **And every `Corporate action` row
+  with `assetType == Security`, status Executed and `shares ≠ 0` — negative shares import
+  as a Sell, positive as a Buy, at the row's `price`. The Cash leg of the same reference is
+  information (shown on the cash line as "corporate actions") and never imported.**
 - Sync session: one snapshot per uploaded file, taken before the first write (auto-resolve
   included). Auto-resolve, safe apply, conflict decisions and feed changes made while the
   file is open all log the same `session_id`. "Undo last sync" restores that session's
-  snapshot.
+  snapshot. **"Use last trade price" (the state stored as `ignored`), a tax-kind change,
+  Repair and a write-off made while a file is open log the same `session_id` too, so undo
+  stays available after any of them.**
 
 - Feed check is a **warning, not proof of identity**: last 3 scalable trades per ISIN;
   deviation = |csv_price − close_eur| / close_eur. Central value = median for 3, mean for 2,
@@ -106,7 +111,9 @@ brokers), notes edits, delete, danger zone.
 - Reconcile expected shares per ISIN from the CSV: Executed rows only; Buy and Savings
   plan add `shares`; Sell subtracts; Security transfer adds `shares` as signed in the file
   (inbound positive, outbound negative). Net transfer ≠ 0 for an ISIN → cause
-  "transfer imbalance".
+  "transfer imbalance". **Corporate action Security legs count with their sign. Write-off
+  transactions (`source == "write_off"`) are subtracted from the CSV side, so a written-off
+  holding matches at 0.**
 - Book shares per ISIN = Σ buy − Σ sell over transactions with that `isin`.
 - Rows whose content matches a manual transaction are **never applied automatically**;
   they become the "Possible duplicate" task.
