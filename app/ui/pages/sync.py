@@ -606,7 +606,8 @@ def render() -> None:
     try:
         # Keyed on the book itself: the same book must not re-fetch every close
         # just because this upload inserted a different number of rows.
-        checks = _cached_feed_checks(transactions_signature(transactions))
+        with st.spinner("Checking price feeds against your trades…"):
+            checks = _cached_feed_checks(transactions_signature(transactions))
     except Exception:
         checks = {}
 
