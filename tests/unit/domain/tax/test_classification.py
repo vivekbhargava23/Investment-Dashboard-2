@@ -49,7 +49,7 @@ def test_unknown_ticker_raises_with_helpful_message() -> None:
         classify_instrument("FOO.BAR", IsinMapDocument())
     msg = str(exc_info.value)
     assert "FOO.BAR" in msg
-    assert "Mappings page" in msg
+    assert "All instruments on the Sync tab" in msg
 
 
 def test_ticker_in_map_but_no_kind_raises() -> None:

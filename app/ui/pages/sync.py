@@ -15,7 +15,12 @@ import streamlit as st
 
 from app.adapters.scalable_csv.parser import ParseError, parse_csv_bytes
 from app.adapters.scalable_csv.planner import plan_import
-from app.domain.csv_import import PlannedRow, RowStatus
+from app.domain.csv_import import (
+    CASH_ASSET_TYPE,
+    CORPORATE_ACTION_TYPE,
+    PlannedRow,
+    RowStatus,
+)
 from app.domain.feed_check import FeedCheck
 from app.domain.fifo import SellExceedsOpenSharesError, compute_positions
 from app.domain.isin_map import IsinMapDocument, IsinMapping
@@ -23,8 +28,8 @@ from app.domain.models import Transaction
 from app.domain.reconcile import ReconcileRow
 from app.domain.sync_tasks import SyncTask, build_tasks
 from app.services.feed_check import check_feeds
+from app.services.isin_admin import apply_restore, open_shares_for_isin
 from app.services.isin_remap import (
-    TickerAlreadyMappedError,
     check_consistency,
     repair,
 )
@@ -35,20 +40,28 @@ from app.services.sync import (
     UndoNotPossible,
     analyse,
     apply_safe,
-    change_feed_in_session,
+    repair_in_session,
     resolve_conflict,
     start_session,
     undo_last,
 )
 from app.ui.cache_keys import transactions_signature
-from app.ui.components.isin_mapper import (
-    KIND_LABEL,
-    SHARED_TICKER_HELP,
-    SHARED_TICKER_LABEL,
-    invalidate_view_caches,
-    render_isin_mapper_row,
-    shared_ticker_message,
+from app.ui.components.explainers import (
+    ALL_INSTRUMENTS,
+    CASH_EVENTS,
+    HOLDINGS_TABLE,
+    HOW_THIS_PAGE_WORKS,
+    TASK_EXPLAINERS,
+    UNDO,
+    render_explainer,
 )
+from app.ui.components.instrument_card import (
+    KIND_LABEL,
+    CardContext,
+    invalidate_view_caches,
+    render_instrument_card,
+)
+from app.ui.components.instrument_card import render_feedback as render_card_feedback
 from app.ui.price_clock import last_price_fetch
 from app.ui.wiring import (
     get_company_provider,
@@ -74,6 +87,11 @@ _CASH_TYPES: dict[str, str] = {
     "Interest": "interest",
     "Taxes": "taxes",
 }
+
+_CORPORATE_ACTION_LABEL = "corporate actions"
+
+# The order the cash line reads in.
+_CASH_LABELS = ("dividends", "interest", "taxes", _CORPORATE_ACTION_LABEL)
 
 
 # ─── pure helpers ─────────────────────────────────────────────────────────────
@@ -184,19 +202,28 @@ def cash_line(rows: tuple[PlannedRow, ...] | list[PlannedRow]) -> str | None:
 
     Read from the file only — cash events are information, never stored.
     """
-    totals: dict[str, Decimal] = {label: Decimal("0") for label in _CASH_TYPES.values()}
+    totals: dict[str, Decimal] = {label: Decimal("0") for label in _CASH_LABELS}
     seen = False
     for row in rows:
-        label = _CASH_TYPES.get(row.csv_type)
-        if label is None or row.amount is None:
+        if row.status == RowStatus.CANCELLED_OR_EXPIRED or row.amount is None:
             continue
-        if row.status == RowStatus.CANCELLED_OR_EXPIRED:
-            continue
+        # The Cash leg of a corporate action is the payout that came with the
+        # share movement — information, never imported (SYNC-TAB import scope).
+        if (
+            row.csv_type == CORPORATE_ACTION_TYPE
+            and row.asset_type == CASH_ASSET_TYPE
+        ):
+            label = _CORPORATE_ACTION_LABEL
+        else:
+            cash_label = _CASH_TYPES.get(row.csv_type)
+            if cash_label is None:
+                continue
+            label = cash_label
         totals[label] += abs(row.amount)
         seen = True
     if not seen:
         return None
-    parts = [f"€{totals[label]:,.2f} {label}" for label in ("dividends", "interest", "taxes")]
+    parts = [f"€{totals[label]:,.2f} {label}" for label in _CASH_LABELS]
     return "Cash events in this file: " + " · ".join(parts)
 
 
@@ -261,6 +288,7 @@ def _cached_feed_checks(tx_sig: str) -> dict[str, FeedCheck]:
 # ─── sections ─────────────────────────────────────────────────────────────────
 
 def _render_feedback() -> None:
+    render_card_feedback()
     feedback = st.session_state.pop(_KEY_FEEDBACK, None)
     if not feedback:
         return
@@ -286,7 +314,13 @@ def _render_consistency_banner(doc: IsinMapDocument) -> None:
         )
     with col_btn:
         if st.button("Repair", key="sync_repair", type="primary"):
-            changed = repair(doc, get_repository())
+            session_id = st.session_state.get(_KEY_SESSION_ID)
+            if session_id:
+                changed = repair_in_session(
+                    session_id, get_isin_map_repo(), get_repository(), get_sync_store()
+                )
+            else:
+                changed = repair(doc, get_repository())
             invalidate_view_caches()
             st.session_state[_KEY_FEEDBACK] = (
                 "success",
@@ -334,7 +368,10 @@ def _render_undo_button(store: Any, *, key: str) -> None:
         if enabled
         else "Your data changed after the last sync, so undo would discard that change."
     )
-    if st.button("Undo last sync", key=key, disabled=not enabled, help=help_text):
+    col_btn, col_why, _ = st.columns([1.2, 1.4, 3.4])
+    with col_why:
+        render_explainer(UNDO, key=f"{key}_why")
+    if col_btn.button("Undo last sync", key=key, disabled=not enabled, help=help_text):
         try:
             undo_last(store)
         except UndoNotPossible as exc:
@@ -377,77 +414,30 @@ def _render_summary_card(
         _render_undo_button(get_sync_store(), key="sync_undo_card")
 
 
-def _render_mapper_action(
+def _render_card(
     isin: str,
     name: str,
-    session_id: str,
+    doc: IsinMapDocument,
+    session_id: str | None,
     *,
     key_prefix: str,
+    context: CardContext = "task",
 ) -> None:
-    """Ticker search + tax kind + Save/Ignore for one ISIN."""
-    match, kind = render_isin_mapper_row(isin, name, key_prefix=key_prefix)
-    allow_shared = st.checkbox(
-        SHARED_TICKER_LABEL,
-        key=f"{key_prefix}_shared_{isin}",
-        help=SHARED_TICKER_HELP,
+    """One instrument card: feed, tax kind, and (in All instruments) removal."""
+    render_instrument_card(
+        isin,
+        name,
+        doc,
+        session_id=session_id,
+        key_prefix=key_prefix,
+        context=context,
     )
-    col_save, col_ignore, _ = st.columns([1, 1, 4])
-    if col_save.button(
-        "Save",
-        key=f"{key_prefix}_save_{isin}",
-        type="primary",
-        disabled=match is None or kind is None,
-    ):
-        if match is None or kind is None:
-            return
-        try:
-            rewritten = change_feed_in_session(
-                isin,
-                match.symbol,
-                kind,
-                session_id,
-                get_isin_map_repo(),
-                get_repository(),
-                get_sync_store(),
-                allow_shared_ticker=allow_shared,
-            )
-        except TickerAlreadyMappedError as exc:
-            st.session_state[_KEY_FEEDBACK] = ("warning", shared_ticker_message(exc))
-            st.rerun()
-        invalidate_view_caches()
-        st.session_state[_KEY_FEEDBACK] = (
-            "success",
-            f"{isin} now values off {match.symbol}. Rewrote {rewritten} transaction(s).",
-        )
-        st.rerun()
-
-    if col_ignore.button("Ignore", key=f"{key_prefix}_ignore_{isin}"):
-        _ignore(isin, name)
-
-
-def _ignore(isin: str, name: str) -> None:
-    """Stop asking about this ISIN. It keeps its last-trade valuation."""
-    repo = get_isin_map_repo()
-    doc = repo.load()
-    existing = doc.entries.get(isin)
-    entry = IsinMapping(
-        ticker=None,
-        name=existing.name if existing else (name or isin),
-        status="ignored",
-        last_seen_in_csv=existing.last_seen_in_csv if existing else None,
-        instrument_kind=existing.instrument_kind if existing else None,
-    )
-    repo.save(
-        IsinMapDocument(version=doc.version, entries={**doc.entries, isin: entry})
-    )
-    invalidate_view_caches()
-    st.session_state[_KEY_FEEDBACK] = ("success", f"Ignored {name or isin}.")
-    st.rerun()
 
 
 def _render_tasks(
     tasks: list[SyncTask],
     analysis: SyncAnalysis,
+    doc: IsinMapDocument,
     session_id: str,
 ) -> None:
     if not tasks:
@@ -461,11 +451,15 @@ def _render_tasks(
         with st.container(border=True):
             st.markdown(f"**{index + 1}. {task.headline}**")
             st.caption(task.detail)
+            explainer = TASK_EXPLAINERS.get(task.kind)
+            if explainer is not None:
+                render_explainer(explainer, key=f"sync_task_why_{index}")
 
             if task.kind in ("no_feed", "feed_suspicious"):
-                _render_mapper_action(
+                _render_card(
                     task.isin,
                     task.name,
+                    doc,
                     session_id,
                     key_prefix=f"sync_task_{index}",
                 )
@@ -519,7 +513,10 @@ def _render_holdings(
     doc: IsinMapDocument,
     session_id: str,
 ) -> None:
-    st.subheader("Holdings")
+    col_title, col_why = st.columns([3, 1.4])
+    col_title.subheader("Holdings")
+    with col_why:
+        render_explainer(HOLDINGS_TABLE, key="sync_holdings_why")
     open_rows = [r for r in rows if r.shares_csv > 0 or r.shares_book > 0]
     if not open_rows:
         st.caption("No open holdings in this file.")
@@ -535,12 +532,13 @@ def _render_holdings(
     )
     selected = cast(Any, event).selection.rows
     if not selected:
-        st.caption("Select a holding to change its price feed or ignore it.")
+        st.caption("Select a holding to change its price feed or value it at its last trade price.")
         return
 
     row = open_rows[selected[0]]
-    st.caption(f"Selected **{row.name}** ({row.isin})")
-    _render_mapper_action(row.isin, row.name, session_id, key_prefix="sync_holding")
+    _render_card(
+        row.isin, row.name, doc, session_id, key_prefix="sync_holding", context="holding"
+    )
 
 
 def _render_details(analysis: SyncAnalysis, log: list[dict[str, object]]) -> None:
@@ -579,9 +577,132 @@ def _render_details(analysis: SyncAnalysis, log: list[dict[str, object]]) -> Non
         st.json(log[-5:])
 
 
-def _render_all_instruments() -> None:
+def build_mapped_dataframe(items: list[tuple[str, IsinMapping]]) -> pd.DataFrame:
+    """The Mapped table. Row order matches ``items`` so a selection index maps back."""
+    records = [
+        {
+            "ISIN": isin,
+            "Name": mapping.name or "—",
+            "Feed": mapping.ticker or "—",
+            "Tax kind": (
+                KIND_LABEL.get(mapping.instrument_kind, mapping.instrument_kind.value)
+                if mapping.instrument_kind is not None
+                else "⚠ unset"
+            ),
+            "Last seen": mapping.last_seen_in_csv,
+        }
+        for isin, mapping in items
+    ]
+    return pd.DataFrame(
+        records, columns=["ISIN", "Name", "Feed", "Tax kind", "Last seen"]
+    )
+
+
+def build_closed_dataframe(items: list[tuple[str, IsinMapping]]) -> pd.DataFrame:
+    """Instruments with no feed and nothing left open — tax history only."""
+    records = [
+        {"ISIN": isin, "Name": mapping.name or "—", "Last seen": mapping.last_seen_in_csv}
+        for isin, mapping in items
+    ]
+    return pd.DataFrame(records, columns=["ISIN", "Name", "Last seen"])
+
+
+def _select_one(df: pd.DataFrame, key: str) -> int | None:
+    event = st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key=key,
+        column_config={"Last seen": st.column_config.DateColumn(format="YYYY-MM-DD")},
+    )
+    rows = cast(Any, event).selection.rows
+    return rows[0] if rows else None
+
+
+def _render_all_instruments(doc: IsinMapDocument, session_id: str | None) -> None:
+    """Everything the ISIN Mappings page offered, on the Sync tab's own terms."""
+    mapped = sorted(
+        ((i, m) for i, m in doc.entries.items() if m.status == "mapped"),
+        key=lambda pair: (pair[1].name or pair[0]).lower(),
+    )
+    ignored = sorted(
+        ((i, m) for i, m in doc.entries.items() if m.status == "ignored"),
+        key=lambda pair: (pair[1].name or pair[0]).lower(),
+    )
+    repo = get_repository()
+    closed = sorted(
+        (
+            (i, m)
+            for i, m in doc.entries.items()
+            if m.status == "unmapped" and open_shares_for_isin(repo, i) <= 0
+        ),
+        key=lambda pair: (pair[1].name or pair[0]).lower(),
+    )
+
     with st.expander("All instruments", expanded=False):
-        st.caption("See ISIN Mappings page.")
+        unclassified = sum(1 for _, m in mapped if m.instrument_kind is None)
+        caption = f"{len(mapped)} with a feed · {len(closed)} closed without one"
+        if ignored:
+            caption += f" · {len(ignored)} valued at last trade price"
+        if unclassified:
+            caption += f" · ⚠ {unclassified} missing a tax kind"
+        col_caption, col_why = st.columns([4, 1.4])
+        col_caption.caption(caption)
+        with col_why:
+            render_explainer(ALL_INSTRUMENTS, key="sync_all_why")
+
+        st.markdown("**Mapped**")
+        if not mapped:
+            st.caption("No instrument has a price feed yet.")
+        else:
+            index = _select_one(
+                build_mapped_dataframe(mapped), "sync_all_mapped_table"
+            )
+            if index is None:
+                st.caption("Select a row to change its feed, tax kind, or remove it.")
+            else:
+                isin, mapping = mapped[index]
+                _render_card(
+                    isin,
+                    mapping.name,
+                    doc,
+                    session_id,
+                    key_prefix="sync_all_mapped",
+                    context="all_instruments",
+                )
+
+        if closed:
+            st.markdown("**Closed, no feed**")
+            st.caption("Nothing open — these only affect your tax history.")
+            index = _select_one(
+                build_closed_dataframe(closed), "sync_all_closed_table"
+            )
+            if index is not None:
+                isin, mapping = closed[index]
+                _render_card(
+                    isin,
+                    mapping.name,
+                    doc,
+                    session_id,
+                    key_prefix="sync_all_closed",
+                    context="all_instruments",
+                )
+
+        if ignored:
+            st.markdown("**Valued at last trade price**")
+            for isin, mapping in ignored:
+                col_name, col_btn = st.columns([5, 1])
+                col_name.write(f"{mapping.name or '—'} · `{isin}`")
+                if col_btn.button("Restore", key=f"sync_restore_{isin}"):
+                    get_isin_map_repo().save(apply_restore(doc, isin))
+                    invalidate_view_caches()
+                    st.session_state[_KEY_FEEDBACK] = (
+                        "success",
+                        f"{mapping.name or isin} will be asked about again.",
+                    )
+                    st.rerun()
 
 
 # ─── page entry point ─────────────────────────────────────────────────────────
@@ -593,6 +714,8 @@ def render() -> None:
     store = get_sync_store()
     doc = get_isin_map_repo().load()
     _render_consistency_banner(doc)
+
+    render_explainer(HOW_THIS_PAGE_WORKS, key="sync_page_why")
 
     uploaded = st.file_uploader(
         "Drop your Scalable Capital CSV export here",
@@ -611,7 +734,7 @@ def render() -> None:
     if analysis is None or applied is None or session_id is None:
         st.caption(last_sync_line(store.read_log()))
         _render_undo_button(store, key="sync_undo_idle")
-        _render_all_instruments()
+        _render_all_instruments(doc, None)
         return
 
     transactions = get_repository().load_all()
@@ -627,7 +750,8 @@ def render() -> None:
     try:
         # Keyed on the book itself: the same book must not re-fetch every close
         # just because this upload inserted a different number of rows.
-        checks = _cached_feed_checks(transactions_signature(transactions))
+        with st.spinner("Checking price feeds against your trades…"):
+            checks = _cached_feed_checks(transactions_signature(transactions))
     except Exception:
         checks = {}
 
@@ -642,13 +766,16 @@ def render() -> None:
         analysis.completeness,
         feed_states,
     )
-    _render_tasks(tasks, analysis, session_id)
+    _render_tasks(tasks, analysis, doc, session_id)
 
     _render_holdings(rows, checks, doc, session_id)
 
     line = cash_line(analysis.plan.rows)
     if line:
-        st.caption(line)
+        col_line, col_why = st.columns([4, 1.2])
+        col_line.caption(line)
+        with col_why:
+            render_explainer(CASH_EVENTS, key="sync_cash_why")
 
     _render_details(analysis, store.read_log())
-    _render_all_instruments()
+    _render_all_instruments(doc, session_id)

@@ -11,13 +11,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
 from app.domain.fifo import SellExceedsOpenSharesError, compute_positions, simulate_lot_consumption
 from app.domain.isin_map import IsinMapDocument
-from app.domain.models import Transaction, TransactionType
+from app.domain.models import Transaction, TransactionSource, TransactionType
 from app.domain.money import Currency, Money
 from app.domain.positions import LivePosition, OpenLot, Position
 from app.domain.realised_gain import RealisedGain
@@ -98,7 +97,7 @@ def _invalid(request: SellSimulationRequest, message: str) -> SellSimulation:
 
 def _source_of(
     position: Position, transactions: Sequence[Transaction]
-) -> Literal["scalable_csv", "manual", "switch", "unknown"]:
+) -> TransactionSource:
     """The source of the buys behind ``position``, for the simulated sell to inherit.
 
     Mixed sources (a hand-entered top-up on a broker-imported holding) fall back

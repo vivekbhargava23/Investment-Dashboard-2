@@ -35,7 +35,14 @@ from app.services.data_admin import (
     erase_transactions,
 )
 from app.services.sell_simulator import SellSimulationRequest
-from app.services.trading import build_transaction, is_broker_row, with_notes
+from app.services.trading import (
+    build_transaction,
+    is_broker_row,
+    is_read_only_row,
+    is_write_off_row,
+    source_label,
+    with_notes,
+)
 from app.services.valuation import clear_caches
 from app.ui.backup import write_portfolio_backup
 from app.ui.format import format_date, format_eur
@@ -619,11 +626,12 @@ def build_transactions_dataframe(txs: list[Transaction]) -> pd.DataFrame:
                 "Date": t.trade_date,
                 "Shares": float(t.shares),
                 "Cost (€)": float(t.cost_eur.amount),
+                "Source": source_label(t),
                 "Notes": t.notes or "",
             }
             for t in txs
         ],
-        columns=["Ticker", "Type", "Date", "Shares", "Cost (€)", "Notes"],
+        columns=["Ticker", "Type", "Date", "Shares", "Cost (€)", "Source", "Notes"],
     )
 
 
@@ -785,7 +793,7 @@ def _render_delete_confirmation(txs: list[Transaction]) -> None:
 # ---------------------------------------------------------------------------
 
 def _render_edit_form(tx: Transaction) -> None:
-    if is_broker_row(tx):
+    if is_read_only_row(tx):
         _render_broker_notes_form(tx)
         return
 
@@ -872,13 +880,19 @@ def _render_edit_form(tx: Transaction) -> None:
 
 
 def _render_broker_notes_form(tx: Transaction) -> None:
-    """Render the notes-only edit surface for Scalable Capital transactions."""
+    """Render the notes-only edit surface for broker and write-off rows."""
     st.subheader(f"Edit Transaction — {tx.ticker}")
-    st.caption(
-        f"Imported from Scalable Capital · {tx.ticker} · {tx.isin or '—'}. "
-        "Ticker, shares and amounts come from the CSV. To change the ticker, "
-        "change the ISIN mapping on the ISIN Mappings page."
-    )
+    if is_write_off_row(tx):
+        st.caption(
+            f"Written off to €0 · {tx.ticker} · {tx.isin or '—'}. Its date and share "
+            "count are the write-off itself; delete this row to reverse it."
+        )
+    else:
+        st.caption(
+            f"Imported from Scalable Capital · {tx.ticker} · {tx.isin or '—'}. "
+            "Ticker, shares and amounts come from the CSV. To change the ticker, "
+            "change the price feed on the Sync tab."
+        )
     st.write(
         f"**{tx.type.value.upper()}** · {format_date(tx.trade_date)} · "
         f"{tx.shares:g} share(s) · {format_eur(tx.cost_eur)}"

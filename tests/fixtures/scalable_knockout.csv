@@ -1,0 +1,5 @@
+date;time;status;reference;description;assetType;type;isin;shares;price;amount;fee;tax;currency
+2025-04-25;02:00:00;Executed;"WWUM 00477772743";"Apple Short 205,25 $ Turbo Open End HSBC";Cash;Corporate action;DE000HT41XN9;;;0,03;0,00;;EUR
+2025-04-25;02:00:00;Executed;"WWUM 00477772743";"Apple Short 205,25 $ Turbo Open End HSBC";Security;Corporate action;DE000HT41XN9;-26;0,001;-0,026;;;EUR
+2025-04-09;21:49:23;Cancelled;"SCALpL8XtgLZMbk";"Apple Short 205,22 $ Turbo Open End HSBC";Security;Sell;DE000HT41XN9;0;0,00;0,00;0,00;0,00;EUR
+2025-04-09;08:15:54;Executed;"SCALDfsS1Q4m7Ta";"Apple Short 205,22 $ Turbo Open End HSBC";Security;Buy;DE000HT41XN9;26;3,00;-78,00;0,99;0,00;EUR

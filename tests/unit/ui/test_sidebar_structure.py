@@ -73,17 +73,21 @@ def test_tools_section_items() -> None:
     assert 'href="/?page=lots"' not in tools_block
     assert 'href="/?page=decision"' not in tools_block
     assert 'href="/?page=behaviour"' not in tools_block
-    assert 'href="/?page=import_workbench"' not in tools_block
 
 
 def test_settings_section_items() -> None:
-    """SETTINGS section contains: manage, import_workbench, mappings."""
+    """SETTINGS section contains exactly: sync, manage.
+
+    The Import CSV workbench and the ISIN Mappings page were retired in
+    TICKET-SYNC-7 — there is one door for broker data now.
+    """
     html = _capture_sidebar_html()
     sett_start = html.index("SETTINGS")
     settings_block = html[sett_start:]
+    assert 'href="/?page=sync"' in settings_block
     assert 'href="/?page=manage"' in settings_block
-    assert 'href="/?page=import_workbench"' in settings_block
-    assert 'href="/?page=mappings"' in settings_block
+    assert 'href="/?page=import_workbench"' not in settings_block
+    assert 'href="/?page=mappings"' not in settings_block
 
 
 def test_active_state_applied_to_correct_item() -> None:
@@ -144,8 +148,8 @@ def test_no_badge_renders_no_nav_badge_span() -> None:
 
 
 def test_nav_items_total_count() -> None:
-    """NAV_ITEMS has 11 entries: 10 previous pages + the Sync page (SYNC-6B)."""
-    assert len(NAV_ITEMS) == 11
+    """NAV_ITEMS has 9 entries after SYNC-7 retired Import CSV and ISIN Mappings."""
+    assert len(NAV_ITEMS) == 9
 
 
 def test_sections_cover_all_items() -> None:

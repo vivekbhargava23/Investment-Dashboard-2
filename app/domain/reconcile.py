@@ -7,7 +7,12 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
 
-from app.domain.csv_import import PlannedRow, RowStatus
+from app.domain.csv_import import (
+    CORPORATE_ACTION_TYPE,
+    SECURITY_ASSET_TYPE,
+    PlannedRow,
+    RowStatus,
+)
 from app.domain.models import Transaction, TransactionType
 
 MATCH_TOLERANCE = Decimal("0.000001")
@@ -16,6 +21,10 @@ MATCH_TOLERANCE = Decimal("0.000001")
 _ADD_TYPES = frozenset({"Buy", "Savings plan"})
 _SUB_TYPES = frozenset({"Sell"})
 _TRANSFER_TYPE = "Security transfer"
+
+# A holding written down to zero by hand. The broker file will never mention it,
+# so it is subtracted from the CSV side to keep the two sides comparable.
+_WRITE_OFF_SOURCE = "write_off"
 
 
 class ReconcileRow(BaseModel):
@@ -39,16 +48,37 @@ def _isin_universe(
     return isins
 
 
+def _is_corporate_action_security_leg(row: PlannedRow) -> bool:
+    """The leg of a corporate action that moves shares (the Cash leg does not)."""
+    return (
+        row.csv_type == CORPORATE_ACTION_TYPE
+        and row.asset_type == SECURITY_ASSET_TYPE
+        and row.shares is not None
+    )
+
+
 def _shares_csv(rows: Sequence[PlannedRow]) -> Decimal:
     total = Decimal("0")
     for row in rows:
         if row.status == RowStatus.CANCELLED_OR_EXPIRED or row.shares is None:
             continue
-        if row.csv_type in _ADD_TYPES or row.csv_type == _TRANSFER_TYPE:
+        if _is_corporate_action_security_leg(row):
+            # Signed in the file, like a security transfer: a knock-out books a
+            # negative share count and takes the position to zero.
+            total += row.shares
+        elif row.csv_type in _ADD_TYPES or row.csv_type == _TRANSFER_TYPE:
             total += row.shares
         elif row.csv_type in _SUB_TYPES:
             total -= row.shares
     return total
+
+
+def _write_off_shares(transactions: Sequence[Transaction]) -> Decimal:
+    """Shares written off by hand for this ISIN (always sells, always positive)."""
+    return sum(
+        (tx.shares for tx in transactions if tx.source == _WRITE_OFF_SOURCE),
+        Decimal("0"),
+    )
 
 
 def _shares_book(transactions: Sequence[Transaction]) -> Decimal:
@@ -76,6 +106,7 @@ def _name(rows: Sequence[PlannedRow]) -> str:
 
     Cash rows carry the payout's description ("Dividend SAP SE"), so naming a
     holding after the latest row of any kind renames it every time it pays.
+    Corporate actions are excluded for the same reason.
     """
     trades = [r for r in rows if r.csv_type in _ADD_TYPES | _SUB_TYPES | {_TRANSFER_TYPE}]
     candidates = trades or list(rows)
@@ -84,6 +115,11 @@ def _name(rows: Sequence[PlannedRow]) -> str:
 
 
 def _last_trade_price_eur(rows: Sequence[PlannedRow]) -> Decimal | None:
+    """The price of the latest real trade — never a corporate action.
+
+    A knock-out settles at €0,001; valuing the rest of a holding at that price
+    would wipe it off the screen rather than value it.
+    """
     candidates = [
         row
         for row in rows
@@ -127,16 +163,6 @@ def _cause(
         if tx.id in references and tx.source != "scalable_csv":
             return "edited manually on the Manage page"
 
-    # 6. corporate actions are never imported.
-    corporate_actions = [
-        r
-        for r in rows
-        if r.csv_type == "Corporate action" and r.status != RowStatus.CANCELLED_OR_EXPIRED
-    ]
-    if corporate_actions:
-        latest = max(corporate_actions, key=lambda r: (r.trade_date, r.row_number))
-        return f"corporate action on {latest.trade_date.isoformat()} — not imported"
-
     # 7. a manual transaction for the same instrument, under the ticker the CSV uses.
     mapped_ticker = next(
         (tx.ticker for tx in transactions if tx.source == "scalable_csv" and tx.isin == isin),
@@ -149,6 +175,8 @@ def _cause(
         manual_matches = [
             tx for tx in transactions if tx.source == "manual" and tx.ticker == mapped_ticker
         ]
+        # A write-off is a manual entry the CSV side already accounts for, so it
+        # is never the explanation for a difference.
         if manual_matches:
             manual_shares = manual_matches[0].shares
             return (
@@ -193,7 +221,7 @@ def reconcile(
         isin_rows = rows_by_isin.get(isin, [])
         isin_txs = tx_by_isin.get(isin, [])
 
-        shares_csv = _shares_csv(isin_rows)
+        shares_csv = _shares_csv(isin_rows) - _write_off_shares(isin_txs)
         shares_book = _shares_book(isin_txs)
         diff = shares_csv - shares_book
         matches = abs(diff) < MATCH_TOLERANCE

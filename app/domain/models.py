@@ -11,6 +11,12 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from app.domain.money import Currency, Money
 from app.domain.tickers import UnsupportedTickerError, infer_currency_from_ticker
 
+# Where a transaction came from. "write_off" marks a holding the broker never
+# closed, written down to €0 by hand.
+TransactionSource = Literal[
+    "scalable_csv", "manual", "switch", "unknown", "write_off"
+]
+
 
 class TransactionType(StrEnum):
     BUY = "buy"
@@ -31,7 +37,9 @@ class Transaction(BaseModel):
     notes: str | None = None
     isin: str | None = None
     csv_reference: str | None = None
-    source: Literal["scalable_csv", "manual", "switch", "unknown"] = "manual"
+    # Like every non-manual source, a write-off is EUR-native and carries no
+    # ticker currency inference (ADR-005): there is no ticker to infer from.
+    source: TransactionSource = "manual"
 
     @field_validator("ticker")
     @classmethod

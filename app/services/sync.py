@@ -17,7 +17,12 @@ from decimal import Decimal
 from typing import Literal
 from uuid import uuid4
 
-from app.domain.csv_import import ImportPlan, PlannedRow, RowStatus
+from app.domain.csv_import import (
+    CORPORATE_ACTION_TYPE,
+    ImportPlan,
+    PlannedRow,
+    RowStatus,
+)
 from app.domain.isin_map import IsinMapDocument
 from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
@@ -29,11 +34,13 @@ from app.ports.isin_map import IsinMapRepository
 from app.ports.repository import TransactionRepository
 from app.ports.sync_store import SyncStore
 from app.ports.ticker_resolver import TickerResolver
+from app.services.isin_admin import apply_ignore, apply_kind, open_shares_for_isin
 from app.services.isin_autoresolve import AutoResolveResult, autoresolve_isin
 from app.services.isin_remap import (
     change_feed,
     mapped_owner_of_ticker,
     record_seen_isins,
+    repair,
 )
 
 EVENT_SESSION_START = "session_start"
@@ -41,6 +48,10 @@ EVENT_AUTO_RESOLVE = "auto_resolve"
 EVENT_APPLY = "apply"
 EVENT_CONFLICT = "conflict_resolved"
 EVENT_FEED_CHANGE = "feed_change"
+EVENT_IGNORE = "ignore"
+EVENT_KIND = "kind_change"
+EVENT_REPAIR = "repair"
+EVENT_WRITE_OFF = "write_off"
 EVENT_UNDO = "undo"
 
 
@@ -263,10 +274,17 @@ def build_transaction(row: PlannedRow) -> Transaction | None:
     if row.proposed_ticker is None or row.shares is None or row.price is None:
         return None
 
-    tx_type = TransactionType.SELL if row.csv_type == "Sell" else TransactionType.BUY
+    # The planner decides the direction: a corporate action carries it in the sign
+    # of its share count, not in its CSV type.
+    proposed = row.proposed_type or ("sell" if row.csv_type == "Sell" else "buy")
+    tx_type = TransactionType.SELL if proposed == "sell" else TransactionType.BUY
 
-    notes_parts = [row.description]
-    if row.csv_type == "Sell" and row.tax is not None and row.tax != Decimal("0"):
+    notes_parts = [
+        f"corporate action: {row.description}"
+        if row.csv_type == CORPORATE_ACTION_TYPE
+        else row.description
+    ]
+    if proposed == "sell" and row.tax is not None and row.tax != Decimal("0"):
         notes_parts.append(f"tax_withheld_eur={row.tax}")
     notes = "; ".join(notes_parts) or None
 
@@ -279,7 +297,9 @@ def build_transaction(row: PlannedRow) -> Transaction | None:
         type=tx_type,
         ticker=row.proposed_ticker,
         trade_date=row.trade_date,
-        shares=row.shares,
+        # A corporate action's share count is signed in the file; a transaction
+        # always holds a positive quantity and says its direction in ``type``.
+        shares=abs(row.shares),
         price_native=Money(amount=row.price, currency=Currency.EUR),
         fees_native=fees_native,
         fx_rate_eur=Decimal("1"),
@@ -397,6 +417,141 @@ def change_feed_in_session(
     )
     return rewritten
 
+
+
+def ignore_in_session(
+    isin: str,
+    name: str,
+    session_id: str,
+    isin_repo: IsinMapRepository,
+    store: SyncStore,
+) -> None:
+    """Value ``isin`` at its last trade price and stop asking, inside the session.
+
+    The write itself is the same one the idle state makes; logging it under the
+    open session is what keeps "Undo last sync" available, because undo compares
+    the files against the md5s of the session's *latest* entry.
+    """
+    isin_repo.save(apply_ignore(isin_repo.load(), isin, name))
+    _log(store, session_id, EVENT_IGNORE, isin=isin, name=name)
+
+
+def set_kind_in_session(
+    isin: str,
+    kind: InstrumentKind,
+    session_id: str,
+    isin_repo: IsinMapRepository,
+    store: SyncStore,
+    *,
+    name: str = "",
+) -> None:
+    """Set the tax kind for ``isin`` inside the session. The feed is untouched."""
+    isin_repo.save(apply_kind(isin_repo.load(), isin, kind, name=name))
+    _log(store, session_id, EVENT_KIND, isin=isin, kind=kind.value)
+
+
+def repair_in_session(
+    session_id: str,
+    isin_repo: IsinMapRepository,
+    tx_repo: TransactionRepository,
+    store: SyncStore,
+) -> int:
+    """Re-run the mapping rewrite inside the session. Returns rows changed."""
+    changed = repair(isin_repo.load(), tx_repo)
+    _log(store, session_id, EVENT_REPAIR, changed=changed)
+    return changed
+
+
+class WriteOffNotPossible(Exception):
+    """Raised when a write-off would take a holding below zero shares."""
+
+
+def _ticker_for(isin: str, isin_repo: IsinMapRepository) -> str:
+    """The ticker a write-off trades under: the ISIN's feed, else the ISIN itself.
+
+    Same rule as an imported trade (ADR-014 rule 2), so the row lands on the same
+    FIFO position the buys did rather than opening a second one.
+    """
+    mapping = isin_repo.load().entries.get(isin)
+    if mapping is not None and mapping.status == "mapped" and mapping.ticker:
+        return mapping.ticker
+    return isin.upper()
+
+
+def build_write_off(
+    isin: str,
+    name: str,
+    shares: Decimal,
+    on_date: date,
+    isin_repo: IsinMapRepository,
+    tx_repo: TransactionRepository,
+) -> Transaction:
+    """The €0 sell that closes a holding the broker never closed.
+
+    Refuses to write off more than is open: a write-off is an admission that the
+    shares are gone, not a way to go short.
+    """
+    if shares <= Decimal("0"):
+        raise WriteOffNotPossible("Write off a positive number of shares.")
+    open_shares = open_shares_for_isin(tx_repo, isin)
+    if shares > open_shares:
+        raise WriteOffNotPossible(
+            f"Only {open_shares.normalize():f} share(s) of {name or isin} are open; "
+            f"{shares.normalize():f} cannot be written off."
+        )
+
+    return Transaction(
+        id=f"writeoff-{isin}-{on_date.isoformat()}",
+        type=TransactionType.SELL,
+        ticker=_ticker_for(isin, isin_repo),
+        trade_date=on_date,
+        shares=shares,
+        price_native=Money(amount=Decimal("0"), currency=Currency.EUR),
+        fees_native=None,
+        fx_rate_eur=Decimal("1"),
+        notes=f"write-off: {name or isin}",
+        isin=isin,
+        csv_reference=None,
+        source="write_off",
+    )
+
+
+def write_off(
+    isin: str,
+    name: str,
+    shares: Decimal,
+    on_date: date,
+    isin_repo: IsinMapRepository,
+    tx_repo: TransactionRepository,
+) -> Transaction:
+    """Write a holding down to €0, keeping its history. No session open."""
+    tx = build_write_off(isin, name, shares, on_date, isin_repo, tx_repo)
+    tx_repo.save_all([*tx_repo.load_all(), tx])
+    return tx
+
+
+def write_off_in_session(
+    isin: str,
+    name: str,
+    shares: Decimal,
+    on_date: date,
+    session_id: str,
+    tx_repo: TransactionRepository,
+    isin_repo: IsinMapRepository,
+    store: SyncStore,
+) -> Transaction:
+    """Write a holding down to €0 inside the open session, so undo can take it back."""
+    tx = build_write_off(isin, name, shares, on_date, isin_repo, tx_repo)
+    tx_repo.save_all([*tx_repo.load_all(), tx])
+    _log(
+        store,
+        session_id,
+        EVENT_WRITE_OFF,
+        isin=isin,
+        shares=str(shares),
+        on_date=on_date.isoformat(),
+    )
+    return tx
 
 # ─── undo ─────────────────────────────────────────────────────────────────────
 

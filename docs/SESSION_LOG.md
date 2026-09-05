@@ -44,6 +44,97 @@ When this file exceeds ~500 lines, archive everything older than 30 days into `d
 
 ## Active log
 
+## 2026-09-05 — TICKET-SYNC-7 (close the loop on the Sync tab)
+**Surface:** Claude Code
+**Model:** opus-5
+**Duration:** ~3 hr
+**Branch:** ticket-sync-7-close-the-loop-on-the
+**PR:** (opened at session end)
+**Status at session end:** IN_REVIEW
+
+### What got done
+Nine steps, one commit each, in the ticket's order.
+
+- **Corporate actions import.** Scalable books a knock-out as two legs sharing one
+  reference. Neither was imported, so DE000HT41XN9 kept 26 phantom shares at €78 of
+  last-trade value — and reconcile agreed, because it skipped the row on the CSV side
+  too. The Security leg is now a trade (negative shares → sell, at the row's price);
+  the Cash leg shows on the cash line as "corporate actions". Cause rule 6 is gone.
+- **Every write while a file is open belongs to the session.** Ignore and Repair wrote
+  outside the sync log, so the first click greyed out Undo. `ignore_in_session`,
+  `set_kind_in_session`, `repair_in_session` and `write_off_in_session` log under the
+  open session; with no file open the plain write is used and undo is correctly
+  disabled by the md5 guard, which is unchanged.
+- **One instrument card.** `app/ui/components/instrument_card.py` replaces the mapper
+  row: feed, tax kind, write-off and remove, each writing on its own. Only Save feed
+  needs a ticker match. A holding with no feed can be given a tax kind — the defect
+  that took the Tax Dashboard down had to be fixed by migration last time.
+- **Write-off.** `Transaction.source` gains `write_off`: a €0 sell that keeps the
+  history and the realised loss. Reconcile subtracts it from the CSV side; Manage
+  renders it read-only except Notes but leaves it deletable, which is how it is
+  reversed, and the transactions table gained a Source column.
+- **All instruments** replaces the Mappings page (Mapped / Closed-no-feed / Valued at
+  last trade price + Restore), and the page helpers moved to
+  `app/services/isin_admin.py` where the sync service can use them too.
+- **The old doors are gone**: `import_workbench.py`, `mappings.py`, `isin_mapper.py`,
+  their tests, both nav entries, and the dead `UNMAPPED_ISIN` / `IGNORED_ISIN` statuses.
+- **In-app explainers** (Vivek asked for these mid-session, in this PR). Every control
+  on the Sync tab carries a collapsed popover answering three questions: what it is,
+  when to use it, what it does not do. `app/ui/components/explainers.py` holds the copy
+  as data so it is written once and can be tested; the tests check structure, not
+  wording — every task kind has one, every task explainer names an action, none points
+  at a deleted page, and Write off and Remove each reference the other.
+
+### Files touched
+- `app/adapters/scalable_csv/planner.py`, `app/domain/csv_import.py`,
+  `app/domain/reconcile.py`, `app/domain/models.py` — corporate actions, write-off source
+- `app/services/sync.py`, `app/services/isin_admin.py` (new), `app/services/trading.py`
+- `app/ui/components/instrument_card.py` (new), `app/ui/components/explainers.py` (new),
+  `app/ui/pages/sync.py`,
+  `app/ui/pages/manage.py`, `app/ui/backup.py`, sidebar/topbar
+- deleted: `app/ui/pages/import_workbench.py`, `app/ui/pages/mappings.py`,
+  `app/ui/components/isin_mapper.py` and their tests
+- `docs/DESIGN/SYNC-TAB.md`, `docs/ARCHITECTURE.md`, `README.md`, ADR-014 (Accepted),
+  `docs/screenshots/ticket-sync-7/`, `docs/screenshots/_archive/`
+- `tests/fixtures/scalable_knockout.csv` — the real knock-out pair, verbatim
+
+### Tests
+1264 → 1251 passing. 55 tests went with the two retired pages' test files
+(`test_import_workbench.py`, `test_mappings_page.py`), 2 obsolete assertions were
+dropped (cause rule 6, the dead RowStatus values) and 44 new ones were added —
+corporate actions, session-scoped writes, write-off, the instrument card,
+`isin_admin`, the All-instruments tables. Gate clean.
+
+### Decisions made during the session
+- **The planned row keeps the file's share sign.** The ticket said to store the
+  absolute value with the direction in `proposed_type`. Implemented that way first, and
+  the real export caught two failures within minutes: an outbound Security-transfer leg
+  counted as inbound (13 holdings "differed" that had matched 39/39 before), and an
+  already-imported corporate action carried no direction at all, so a re-upload added
+  the knock-out instead of subtracting it. The sign now stays on the row and
+  `build_transaction` takes `abs()` — which is the only place a positive quantity was
+  ever needed.
+- **"Ignore" drops the map ticker but does not rewrite transactions**, exactly as the
+  old button did. A previously-mapped holding therefore still trades under its old
+  feed ticker after "Use last trade price". Unchanged behaviour, flagged in the PR
+  rather than fixed here.
+- The tax-kind selectbox never pre-selects a yfinance suggestion. It saves on change,
+  so a pre-selected guess would save itself; the suggestion is a caption instead.
+
+### Out-of-scope items noticed
+- The three 21shares crypto ETPs (`CH0491507486`, `CH1109575535`, `CH1129538448`) have
+  no tax kind in the real `isin_map.json`, and one of them takes the whole Tax
+  Dashboard down with `InstrumentClassificationError`. This ticket is what makes them
+  fixable from the UI (All instruments → pick a kind); **Vivek should set them**. They
+  were classified `SONSTIGE` in the sandbox only, to get past the error.
+- Streamlit paints `st.dataframe` to a canvas, so headless Playwright cannot select a
+  row in it. Row-selection paths are covered by unit tests on the dataframe builders.
+- Still open from SYNC-6B: pandas 3 renders empty numeric cells as "None"; no guard
+  against committing a sandbox-generated `data/isin_map.json`.
+
+### Tokens used (rough)
+~180k
+
 ## 2026-09-04 — TICKET-SYNC-6B (follow-up: unbreak the app after the real import)
 **Surface:** Claude Code
 **Model:** opus-5

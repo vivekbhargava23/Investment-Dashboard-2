@@ -5,6 +5,7 @@ import json
 from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -16,14 +17,22 @@ from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.domain.tax.classification import InstrumentKind
 from app.ports.ticker_resolver import TickerMatch
+from app.services.isin_admin import apply_ignore
 from app.services.sync import (
     UndoNotPossible,
+    WriteOffNotPossible,
     analyse,
     apply_safe,
+    build_transaction,
     change_feed_in_session,
+    ignore_in_session,
+    repair_in_session,
     resolve_conflict,
+    set_kind_in_session,
     start_session,
     undo_last,
+    write_off,
+    write_off_in_session,
 )
 from tests.fakes.repository import FakeTransactionRepository
 from tests.fakes.sync_store import FakeSyncStore
@@ -511,3 +520,257 @@ def test_plan_is_an_import_plan() -> None:
         _rows(_buy("ref-1")), session, store, tx_repo, isin_repo, resolver, company
     )
     assert isinstance(analysis.plan, ImportPlan)
+
+
+# ─── corporate actions (TICKET-SYNC-7) ────────────────────────────────────────
+
+_KNOCKOUT_FIXTURE = (
+    Path(__file__).resolve().parents[2] / "fixtures" / "scalable_knockout.csv"
+)
+
+
+def test_build_transaction_turns_a_knock_out_into_a_sell() -> None:
+    from app.adapters.scalable_csv.parser import parse_csv
+
+    plan = plan_import(parse_csv(_KNOCKOUT_FIXTURE), [], IsinMapDocument())
+    leg = next(
+        r for r in plan.rows
+        if r.csv_type == "Corporate action" and r.asset_type == "Security"
+    )
+
+    tx = build_transaction(leg)
+
+    assert tx is not None
+    assert tx.type == TransactionType.SELL
+    assert tx.shares == Decimal("26")
+    assert tx.price_native == Money(amount=Decimal("0.001"), currency=Currency.EUR)
+    assert tx.isin == "DE000HT41XN9"
+    assert tx.source == "scalable_csv"
+    assert tx.notes is not None
+    assert tx.notes.startswith("corporate action: Apple Short")
+
+
+def test_the_knock_out_pair_imports_exactly_one_transaction() -> None:
+    from app.adapters.scalable_csv.parser import parse_csv
+
+    plan = plan_import(parse_csv(_KNOCKOUT_FIXTURE), [], IsinMapDocument())
+    txs = [tx for tx in (build_transaction(r) for r in plan.rows) if tx is not None]
+
+    corporate = [t for t in txs if (t.notes or "").startswith("corporate action")]
+    assert len(corporate) == 1
+    # Both legs share one Scalable reference; only one becomes a transaction, so
+    # the book never writes two rows under one identity.
+    assert len({t.id for t in txs}) == len(txs)
+
+
+# ─── every write while a file is open belongs to the session (TICKET-SYNC-7) ──
+
+def _undo_still_possible(store: FakeSyncStore) -> bool:
+    """The exact condition the Undo button and :func:`undo_last` both apply."""
+    last = store.log[-1]
+    return store.current_md5s() == (
+        last["portfolio_md5_after"],
+        last["isin_map_md5_after"],
+    )
+
+
+def _open_session_with_one_import() -> tuple[Any, Any, Any, str, bytes, bytes]:
+    store, tx_repo, isin_repo, resolver, company = _setup(_mapped_doc())
+    portfolio_before = store.portfolio_bytes
+    isin_map_before = store.isin_map_bytes
+    session = start_session("export.csv", "md5-1", store)
+    apply_safe(
+        _analyse(_rows(_buy("ref-1")), session, store, tx_repo, isin_repo, resolver, company),
+        session,
+        tx_repo,
+        store,
+    )
+    return store, tx_repo, isin_repo, session, portfolio_before, isin_map_before
+
+
+def test_ignore_in_session_keeps_undo_possible_and_undo_restores_both_files() -> None:
+    store, tx_repo, isin_repo, session, portfolio_before, isin_map_before = (
+        _open_session_with_one_import()
+    )
+
+    ignore_in_session(ISIN, "SAP SE", session, isin_repo, store)
+
+    assert isin_repo.load().entries[ISIN].status == "ignored"
+    assert store.events()[-1] == "ignore"
+    assert _undo_still_possible(store)
+
+    undo_last(store)
+
+    assert store.portfolio_bytes == portfolio_before
+    assert store.isin_map_bytes == isin_map_before
+
+
+def test_set_kind_in_session_keeps_undo_possible() -> None:
+    store, tx_repo, isin_repo, session, portfolio_before, isin_map_before = (
+        _open_session_with_one_import()
+    )
+
+    set_kind_in_session(ISIN, InstrumentKind.SONSTIGE, session, isin_repo, store)
+
+    entry = isin_repo.load().entries[ISIN]
+    assert entry.instrument_kind == InstrumentKind.SONSTIGE
+    assert entry.ticker == "SAP.DE"  # the feed is untouched
+    assert store.events()[-1] == "kind_change"
+    assert _undo_still_possible(store)
+
+    undo_last(store)
+
+    assert store.portfolio_bytes == portfolio_before
+    assert store.isin_map_bytes == isin_map_before
+
+
+def test_a_tax_kind_can_be_set_on_a_holding_with_no_feed() -> None:
+    store, tx_repo, isin_repo, resolver, company = _setup()
+    session = start_session("export.csv", "md5-1", store)
+
+    set_kind_in_session(
+        "DE000HT41XN9", InstrumentKind.SONSTIGE, session, isin_repo, store, name="Turbo"
+    )
+
+    entry = isin_repo.load().entries["DE000HT41XN9"]
+    assert entry.instrument_kind == InstrumentKind.SONSTIGE
+    assert entry.ticker is None
+    assert entry.name == "Turbo"
+
+
+def test_repair_in_session_keeps_undo_possible() -> None:
+    store, tx_repo, isin_repo, session, portfolio_before, isin_map_before = (
+        _open_session_with_one_import()
+    )
+    # Bypass the mapping write path, exactly the state Repair exists to fix.
+    tx_repo.save_all(
+        [tx.model_copy(update={"ticker": "SAP.F"}) for tx in tx_repo.load_all()]
+    )
+
+    changed = repair_in_session(session, isin_repo, tx_repo, store)
+
+    assert changed == 1
+    assert [tx.ticker for tx in tx_repo.load_all()] == ["SAP.DE"]
+    assert store.events()[-1] == "repair"
+    assert _undo_still_possible(store)
+
+    undo_last(store)
+
+    assert store.portfolio_bytes == portfolio_before
+    assert store.isin_map_bytes == isin_map_before
+
+
+def test_an_unlogged_write_still_blocks_undo() -> None:
+    """The md5 guard is not weakened: a write outside the session still stops undo."""
+    store, tx_repo, isin_repo, session, _, _ = _open_session_with_one_import()
+
+    isin_repo.save(apply_ignore(isin_repo.load(), ISIN, "SAP SE"))
+
+    assert not _undo_still_possible(store)
+    with pytest.raises(UndoNotPossible):
+        undo_last(store)
+
+
+# ─── write-off (TICKET-SYNC-7) ────────────────────────────────────────────────
+
+_TURBO = "DE000HT41XN9"
+
+
+def _held(shares: str = "26") -> Transaction:
+    return Transaction(
+        id="buy-1",
+        type=TransactionType.BUY,
+        ticker=_TURBO,
+        trade_date=date(2025, 4, 9),
+        shares=Decimal(shares),
+        price_native=Money(amount=Decimal("3"), currency=Currency.EUR),
+        fx_rate_eur=Decimal("1"),
+        isin=_TURBO,
+        source="scalable_csv",
+    )
+
+
+def test_write_off_records_a_zero_euro_sell_that_keeps_the_history() -> None:
+    store, tx_repo, isin_repo, _, _ = _setup(txs=[_held()])
+
+    tx = write_off(
+        _TURBO, "Apple turbo", Decimal("26"), date(2026, 3, 1), isin_repo, tx_repo
+    )
+
+    assert tx.type == TransactionType.SELL
+    assert tx.shares == Decimal("26")
+    assert tx.price_native.amount == Decimal("0")
+    assert tx.fx_rate_eur == Decimal("1")
+    assert tx.fees_native is None
+    assert tx.csv_reference is None
+    assert tx.source == "write_off"
+    assert tx.isin == _TURBO
+    assert tx.ticker == _TURBO
+    assert tx.notes == "write-off: Apple turbo"
+    assert tx.id == f"writeoff-{_TURBO}-2026-03-01"
+    # The buy is still there: a write-off never deletes history.
+    assert len(tx_repo.load_all()) == 2
+
+
+def test_write_off_trades_under_the_mapped_feed_when_there_is_one() -> None:
+    doc = IsinMapDocument(
+        entries={
+            _TURBO: IsinMapping(
+                ticker="AMD", name="Apple turbo", status="mapped",
+                instrument_kind=InstrumentKind.SONSTIGE,
+            )
+        }
+    )
+    store, tx_repo, isin_repo, _, _ = _setup(doc, txs=[_held()])
+
+    tx = write_off(
+        _TURBO, "Apple turbo", Decimal("26"), date(2026, 3, 1), isin_repo, tx_repo
+    )
+
+    assert tx.ticker == "AMD"
+
+
+def test_write_off_refuses_more_shares_than_are_open() -> None:
+    store, tx_repo, isin_repo, _, _ = _setup(txs=[_held()])
+
+    with pytest.raises(WriteOffNotPossible, match="26"):
+        write_off(
+            _TURBO, "Apple turbo", Decimal("27"), date(2026, 3, 1), isin_repo, tx_repo
+        )
+
+    assert len(tx_repo.load_all()) == 1
+
+
+def test_write_off_refuses_a_non_positive_share_count() -> None:
+    store, tx_repo, isin_repo, _, _ = _setup(txs=[_held()])
+
+    with pytest.raises(WriteOffNotPossible):
+        write_off(
+            _TURBO, "Apple turbo", Decimal("0"), date(2026, 3, 1), isin_repo, tx_repo
+        )
+
+
+def test_write_off_in_session_keeps_undo_possible_and_undo_takes_it_back() -> None:
+    store, tx_repo, isin_repo, resolver, company = _setup(txs=[_held()])
+    portfolio_before = store.portfolio_bytes
+    isin_map_before = store.isin_map_bytes
+    session = start_session("export.csv", "md5-1", store)
+
+    write_off_in_session(
+        _TURBO,
+        "Apple turbo",
+        Decimal("26"),
+        date(2026, 3, 1),
+        session,
+        tx_repo,
+        isin_repo,
+        store,
+    )
+
+    assert store.events()[-1] == "write_off"
+    assert _undo_still_possible(store)
+
+    undo_last(store)
+
+    assert store.portfolio_bytes == portfolio_before
+    assert store.isin_map_bytes == isin_map_before

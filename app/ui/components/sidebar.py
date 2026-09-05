@@ -18,14 +18,12 @@ NAV_ITEMS: list[dict[str, Any]] = [
     # SETTINGS
     {"id": "sync",             "label": "Sync with Scalable", "icon": "⇅", "badge": None},
     {"id": "manage",           "label": "Manage Portfolio", "icon": "⚙",  "badge": None},
-    {"id": "import_workbench", "label": "Import CSV",       "icon": "📥", "badge": None},
-    {"id": "mappings",         "label": "ISIN Mappings",    "icon": "⇄",  "badge": None},
 ]
 
 _SECTIONS: list[tuple[str, int, int]] = [
     ("PORTFOLIO", 0, 6),
     ("TOOLS",     6, 7),
-    ("SETTINGS",  7, 11),
+    ("SETTINGS",  7, 9),
 ]
 
 
