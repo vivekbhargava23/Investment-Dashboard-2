@@ -23,11 +23,12 @@ from app.domain.csv_import import (
 )
 from app.domain.feed_check import FeedCheck
 from app.domain.fifo import SellExceedsOpenSharesError, compute_positions
-from app.domain.isin_map import IsinMapDocument
+from app.domain.isin_map import IsinMapDocument, IsinMapping
 from app.domain.models import Transaction
 from app.domain.reconcile import ReconcileRow
 from app.domain.sync_tasks import SyncTask, build_tasks
 from app.services.feed_check import check_feeds
+from app.services.isin_admin import apply_restore, open_shares_for_isin
 from app.services.isin_remap import (
     check_consistency,
     repair,
@@ -558,9 +559,129 @@ def _render_details(analysis: SyncAnalysis, log: list[dict[str, object]]) -> Non
         st.json(log[-5:])
 
 
-def _render_all_instruments() -> None:
+def build_mapped_dataframe(items: list[tuple[str, IsinMapping]]) -> pd.DataFrame:
+    """The Mapped table. Row order matches ``items`` so a selection index maps back."""
+    records = [
+        {
+            "ISIN": isin,
+            "Name": mapping.name or "—",
+            "Feed": mapping.ticker or "—",
+            "Tax kind": (
+                KIND_LABEL.get(mapping.instrument_kind, mapping.instrument_kind.value)
+                if mapping.instrument_kind is not None
+                else "⚠ unset"
+            ),
+            "Last seen": mapping.last_seen_in_csv,
+        }
+        for isin, mapping in items
+    ]
+    return pd.DataFrame(
+        records, columns=["ISIN", "Name", "Feed", "Tax kind", "Last seen"]
+    )
+
+
+def build_closed_dataframe(items: list[tuple[str, IsinMapping]]) -> pd.DataFrame:
+    """Instruments with no feed and nothing left open — tax history only."""
+    records = [
+        {"ISIN": isin, "Name": mapping.name or "—", "Last seen": mapping.last_seen_in_csv}
+        for isin, mapping in items
+    ]
+    return pd.DataFrame(records, columns=["ISIN", "Name", "Last seen"])
+
+
+def _select_one(df: pd.DataFrame, key: str) -> int | None:
+    event = st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key=key,
+        column_config={"Last seen": st.column_config.DateColumn(format="YYYY-MM-DD")},
+    )
+    rows = cast(Any, event).selection.rows
+    return rows[0] if rows else None
+
+
+def _render_all_instruments(doc: IsinMapDocument, session_id: str | None) -> None:
+    """Everything the ISIN Mappings page offered, on the Sync tab's own terms."""
+    mapped = sorted(
+        ((i, m) for i, m in doc.entries.items() if m.status == "mapped"),
+        key=lambda pair: (pair[1].name or pair[0]).lower(),
+    )
+    ignored = sorted(
+        ((i, m) for i, m in doc.entries.items() if m.status == "ignored"),
+        key=lambda pair: (pair[1].name or pair[0]).lower(),
+    )
+    repo = get_repository()
+    closed = sorted(
+        (
+            (i, m)
+            for i, m in doc.entries.items()
+            if m.status == "unmapped" and open_shares_for_isin(repo, i) <= 0
+        ),
+        key=lambda pair: (pair[1].name or pair[0]).lower(),
+    )
+
     with st.expander("All instruments", expanded=False):
-        st.caption("See ISIN Mappings page.")
+        unclassified = sum(1 for _, m in mapped if m.instrument_kind is None)
+        caption = f"{len(mapped)} with a feed · {len(closed)} closed without one"
+        if ignored:
+            caption += f" · {len(ignored)} valued at last trade price"
+        if unclassified:
+            caption += f" · ⚠ {unclassified} missing a tax kind"
+        st.caption(caption)
+
+        st.markdown("**Mapped**")
+        if not mapped:
+            st.caption("No instrument has a price feed yet.")
+        else:
+            index = _select_one(
+                build_mapped_dataframe(mapped), "sync_all_mapped_table"
+            )
+            if index is None:
+                st.caption("Select a row to change its feed, tax kind, or remove it.")
+            else:
+                isin, mapping = mapped[index]
+                _render_card(
+                    isin,
+                    mapping.name,
+                    doc,
+                    session_id,
+                    key_prefix="sync_all_mapped",
+                    context="all_instruments",
+                )
+
+        if closed:
+            st.markdown("**Closed, no feed**")
+            st.caption("Nothing open — these only affect your tax history.")
+            index = _select_one(
+                build_closed_dataframe(closed), "sync_all_closed_table"
+            )
+            if index is not None:
+                isin, mapping = closed[index]
+                _render_card(
+                    isin,
+                    mapping.name,
+                    doc,
+                    session_id,
+                    key_prefix="sync_all_closed",
+                    context="all_instruments",
+                )
+
+        if ignored:
+            st.markdown("**Valued at last trade price**")
+            for isin, mapping in ignored:
+                col_name, col_btn = st.columns([5, 1])
+                col_name.write(f"{mapping.name or '—'} · `{isin}`")
+                if col_btn.button("Restore", key=f"sync_restore_{isin}"):
+                    get_isin_map_repo().save(apply_restore(doc, isin))
+                    invalidate_view_caches()
+                    st.session_state[_KEY_FEEDBACK] = (
+                        "success",
+                        f"{mapping.name or isin} will be asked about again.",
+                    )
+                    st.rerun()
 
 
 # ─── page entry point ─────────────────────────────────────────────────────────
@@ -590,7 +711,7 @@ def render() -> None:
     if analysis is None or applied is None or session_id is None:
         st.caption(last_sync_line(store.read_log()))
         _render_undo_button(store, key="sync_undo_idle")
-        _render_all_instruments()
+        _render_all_instruments(doc, None)
         return
 
     transactions = get_repository().load_all()
@@ -631,4 +752,4 @@ def render() -> None:
         st.caption(line)
 
     _render_details(analysis, store.read_log())
-    _render_all_instruments()
+    _render_all_instruments(doc, session_id)

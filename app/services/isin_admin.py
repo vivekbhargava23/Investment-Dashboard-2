@@ -11,6 +11,7 @@ write made while a file is open has to be logged into the sync session first.
 """
 from __future__ import annotations
 
+import re
 from decimal import Decimal
 
 from app.domain.isin_map import IsinMapDocument, IsinMapping
@@ -79,3 +80,47 @@ def open_shares_for_isin(tx_repo: TransactionRepository, isin: str) -> Decimal:
         else:
             total -= tx.shares
     return total
+
+
+def apply_restore(doc: IsinMapDocument, isin: str) -> IsinMapDocument:
+    """Put an ``ignored`` instrument back in the queue, so it is asked about again."""
+    existing = doc.entries.get(isin)
+    if existing is None:
+        return doc
+    entry = existing.model_copy(update={"status": "unmapped", "ticker": None})
+    return IsinMapDocument(version=doc.version, entries={**doc.entries, isin: entry})
+
+
+def apply_unmap(doc: IsinMapDocument, isin: str) -> IsinMapDocument:
+    """Reset a mapped entry to unmapped: drop ticker and kind, keep name/last seen."""
+    existing = doc.entries.get(isin)
+    if existing is None:
+        return doc
+    entry = existing.model_copy(
+        update={"status": "unmapped", "ticker": None, "instrument_kind": None}
+    )
+    return IsinMapDocument(version=doc.version, entries={**doc.entries, isin: entry})
+
+
+def delete_mapping(doc: IsinMapDocument, isin: str) -> IsinMapDocument:
+    """Drop the entry entirely. The caller purges the transactions separately."""
+    return IsinMapDocument(
+        version=doc.version,
+        entries={k: v for k, v in doc.entries.items() if k != isin},
+    )
+
+
+_TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,29}$")
+
+
+def validate_ticker(ticker: str) -> str | None:
+    """Return an error message, or None if the ticker is well-formed."""
+    t = ticker.strip()
+    if not t:
+        return "Ticker cannot be empty."
+    if not _TICKER_RE.match(t):
+        return (
+            "Ticker must be uppercase letters, digits, dot, or dash "
+            "(e.g. NVDA, VUAA.DE, 5631.T)."
+        )
+    return None

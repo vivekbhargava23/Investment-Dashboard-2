@@ -28,7 +28,9 @@ from app.services.sync import (
     start_session,
 )
 from app.ui.pages.sync import (
+    build_closed_dataframe,
     build_holdings_dataframe,
+    build_mapped_dataframe,
     cash_line,
     feed_check_cell,
     last_sync_line,
@@ -509,3 +511,52 @@ def test_a_healthy_book_has_no_sell_errors() -> None:
     )
 
     assert sell_errors_by_isin([buy]) == {}
+
+
+# ─── All instruments (TICKET-SYNC-7) ──────────────────────────────────────────
+
+def _entry(**kwargs: object) -> IsinMapping:
+    defaults: dict[str, object] = {
+        "ticker": "SAP.DE",
+        "name": "SAP SE",
+        "status": "mapped",
+        "last_seen_in_csv": date(2026, 3, 1),
+        "instrument_kind": InstrumentKind.AKTIE,
+    }
+    defaults.update(kwargs)
+    return IsinMapping(**defaults)  # type: ignore[arg-type]
+
+
+def test_mapped_dataframe_shows_feed_and_kind() -> None:
+    df = build_mapped_dataframe([("DE0007164600", _entry())])
+
+    assert list(df.columns) == ["ISIN", "Name", "Feed", "Tax kind", "Last seen"]
+    assert df.iloc[0]["Feed"] == "SAP.DE"
+    assert df.iloc[0]["Tax kind"] == "Aktie"
+
+
+def test_mapped_dataframe_flags_a_missing_tax_kind() -> None:
+    df = build_mapped_dataframe([("DE0007164600", _entry(instrument_kind=None))])
+
+    assert df.iloc[0]["Tax kind"] == "⚠ unset"
+
+
+def test_mapped_dataframe_row_order_matches_input() -> None:
+    """A selection index maps straight back to the (isin, mapping) pair."""
+    items = [
+        ("DE0007164600", _entry()),
+        ("US0378331005", _entry(ticker="AAPL", name="Apple Inc.")),
+    ]
+
+    df = build_mapped_dataframe(items)
+
+    assert list(df["ISIN"]) == ["DE0007164600", "US0378331005"]
+
+
+def test_closed_dataframe_lists_name_and_last_seen() -> None:
+    df = build_closed_dataframe(
+        [("DE000HT41XN9", _entry(ticker=None, status="unmapped", name="Apple turbo"))]
+    )
+
+    assert list(df.columns) == ["ISIN", "Name", "Last seen"]
+    assert df.iloc[0]["Name"] == "Apple turbo"
