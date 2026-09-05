@@ -28,9 +28,7 @@ from app.domain.models import Transaction
 from app.domain.reconcile import ReconcileRow
 from app.domain.sync_tasks import SyncTask, build_tasks
 from app.services.feed_check import check_feeds
-from app.services.isin_admin import apply_ignore
 from app.services.isin_remap import (
-    TickerAlreadyMappedError,
     check_consistency,
     repair,
 )
@@ -41,22 +39,19 @@ from app.services.sync import (
     UndoNotPossible,
     analyse,
     apply_safe,
-    change_feed_in_session,
-    ignore_in_session,
     repair_in_session,
     resolve_conflict,
     start_session,
     undo_last,
 )
 from app.ui.cache_keys import transactions_signature
-from app.ui.components.isin_mapper import (
+from app.ui.components.instrument_card import (
     KIND_LABEL,
-    SHARED_TICKER_HELP,
-    SHARED_TICKER_LABEL,
+    CardContext,
     invalidate_view_caches,
-    render_isin_mapper_row,
-    shared_ticker_message,
+    render_instrument_card,
 )
+from app.ui.components.instrument_card import render_feedback as render_card_feedback
 from app.ui.price_clock import last_price_fetch
 from app.ui.wiring import (
     get_company_provider,
@@ -283,6 +278,7 @@ def _cached_feed_checks(tx_sig: str) -> dict[str, FeedCheck]:
 # ─── sections ─────────────────────────────────────────────────────────────────
 
 def _render_feedback() -> None:
+    render_card_feedback()
     feedback = st.session_state.pop(_KEY_FEEDBACK, None)
     if not feedback:
         return
@@ -405,80 +401,30 @@ def _render_summary_card(
         _render_undo_button(get_sync_store(), key="sync_undo_card")
 
 
-def _render_mapper_action(
+def _render_card(
     isin: str,
     name: str,
-    session_id: str,
+    doc: IsinMapDocument,
+    session_id: str | None,
     *,
     key_prefix: str,
+    context: CardContext = "task",
 ) -> None:
-    """Ticker search + tax kind + Save/Ignore for one ISIN."""
-    match, kind = render_isin_mapper_row(isin, name, key_prefix=key_prefix)
-    allow_shared = st.checkbox(
-        SHARED_TICKER_LABEL,
-        key=f"{key_prefix}_shared_{isin}",
-        help=SHARED_TICKER_HELP,
+    """One instrument card: feed, tax kind, and (in All instruments) removal."""
+    render_instrument_card(
+        isin,
+        name,
+        doc,
+        session_id=session_id,
+        key_prefix=key_prefix,
+        context=context,
     )
-    col_save, col_ignore, _ = st.columns([1, 1.4, 3.6])
-    if col_save.button(
-        "Save",
-        key=f"{key_prefix}_save_{isin}",
-        type="primary",
-        disabled=match is None or kind is None,
-    ):
-        if match is None or kind is None:
-            return
-        try:
-            rewritten = change_feed_in_session(
-                isin,
-                match.symbol,
-                kind,
-                session_id,
-                get_isin_map_repo(),
-                get_repository(),
-                get_sync_store(),
-                allow_shared_ticker=allow_shared,
-            )
-        except TickerAlreadyMappedError as exc:
-            st.session_state[_KEY_FEEDBACK] = ("warning", shared_ticker_message(exc))
-            st.rerun()
-        invalidate_view_caches()
-        st.session_state[_KEY_FEEDBACK] = (
-            "success",
-            f"{isin} now values off {match.symbol}. Rewrote {rewritten} transaction(s).",
-        )
-        st.rerun()
-
-    if col_ignore.button(
-        "Use last trade price", key=f"{key_prefix}_ignore_{isin}"
-    ):
-        _use_last_trade_price(isin, name)
-
-
-def _use_last_trade_price(isin: str, name: str) -> None:
-    """Stop asking about this ISIN. It keeps its last-trade valuation.
-
-    While a file is open the write belongs to the sync session, so "Undo last
-    sync" survives it; with no file open the plain write is correct and undo is
-    disabled by the md5 check, which is what it is for.
-    """
-    session_id = st.session_state.get(_KEY_SESSION_ID)
-    if session_id:
-        ignore_in_session(isin, name, session_id, get_isin_map_repo(), get_sync_store())
-    else:
-        repo = get_isin_map_repo()
-        repo.save(apply_ignore(repo.load(), isin, name))
-    invalidate_view_caches()
-    st.session_state[_KEY_FEEDBACK] = (
-        "success",
-        f"{name or isin} is now valued at its last trade price.",
-    )
-    st.rerun()
 
 
 def _render_tasks(
     tasks: list[SyncTask],
     analysis: SyncAnalysis,
+    doc: IsinMapDocument,
     session_id: str,
 ) -> None:
     if not tasks:
@@ -494,9 +440,10 @@ def _render_tasks(
             st.caption(task.detail)
 
             if task.kind in ("no_feed", "feed_suspicious"):
-                _render_mapper_action(
+                _render_card(
                     task.isin,
                     task.name,
+                    doc,
                     session_id,
                     key_prefix=f"sync_task_{index}",
                 )
@@ -570,8 +517,9 @@ def _render_holdings(
         return
 
     row = open_rows[selected[0]]
-    st.caption(f"Selected **{row.name}** ({row.isin})")
-    _render_mapper_action(row.isin, row.name, session_id, key_prefix="sync_holding")
+    _render_card(
+        row.isin, row.name, doc, session_id, key_prefix="sync_holding", context="holding"
+    )
 
 
 def _render_details(analysis: SyncAnalysis, log: list[dict[str, object]]) -> None:
@@ -673,7 +621,7 @@ def render() -> None:
         analysis.completeness,
         feed_states,
     )
-    _render_tasks(tasks, analysis, session_id)
+    _render_tasks(tasks, analysis, doc, session_id)
 
     _render_holdings(rows, checks, doc, session_id)
 

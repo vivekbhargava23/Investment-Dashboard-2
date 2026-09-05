@@ -1,6 +1,9 @@
-"""Shared ISIN mapping UI component — ticker search + tax-kind selector.
+"""Compatibility shim for the two pages TICKET-SYNC-7 is about to delete.
 
-Used by both the Import Workbench (manual-review panel) and the Mappings page.
+The real implementation moved to `instrument_card.py`, where the feed, the tax
+kind and removal are three independent controls. The Import Workbench and the
+ISIN Mappings page still import from here; both go away in the same ticket, and
+this file with them.
 """
 from __future__ import annotations
 
@@ -8,45 +11,29 @@ import streamlit as st
 
 from app.domain.tax.classification import InstrumentKind
 from app.ports.ticker_resolver import TickerMatch
-from app.services.isin_remap import TickerAlreadyMappedError
-from app.services.valuation import clear_caches
-from app.ui.components.ticker_searchbox import render_ticker_searchbox
-from app.ui.wiring import (
-    get_company_provider,
-    get_live_fx_provider,
-    get_price_provider,
-    get_ticker_resolver,
+from app.ui.components.instrument_card import (
+    KIND_LABEL,
+    KIND_OPTIONS,
+    SHARED_TICKER_HELP,
+    SHARED_TICKER_LABEL,
+    invalidate_view_caches,
+    shared_ticker_message,
+    suggest_kind,
 )
+from app.ui.components.ticker_searchbox import render_ticker_searchbox
+from app.ui.wiring import get_ticker_resolver
 
-KIND_OPTIONS: list[InstrumentKind] = list(InstrumentKind)
-
-KIND_LABEL: dict[InstrumentKind, str] = {
-    InstrumentKind.AKTIE: "Aktie",
-    InstrumentKind.AKTIENFONDS: "Aktienfonds (ETF)",
-    InstrumentKind.MISCHFONDS: "Mischfonds",
-    InstrumentKind.RENTENFONDS: "Rentenfonds",
-    InstrumentKind.IMMOBILIENFONDS: "Immobilienfonds",
-    InstrumentKind.IMMOBILIENFONDS_AUSLAND: "Immobilienfonds (Ausland)",
-    InstrumentKind.SONSTIGE: "Sonstige",
-    InstrumentKind.DIVIDENDE: "Dividende",
-    InstrumentKind.ZINSEN: "Zinsen",
-}
-
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def suggest_kind(ticker: str) -> InstrumentKind | None:
-    """Suggest InstrumentKind from yfinance quoteType. Returns None if unavailable."""
-    try:
-        qt = get_company_provider().get_quote_type(ticker)
-        if qt == "EQUITY":
-            return InstrumentKind.AKTIE
-        if qt == "ETF":
-            return InstrumentKind.AKTIENFONDS
-        if qt == "MUTUALFUND":
-            return InstrumentKind.MISCHFONDS
-        return None
-    except Exception:
-        return None
+__all__ = [
+    "KIND_LABEL",
+    "KIND_OPTIONS",
+    "SHARED_TICKER_HELP",
+    "SHARED_TICKER_LABEL",
+    "invalidate_view_caches",
+    "render_isin_mapper_row",
+    "render_kind_selector",
+    "shared_ticker_message",
+    "suggest_kind",
+]
 
 
 def render_kind_selector(
@@ -55,7 +42,7 @@ def render_kind_selector(
     suggested: InstrumentKind | None = None,
 ) -> InstrumentKind | None:
     """Render the Tax kind selectbox. Returns the selected kind (may be None)."""
-    options_with_none: list[InstrumentKind | None] = [None] + KIND_OPTIONS
+    options_with_none: list[InstrumentKind | None] = [None, *KIND_OPTIONS]
     idx = options_with_none.index(suggested) if suggested in options_with_none else 0
     return st.selectbox(
         "Tax kind",
@@ -85,28 +72,3 @@ def render_isin_mapper_row(
         suggested=suggested,
     )
     return selected_match, selected_kind
-
-
-# Ticking this passes ``allow_shared_ticker`` — the deliberate "these two ISINs
-# are the same instrument" merge of ADR-014 rule 4.
-SHARED_TICKER_LABEL = "Same instrument (ISIN change)"
-
-SHARED_TICKER_HELP = "Only tick this when the ISIN changed but the instrument did not."
-
-
-def shared_ticker_message(exc: TickerAlreadyMappedError) -> str:
-    """The warning shown when a ticker is already another mapped ISIN's feed."""
-    return (
-        f"{exc.ticker} is already the feed for {exc.other_isin}. "
-        f"Tick '{SHARED_TICKER_LABEL}' to merge on purpose."
-    )
-
-
-def invalidate_view_caches() -> None:
-    """Drop every cached view after a mapping write.
-
-    Positions, NAV and the price/FX feeds are all keyed on tickers, and a remap
-    rewrites tickers in place (ADR-014 consequence 1).
-    """
-    st.cache_data.clear()
-    clear_caches(get_price_provider(), get_live_fx_provider())

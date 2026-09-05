@@ -11,8 +11,12 @@ write made while a file is open has to be logged into the sync session first.
 """
 from __future__ import annotations
 
+from decimal import Decimal
+
 from app.domain.isin_map import IsinMapDocument, IsinMapping
+from app.domain.models import TransactionType
 from app.domain.tax.classification import InstrumentKind
+from app.ports.repository import TransactionRepository
 
 
 def apply_ignore(doc: IsinMapDocument, isin: str, name: str) -> IsinMapDocument:
@@ -58,3 +62,20 @@ def apply_kind(
     else:
         entry = existing.model_copy(update={"instrument_kind": kind})
     return IsinMapDocument(version=doc.version, entries={**doc.entries, isin: entry})
+
+
+def open_shares_for_isin(tx_repo: TransactionRepository, isin: str) -> Decimal:
+    """Shares of ``isin`` still held: buys minus sells over the book.
+
+    Net shares, not FIFO lots — the card only needs to say "26 shares open" or
+    "closed", and a write-off needs to know how much there is left to write off.
+    """
+    total = Decimal("0")
+    for tx in tx_repo.load_all():
+        if tx.isin != isin:
+            continue
+        if tx.type == TransactionType.BUY:
+            total += tx.shares
+        else:
+            total -= tx.shares
+    return total
