@@ -26,6 +26,19 @@ from app.services.isin_remap import (
     delete_transactions_for_isin,
 )
 from app.services.valuation import clear_caches
+from app.ui.components.explainers import (
+    FEED_SEARCH_HELP,
+    KIND_HELP,
+    PRICE_FEED,
+    REMOVE_HELP,
+    REMOVE_INSTRUMENT,
+    TAX_KIND,
+    USE_LAST_TRADE_HELP,
+    USE_LAST_TRADE_PRICE,
+    WRITE_OFF,
+    WRITE_OFF_HELP,
+    render_explainer,
+)
 from app.ui.components.ticker_searchbox import render_ticker_searchbox
 from app.ui.wiring import (
     get_company_provider,
@@ -143,7 +156,10 @@ def render_feed_control(
     key_prefix: str,
 ) -> tuple[TickerMatch | None, bool, bool, bool]:
     """The price-feed row. Returns (match, allow_shared, save_clicked, use_last_clicked)."""
-    st.caption(f"**Price feed** — {feed_state_sentence(mapping)}")
+    col_state, col_why = st.columns([3, 1.4])
+    col_state.caption(f"**Price feed** — {feed_state_sentence(mapping)}")
+    with col_why:
+        render_explainer(PRICE_FEED, key=f"{key_prefix}_feed_why_{isin}")
     match: TickerMatch | None = render_ticker_searchbox(
         key=f"{key_prefix}_search_{isin}",
         resolver=get_ticker_resolver(),
@@ -154,20 +170,29 @@ def render_feed_control(
         key=f"{key_prefix}_shared_{isin}",
         help=SHARED_TICKER_HELP,
     )
-    col_save, col_last, _ = st.columns([1.1, 1.4, 3.5])
+    col_save, col_last, col_last_why, _ = st.columns([1.1, 1.4, 1.5, 2.0])
     save_clicked = col_save.button(
         "Save feed",
         key=f"{key_prefix}_save_{isin}",
         type="primary",
         disabled=save_feed_disabled(match),
-        help=None if match else "Pick a ticker from the search results first.",
+        help=(
+            FEED_SEARCH_HELP
+            if match
+            else "Pick a ticker from the search results first. " + FEED_SEARCH_HELP
+        ),
     )
     show_use_last = mapping is None or mapping.status != "ignored"
     use_last_clicked = show_use_last and col_last.button(
         USE_LAST_TRADE_LABEL,
         key=f"{key_prefix}_ignore_{isin}",
-        help="No feed for this holding — value it at the price you last traded it.",
+        help=USE_LAST_TRADE_HELP,
     )
+    if show_use_last:
+        with col_last_why:
+            render_explainer(
+                USE_LAST_TRADE_PRICE, key=f"{key_prefix}_last_why_{isin}"
+            )
     return match, allow_shared, save_clicked, bool(use_last_clicked)
 
 
@@ -187,7 +212,10 @@ def render_kind_control(
     current = mapping.instrument_kind if mapping else None
     options: list[InstrumentKind | None] = [None, *KIND_OPTIONS]
     index = options.index(current) if current in options else 0
-    st.caption("**Tax kind**")
+    col_label, col_why = st.columns([3, 1.4])
+    col_label.caption("**Tax kind**")
+    with col_why:
+        render_explainer(TAX_KIND, key=f"{key_prefix}_kind_why_{isin}")
     if current is None and suggested is not None:
         st.caption(f"yfinance suggests {KIND_LABEL.get(suggested, suggested.value)}.")
     return st.selectbox(
@@ -197,6 +225,7 @@ def render_kind_control(
         format_func=lambda k: "— pick a kind —" if k is None else KIND_LABEL.get(k, str(k)),
         key=f"{key_prefix}_kind_{isin}",
         label_visibility="collapsed",
+        help=KIND_HELP,
     )
 
 
@@ -215,10 +244,13 @@ def render_write_off_control(
     carrying it, and how much of it is gone.
     """
     if st.session_state.get(state_key) != isin:
-        if st.button(
+        col_btn, col_why, _ = st.columns([1.8, 1.5, 2.7])
+        with col_why:
+            render_explainer(WRITE_OFF, key=f"{key_prefix}_wo_why_{isin}")
+        if col_btn.button(
             f"Write off remaining {format_shares(open_shares)} shares…",
             key=f"{key_prefix}_writeoff_{isin}",
-            help="Records a €0 sell. The history — and the realised loss — are kept.",
+            help=WRITE_OFF_HELP,
         ):
             st.session_state[state_key] = isin
             st.rerun()
@@ -226,7 +258,10 @@ def render_write_off_control(
 
     col_date, col_shares = st.columns(2)
     on_date = col_date.date_input(
-        "Write-off date", value=today, key=f"{key_prefix}_wo_date_{isin}"
+        "Write-off date",
+        value=today,
+        key=f"{key_prefix}_wo_date_{isin}",
+        help="The loss lands in this date's tax year. Use the day it became worthless.",
     )
     shares = col_shares.number_input(
         "Shares",
@@ -265,9 +300,13 @@ def render_remove_control(
 
     n = count_transactions_for_isin(get_repository(), isin)
     if st.session_state.get(state_key) != isin:
-        if st.button(
+        col_btn, col_why, _ = st.columns([2.2, 1.6, 2.2])
+        with col_why:
+            render_explainer(REMOVE_INSTRUMENT, key=f"{key_prefix}_rm_why_{isin}")
+        if col_btn.button(
             f"Remove instrument and its {n} transaction(s)…",
             key=f"{key_prefix}_remove_{isin}",
+            help=REMOVE_HELP,
         ):
             st.session_state[state_key] = isin
             st.rerun()

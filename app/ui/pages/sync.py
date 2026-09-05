@@ -46,6 +46,15 @@ from app.services.sync import (
     undo_last,
 )
 from app.ui.cache_keys import transactions_signature
+from app.ui.components.explainers import (
+    ALL_INSTRUMENTS,
+    CASH_EVENTS,
+    HOLDINGS_TABLE,
+    HOW_THIS_PAGE_WORKS,
+    TASK_EXPLAINERS,
+    UNDO,
+    render_explainer,
+)
 from app.ui.components.instrument_card import (
     KIND_LABEL,
     CardContext,
@@ -359,7 +368,10 @@ def _render_undo_button(store: Any, *, key: str) -> None:
         if enabled
         else "Your data changed after the last sync, so undo would discard that change."
     )
-    if st.button("Undo last sync", key=key, disabled=not enabled, help=help_text):
+    col_btn, col_why, _ = st.columns([1.2, 1.4, 3.4])
+    with col_why:
+        render_explainer(UNDO, key=f"{key}_why")
+    if col_btn.button("Undo last sync", key=key, disabled=not enabled, help=help_text):
         try:
             undo_last(store)
         except UndoNotPossible as exc:
@@ -439,6 +451,9 @@ def _render_tasks(
         with st.container(border=True):
             st.markdown(f"**{index + 1}. {task.headline}**")
             st.caption(task.detail)
+            explainer = TASK_EXPLAINERS.get(task.kind)
+            if explainer is not None:
+                render_explainer(explainer, key=f"sync_task_why_{index}")
 
             if task.kind in ("no_feed", "feed_suspicious"):
                 _render_card(
@@ -498,7 +513,10 @@ def _render_holdings(
     doc: IsinMapDocument,
     session_id: str,
 ) -> None:
-    st.subheader("Holdings")
+    col_title, col_why = st.columns([3, 1.4])
+    col_title.subheader("Holdings")
+    with col_why:
+        render_explainer(HOLDINGS_TABLE, key="sync_holdings_why")
     open_rows = [r for r in rows if r.shares_csv > 0 or r.shares_book > 0]
     if not open_rows:
         st.caption("No open holdings in this file.")
@@ -630,7 +648,10 @@ def _render_all_instruments(doc: IsinMapDocument, session_id: str | None) -> Non
             caption += f" · {len(ignored)} valued at last trade price"
         if unclassified:
             caption += f" · ⚠ {unclassified} missing a tax kind"
-        st.caption(caption)
+        col_caption, col_why = st.columns([4, 1.4])
+        col_caption.caption(caption)
+        with col_why:
+            render_explainer(ALL_INSTRUMENTS, key="sync_all_why")
 
         st.markdown("**Mapped**")
         if not mapped:
@@ -694,6 +715,8 @@ def render() -> None:
     doc = get_isin_map_repo().load()
     _render_consistency_banner(doc)
 
+    render_explainer(HOW_THIS_PAGE_WORKS, key="sync_page_why")
+
     uploaded = st.file_uploader(
         "Drop your Scalable Capital CSV export here",
         type=["csv"],
@@ -749,7 +772,10 @@ def render() -> None:
 
     line = cash_line(analysis.plan.rows)
     if line:
-        st.caption(line)
+        col_line, col_why = st.columns([4, 1.2])
+        col_line.caption(line)
+        with col_why:
+            render_explainer(CASH_EVENTS, key="sync_cash_why")
 
     _render_details(analysis, store.read_log())
     _render_all_instruments(doc, session_id)

@@ -20,6 +20,8 @@ pair for `DE000HT41XN9`.
 | `05-manage-write-off-row.png` | The write-off on Manage Portfolio: `J9R.F · SELL · 16 · €0.00`, Source **write-off**, notes `write-off: Japan Steel Works`. |
 | `06-tax-dashboard.png` | The Tax Dashboard computing on the post-import book — the page that was down before this chain. |
 | `07-live-overview.png` | Live Overview: 25 positions, **no Apple Short turbo row**. Before this ticket it held 26 phantom shares valued at €78 of last-trade price. |
+| `08-explainers-collapsed.png` | Every in-app explainer in its collapsed state — one button per control, nothing expanded until asked. |
+| `09-explainer-open-write-off.png` | One open: what a write-off is, when to use it, what it does *not* do, and how to reverse it. |
 
 ## What was checked by driving the app, beyond the screenshots
 
