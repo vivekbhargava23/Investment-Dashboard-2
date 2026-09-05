@@ -63,12 +63,9 @@ def _shares_csv(rows: Sequence[PlannedRow]) -> Decimal:
         if row.status == RowStatus.CANCELLED_OR_EXPIRED or row.shares is None:
             continue
         if _is_corporate_action_security_leg(row):
-            # The planner strips the file's sign off the share count and keeps the
-            # direction in ``proposed_type``; a knock-out is a sell of everything.
-            if row.proposed_type == "sell":
-                total -= row.shares
-            else:
-                total += row.shares
+            # Signed in the file, like a security transfer: a knock-out books a
+            # negative share count and takes the position to zero.
+            total += row.shares
         elif row.csv_type in _ADD_TYPES or row.csv_type == _TRANSFER_TYPE:
             total += row.shares
         elif row.csv_type in _SUB_TYPES:

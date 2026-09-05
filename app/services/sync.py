@@ -297,7 +297,9 @@ def build_transaction(row: PlannedRow) -> Transaction | None:
         type=tx_type,
         ticker=row.proposed_ticker,
         trade_date=row.trade_date,
-        shares=row.shares,
+        # A corporate action's share count is signed in the file; a transaction
+        # always holds a positive quantity and says its direction in ``type``.
+        shares=abs(row.shares),
         price_native=Money(amount=row.price, currency=Currency.EUR),
         fees_native=fees_native,
         fx_rate_eur=Decimal("1"),

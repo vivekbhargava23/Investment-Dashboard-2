@@ -193,7 +193,12 @@ def plan_import(
             continue
 
         if row.reference in existing_by_ref or row.reference in existing_scalable_ids:
-            planned.append(_make(row, RowStatus.ALREADY_IMPORTED, PlannedAction.NOOP))
+            planned.append(_make(
+                row,
+                RowStatus.ALREADY_IMPORTED,
+                PlannedAction.NOOP,
+                proposed_type=_proposed_type(row),
+            ))
             continue
 
         # The ISIN is the identity of the holding (ADR-014 rule 7): an executed trade
@@ -282,10 +287,10 @@ def _make(
         isin=row.isin,
         reference=row.reference,
         description=row.description,
-        # A corporate action carries a signed share count; the quantity a
-        # transaction holds is always positive, and ``proposed_type`` keeps the
-        # direction the sign used to carry.
-        shares=abs(row.shares) if row.shares is not None else None,
+        # The file's sign is preserved: an outbound security-transfer leg and a
+        # corporate-action knock-out are both negative, and reconciliation reads
+        # that sign. ``build_transaction`` takes the absolute value.
+        shares=row.shares,
         price=row.price,
         amount=row.amount,
         fee=row.fee,

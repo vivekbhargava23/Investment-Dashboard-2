@@ -499,8 +499,8 @@ def test_corporate_action_security_leg_imports_as_a_sell() -> None:
     assert security_leg.status == RowStatus.NEW
     assert security_leg.action == PlannedAction.INSERT
     assert security_leg.proposed_type == "sell"
-    # Stored positive: the direction lives in proposed_type, not in the sign.
-    assert security_leg.shares == Decimal("26")
+    # The file's sign is preserved; reconciliation reads it.
+    assert security_leg.shares == Decimal("-26")
     assert security_leg.price == Decimal("0.001")
     assert security_leg.proposed_ticker == _KNOCKOUT_ISIN
 
@@ -546,3 +546,41 @@ def test_zero_share_corporate_action_stays_out_of_scope() -> None:
     )
     plan = plan_import([row], [], IsinMapDocument())
     assert plan.rows[0].status == RowStatus.OUT_OF_SCOPE_V1
+
+
+def test_a_security_transfer_keeps_the_file_s_sign() -> None:
+    """Reconciliation reads the sign; abs() here would silently invert an outbound leg."""
+    plan = plan_import(
+        [_row(type_="Security transfer", shares=Decimal("-40"), amount=None)],
+        [],
+        IsinMapDocument(),
+    )
+    assert plan.rows[0].status == RowStatus.INTERNAL_TRANSFER
+    assert plan.rows[0].shares == Decimal("-40")
+
+
+def test_a_re_imported_corporate_action_still_reports_its_direction() -> None:
+    """Already-imported rows are reconciled too — without a direction they'd add."""
+    rows = _knockout_rows()
+    first = plan_import(rows, [], IsinMapDocument())
+    already = [
+        _eur_tx(
+            ref=r.reference,
+            ticker=r.proposed_ticker or "X",
+            trade_date=r.trade_date,
+            shares=abs(r.shares) if r.shares else Decimal("1"),
+            price=r.price or Decimal("1"),
+        )
+        for r in first.rows
+        if r.status == RowStatus.NEW
+    ]
+
+    plan = plan_import(rows, already, IsinMapDocument())
+
+    leg = next(
+        r for r in plan.rows
+        if r.csv_type == "Corporate action" and r.asset_type == "Security"
+    )
+    assert leg.status == RowStatus.ALREADY_IMPORTED
+    assert leg.proposed_type == "sell"
+    assert leg.shares == Decimal("-26")
