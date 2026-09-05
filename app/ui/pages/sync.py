@@ -23,11 +23,12 @@ from app.domain.csv_import import (
 )
 from app.domain.feed_check import FeedCheck
 from app.domain.fifo import SellExceedsOpenSharesError, compute_positions
-from app.domain.isin_map import IsinMapDocument, IsinMapping
+from app.domain.isin_map import IsinMapDocument
 from app.domain.models import Transaction
 from app.domain.reconcile import ReconcileRow
 from app.domain.sync_tasks import SyncTask, build_tasks
 from app.services.feed_check import check_feeds
+from app.services.isin_admin import apply_ignore
 from app.services.isin_remap import (
     TickerAlreadyMappedError,
     check_consistency,
@@ -41,6 +42,8 @@ from app.services.sync import (
     analyse,
     apply_safe,
     change_feed_in_session,
+    ignore_in_session,
+    repair_in_session,
     resolve_conflict,
     start_session,
     undo_last,
@@ -305,7 +308,13 @@ def _render_consistency_banner(doc: IsinMapDocument) -> None:
         )
     with col_btn:
         if st.button("Repair", key="sync_repair", type="primary"):
-            changed = repair(doc, get_repository())
+            session_id = st.session_state.get(_KEY_SESSION_ID)
+            if session_id:
+                changed = repair_in_session(
+                    session_id, get_isin_map_repo(), get_repository(), get_sync_store()
+                )
+            else:
+                changed = repair(doc, get_repository())
             invalidate_view_caches()
             st.session_state[_KEY_FEEDBACK] = (
                 "success",
@@ -410,7 +419,7 @@ def _render_mapper_action(
         key=f"{key_prefix}_shared_{isin}",
         help=SHARED_TICKER_HELP,
     )
-    col_save, col_ignore, _ = st.columns([1, 1, 4])
+    col_save, col_ignore, _ = st.columns([1, 1.4, 3.6])
     if col_save.button(
         "Save",
         key=f"{key_prefix}_save_{isin}",
@@ -440,27 +449,30 @@ def _render_mapper_action(
         )
         st.rerun()
 
-    if col_ignore.button("Ignore", key=f"{key_prefix}_ignore_{isin}"):
-        _ignore(isin, name)
+    if col_ignore.button(
+        "Use last trade price", key=f"{key_prefix}_ignore_{isin}"
+    ):
+        _use_last_trade_price(isin, name)
 
 
-def _ignore(isin: str, name: str) -> None:
-    """Stop asking about this ISIN. It keeps its last-trade valuation."""
-    repo = get_isin_map_repo()
-    doc = repo.load()
-    existing = doc.entries.get(isin)
-    entry = IsinMapping(
-        ticker=None,
-        name=existing.name if existing else (name or isin),
-        status="ignored",
-        last_seen_in_csv=existing.last_seen_in_csv if existing else None,
-        instrument_kind=existing.instrument_kind if existing else None,
-    )
-    repo.save(
-        IsinMapDocument(version=doc.version, entries={**doc.entries, isin: entry})
-    )
+def _use_last_trade_price(isin: str, name: str) -> None:
+    """Stop asking about this ISIN. It keeps its last-trade valuation.
+
+    While a file is open the write belongs to the sync session, so "Undo last
+    sync" survives it; with no file open the plain write is correct and undo is
+    disabled by the md5 check, which is what it is for.
+    """
+    session_id = st.session_state.get(_KEY_SESSION_ID)
+    if session_id:
+        ignore_in_session(isin, name, session_id, get_isin_map_repo(), get_sync_store())
+    else:
+        repo = get_isin_map_repo()
+        repo.save(apply_ignore(repo.load(), isin, name))
     invalidate_view_caches()
-    st.session_state[_KEY_FEEDBACK] = ("success", f"Ignored {name or isin}.")
+    st.session_state[_KEY_FEEDBACK] = (
+        "success",
+        f"{name or isin} is now valued at its last trade price.",
+    )
     st.rerun()
 
 
@@ -554,7 +566,7 @@ def _render_holdings(
     )
     selected = cast(Any, event).selection.rows
     if not selected:
-        st.caption("Select a holding to change its price feed or ignore it.")
+        st.caption("Select a holding to change its price feed or value it at its last trade price.")
         return
 
     row = open_rows[selected[0]]

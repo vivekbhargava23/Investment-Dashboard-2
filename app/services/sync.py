@@ -34,11 +34,13 @@ from app.ports.isin_map import IsinMapRepository
 from app.ports.repository import TransactionRepository
 from app.ports.sync_store import SyncStore
 from app.ports.ticker_resolver import TickerResolver
+from app.services.isin_admin import apply_ignore, apply_kind
 from app.services.isin_autoresolve import AutoResolveResult, autoresolve_isin
 from app.services.isin_remap import (
     change_feed,
     mapped_owner_of_ticker,
     record_seen_isins,
+    repair,
 )
 
 EVENT_SESSION_START = "session_start"
@@ -46,6 +48,9 @@ EVENT_AUTO_RESOLVE = "auto_resolve"
 EVENT_APPLY = "apply"
 EVENT_CONFLICT = "conflict_resolved"
 EVENT_FEED_CHANGE = "feed_change"
+EVENT_IGNORE = "ignore"
+EVENT_KIND = "kind_change"
+EVENT_REPAIR = "repair"
 EVENT_UNDO = "undo"
 
 
@@ -409,6 +414,49 @@ def change_feed_in_session(
     )
     return rewritten
 
+
+
+def ignore_in_session(
+    isin: str,
+    name: str,
+    session_id: str,
+    isin_repo: IsinMapRepository,
+    store: SyncStore,
+) -> None:
+    """Value ``isin`` at its last trade price and stop asking, inside the session.
+
+    The write itself is the same one the idle state makes; logging it under the
+    open session is what keeps "Undo last sync" available, because undo compares
+    the files against the md5s of the session's *latest* entry.
+    """
+    isin_repo.save(apply_ignore(isin_repo.load(), isin, name))
+    _log(store, session_id, EVENT_IGNORE, isin=isin, name=name)
+
+
+def set_kind_in_session(
+    isin: str,
+    kind: InstrumentKind,
+    session_id: str,
+    isin_repo: IsinMapRepository,
+    store: SyncStore,
+    *,
+    name: str = "",
+) -> None:
+    """Set the tax kind for ``isin`` inside the session. The feed is untouched."""
+    isin_repo.save(apply_kind(isin_repo.load(), isin, kind, name=name))
+    _log(store, session_id, EVENT_KIND, isin=isin, kind=kind.value)
+
+
+def repair_in_session(
+    session_id: str,
+    isin_repo: IsinMapRepository,
+    tx_repo: TransactionRepository,
+    store: SyncStore,
+) -> int:
+    """Re-run the mapping rewrite inside the session. Returns rows changed."""
+    changed = repair(isin_repo.load(), tx_repo)
+    _log(store, session_id, EVENT_REPAIR, changed=changed)
+    return changed
 
 # ─── undo ─────────────────────────────────────────────────────────────────────
 

@@ -17,13 +17,17 @@ from app.domain.models import Transaction, TransactionType
 from app.domain.money import Currency, Money
 from app.domain.tax.classification import InstrumentKind
 from app.ports.ticker_resolver import TickerMatch
+from app.services.isin_admin import apply_ignore
 from app.services.sync import (
     UndoNotPossible,
     analyse,
     apply_safe,
     build_transaction,
     change_feed_in_session,
+    ignore_in_session,
+    repair_in_session,
     resolve_conflict,
+    set_kind_in_session,
     start_session,
     undo_last,
 )
@@ -554,3 +558,111 @@ def test_the_knock_out_pair_imports_exactly_one_transaction() -> None:
     # Both legs share one Scalable reference; only one becomes a transaction, so
     # the book never writes two rows under one identity.
     assert len({t.id for t in txs}) == len(txs)
+
+
+# ─── every write while a file is open belongs to the session (TICKET-SYNC-7) ──
+
+def _undo_still_possible(store: FakeSyncStore) -> bool:
+    """The exact condition the Undo button and :func:`undo_last` both apply."""
+    last = store.log[-1]
+    return store.current_md5s() == (
+        last["portfolio_md5_after"],
+        last["isin_map_md5_after"],
+    )
+
+
+def _open_session_with_one_import() -> tuple[Any, Any, Any, str, bytes, bytes]:
+    store, tx_repo, isin_repo, resolver, company = _setup(_mapped_doc())
+    portfolio_before = store.portfolio_bytes
+    isin_map_before = store.isin_map_bytes
+    session = start_session("export.csv", "md5-1", store)
+    apply_safe(
+        _analyse(_rows(_buy("ref-1")), session, store, tx_repo, isin_repo, resolver, company),
+        session,
+        tx_repo,
+        store,
+    )
+    return store, tx_repo, isin_repo, session, portfolio_before, isin_map_before
+
+
+def test_ignore_in_session_keeps_undo_possible_and_undo_restores_both_files() -> None:
+    store, tx_repo, isin_repo, session, portfolio_before, isin_map_before = (
+        _open_session_with_one_import()
+    )
+
+    ignore_in_session(ISIN, "SAP SE", session, isin_repo, store)
+
+    assert isin_repo.load().entries[ISIN].status == "ignored"
+    assert store.events()[-1] == "ignore"
+    assert _undo_still_possible(store)
+
+    undo_last(store)
+
+    assert store.portfolio_bytes == portfolio_before
+    assert store.isin_map_bytes == isin_map_before
+
+
+def test_set_kind_in_session_keeps_undo_possible() -> None:
+    store, tx_repo, isin_repo, session, portfolio_before, isin_map_before = (
+        _open_session_with_one_import()
+    )
+
+    set_kind_in_session(ISIN, InstrumentKind.SONSTIGE, session, isin_repo, store)
+
+    entry = isin_repo.load().entries[ISIN]
+    assert entry.instrument_kind == InstrumentKind.SONSTIGE
+    assert entry.ticker == "SAP.DE"  # the feed is untouched
+    assert store.events()[-1] == "kind_change"
+    assert _undo_still_possible(store)
+
+    undo_last(store)
+
+    assert store.portfolio_bytes == portfolio_before
+    assert store.isin_map_bytes == isin_map_before
+
+
+def test_a_tax_kind_can_be_set_on_a_holding_with_no_feed() -> None:
+    store, tx_repo, isin_repo, resolver, company = _setup()
+    session = start_session("export.csv", "md5-1", store)
+
+    set_kind_in_session(
+        "DE000HT41XN9", InstrumentKind.SONSTIGE, session, isin_repo, store, name="Turbo"
+    )
+
+    entry = isin_repo.load().entries["DE000HT41XN9"]
+    assert entry.instrument_kind == InstrumentKind.SONSTIGE
+    assert entry.ticker is None
+    assert entry.name == "Turbo"
+
+
+def test_repair_in_session_keeps_undo_possible() -> None:
+    store, tx_repo, isin_repo, session, portfolio_before, isin_map_before = (
+        _open_session_with_one_import()
+    )
+    # Bypass the mapping write path, exactly the state Repair exists to fix.
+    tx_repo.save_all(
+        [tx.model_copy(update={"ticker": "SAP.F"}) for tx in tx_repo.load_all()]
+    )
+
+    changed = repair_in_session(session, isin_repo, tx_repo, store)
+
+    assert changed == 1
+    assert [tx.ticker for tx in tx_repo.load_all()] == ["SAP.DE"]
+    assert store.events()[-1] == "repair"
+    assert _undo_still_possible(store)
+
+    undo_last(store)
+
+    assert store.portfolio_bytes == portfolio_before
+    assert store.isin_map_bytes == isin_map_before
+
+
+def test_an_unlogged_write_still_blocks_undo() -> None:
+    """The md5 guard is not weakened: a write outside the session still stops undo."""
+    store, tx_repo, isin_repo, session, _, _ = _open_session_with_one_import()
+
+    isin_repo.save(apply_ignore(isin_repo.load(), ISIN, "SAP SE"))
+
+    assert not _undo_still_possible(store)
+    with pytest.raises(UndoNotPossible):
+        undo_last(store)
