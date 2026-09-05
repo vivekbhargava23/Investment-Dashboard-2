@@ -13,9 +13,9 @@ class IsinMapping(BaseModel):
 
     status values:
     - ``mapped``: ticker is not None; used by the importer to attach to transactions.
-    - ``unmapped``: ticker is None; surfaced in the Mappings page for the user to resolve.
+    - ``unmapped``: ticker is None; surfaced on the Sync tab for the user to resolve.
     - ``ignored``: ticker is None; rows for this ISIN are skipped by the importer
-      with no warning and no counter bump. Reversible via the Mappings page.
+      with no warning and no counter bump. Reversible from All instruments.
     """
 
     model_config = ConfigDict(frozen=True)

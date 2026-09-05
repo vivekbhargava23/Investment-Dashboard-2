@@ -30,7 +30,7 @@ All three changes go in one PR.
 
 1. Extend `InstrumentKind` enum in `classification.py`.
 2. Add the Teilfreistellung percentage in the `teilfreistellung` dict of each year's `TaxYearRates` in `rates.py`.
-3. Set `instrument_kind` on the relevant `IsinMapping` entries via the Mappings page or migration script.
+3. Set `instrument_kind` on the relevant `IsinMapping` entries via the instrument card on the Sync tab, or a migration script.
 4. Add tests in `tests/unit/domain/tax/test_classification.py`.
 All four changes go in one PR.
 

@@ -185,7 +185,7 @@ def record_seen_isins(
     the write). An ISIN the map has never heard of becomes an ``unmapped`` entry
     carrying the broker's name for it: without that entry the holding has no name
     anywhere in the app — it trades under its ISIN as a placeholder ticker — and
-    the Mappings page cannot offer it for mapping at all.
+    the Sync tab cannot offer it for mapping at all.
     """
     latest_row: dict[str, PlannedRow] = {}
     for row in plan_rows:

@@ -629,9 +629,9 @@ def _render_profile_editor(year: int) -> None:
 def _render_classification_warning(exc: InstrumentClassificationError) -> None:
     st.warning(
         f"⚠ Some tickers need a Tax kind before the full summary can be computed: {exc}\n\n"
-        "Open the Mappings page to classify them."
+        "Open All instruments on the Sync tab to classify them."
     )
-    if st.button("Open Mappings page", key="tax_open_mappings"):
+    if st.button("Open the Sync tab", key="tax_open_mappings"):
         st.query_params["page"] = "sync"
 
 

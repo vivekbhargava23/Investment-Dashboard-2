@@ -347,9 +347,9 @@ def render_sell_simulator(default_ticker: str | None = None) -> None:
     except InstrumentClassificationError as exc:
         st.warning(
             f"⚠ Tax kind missing: {exc}\n\n"
-            "Open the Mappings page to classify this ticker, then retry."
+            "Open All instruments on the Sync tab to classify this ticker, then retry."
         )
-        if st.button("Open Mappings page", key="sim_open_mappings"):
+        if st.button("Open the Sync tab", key="sim_open_mappings"):
             st.query_params["page"] = "sync"
         return
     except Exception as exc:

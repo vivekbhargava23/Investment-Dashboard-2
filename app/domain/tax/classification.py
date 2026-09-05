@@ -44,12 +44,12 @@ def classify_instrument(ticker: str, isin_map: IsinMapDocument) -> InstrumentKin
     if entry is None:
         raise InstrumentClassificationError(
             f"Ticker '{ticker}' is not in the ISIN map. "
-            f"Open the Mappings page and create the mapping."
+            f"Open All instruments on the Sync tab and pick a price feed."
         )
     if entry.instrument_kind is None:
         raise InstrumentClassificationError(
             f"Ticker '{ticker}' has no tax classification. "
-            f"Open the Mappings page and pick a Tax kind."
+            f"Open All instruments on the Sync tab and pick a Tax kind."
         )
     return entry.instrument_kind
 
